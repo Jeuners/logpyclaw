@@ -1,0 +1,1608 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentClaw</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230d0d0d'/><circle cx='50' cy='50' r='14' fill='%23ff6b35'/><circle cx='50' cy='50' r='24' fill='none' stroke='%23ff6b35' stroke-width='3' opacity='0.5'/><circle cx='50' cy='50' r='36' fill='none' stroke='%238b5cf6' stroke-width='2' opacity='0.35'/></svg>">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: #0d0d0d;
+      color: #e8e8e8;
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 220px;
+      min-width: 220px;
+      background: #111;
+      border-right: 1px solid #1e1e1e;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-header {
+      padding: 20px 16px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #444;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .agent-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 8px;
+    }
+
+    .agent-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+      position: relative;
+    }
+
+    .agent-item:hover { background: #1a1a1a; }
+    .agent-item.active { background: #1e1e1e; }
+
+    .agent-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .agent-name {
+      font-size: 14px;
+      color: #ccc;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .agent-item.active .agent-name { color: #fff; font-weight: 500; }
+
+    .sidebar-footer {
+      padding: 12px 8px;
+      border-top: 1px solid #1e1e1e;
+    }
+
+    .btn-new-agent {
+      width: 100%;
+      padding: 10px;
+      background: #1a1a1a;
+      border: 1px dashed #333;
+      border-radius: 8px;
+      color: #666;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-new-agent:hover { background: #222; color: #aaa; border-color: #444; }
+
+    .sidebar-footer-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-settings {
+      width: 42px;
+      height: 42px;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      color: #555;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .btn-settings:hover { background: #222; color: #aaa; border-color: #444; }
+
+    /* ── Provider Modal ── */
+    .provider-section {
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .provider-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .provider-icon { font-size: 18px; }
+
+    .provider-title {
+      flex: 1;
+      font-size: 14px;
+      font-weight: 600;
+      color: #ccc;
+    }
+
+    .provider-subtitle {
+      font-size: 11px;
+      color: #555;
+    }
+
+    .status-pill {
+      font-size: 11px;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+
+    .status-pill.ok { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .status-pill.err { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .status-pill.loading { background: rgba(255,107,53,0.1); color: #ff6b35; }
+
+    .input-with-btn {
+      display: flex;
+      gap: 8px;
+    }
+
+    .input-with-btn input { flex: 1; }
+
+    .btn-test {
+      background: #1e1e1e;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      color: #666;
+      padding: 0 14px;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+
+    .btn-test:hover { background: #252525; color: #aaa; }
+
+    /* ── Provider select in agent modal ── */
+    .provider-model-row {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 10px;
+    }
+
+    /* ── Main Chat Area ── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Chat Header ── */
+    .chat-header {
+      background: #111;
+      border-bottom: 1px solid #1e1e1e;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .chat-header-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .chat-header-info { flex: 1; }
+    .chat-header-info h2 { font-size: 16px; font-weight: 600; color: #fff; }
+    .chat-header-info span { font-size: 12px; color: #555; }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn-icon {
+      background: none;
+      border: none;
+      color: #555;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+      font-size: 16px;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+    }
+
+    .btn-icon:hover { background: #1a1a1a; color: #aaa; }
+
+    .autoplay-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #555;
+      cursor: pointer;
+    }
+
+    .toggle-switch {
+      width: 32px;
+      height: 18px;
+      background: #333;
+      border-radius: 9px;
+      position: relative;
+      transition: background 0.2s;
+      cursor: pointer;
+    }
+
+    .toggle-switch.on { background: #22c55e; }
+
+    .toggle-switch::after {
+      content: '';
+      width: 14px;
+      height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: left 0.2s;
+    }
+
+    .toggle-switch.on::after { left: 16px; }
+
+    /* ── Messages ── */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .messages::-webkit-scrollbar { width: 4px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+    .msg {
+      display: flex;
+      gap: 10px;
+      max-width: 80%;
+    }
+
+    .msg.user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }
+
+    .msg-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .msg-body { display: flex; flex-direction: column; gap: 4px; }
+
+    .msg-meta {
+      font-size: 11px;
+      color: #444;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .msg.user .msg-meta { justify-content: flex-end; }
+
+    .msg-bubble {
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .msg.assistant .msg-bubble {
+      background: #1a1a1a;
+      border: 1px solid #252525;
+      border-top-left-radius: 4px;
+      color: #e8e8e8;
+    }
+
+    .msg.user .msg-bubble {
+      background: #1e3a5f;
+      border: 1px solid #234876;
+      border-top-right-radius: 4px;
+      color: #e8e8e8;
+    }
+
+    .msg-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .btn-play {
+      background: none;
+      border: none;
+      color: #555;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn-play:hover { background: #1e1e1e; color: #aaa; }
+
+    .typing-indicator {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      padding: 12px 14px;
+      background: #1a1a1a;
+      border: 1px solid #252525;
+      border-radius: 16px;
+      border-top-left-radius: 4px;
+      width: fit-content;
+    }
+
+    .typing-dot {
+      width: 6px;
+      height: 6px;
+      background: #555;
+      border-radius: 50%;
+      animation: bounce 1.2s infinite;
+    }
+
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-6px); }
+    }
+
+    /* ── Input Bar ── */
+    .input-bar {
+      padding: 16px 20px;
+      background: #111;
+      border-top: 1px solid #1e1e1e;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+
+    .btn-mic {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: none;
+      background: #1e1e1e;
+      color: #666;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .btn-mic:hover { background: #252525; color: #aaa; }
+    .btn-mic.recording { background: #ef4444; color: #fff; animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .input-wrap {
+      flex: 1;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      display: flex;
+      align-items: flex-end;
+      padding: 8px 12px;
+      gap: 8px;
+      transition: border-color 0.2s;
+    }
+
+    .input-wrap:focus-within { border-color: #333; }
+
+    #messageInput {
+      flex: 1;
+      background: none;
+      border: none;
+      color: #e8e8e8;
+      font-size: 14px;
+      line-height: 1.5;
+      resize: none;
+      outline: none;
+      max-height: 120px;
+      font-family: inherit;
+    }
+
+    #messageInput::placeholder { color: #444; }
+
+    .btn-send {
+      background: #ff6b35;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+
+    .btn-send:hover { background: #e85d2a; }
+    .btn-send:disabled { background: #3a2a20; color: #666; cursor: not-allowed; }
+
+    /* ── Empty State ── */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: #333;
+    }
+
+    .empty-state .big-avatar {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .empty-state h3 { font-size: 18px; color: #555; font-weight: 500; }
+    .empty-state p { font-size: 13px; color: #333; }
+
+    /* ── No Agent Selected ── */
+    .no-agent {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #333;
+      font-size: 14px;
+    }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: #161616;
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      padding: 28px;
+      width: 480px;
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 24px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 18px;
+    }
+
+    .form-group label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      background: #1e1e1e;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      color: #e8e8e8;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus { border-color: #ff6b35; }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 100px;
+      line-height: 1.5;
+    }
+
+    .color-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .color-swatch {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.15s;
+    }
+
+    .color-swatch.selected { border-color: #fff; }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 24px;
+    }
+
+    .btn { display: flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px; border: none; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+    .btn-primary { background: #ff6b35; color: #fff; }
+    .btn-primary:hover { background: #e85d2a; }
+    .btn-ghost { background: #1e1e1e; color: #aaa; border: 1px solid #2a2a2a; }
+    .btn-ghost:hover { background: #252525; color: #e8e8e8; }
+    .btn-danger { background: #2a1a1a; color: #ef4444; border: 1px solid #3a1a1a; }
+    .btn-danger:hover { background: #3a1a1a; }
+
+    optgroup { color: #666; }
+    option { color: #e8e8e8; }
+
+    /* ── Loading Screen ── */
+    #loadingScreen {
+      position: fixed;
+      inset: 0;
+      background: #0d0d0d;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      transition: opacity 0.4s ease;
+    }
+
+    #loadingScreen.hide {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .brain-waves {
+      position: relative;
+      width: 80px;
+      height: 80px;
+    }
+
+    .brain-core {
+      position: absolute;
+      inset: 50%;
+      transform: translate(-50%, -50%);
+      width: 16px;
+      height: 16px;
+      background: #ff6b35;
+      border-radius: 50%;
+      box-shadow: 0 0 12px #ff6b35, 0 0 24px rgba(255,107,53,0.4);
+      animation: corePulse 1.6s ease-in-out infinite;
+    }
+
+    @keyframes corePulse {
+      0%, 100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 12px #ff6b35, 0 0 24px rgba(255,107,53,0.4); }
+      50% { transform: translate(-50%, -50%) scale(1.3); box-shadow: 0 0 20px #ff6b35, 0 0 40px rgba(255,107,53,0.6); }
+    }
+
+    .wave-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,107,53,0.6);
+      animation: ringExpand 1.6s ease-out infinite;
+    }
+
+    .wave-ring:nth-child(2) { animation-delay: 0.4s; border-color: rgba(139,92,246,0.5); }
+    .wave-ring:nth-child(3) { animation-delay: 0.8s; border-color: rgba(34,197,94,0.4); }
+    .wave-ring:nth-child(4) { animation-delay: 1.2s; border-color: rgba(255,107,53,0.3); }
+
+    @keyframes ringExpand {
+      0%   { transform: scale(0.2); opacity: 1; }
+      100% { transform: scale(1.8); opacity: 0; }
+    }
+
+    .eeg-line {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      height: 28px;
+    }
+
+    .eeg-bar {
+      width: 3px;
+      border-radius: 2px;
+      background: #ff6b35;
+      animation: eegBounce 1.2s ease-in-out infinite;
+    }
+
+    .eeg-bar:nth-child(1)  { height: 6px;  animation-delay: 0s;    background: #ff6b35; }
+    .eeg-bar:nth-child(2)  { height: 18px; animation-delay: 0.1s;  background: #ff7a47; }
+    .eeg-bar:nth-child(3)  { height: 28px; animation-delay: 0.2s;  background: #8b5cf6; }
+    .eeg-bar:nth-child(4)  { height: 12px; animation-delay: 0.3s;  background: #9d70f7; }
+    .eeg-bar:nth-child(5)  { height: 22px; animation-delay: 0.15s; background: #ff6b35; }
+    .eeg-bar:nth-child(6)  { height: 8px;  animation-delay: 0.25s; background: #22c55e; }
+    .eeg-bar:nth-child(7)  { height: 20px; animation-delay: 0.35s; background: #34d36a; }
+    .eeg-bar:nth-child(8)  { height: 14px; animation-delay: 0.05s; background: #8b5cf6; }
+    .eeg-bar:nth-child(9)  { height: 24px; animation-delay: 0.45s; background: #ff6b35; }
+    .eeg-bar:nth-child(10) { height: 6px;  animation-delay: 0.55s; background: #ff7a47; }
+    .eeg-bar:nth-child(11) { height: 16px; animation-delay: 0.4s;  background: #22c55e; }
+    .eeg-bar:nth-child(12) { height: 10px; animation-delay: 0.5s;  background: #8b5cf6; }
+
+    @keyframes eegBounce {
+      0%, 100% { transform: scaleY(0.3); opacity: 0.4; }
+      50%       { transform: scaleY(1);   opacity: 1; }
+    }
+
+    .loading-text {
+      font-size: 12px;
+      color: #444;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      animation: textFade 1.6s ease-in-out infinite;
+    }
+
+    @keyframes textFade {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loadingScreen">
+  <div class="brain-waves">
+    <div class="wave-ring"></div>
+    <div class="wave-ring"></div>
+    <div class="wave-ring"></div>
+    <div class="wave-ring"></div>
+    <div class="brain-core"></div>
+  </div>
+  <div class="eeg-line">
+    <div class="eeg-bar"></div>
+    <div class="eeg-bar"></div>
+    <div class="eeg-bar"></div>
+    <div class="eeg-bar"></div>
+    <div class="eeg-bar"></div>
+    <div class="eeg-bar"></div>
+    <div class="eeg-bar"></div>
+    <div class="eeg-bar"></div>
+    <div class="eeg-bar"></div>
+    <div class="eeg-bar"></div>
+    <div class="eeg-bar"></div>
+    <div class="eeg-bar"></div>
+  </div>
+  <div class="loading-text">Agenten werden geladen</div>
+</div>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-header">Agenten</div>
+  <div class="agent-list" id="agentList"></div>
+  <div class="sidebar-footer">
+    <div class="sidebar-footer-row">
+      <button class="btn-new-agent" onclick="openCreateModal()">
+        <span>+</span> Neuer Agent
+      </button>
+      <button class="btn-settings" onclick="openProviderModal()" title="Anbieter / Provider">⚙</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main" id="main">
+  <div class="no-agent" id="noAgentMsg">← Wähle einen Agenten</div>
+</div>
+
+<!-- Modal: Agent erstellen / bearbeiten -->
+<div class="modal-overlay" id="agentModal">
+  <div class="modal">
+    <h2 id="modalTitle">Neuer Agent</h2>
+
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" id="agentName" placeholder="z.B. Alex">
+    </div>
+
+    <div class="form-group">
+      <label>Soul / Persönlichkeit</label>
+      <textarea id="agentSoul" placeholder="Beschreibe wie dieser Agent denkt, spricht und sich verhält..."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Stimme</label>
+      <select id="agentVoice">
+        <option value="">Lädt...</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Anbieter & Modell</label>
+      <div class="provider-model-row">
+        <select id="agentProvider" onchange="onProviderChange()">
+          <option value="ollama">🏠 Ollama</option>
+          <option value="openrouter">🔀 OpenRouter</option>
+        </select>
+        <select id="agentModel">
+          <option value="">Lädt…</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group" id="webSearchGroup" style="display:none">
+      <label>Tools</label>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;background:#1e1e1e;border:1px solid #2a2a2a;border-radius:8px">
+        <div class="toggle-switch" id="webSearchToggle" onclick="toggleWebSearch()"></div>
+        <span style="font-size:13px;color:#ccc">🌐 Web-Suche (OpenRouter Plugin)</span>
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label>Farbe</label>
+      <div class="color-row" id="colorPicker">
+        <div class="color-swatch selected" style="background:#ff6b35" data-color="#ff6b35" onclick="selectColor(this)"></div>
+        <div class="color-swatch" style="background:#8b5cf6" data-color="#8b5cf6" onclick="selectColor(this)"></div>
+        <div class="color-swatch" style="background:#22c55e" data-color="#22c55e" onclick="selectColor(this)"></div>
+        <div class="color-swatch" style="background:#3b82f6" data-color="#3b82f6" onclick="selectColor(this)"></div>
+        <div class="color-swatch" style="background:#ec4899" data-color="#ec4899" onclick="selectColor(this)"></div>
+        <div class="color-swatch" style="background:#f59e0b" data-color="#f59e0b" onclick="selectColor(this)"></div>
+        <div class="color-swatch" style="background:#06b6d4" data-color="#06b6d4" onclick="selectColor(this)"></div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="btnDeleteAgent" onclick="deleteCurrentAgent()" style="display:none; margin-right:auto">🗑 Löschen</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button>
+      <button class="btn btn-primary" onclick="saveAgent()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Provider / Einstellungen -->
+<div class="modal-overlay" id="providerModal">
+  <div class="modal" style="width:520px">
+    <h2>Anbieter & API Keys</h2>
+
+    <!-- Ollama -->
+    <div class="provider-section">
+      <div class="provider-header">
+        <span class="provider-icon">🏠</span>
+        <div>
+          <div class="provider-title">Ollama</div>
+          <div class="provider-subtitle">Lokale Modelle</div>
+        </div>
+        <span class="status-pill loading" id="statusOllama">…</span>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>Server URL</label>
+        <div class="input-with-btn">
+          <input type="text" id="ollamaUrl" placeholder="http://localhost:11434">
+          <button class="btn-test" onclick="testProvider('ollama')">Testen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mistral -->
+    <div class="provider-section">
+      <div class="provider-header">
+        <span class="provider-icon">🔊</span>
+        <div>
+          <div class="provider-title">Mistral</div>
+          <div class="provider-subtitle">Text-to-Speech (Voxtral)</div>
+        </div>
+        <span class="status-pill loading" id="statusMistral">…</span>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>API Key</label>
+        <div class="input-with-btn">
+          <input type="password" id="mistralKey" placeholder="sk-…" autocomplete="off">
+          <button class="btn-test" onclick="testProvider('mistral')">Testen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SearXNG -->
+    <div class="provider-section">
+      <div class="provider-header">
+        <span class="provider-icon">🔍</span>
+        <div>
+          <div class="provider-title">SearXNG</div>
+          <div class="provider-subtitle">Lokale Web-Suche (selbst gehostet)</div>
+        </div>
+        <span class="status-pill loading" id="statusSearxng">…</span>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>URL</label>
+        <div class="input-with-btn">
+          <input type="text" id="searxngUrl" placeholder="http://localhost:8888">
+          <button class="btn-test" onclick="testProvider('searxng')">Testen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- OpenRouter -->
+    <div class="provider-section">
+      <div class="provider-header">
+        <span class="provider-icon">🔀</span>
+        <div>
+          <div class="provider-title">OpenRouter</div>
+          <div class="provider-subtitle">Zugang zu hunderten Modellen</div>
+        </div>
+        <span class="status-pill loading" id="statusOpenrouter">…</span>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>API Key</label>
+        <div class="input-with-btn">
+          <input type="password" id="openrouterKey" placeholder="sk-or-…" autocomplete="off">
+          <button class="btn-test" onclick="testProvider('openrouter')">Testen</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeProviderModal()">Schließen</button>
+      <button class="btn btn-primary" onclick="saveProviders()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let agents = [];
+let currentAgent = null;
+let editingAgentId = null;
+let autoPlay = true;
+let isRecording = false;
+let recognition = null;
+let mistralVoices = [];
+let macVoices = [];
+let allModels = { ollama: [], openrouter: [] };
+
+// ── Init ───────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadVoices();
+  await loadAgents();
+  await loadAllModels();
+  loadMacVoices();
+  const ls = document.getElementById('loadingScreen');
+  ls.classList.add('hide');
+  setTimeout(() => ls.remove(), 450);
+});
+
+async function loadAgents() {
+  const resp = await fetch('/api/agents');
+  agents = await resp.json();
+  renderSidebar();
+  if (agents.length > 0) selectAgent(agents[0].id);
+}
+
+async function loadVoices() {
+  const resp = await fetch('/api/voices/mistral');
+  const data = await resp.json();
+  mistralVoices = data.voices || [];
+}
+
+function loadMacVoices() {
+  if (!window.speechSynthesis) return;
+  const populate = () => {
+    macVoices = window.speechSynthesis.getVoices().filter(v => v.localService);
+  };
+  populate();
+  window.speechSynthesis.onvoiceschanged = populate;
+}
+
+async function loadAllModels() {
+  const resp = await fetch('/api/models');
+  allModels = await resp.json();
+}
+
+function onProviderChange() {
+  const provider = document.getElementById('agentProvider').value;
+  populateModelSelect(provider, null);
+  document.getElementById('webSearchGroup').style.display = '';
+}
+
+function toggleWebSearch() {
+  const t = document.getElementById('webSearchToggle');
+  t.classList.toggle('on');
+}
+
+function getWebSearch() {
+  return document.getElementById('webSearchToggle').classList.contains('on');
+}
+
+function setWebSearch(val) {
+  document.getElementById('webSearchToggle').classList.toggle('on', !!val);
+}
+
+function populateModelSelect(provider, selectedModel) {
+  const sel = document.getElementById('agentModel');
+  const models = allModels[provider] || [];
+
+  if (models.length === 0) {
+    if (provider === 'openrouter') {
+      sel.innerHTML = '<option value="">OpenRouter Key in Einstellungen eintragen</option>';
+    } else {
+      sel.innerHTML = '<option value="">Keine Modelle gefunden</option>';
+    }
+    return;
+  }
+
+  if (provider === 'openrouter') {
+    const free = models.filter(m => m.free);
+    const paid = models.filter(m => !m.free);
+
+    // group paid by provider prefix
+    const groups = {};
+    paid.forEach(m => {
+      const prefix = m.id.split('/')[0];
+      if (!groups[prefix]) groups[prefix] = [];
+      groups[prefix].push(m);
+    });
+
+    let html = '';
+    if (free.length > 0) {
+      html += `<optgroup label="⭐ Kostenlos (${free.length})">` +
+        free.map(m => `<option value="${m.id}" ${m.id === selectedModel ? 'selected' : ''}>${m.name}</option>`).join('') +
+        '</optgroup>';
+    }
+    html += Object.entries(groups).map(([prefix, ms]) =>
+      `<optgroup label="${prefix}">` +
+      ms.map(m => `<option value="${m.id}" ${m.id === selectedModel ? 'selected' : ''}>${m.name}</option>`).join('') +
+      '</optgroup>'
+    ).join('');
+    sel.innerHTML = html;
+  } else {
+    sel.innerHTML = models.map(m =>
+      `<option value="${m}" ${m === selectedModel ? 'selected' : ''}>${m}</option>`
+    ).join('');
+  }
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────────────
+function renderSidebar() {
+  const list = document.getElementById('agentList');
+  list.innerHTML = agents.map(a => `
+    <div class="agent-item ${currentAgent?.id === a.id ? 'active' : ''}" onclick="selectAgent('${a.id}')">
+      <div class="agent-avatar" style="background:${a.color}">${a.name[0].toUpperCase()}</div>
+      <span class="agent-name">${a.name}</span>
+    </div>
+  `).join('');
+}
+
+async function selectAgent(agentId) {
+  currentAgent = agents.find(a => a.id === agentId);
+  renderSidebar();
+  renderChatShell();
+  const history = await loadHistory(agentId);
+  renderMessages(history);
+}
+
+// ── Chat Shell ─────────────────────────────────────────────────────────────
+function renderChatShell() {
+  const a = currentAgent;
+  document.getElementById('main').innerHTML = `
+    <div class="chat-header">
+      <div class="chat-header-avatar" style="background:${a.color}">${a.name[0].toUpperCase()}</div>
+      <div class="chat-header-info">
+        <h2>${a.name}</h2>
+        <span>${getVoiceName(a.voice)} · ${a.model}</span>
+      </div>
+      <div class="header-actions">
+        <label class="autoplay-toggle" title="Auto-Play">
+          🔊
+          <div class="toggle-switch ${autoPlay ? 'on' : ''}" id="autoplayToggle" onclick="toggleAutoPlay()"></div>
+        </label>
+        <button class="btn-icon" title="Verlauf löschen" onclick="clearChat()">🗑</button>
+        <button class="btn-icon" title="Agent bearbeiten" onclick="openEditModal('${a.id}')">⚙️</button>
+      </div>
+    </div>
+    <div class="messages" id="messages"></div>
+    <div class="input-bar">
+      <button class="btn-mic" id="micBtn" onclick="toggleMic()" title="Mikrofon">🎤</button>
+      <div class="input-wrap">
+        <textarea id="messageInput" placeholder="Nachricht eingeben..." rows="1"
+          onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="btn-send" id="sendBtn" onclick="sendMessage()">Senden</button>
+      </div>
+    </div>
+  `;
+}
+
+function getVoiceName(voice) {
+  if (voice.startsWith('mac:')) return '🍎 ' + voice.replace('mac:', '');
+  const v = mistralVoices.find(x => x.slug === voice);
+  return v ? v.name : voice;
+}
+
+// ── Messages ───────────────────────────────────────────────────────────────
+async function loadHistory(agentId) {
+  const resp = await fetch(`/api/history/${agentId}`);
+  return await resp.json();
+}
+
+function renderMessages(history) {
+  const container = document.getElementById('messages');
+  if (!container) return;
+
+  if (history.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="big-avatar" style="background:${currentAgent.color}">${currentAgent.name[0].toUpperCase()}</div>
+        <h3>Hallo! Ich bin ${currentAgent.name}.</h3>
+        <p>Schreib etwas oder drücke das Mikrofon 🎤</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = history.map((msg, i) => buildMessageHTML(msg, i)).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+function buildMessageHTML(msg, index) {
+  const isUser = msg.role === 'user';
+  const time = msg.ts ? new Date(msg.ts).toLocaleTimeString('de', {hour:'2-digit', minute:'2-digit'}) : '';
+
+  if (isUser) {
+    return `
+      <div class="msg user">
+        <div class="msg-body">
+          <div class="msg-meta">${time}</div>
+          <div class="msg-bubble">${escHtml(msg.content)}</div>
+        </div>
+        <div class="msg-avatar" style="background:#2a4a6a">Du</div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="msg assistant">
+      <div class="msg-avatar" style="background:${currentAgent.color}">${currentAgent.name[0].toUpperCase()}</div>
+      <div class="msg-body">
+        <div class="msg-meta">${currentAgent.name} · ${time}</div>
+        <div class="msg-bubble">${escHtml(msg.content)}</div>
+        <div class="msg-actions">
+          <button class="btn-play" onclick="playText(${index}, \`${escAttr(msg.content)}\`)">▶ Abspielen</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function appendMessage(msg) {
+  const container = document.getElementById('messages');
+  if (!container) return;
+  const empty = container.querySelector('.empty-state');
+  if (empty) container.innerHTML = '';
+  const index = container.querySelectorAll('.msg').length;
+  container.insertAdjacentHTML('beforeend', buildMessageHTML(msg, index));
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTyping() {
+  const container = document.getElementById('messages');
+  if (!container) return;
+  const empty = container.querySelector('.empty-state');
+  if (empty) container.innerHTML = '';
+  container.insertAdjacentHTML('beforeend', `
+    <div class="msg assistant" id="typingIndicator">
+      <div class="msg-avatar" style="background:${currentAgent.color}">${currentAgent.name[0].toUpperCase()}</div>
+      <div class="typing-indicator">
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+      </div>
+    </div>
+  `);
+  container.scrollTop = container.scrollHeight;
+}
+
+function removeTyping() {
+  document.getElementById('typingIndicator')?.remove();
+}
+
+// ── Send Message ───────────────────────────────────────────────────────────
+async function sendMessage() {
+  const input = document.getElementById('messageInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const text = input?.value.trim();
+  if (!text || !currentAgent) return;
+
+  input.value = '';
+  autoResize(input);
+  sendBtn.disabled = true;
+
+  const userMsg = { role: 'user', content: text, ts: new Date().toISOString() };
+  appendMessage(userMsg);
+  showTyping();
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent_id: currentAgent.id, message: text })
+    });
+    const data = await resp.json();
+    removeTyping();
+
+    if (data.error) {
+      appendMessage({ role: 'assistant', content: '⚠️ ' + data.error, ts: new Date().toISOString() });
+      return;
+    }
+
+    const botMsg = { role: 'assistant', content: data.reply, ts: new Date().toISOString() };
+    appendMessage(botMsg);
+
+    if (autoPlay) {
+      await playText(null, data.reply);
+    }
+  } catch (e) {
+    removeTyping();
+    appendMessage({ role: 'assistant', content: '⚠️ Verbindungsfehler: ' + e.message, ts: new Date().toISOString() });
+  } finally {
+    sendBtn.disabled = false;
+    input?.focus();
+  }
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+// ── TTS ────────────────────────────────────────────────────────────────────
+async function playText(index, text) {
+  if (!currentAgent || !text) return;
+  const voice = currentAgent.voice;
+
+  if (voice.startsWith('mac:')) {
+    playMacVoice(text, voice.replace('mac:', ''));
+    return;
+  }
+
+  try {
+    const resp = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice })
+    });
+    if (!resp.ok) return;
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.play();
+  } catch(e) {
+    console.error('TTS error:', e);
+  }
+}
+
+function playMacVoice(text, voiceName) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  const voices = window.speechSynthesis.getVoices();
+  const found = voices.find(v => v.name === voiceName || v.name.startsWith(voiceName));
+  if (found) utt.voice = found;
+  utt.rate = 1.0;
+  window.speechSynthesis.speak(utt);
+}
+
+// ── Speech Recognition ─────────────────────────────────────────────────────
+function toggleMic() {
+  if (isRecording) {
+    stopMic();
+  } else {
+    startMic();
+  }
+}
+
+function startMic() {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) {
+    alert('Spracherkennung wird in diesem Browser nicht unterstützt. Bitte Chrome oder Safari nutzen.');
+    return;
+  }
+
+  recognition = new SpeechRec();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = 'de-DE';
+
+  recognition.onstart = () => {
+    isRecording = true;
+    document.getElementById('micBtn')?.classList.add('recording');
+  };
+
+  recognition.onresult = (e) => {
+    const transcript = Array.from(e.results)
+      .map(r => r[0].transcript)
+      .join('');
+    const input = document.getElementById('messageInput');
+    if (input) {
+      input.value = transcript;
+      autoResize(input);
+    }
+  };
+
+  recognition.onend = () => {
+    isRecording = false;
+    document.getElementById('micBtn')?.classList.remove('recording');
+    // auto-send if we got something
+    const input = document.getElementById('messageInput');
+    if (input?.value.trim()) sendMessage();
+  };
+
+  recognition.onerror = (e) => {
+    console.error('Speech error:', e.error);
+    isRecording = false;
+    document.getElementById('micBtn')?.classList.remove('recording');
+  };
+
+  recognition.start();
+}
+
+function stopMic() {
+  recognition?.stop();
+}
+
+// ── Auto-Play Toggle ───────────────────────────────────────────────────────
+function toggleAutoPlay() {
+  autoPlay = !autoPlay;
+  document.getElementById('autoplayToggle')?.classList.toggle('on', autoPlay);
+}
+
+// ── Clear Chat ─────────────────────────────────────────────────────────────
+async function clearChat() {
+  if (!currentAgent) return;
+  if (!confirm(`Verlauf von ${currentAgent.name} löschen?`)) return;
+  await fetch(`/api/history/${currentAgent.id}`, { method: 'DELETE' });
+  renderMessages([]);
+}
+
+// ── Modal: Create / Edit Agent ─────────────────────────────────────────────
+function buildVoiceOptions(selectedVoice) {
+  const mistralGroups = {};
+  mistralVoices.forEach(v => {
+    const lang = v.lang || 'other';
+    if (!mistralGroups[lang]) mistralGroups[lang] = [];
+    mistralGroups[lang].push(v);
+  });
+
+  let html = '';
+  Object.entries(mistralGroups).forEach(([lang, voices]) => {
+    html += `<optgroup label="Voxtral – ${lang}">`;
+    voices.forEach(v => {
+      html += `<option value="${v.slug}" ${v.slug === selectedVoice ? 'selected' : ''}>${v.name}</option>`;
+    });
+    html += '</optgroup>';
+  });
+
+  if (macVoices.length > 0) {
+    html += '<optgroup label="🍎 Mac System Voices">';
+    macVoices.forEach(v => {
+      const slug = 'mac:' + v.name;
+      html += `<option value="${slug}" ${slug === selectedVoice ? 'selected' : ''}>${v.name} (${v.lang})</option>`;
+    });
+    html += '</optgroup>';
+  } else {
+    // fallback mac voices
+    ['Flo', 'Samantha', 'Alex', 'Daniel', 'Moira'].forEach(name => {
+      const slug = 'mac:' + name;
+      html += `<optgroup label="🍎 Mac System Voices">`.includes('optgroup') ? '' : '<optgroup label="🍎 Mac System Voices">';
+    });
+    html += '<optgroup label="🍎 Mac System Voices">';
+    ['Flo', 'Samantha', 'Alex', 'Daniel', 'Moira'].forEach(name => {
+      const slug = 'mac:' + name;
+      html += `<option value="${slug}" ${slug === selectedVoice ? 'selected' : ''}>${name} (Mac)</option>`;
+    });
+    html += '</optgroup>';
+  }
+
+  return html;
+}
+
+function openCreateModal() {
+  editingAgentId = null;
+  document.getElementById('modalTitle').textContent = 'Neuer Agent';
+  document.getElementById('agentName').value = '';
+  document.getElementById('agentSoul').value = '';
+  document.getElementById('agentVoice').innerHTML = buildVoiceOptions('en_paul_neutral');
+  document.getElementById('btnDeleteAgent').style.display = 'none';
+  selectColorByValue('#ff6b35');
+  document.getElementById('agentProvider').value = 'ollama';
+  populateModelSelect('ollama', null);
+  document.getElementById('webSearchGroup').style.display = '';
+  setWebSearch(false);
+  document.getElementById('agentModal').classList.add('open');
+}
+
+function openEditModal(agentId) {
+  const agent = agents.find(a => a.id === agentId);
+  if (!agent) return;
+  editingAgentId = agentId;
+  document.getElementById('modalTitle').textContent = 'Agent bearbeiten';
+  document.getElementById('agentName').value = agent.name;
+  document.getElementById('agentSoul').value = agent.soul;
+  document.getElementById('agentVoice').innerHTML = buildVoiceOptions(agent.voice);
+  document.getElementById('btnDeleteAgent').style.display = 'flex';
+  selectColorByValue(agent.color);
+
+  const provider = agent.provider || 'ollama';
+  document.getElementById('agentProvider').value = provider;
+  populateModelSelect(provider, agent.model);
+  document.getElementById('webSearchGroup').style.display = '';
+  setWebSearch(agent.web_search || false);
+
+  document.getElementById('agentModal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('agentModal').classList.remove('open');
+  editingAgentId = null;
+}
+
+function selectColor(el) {
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function selectColorByValue(color) {
+  document.querySelectorAll('.color-swatch').forEach(s => {
+    s.classList.toggle('selected', s.dataset.color === color);
+  });
+}
+
+function getSelectedColor() {
+  const sel = document.querySelector('.color-swatch.selected');
+  return sel ? sel.dataset.color : '#ff6b35';
+}
+
+async function saveAgent() {
+  const name = document.getElementById('agentName').value.trim();
+  if (!name) { alert('Name eingeben!'); return; }
+
+  const payload = {
+    name,
+    soul: document.getElementById('agentSoul').value.trim() || 'Du bist ein hilfreicher Assistent.',
+    voice: document.getElementById('agentVoice').value,
+    model: document.getElementById('agentModel').value,
+    provider: document.getElementById('agentProvider').value,
+    web_search: getWebSearch(),
+    color: getSelectedColor()
+  };
+
+  if (editingAgentId) {
+    const resp = await fetch(`/api/agents/${editingAgentId}`, {
+      method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    const updated = await resp.json();
+    agents = agents.map(a => a.id === editingAgentId ? updated : a);
+    if (currentAgent?.id === editingAgentId) {
+      currentAgent = updated;
+      renderChatShell();
+      const history = await loadHistory(editingAgentId);
+      renderMessages(history);
+    }
+  } else {
+    const resp = await fetch('/api/agents', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    const created = await resp.json();
+    agents.push(created);
+    selectAgent(created.id);
+  }
+
+  renderSidebar();
+  closeModal();
+}
+
+async function deleteCurrentAgent() {
+  if (!editingAgentId) return;
+  const agent = agents.find(a => a.id === editingAgentId);
+  if (!confirm(`"${agent?.name}" wirklich löschen?`)) return;
+
+  await fetch(`/api/agents/${editingAgentId}`, { method: 'DELETE' });
+  agents = agents.filter(a => a.id !== editingAgentId);
+  closeModal();
+
+  if (currentAgent?.id === editingAgentId) {
+    currentAgent = null;
+    document.getElementById('main').innerHTML = '<div class="no-agent">← Wähle einen Agenten</div>';
+    if (agents.length > 0) selectAgent(agents[0].id);
+  }
+
+  renderSidebar();
+}
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function escAttr(str) {
+  return str.replace(/`/g, '\\`').replace(/\$/g, '\\$');
+}
+
+// Close modal on overlay click
+document.getElementById('agentModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+document.getElementById('providerModal').addEventListener('click', function(e) {
+  if (e.target === this) closeProviderModal();
+});
+
+// ── Provider Modal ──────────────────────────────────────────────────────────
+async function openProviderModal() {
+  document.getElementById('providerModal').classList.add('open');
+  // load current values
+  const resp = await fetch('/api/providers');
+  const data = await resp.json();
+  document.getElementById('ollamaUrl').value = data.ollama?.url || 'http://localhost:11434';
+  document.getElementById('searxngUrl').value = data.searxng?.url || 'http://localhost:8888';
+  document.getElementById('mistralKey').value = '';
+  document.getElementById('mistralKey').placeholder = data.mistral?.api_key_masked || 'sk-…';
+  document.getElementById('openrouterKey').value = '';
+  document.getElementById('openrouterKey').placeholder = data.openrouter?.api_key_masked || 'sk-or-…';
+  // load status
+  loadProviderStatus();
+}
+
+function closeProviderModal() {
+  document.getElementById('providerModal').classList.remove('open');
+}
+
+async function loadProviderStatus() {
+  ['ollama', 'searxng', 'mistral', 'openrouter'].forEach(p => {
+    const el = document.getElementById('status' + p.charAt(0).toUpperCase() + p.slice(1));
+    if (el) { el.textContent = '…'; el.className = 'status-pill loading'; }
+  });
+  try {
+    const resp = await fetch('/api/providers/status');
+    const data = await resp.json();
+    for (const [key, val] of Object.entries(data)) {
+      const id = 'status' + key.charAt(0).toUpperCase() + key.slice(1);
+      const el = document.getElementById(id);
+      if (!el) continue;
+      el.textContent = val.info;
+      el.className = 'status-pill ' + (val.ok ? 'ok' : 'err');
+    }
+  } catch(e) {
+    console.error('Status error:', e);
+  }
+}
+
+async function testProvider(provider) {
+  // save first, then check status
+  await saveProviders(true);
+  await loadProviderStatus();
+}
+
+async function saveProviders(silent = false) {
+  const update = {
+    ollama: { url: document.getElementById('ollamaUrl').value.trim() },
+    searxng: { url: document.getElementById('searxngUrl').value.trim() },
+    mistral: {},
+    openrouter: {}
+  };
+  const mk = document.getElementById('mistralKey').value.trim();
+  if (mk) update.mistral.api_key = mk;
+  const ok = document.getElementById('openrouterKey').value.trim();
+  if (ok) update.openrouter.api_key = ok;
+
+  await fetch('/api/providers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(update)
+  });
+
+  // reload models in case openrouter key changed
+  await loadAllModels();
+
+  if (!silent) {
+    closeProviderModal();
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+providers.json
+agents.json
+history.json
+.DS_Store
