@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AgentClaw</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230d0d0d'/><circle cx='50' cy='50' r='14' fill='%23ff6b35'/><circle cx='50' cy='50' r='24' fill='none' stroke='%23ff6b35' stroke-width='3' opacity='0.5'/><circle cx='50' cy='50' r='36' fill='none' stroke='%238b5cf6' stroke-width='2' opacity='0.35'/></svg>">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -341,9 +342,38 @@
       border-radius: 16px;
       font-size: 14px;
       line-height: 1.6;
-      white-space: pre-wrap;
       word-break: break-word;
     }
+    .msg-bubble p { margin: 0 0 8px; }
+    .msg-bubble p:last-child { margin-bottom: 0; }
+    .msg-bubble ul, .msg-bubble ol { margin: 4px 0 8px 20px; }
+    .msg-bubble li { margin: 2px 0; }
+    .msg-bubble h1,.msg-bubble h2,.msg-bubble h3 { margin: 10px 0 4px; font-weight: 600; }
+    .msg-bubble h1 { font-size: 1.1em; }
+    .msg-bubble h2 { font-size: 1em; }
+    .msg-bubble h3 { font-size: 0.95em; }
+    .msg-bubble code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', monospace; font-size: 0.88em; }
+    .msg-bubble pre { background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 8px 0; }
+    .msg-bubble pre code { background: none; padding: 0; font-size: 0.85em; color: #c9d1d9; }
+    .msg-bubble a { color: #ff6b35; text-decoration: underline; }
+    .msg-bubble blockquote { border-left: 3px solid #ff6b35; margin: 8px 0; padding: 4px 12px; opacity: 0.8; background: rgba(255,107,53,0.05); border-radius: 0 6px 6px 0; }
+    .msg-bubble strong { color: #fff; font-weight: 600; }
+    .msg-bubble hr { border: none; border-top: 1px solid #2a2a2a; margin: 10px 0; }
+    .msg-bubble table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 0.88em; }
+    .msg-bubble th,.msg-bubble td { border: 1px solid #2a2a2a; padding: 6px 10px; }
+    .msg-bubble th { background: #1a1a1a; font-weight: 600; }
+    .code-block { position: relative; margin: 8px 0; }
+    .btn-copy { position: absolute; top: 8px; right: 8px; background: #2a2a2a; border: 1px solid #3a3a3a; color: #888; font-size: 11px; cursor: pointer; padding: 3px 8px; border-radius: 5px; transition: all 0.15s; z-index: 1; }
+    .btn-copy:hover { background: #333; color: #ccc; }
+    .btn-copy.copied { color: #4caf50; border-color: #4caf50; }
+    .code-block pre { margin: 0; padding-top: 32px; }
+    .msg-image { max-width: 240px; border-radius: 10px; margin-bottom: 6px; display: block; cursor: pointer; }
+    .img-preview-bar { display: none; align-items: center; gap: 8px; padding: 6px 10px; background: #1a1a1a; border-radius: 8px; margin-bottom: 6px; }
+    .img-preview-bar img { height: 48px; width: 48px; object-fit: cover; border-radius: 6px; }
+    .img-preview-bar button { background: none; border: none; color: #888; font-size: 16px; cursor: pointer; padding: 2px 6px; }
+    .img-preview-bar button:hover { color: #ff6b35; }
+    .btn-img { background: none; border: none; font-size: 18px; cursor: pointer; padding: 6px; border-radius: 8px; color: #666; transition: color 0.2s; line-height: 1; }
+    .btn-img:hover { color: #ff6b35; }
 
     .msg.assistant .msg-bubble {
       background: #1a1a1a;
@@ -365,7 +395,7 @@
       margin-top: 2px;
     }
 
-    .btn-play {
+    .btn-play, .btn-dl {
       background: none;
       border: none;
       color: #555;
@@ -378,8 +408,9 @@
       align-items: center;
       gap: 4px;
     }
-
     .btn-play:hover { background: #1e1e1e; color: #aaa; }
+    .btn-dl:hover { background: #1e1e1e; color: #aaa; }
+    .btn-play.playing { color: #ff6b35; background: rgba(255,107,53,0.1); }
 
     .typing-indicator {
       display: flex;
@@ -818,6 +849,16 @@
       </div>
     </div>
 
+    <div class="form-group">
+      <label>Max Tokens <span id="maxTokensVal" style="color:#ff6b35;font-weight:700">1024</span></label>
+      <input type="range" id="agentMaxTokens" min="256" max="4096" step="256" value="1024"
+        oninput="document.getElementById('maxTokensVal').textContent = this.value"
+        style="width:100%;accent-color:#ff6b35;cursor:pointer">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#555;margin-top:4px">
+        <span>256 (kurz)</span><span>1024 (normal)</span><span>4096 (ausführlich)</span>
+      </div>
+    </div>
+
     <div class="form-group" id="webSearchGroup" style="display:none">
       <label>Tools</label>
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;background:#1e1e1e;border:1px solid #2a2a2a;border-radius:8px">
@@ -1090,9 +1131,18 @@ function renderChatShell() {
     <div class="input-bar">
       <button class="btn-mic" id="micBtn" onclick="toggleMic()" title="Mikrofon">🎤</button>
       <div class="input-wrap">
+        <div class="img-preview-bar" id="imgPreviewBar">
+          <img id="imgPreviewThumb" src="" alt="">
+          <span id="imgPreviewName" style="font-size:12px;color:#aaa;flex:1"></span>
+          <button onclick="clearPendingImage()" title="Bild entfernen">✕</button>
+        </div>
         <textarea id="messageInput" placeholder="Nachricht eingeben..." rows="1"
           onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-        <button class="btn-send" id="sendBtn" onclick="sendMessage()">Senden</button>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button class="btn-img" onclick="document.getElementById('imgFileInput').click()" title="Bild anhängen">📎</button>
+          <input type="file" id="imgFileInput" accept="image/*" style="display:none" onchange="handleImageSelect(event)">
+          <button class="btn-send" id="sendBtn" onclick="sendMessage()">Senden</button>
+        </div>
       </div>
     </div>
   `;
@@ -1129,16 +1179,22 @@ function renderMessages(history) {
   container.scrollTop = container.scrollHeight;
 }
 
+function togglePlayByIndex(index) { togglePlay(index, msgRegistry[index] || ''); }
+function downloadAudioByIndex(index) { downloadAudio(index, msgRegistry[index] || ''); }
+
 function buildMessageHTML(msg, index) {
   const isUser = msg.role === 'user';
   const time = msg.ts ? new Date(msg.ts).toLocaleTimeString('de', {hour:'2-digit', minute:'2-digit'}) : '';
+  // Store content in registry for safe onclick access
+  if (!isUser) msgRegistry[index] = msg.content;
 
   if (isUser) {
+    const imgHtml = msg.image ? `<img class="msg-image" src="${msg.image}" onclick="this.style.maxWidth=this.style.maxWidth?'':'100%'">` : '';
     return `
       <div class="msg user">
         <div class="msg-body">
           <div class="msg-meta">${time}</div>
-          <div class="msg-bubble">${escHtml(msg.content)}</div>
+          <div class="msg-bubble">${imgHtml}${escHtml(msg.content)}</div>
         </div>
         <div class="msg-avatar" style="background:#2a4a6a">Du</div>
       </div>
@@ -1150,9 +1206,10 @@ function buildMessageHTML(msg, index) {
       <div class="msg-avatar" style="background:${currentAgent.color}">${currentAgent.name[0].toUpperCase()}</div>
       <div class="msg-body">
         <div class="msg-meta">${currentAgent.name} · ${time}</div>
-        <div class="msg-bubble">${escHtml(msg.content)}</div>
+        <div class="msg-bubble">${renderMarkdown(cleanDisplay(msg.content))}</div>
         <div class="msg-actions">
-          <button class="btn-play" onclick="playText(${index}, \`${escAttr(msg.content)}\`)">▶ Abspielen</button>
+          <button class="btn-play" id="playBtn-${index}" onclick="togglePlayByIndex(${index})">▶ Abspielen</button>
+          <button class="btn-dl" onclick="downloadAudioByIndex(${index})" title="Audio herunterladen">⬇ Download</button>
         </div>
       </div>
     </div>
@@ -1191,26 +1248,69 @@ function removeTyping() {
   document.getElementById('typingIndicator')?.remove();
 }
 
+// ── Image Handling ─────────────────────────────────────────────────────────
+let pendingImage = null;
+
+function handleImageSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    pendingImage = { dataUrl: ev.target.result, name: file.name };
+    document.getElementById('imgPreviewThumb').src = ev.target.result;
+    document.getElementById('imgPreviewName').textContent = file.name;
+    document.getElementById('imgPreviewBar').style.display = 'flex';
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function clearPendingImage() {
+  pendingImage = null;
+  document.getElementById('imgPreviewBar').style.display = 'none';
+  document.getElementById('imgPreviewThumb').src = '';
+  document.getElementById('imgPreviewName').textContent = '';
+}
+
+function renderMarkdown(str) {
+  try {
+    marked.setOptions({ breaks: true, gfm: true });
+    const html = marked.parse(str);
+    // Wrap each <pre> with a container that has a copy button
+    return html.replace(/<pre><code([^>]*)>([\s\S]*?)<\/code><\/pre>/g, (_, attrs, code) => {
+      const raw = code.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"');
+      const escaped = raw.replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$/g,'\\$');
+      return `<div class="code-block"><button class="btn-copy" onclick="copyCode(this, \`${escaped}\`)">📋 Kopieren</button><pre><code${attrs}>${code}</code></pre></div>`;
+    });
+  } catch(e) {
+    return escHtml(str);
+  }
+}
+
 // ── Send Message ───────────────────────────────────────────────────────────
 async function sendMessage() {
   const input = document.getElementById('messageInput');
   const sendBtn = document.getElementById('sendBtn');
   const text = input?.value.trim();
-  if (!text || !currentAgent) return;
+  if (!text && !pendingImage || !currentAgent) return;
 
+  const imgToSend = pendingImage;
   input.value = '';
   autoResize(input);
   sendBtn.disabled = true;
+  clearPendingImage();
 
-  const userMsg = { role: 'user', content: text, ts: new Date().toISOString() };
+  const userMsg = { role: 'user', content: text || '', image: imgToSend?.dataUrl, ts: new Date().toISOString() };
   appendMessage(userMsg);
   showTyping();
 
   try {
+    const body = { agent_id: currentAgent.id, message: text || '' };
+    if (imgToSend) body.image_data = imgToSend.dataUrl;
     const resp = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ agent_id: currentAgent.id, message: text })
+      body: JSON.stringify(body)
     });
     const data = await resp.json();
     removeTyping();
@@ -1224,7 +1324,8 @@ async function sendMessage() {
     appendMessage(botMsg);
 
     if (autoPlay) {
-      await playText(null, data.reply);
+      const msgCount = document.querySelectorAll('.msg').length - 1;
+      await togglePlay(msgCount, data.reply);
     }
   } catch (e) {
     removeTyping();
@@ -1248,29 +1349,171 @@ function autoResize(el) {
 }
 
 // ── TTS ────────────────────────────────────────────────────────────────────
-async function playText(index, text) {
+function cleanDisplay(text) {
+  // Remove system injections from displayed text
+  return text
+    .replace(/\[Current Time:[^\]]*\]/gi, '')
+    .replace(/\[Aktuelle Zeit:[^\]]*\]/gi, '')
+    .replace(/^\s*\n/, '')
+    .trim();
+}
+
+function cleanForTTS(text) {
+  return text
+    .replace(/\[.*?\]/gs, '')          // [alles in eckigen Klammern]
+    .replace(/https?:\/\/\S+/g, '')    // URLs
+    .replace(/\*\*(.*?)\*\*/g, '$1')   // **fett** → fett
+    .replace(/\*(.*?)\*/g, '$1')       // *kursiv* → kursiv
+    .replace(/#{1,6}\s/g, '')          // # Header
+    .replace(/`[^`]*`/g, '')           // `code`
+    .replace(/\s{2,}/g, ' ')           // mehrfache Leerzeichen
+    .trim();
+}
+
+let currentAudio = null;
+let currentPlayingIndex = -1;
+let audioBlobCache = {}; // index → blob URL
+
+function stopCurrentAudio() {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
+  }
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  if (currentPlayingIndex >= 0) {
+    const btn = document.getElementById(`playBtn-${currentPlayingIndex}`);
+    if (btn) { btn.textContent = '▶ Abspielen'; btn.classList.remove('playing'); }
+    currentPlayingIndex = -1;
+  }
+}
+
+async function fetchAudioBlob(text, voice) {
+  const resp = await fetch('/api/tts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, voice })
+  });
+  if (!resp.ok) throw new Error('TTS error');
+  return await resp.blob();
+}
+
+function splitSentences(text) {
+  // Split on sentence endings, keep reasonable chunk size
+  const raw = text.match(/[^.!?…\n]+[.!?…\n]+|[^.!?…\n]+$/g) || [text];
+  // Merge very short chunks (< 20 chars) with next
+  const merged = [];
+  let buf = '';
+  for (const s of raw) {
+    buf += s;
+    if (buf.trim().length >= 20) { merged.push(buf.trim()); buf = ''; }
+  }
+  if (buf.trim()) merged.push(buf.trim());
+  return merged.filter(s => s.length > 0);
+}
+
+async function togglePlay(index, text) {
   if (!currentAgent || !text) return;
+  text = cleanForTTS(text);
+  if (!text) return;
   const voice = currentAgent.voice;
 
-  if (voice.startsWith('mac:')) {
-    playMacVoice(text, voice.replace('mac:', ''));
+  // Stop if already playing this one
+  if (currentPlayingIndex === index) {
+    stopCurrentAudio();
     return;
   }
 
-  try {
-    const resp = await fetch('/api/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice })
-    });
-    if (!resp.ok) return;
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.play();
-  } catch(e) {
-    console.error('TTS error:', e);
+  stopCurrentAudio();
+  currentPlayingIndex = index;
+
+  const btn = document.getElementById(`playBtn-${index}`);
+  if (btn) { btn.textContent = '⏳ Laden…'; btn.classList.add('playing'); }
+
+  if (voice.startsWith('mac:')) {
+    playMacVoice(text, voice.replace('mac:', ''));
+    if (btn) btn.textContent = '⏹ Stop';
+    const dur = text.length * 60;
+    setTimeout(() => { if (currentPlayingIndex === index) stopCurrentAudio(); }, Math.min(dur, 60000));
+    return;
   }
+
+  // Sentence-chunked: play sentence by sentence
+  const sentences = splitSentences(text);
+
+  // Reuse single audio element to preserve autoplay permission
+  const audioEl = new Audio();
+
+  try {
+    for (let i = 0; i < sentences.length; i++) {
+      if (currentPlayingIndex !== index) break;
+
+      let blob;
+      try {
+        blob = await fetchAudioBlob(sentences[i], voice);
+      } catch(e) {
+        console.warn(`TTS Satz ${i} fehlgeschlagen, überspringe:`, e);
+        continue;
+      }
+
+      if (currentPlayingIndex !== index) break;
+
+      const url = URL.createObjectURL(blob);
+      if (i === 0 && !audioBlobCache[index]) audioBlobCache[index] = url;
+
+      audioEl.src = url;
+      currentAudio = audioEl;
+      if (btn) { btn.textContent = '⏹ Stop'; btn.classList.add('playing'); }
+
+      await new Promise(resolve => {
+        audioEl.onended = resolve;
+        audioEl.onerror = resolve;
+        audioEl.play().catch(resolve);
+      });
+
+      // Small pause between sentences
+      if (i < sentences.length - 1 && currentPlayingIndex === index) {
+        await new Promise(r => setTimeout(r, 150));
+      }
+    }
+  } catch(e) {
+    console.error('TTS Fehler:', e);
+  } finally {
+    if (currentPlayingIndex === index) stopCurrentAudio();
+  }
+}
+
+async function downloadAudio(index, text) {
+  if (!currentAgent) return;
+  text = cleanForTTS(text);
+  if (!text) return;
+  const voice = currentAgent.voice;
+  if (voice.startsWith('mac:')) {
+    alert('Mac-Stimmen können nicht heruntergeladen werden.');
+    return;
+  }
+  const btn = document.querySelector(`#playBtn-${index}`)?.parentElement?.querySelector('.btn-dl');
+  if (btn) btn.textContent = '⏳…';
+  try {
+    let blobUrl = audioBlobCache[index];
+    if (!blobUrl) {
+      const blob = await fetchAudioBlob(text, voice);
+      blobUrl = URL.createObjectURL(blob);
+      audioBlobCache[index] = blobUrl;
+    }
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = `agentclaw-${index}.mp3`;
+    a.click();
+  } catch(e) {
+    console.error('Download error:', e);
+  } finally {
+    if (btn) btn.textContent = '⬇ Download';
+  }
+}
+
+async function playText(index, text) {
+  await togglePlay(index ?? -99, text);
 }
 
 function playMacVoice(text, voiceName) {
@@ -1281,6 +1524,7 @@ function playMacVoice(text, voiceName) {
   const found = voices.find(v => v.name === voiceName || v.name.startsWith(voiceName));
   if (found) utt.voice = found;
   utt.rate = 1.0;
+  utt.onend = () => { if (currentPlayingIndex >= 0) stopCurrentAudio(); };
   window.speechSynthesis.speak(utt);
 }
 
@@ -1410,6 +1654,8 @@ function openCreateModal() {
   populateModelSelect('ollama', null);
   document.getElementById('webSearchGroup').style.display = '';
   setWebSearch(false);
+  document.getElementById('agentMaxTokens').value = 1024;
+  document.getElementById('maxTokensVal').textContent = 1024;
   document.getElementById('agentModal').classList.add('open');
 }
 
@@ -1429,6 +1675,9 @@ function openEditModal(agentId) {
   populateModelSelect(provider, agent.model);
   document.getElementById('webSearchGroup').style.display = '';
   setWebSearch(agent.web_search || false);
+  const mt = agent.max_tokens || 1024;
+  document.getElementById('agentMaxTokens').value = mt;
+  document.getElementById('maxTokensVal').textContent = mt;
 
   document.getElementById('agentModal').classList.add('open');
 }
@@ -1465,6 +1714,7 @@ async function saveAgent() {
     model: document.getElementById('agentModel').value,
     provider: document.getElementById('agentProvider').value,
     web_search: getWebSearch(),
+    max_tokens: parseInt(document.getElementById('agentMaxTokens').value),
     color: getSelectedColor()
   };
 
@@ -1521,8 +1771,19 @@ function escHtml(str) {
 }
 
 function escAttr(str) {
-  return str.replace(/`/g, '\\`').replace(/\$/g, '\\$');
+  return str.replace(/`/g, '\\`').replace(/\$/g, '\\$').replace(/\n/g, '\\n').replace(/\r/g, '');
 }
+
+function copyCode(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✅ Kopiert!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 Kopieren'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// Message text registry — avoids embedding raw text in onclick attributes
+const msgRegistry = {};
 
 // Close modal on overlay click
 document.getElementById('agentModal').addEventListener('click', function(e) {

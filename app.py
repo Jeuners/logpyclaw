@@ -156,6 +156,7 @@ def create_agent():
         "model": data.get("model", "StarCoder2:latest"),
         "provider": data.get("provider", "ollama"),
         "web_search": data.get("web_search", False),
+        "max_tokens": int(data.get("max_tokens", 1024)),
         "color": data.get("color", "#444")
     }
     agents = load_agents()
@@ -177,6 +178,7 @@ def update_agent(agent_id):
                 "model": data.get("model", a["model"]),
                 "provider": data.get("provider", a.get("provider", "ollama")),
                 "web_search": data.get("web_search", a.get("web_search", False)),
+                "max_tokens": int(data.get("max_tokens", a.get("max_tokens", 1024))),
                 "color": data.get("color", a["color"])
             })
             save_agents(agents)
@@ -219,9 +221,12 @@ def chat():
     data = request.json
     agent_id = data.get("agent_id")
     user_message = data.get("message", "").strip()
+    image_data = data.get("image_data")  # base64 data URL from frontend
 
-    if not user_message:
+    if not user_message and not image_data:
         return jsonify({"error": "Keine Nachricht"}), 400
+    if not user_message:
+        user_message = "Was siehst du auf diesem Bild?"
 
     # Load agent
     agents = load_agents()
@@ -239,10 +244,13 @@ def chat():
 
     # Web search via SearXNG (local) if enabled and query seems to need it
     SEARCH_TRIGGERS = [
-        "news", "aktuell", "heute", "gerade", "neueste", "letzte",
-        "suche", "such", "finde", "schau nach", "recherchier",
-        "was ist", "wer ist", "wo ist", "wie viel", "wann",
-        "preis", "wetter", "kurs", "aktie", "sport", "ergebnis"
+        "news", "aktuell", "heute", "gerade", "neueste", "neuem", "neues", "neu ",
+        "letzte", "letzten", "gibt es", "was gibt",
+        "suche", "such", "finde", "schau nach", "recherchier", "schau mal",
+        "was ist", "wer ist", "wo ist", "wie viel", "wann", "warum",
+        "preis", "wetter", "kurs", "aktie", "sport", "ergebnis",
+        "twitter", " x.com", "instagram", "reddit", "youtube",
+        "wie geht", "was passiert", "was läuft"
     ]
     needs_search = any(t in user_message.lower() for t in SEARCH_TRIGGERS)
 
@@ -257,9 +265,14 @@ def chat():
             )
             results = sx_resp.json().get("results", [])[:5]
             if results:
-                lines = ["[Websuche-Ergebnisse für: " + user_message + "]"]
+                lines = [
+                    "⚠️ WICHTIG: Du hast Zugriff auf aktuelle Websuche-Ergebnisse (gerade eben abgerufen).",
+                    "Nutze AUSSCHLIESSLICH diese Ergebnisse um die Frage zu beantworten. Sage NICHT, dass du keine aktuellen Infos hast.",
+                    f"[Websuche für: {user_message}]"
+                ]
                 for r in results:
-                    lines.append(f"- {r.get('title','')} — {r.get('url','')}\n  {r.get('content','')[:200]}")
+                    lines.append(f"- {r.get('title','')} — {r.get('url','')}\n  {r.get('content','')[:300]}")
+                lines.append("Beantworte die Frage basierend auf diesen Suchergebnissen und nenne die Quellen.")
                 search_context = "\n".join(lines)
         except Exception as e:
             print(f"[SearXNG] Fehler: {e}", flush=True)
@@ -281,7 +294,15 @@ def chat():
     messages = [{"role": "system", "content": system_content}]
     for msg in agent_history[-20:]:
         messages.append({"role": msg["role"], "content": msg["content"]})
-    messages.append({"role": "user", "content": user_message})
+
+    # Build last user message — with image if provided
+    if image_data:
+        # Strip data URL prefix to get raw base64
+        raw_b64 = image_data.split(",")[1] if "," in image_data else image_data
+        last_user_msg = {"role": "user", "content": user_message, "images": [raw_b64]}
+    else:
+        last_user_msg = {"role": "user", "content": user_message}
+    messages.append(last_user_msg)
 
     provider = agent.get("provider", "ollama")
     providers = load_providers()
@@ -297,7 +318,17 @@ def chat():
                 "HTTP-Referer": "http://localhost:5050",
                 "X-Title": "AgentClaw"
             }
-            payload = {"model": agent["model"], "messages": messages, "stream": False}
+            # OpenRouter uses content array for images
+            or_messages = []
+            for m in messages:
+                if m["role"] == "user" and image_data and m is messages[-1]:
+                    or_messages.append({"role": "user", "content": [
+                        {"type": "text", "text": m["content"]},
+                        {"type": "image_url", "image_url": {"url": image_data}}
+                    ]})
+                else:
+                    or_messages.append(m)
+            payload = {"model": agent["model"], "messages": or_messages, "stream": False, "max_tokens": agent.get("max_tokens", 1024)}
             if agent.get("web_search"):
                 payload["plugins"] = [{"id": "web", "max_results": 5}]
             print(f"[OpenRouter] key={or_key[:12]}… model={agent['model']} web={agent.get('web_search',False)}", flush=True)
@@ -356,7 +387,7 @@ def chat():
             ollama_url = providers.get("ollama", {}).get("url", "http://localhost:11434")
             resp = requests.post(
                 f"{ollama_url}/api/chat",
-                json={"model": agent["model"], "messages": messages, "stream": False},
+                json={"model": agent["model"], "messages": messages, "stream": False, "options": {"num_predict": agent.get("max_tokens", 1024)}},
                 timeout=60
             )
             if resp.status_code == 400:
