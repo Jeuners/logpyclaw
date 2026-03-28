@@ -395,6 +395,8 @@
       margin-top: 2px;
     }
 
+    .msg-stats { font-size: 10px; color: #444; margin-top: 4px; font-family: 'SF Mono', monospace; letter-spacing: 0.02em; }
+    .msg-stats span { margin-right: 10px; }
     .btn-play, .btn-dl {
       background: none;
       border: none;
@@ -469,6 +471,38 @@
 
     .btn-mic:hover { background: #252525; color: #aaa; }
     .btn-mic.recording { background: #ef4444; color: #fff; animation: pulse 1s infinite; }
+    .btn-mic.auto-active { box-shadow: 0 0 0 2px rgba(139,92,246,0.5); }
+
+    .mic-cluster {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+
+    .btn-auto-dialog {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      padding: 2px 9px;
+      border-radius: 10px;
+      border: 1px solid #2a2a2a;
+      background: #1a1a1a;
+      color: #3a3a3a;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      text-transform: uppercase;
+    }
+
+    .btn-auto-dialog:hover { border-color: #444; color: #666; }
+
+    .btn-auto-dialog.on {
+      background: rgba(139,92,246,0.15);
+      border-color: #8b5cf6;
+      color: #a78bfa;
+    }
 
     @keyframes pulse {
       0%, 100% { transform: scale(1); }
@@ -797,6 +831,32 @@
 
 <!-- Sidebar -->
 <div class="sidebar">
+  <!-- Home Dashboard -->
+  <div id="homeDashboard" style="padding:12px 12px 8px;border-bottom:1px solid #1a1a1a;cursor:pointer" onclick="toggleDashboard()" title="Dashboard">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e;flex-shrink:0" id="dashStatusDot"></div>
+      <span style="font-size:11px;font-weight:700;color:#444;text-transform:uppercase;letter-spacing:1px;flex:1">AgentClaw</span>
+      <span style="font-size:10px;color:#333" id="dashChevron">▾</span>
+    </div>
+    <div id="dashContent" style="display:flex;flex-direction:column;gap:4px">
+      <div style="display:flex;justify-content:space-between;font-size:11px">
+        <span style="color:#555">Agenten</span>
+        <span style="color:#888" id="dashAgentCount">–</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px">
+        <span style="color:#555">Watchdogs aktiv</span>
+        <span style="color:#888" id="dashWatchdogCount">–</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px">
+        <span style="color:#555">Ollama</span>
+        <span id="dashOllamaStatus" style="color:#555">–</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px">
+        <span style="color:#555">Treffer heute</span>
+        <span style="color:#888" id="dashHitsToday">–</span>
+      </div>
+    </div>
+  </div>
   <div class="sidebar-header">Agenten</div>
   <div class="agent-list" id="agentList"></div>
   <div class="sidebar-footer">
@@ -804,6 +864,8 @@
       <button class="btn-new-agent" onclick="openCreateModal()">
         <span>+</span> Neuer Agent
       </button>
+      <button class="btn-settings" onclick="openWatchdogModal()" title="Watchdogs">⏰</button>
+      <button class="btn-settings" onclick="openSkillsModal()" title="Skills & Tools">🧩</button>
       <button class="btn-settings" onclick="openProviderModal()" title="Anbieter / Provider">⚙</button>
     </div>
   </div>
@@ -859,12 +921,9 @@
       </div>
     </div>
 
-    <div class="form-group" id="webSearchGroup" style="display:none">
-      <label>Tools</label>
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;background:#1e1e1e;border:1px solid #2a2a2a;border-radius:8px">
-        <div class="toggle-switch" id="webSearchToggle" onclick="toggleWebSearch()"></div>
-        <span style="font-size:13px;color:#ccc">🌐 Web-Suche (OpenRouter Plugin)</span>
-      </label>
+    <div class="form-group" id="skillsGroup">
+      <label>Skills</label>
+      <div id="skillsToggles"></div>
     </div>
 
     <div class="form-group">
@@ -976,6 +1035,78 @@
   </div>
 </div>
 
+<!-- Modal: Watchdogs -->
+<div class="modal-overlay" id="watchdogModal">
+  <div class="modal" style="width:600px;max-height:90vh">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <h2 style="margin:0;flex:1">⏰ Watchdogs</h2>
+      <button class="btn btn-primary" onclick="openWatchdogForm()">+ Neu</button>
+    </div>
+    <div id="watchdogList"></div>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeWatchdogModal()">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Watchdog erstellen/bearbeiten -->
+<div class="modal-overlay" id="watchdogFormModal">
+  <div class="modal" style="width:520px">
+    <h2 id="watchdogFormTitle">Neuer Watchdog</h2>
+
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" id="wdName" placeholder="z.B. Mac Mini Warehouse">
+    </div>
+    <div class="form-group">
+      <label>URL</label>
+      <input type="text" id="wdUrl" placeholder="https://www.amazon.de/s?i=warehouse-deals&k=mac+mini">
+    </div>
+    <div class="form-group">
+      <label>Agent (analysiert die Seite)</label>
+      <select id="wdAgent"></select>
+    </div>
+    <div class="form-group">
+      <label>Prompt (was soll der Agent prüfen?)</label>
+      <textarea id="wdPrompt" style="min-height:80px" placeholder="Siehst du gebrauchte Mac Minis unter 500€? Antworte NUR: JA [Preis] oder NEIN"></textarea>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group">
+        <label>Alert wenn Antwort enthält</label>
+        <input type="text" id="wdKeyword" placeholder="JA">
+      </div>
+      <div class="form-group">
+        <label>Intervall (Minuten)</label>
+        <select id="wdInterval">
+          <option value="15">15 min</option>
+          <option value="30" selected>30 min</option>
+          <option value="60">60 min</option>
+          <option value="120">2 Stunden</option>
+          <option value="360">6 Stunden</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="wdDeleteBtn" onclick="deleteWatchdog()" style="display:none;margin-right:auto">🗑 Löschen</button>
+      <button class="btn btn-ghost" onclick="closeWatchdogForm()">Abbrechen</button>
+      <button class="btn btn-primary" onclick="saveWatchdog()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Skills & Tools -->
+<div class="modal-overlay" id="skillsModal">
+  <div class="modal" style="width:540px">
+    <h2>Skills & Tools</h2>
+    <p style="font-size:13px;color:#555;margin-bottom:20px;margin-top:-16px">Verfügbare Fähigkeiten für deine Agenten. Einzelne Skills pro Agent im Agent-Einstellungen aktivieren.</p>
+    <div id="skillsModalList"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeSkillsModal()">Schließen</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
 let agents = [];
@@ -987,23 +1118,144 @@ let recognition = null;
 let mistralVoices = [];
 let macVoices = [];
 let allModels = { ollama: [], openrouter: [] };
+let allSkills = [];
+let ringAbort = false;
+let autoDialog = false;
+
+// ── Phone Ring ──────────────────────────────────────────────────────────────
+function playRingTone(ctx, startTime) {
+  // Europäischer Klingelton: 400Hz + 450Hz, 1s an / 4s aus
+  const freqs = [400, 450];
+  freqs.forEach(freq => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = freq;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(0.15, startTime + 0.02);
+    gain.gain.setValueAtTime(0.15, startTime + 0.98);
+    gain.gain.linearRampToValueAtTime(0, startTime + 1.0);
+    osc.start(startTime);
+    osc.stop(startTime + 1.0);
+  });
+}
+
+async function phoneRingAndGreet(agent) {
+  ringAbort = false;
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const ringInterval = 4.0; // 1s klingeln, 3s pause
+  const rings = 3;
+
+  // 3x klingeln
+  for (let i = 0; i < rings; i++) {
+    if (ringAbort) { ctx.close(); return; }
+    playRingTone(ctx, ctx.currentTime);
+    await new Promise(r => setTimeout(r, ringInterval * 1000));
+    if (ringAbort) { ctx.close(); return; }
+  }
+  ctx.close();
+
+  if (ringAbort) return;
+
+  // Zufällige Ansage — ohne Namen, mal mit KI-Hinweis, mal ohne
+  const greetings = [
+    "Ja bitte?",
+    "Ja?",
+    "Bitte?",
+    "Ja, ich höre?",
+    "KI Assistent, ja bitte?",
+    "Ja, was kann ich tun?",
+    "Hallo, ja bitte?",
+  ];
+  const text = greetings[Math.floor(Math.random() * greetings.length)];
+  try {
+    const resp = await fetch('/api/tts', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ text, voice: agent.voice })
+    });
+    if (!resp.ok || ringAbort) return;
+    const blob = await resp.blob();
+    if (ringAbort) return;
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.play().catch(() => {});
+  } catch(e) {}
+}
 
 // ── Init ───────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
-  await loadVoices();
+  await Promise.all([loadVoices(), loadAllModels(), loadSkills()]);
   await loadAgents();
-  await loadAllModels();
   loadMacVoices();
   const ls = document.getElementById('loadingScreen');
   ls.classList.add('hide');
   setTimeout(() => ls.remove(), 450);
 });
 
+async function loadSkills() {
+  try {
+    const resp = await fetch('/api/skills');
+    allSkills = await resp.json();
+  } catch(e) { allSkills = []; }
+}
+
 async function loadAgents() {
   const resp = await fetch('/api/agents');
   agents = await resp.json();
   renderSidebar();
+  updateDashboard();
   if (agents.length > 0) selectAgent(agents[0].id);
+}
+
+// ── Dashboard ───────────────────────────────────────────────────────────────
+let dashCollapsed = false;
+
+function toggleDashboard() {
+  dashCollapsed = !dashCollapsed;
+  document.getElementById('dashContent').style.display = dashCollapsed ? 'none' : 'flex';
+  document.getElementById('dashChevron').textContent = dashCollapsed ? '▸' : '▾';
+}
+
+async function updateDashboard() {
+  // Agenten
+  document.getElementById('dashAgentCount').textContent = agents.length;
+
+  // Watchdogs
+  try {
+    const wds = await fetch('/api/watchdogs').then(r => r.json());
+    const active = wds.filter(w => w.active).length;
+    document.getElementById('dashWatchdogCount').textContent =
+      active > 0 ? `${active} / ${wds.length}` : wds.length;
+
+    // Treffer heute
+    const today = new Date().toDateString();
+    const hits = wds.reduce((n, w) => n + (w.history || []).filter(h =>
+      h.hit && new Date(h.ts).toDateString() === today).length, 0);
+    const hitsEl = document.getElementById('dashHitsToday');
+    hitsEl.textContent = hits;
+    hitsEl.style.color = hits > 0 ? '#22c55e' : '#555';
+  } catch(e) {}
+
+  // Ollama Status
+  try {
+    const st = await fetch('/api/providers/status').then(r => r.json());
+    const ollamaEl = document.getElementById('dashOllamaStatus');
+    const dot = document.getElementById('dashStatusDot');
+    if (st.ollama?.ok) {
+      ollamaEl.textContent = st.ollama.info;
+      ollamaEl.style.color = '#22c55e';
+      dot.style.background = '#22c55e';
+      dot.style.boxShadow = '0 0 6px #22c55e';
+    } else {
+      ollamaEl.textContent = 'Offline';
+      ollamaEl.style.color = '#ef4444';
+      dot.style.background = '#ef4444';
+      dot.style.boxShadow = '0 0 6px #ef4444';
+    }
+  } catch(e) {}
 }
 
 async function loadVoices() {
@@ -1029,20 +1281,120 @@ async function loadAllModels() {
 function onProviderChange() {
   const provider = document.getElementById('agentProvider').value;
   populateModelSelect(provider, null);
-  document.getElementById('webSearchGroup').style.display = '';
 }
 
-function toggleWebSearch() {
-  const t = document.getElementById('webSearchToggle');
-  t.classList.toggle('on');
+// ── Skills ─────────────────────────────────────────────────────────────────
+function renderSkillsToggles(agentSkills) {
+  const container = document.getElementById('skillsToggles');
+  if (!container) return;
+  if (allSkills.length === 0) {
+    container.innerHTML = '<div style="font-size:12px;color:#555;padding:8px 0">Skills werden geladen…</div>';
+    return;
+  }
+  container.innerHTML = allSkills.map(skill => {
+    const active = agentSkills.includes(skill.id);
+    const unavail = !skill.available;
+    return `
+      <label style="display:flex;align-items:center;gap:10px;cursor:${unavail ? 'default' : 'pointer'};padding:10px 12px;background:#1e1e1e;border:1px solid #2a2a2a;border-radius:8px;margin-bottom:6px;${unavail ? 'opacity:0.5' : ''}">
+        <div class="toggle-switch ${active && !unavail ? 'on' : ''}" id="skillToggle-${skill.id}"
+             ${unavail ? '' : `onclick="toggleSkill('${skill.id}')"`}></div>
+        <div style="flex:1">
+          <div style="font-size:13px;color:#ccc">${skill.icon} ${skill.name}</div>
+          <div style="font-size:11px;color:#555;margin-top:2px">${skill.description}</div>
+          ${unavail && skill.install_hint ? `<div style="font-size:10px;color:#ef4444;margin-top:3px;font-family:'SF Mono',monospace">${skill.install_hint}</div>` : ''}
+        </div>
+        <span class="status-pill ${unavail ? 'err' : 'ok'}" style="font-size:10px;flex-shrink:0">${unavail ? 'Nicht verfügbar' : 'Verfügbar'}</span>
+      </label>
+    `;
+  }).join('');
 }
 
-function getWebSearch() {
-  return document.getElementById('webSearchToggle').classList.contains('on');
+function toggleSkill(skillId) {
+  document.getElementById(`skillToggle-${skillId}`)?.classList.toggle('on');
 }
 
-function setWebSearch(val) {
-  document.getElementById('webSearchToggle').classList.toggle('on', !!val);
+function getActiveSkills() {
+  return allSkills
+    .filter(s => document.getElementById(`skillToggle-${s.id}`)?.classList.contains('on'))
+    .map(s => s.id);
+}
+
+// ── Skills Modal ────────────────────────────────────────────────────────────
+async function openSkillsModal() {
+  document.getElementById('skillsModal').classList.add('open');
+  await loadSkills();
+  renderSkillsModalContent();
+}
+
+function closeSkillsModal() {
+  document.getElementById('skillsModal').classList.remove('open');
+}
+
+function renderSkillsModalContent() {
+  const container = document.getElementById('skillsModalList');
+  container.innerHTML = allSkills.map(skill => {
+    const enabledAgents = agents.filter(a => (a.skills || []).includes(skill.id));
+    return `
+      <div class="provider-section">
+        <div class="provider-header">
+          <span class="provider-icon">${skill.icon}</span>
+          <div style="flex:1">
+            <div class="provider-title">${skill.name}</div>
+            <div class="provider-subtitle">${skill.description}</div>
+          </div>
+          <span class="status-pill ${skill.available ? 'ok' : 'err'}">${skill.available ? 'Verfügbar' : 'Nicht verfügbar'}</span>
+        </div>
+        ${!skill.available && skill.install_hint ? `
+          <div style="font-size:11px;color:#666;margin-bottom:10px">
+            Installieren: <code style="background:#1a1a1a;color:#ff6b35;padding:2px 8px;border-radius:4px;font-size:10px">${skill.install_hint}</code>
+          </div>` : ''}
+        <div style="font-size:11px;color:#555">
+          ${enabledAgents.length > 0
+            ? 'Aktiv bei: ' + enabledAgents.map(a => `<span style="color:${a.color};font-weight:600">${a.name}</span>`).join(', ')
+            : 'Kein Agent hat diesen Skill aktiviert'}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Screenshot ──────────────────────────────────────────────────────────────
+async function takeScreenshot() {
+  const input = document.getElementById('messageInput');
+  let url = input?.value.trim();
+  const urlMatch = url?.match(/https?:\/\/[^\s]+/);
+  url = urlMatch ? urlMatch[0] : url;
+  if (!url || !url.startsWith('http')) {
+    url = prompt('Website URL eingeben:', 'https://');
+  }
+  if (!url) return;
+
+  const btn = document.getElementById('screenshotBtn');
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+
+  try {
+    const resp = await fetch('/api/screenshot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    const data = await resp.json();
+    if (data.error) { alert('Screenshot Fehler: ' + data.error); return; }
+
+    pendingImage = { dataUrl: data.image, name: new URL(data.url).hostname };
+    document.getElementById('imgPreviewThumb').src = data.image;
+    document.getElementById('imgPreviewName').textContent = new URL(data.url).hostname;
+    document.getElementById('imgPreviewBar').style.display = 'flex';
+
+    if (input && !input.value.trim()) {
+      input.value = 'Was siehst du auf diesem Screenshot?';
+      autoResize(input);
+    }
+  } catch(e) {
+    alert('Screenshot Fehler: ' + e.message);
+  } finally {
+    if (btn) { btn.textContent = '📸'; btn.disabled = false; }
+  }
 }
 
 function populateModelSelect(provider, selectedModel) {
@@ -1101,12 +1453,25 @@ function renderSidebar() {
 }
 
 async function selectAgent(agentId) {
+  ringAbort = true; // laufendes Klingeln abbrechen falls Agent gewechselt
+  await new Promise(r => setTimeout(r, 50));
+  ringAbort = false;
+
   currentAgent = agents.find(a => a.id === agentId);
   renderSidebar();
   renderChatShell();
   const history = await loadHistory(agentId);
   renderMessages(history);
+
+  // Beim ersten Klick klingeln + Ansage (nicht beim Seitenstart)
+  if (window._agentclaw_booted) {
+    phoneRingAndGreet(currentAgent);
+  }
 }
+
+// Seitenstart-Flag — kein Klingeln beim initialen Laden
+window._agentclaw_booted = false;
+setTimeout(() => { window._agentclaw_booted = true; }, 1500);
 
 // ── Chat Shell ─────────────────────────────────────────────────────────────
 function renderChatShell() {
@@ -1119,7 +1484,7 @@ function renderChatShell() {
         <span>${getVoiceName(a.voice)} · ${a.model}</span>
       </div>
       <div class="header-actions">
-        <label class="autoplay-toggle" title="Auto-Play">
+        <label class="autoplay-toggle" title="Auto-Play TTS">
           🔊
           <div class="toggle-switch ${autoPlay ? 'on' : ''}" id="autoplayToggle" onclick="toggleAutoPlay()"></div>
         </label>
@@ -1129,7 +1494,10 @@ function renderChatShell() {
     </div>
     <div class="messages" id="messages"></div>
     <div class="input-bar">
-      <button class="btn-mic" id="micBtn" onclick="toggleMic()" title="Mikrofon">🎤</button>
+      <div class="mic-cluster">
+        <button class="btn-mic ${autoDialog ? 'auto-active' : ''}" id="micBtn" onclick="toggleMic()" title="Mikrofon">🎤</button>
+        <button class="btn-auto-dialog ${autoDialog ? 'on' : ''}" id="autoDialogBtn" onclick="toggleAutoDialog()" title="Auto-Dialog: Mikro startet automatisch nach Antwort">Auto</button>
+      </div>
       <div class="input-wrap">
         <div class="img-preview-bar" id="imgPreviewBar">
           <img id="imgPreviewThumb" src="" alt="">
@@ -1139,6 +1507,7 @@ function renderChatShell() {
         <textarea id="messageInput" placeholder="Nachricht eingeben..." rows="1"
           onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
         <div style="display:flex;gap:4px;align-items:center">
+          ${(currentAgent.skills || []).includes('screenshot') ? `<button class="btn-img" onclick="takeScreenshot()" title="Screenshot machen" id="screenshotBtn">📸</button>` : ''}
           <button class="btn-img" onclick="document.getElementById('imgFileInput').click()" title="Bild anhängen">📎</button>
           <input type="file" id="imgFileInput" accept="image/*" style="display:none" onchange="handleImageSelect(event)">
           <button class="btn-send" id="sendBtn" onclick="sendMessage()">Senden</button>
@@ -1207,6 +1576,7 @@ function buildMessageHTML(msg, index) {
       <div class="msg-body">
         <div class="msg-meta">${currentAgent.name} · ${time}</div>
         <div class="msg-bubble">${renderMarkdown(cleanDisplay(msg.content))}</div>
+        ${msg.stats ? `<div class="msg-stats"><span>⚡ ${msg.stats.tok_s} tok/s</span><span>🔢 ${msg.stats.tokens} tokens</span><span>⏱ ${msg.stats.total_s}s</span></div>` : ''}
         <div class="msg-actions">
           <button class="btn-play" id="playBtn-${index}" onclick="togglePlayByIndex(${index})">▶ Abspielen</button>
           <button class="btn-dl" onclick="downloadAudioByIndex(${index})" title="Audio herunterladen">⬇ Download</button>
@@ -1276,11 +1646,12 @@ function renderMarkdown(str) {
   try {
     marked.setOptions({ breaks: true, gfm: true });
     const html = marked.parse(str);
-    // Wrap each <pre> with a container that has a copy button
+    // Wrap each <pre> with a container that has a copy button — use registry instead of inline text
     return html.replace(/<pre><code([^>]*)>([\s\S]*?)<\/code><\/pre>/g, (_, attrs, code) => {
       const raw = code.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"');
-      const escaped = raw.replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$/g,'\\$');
-      return `<div class="code-block"><button class="btn-copy" onclick="copyCode(this, \`${escaped}\`)">📋 Kopieren</button><pre><code${attrs}>${code}</code></pre></div>`;
+      const id = 'c' + (codeRegistryIdx++);
+      codeRegistry[id] = raw;
+      return `<div class="code-block"><button class="btn-copy" onclick="copyCode(this,'${id}')">📋 Kopieren</button><pre><code${attrs}>${code}</code></pre></div>`;
     });
   } catch(e) {
     return escHtml(str);
@@ -1320,12 +1691,17 @@ async function sendMessage() {
       return;
     }
 
-    const botMsg = { role: 'assistant', content: data.reply, ts: new Date().toISOString() };
+    const botMsg = { role: 'assistant', content: data.reply, ts: new Date().toISOString(), stats: data.stats };
     appendMessage(botMsg);
 
     if (autoPlay) {
       const msgCount = document.querySelectorAll('.msg').length - 1;
       await togglePlay(msgCount, data.reply);
+    }
+
+    // Auto-Dialog: nach TTS automatisch Mikro starten
+    if (autoDialog) {
+      setTimeout(() => { if (autoDialog && !isRecording) startMic(); }, 400);
     }
   } catch (e) {
     removeTyping();
@@ -1399,14 +1775,14 @@ async function fetchAudioBlob(text, voice) {
 }
 
 function splitSentences(text) {
-  // Split on sentence endings, keep reasonable chunk size
+  // Split on sentence endings
   const raw = text.match(/[^.!?…\n]+[.!?…\n]+|[^.!?…\n]+$/g) || [text];
-  // Merge very short chunks (< 20 chars) with next
+  // Merge sentences until chunk reaches ~180 chars (sinnvolle Sprecheinheit)
   const merged = [];
   let buf = '';
   for (const s of raw) {
-    buf += s;
-    if (buf.trim().length >= 20) { merged.push(buf.trim()); buf = ''; }
+    buf += (buf ? ' ' : '') + s.trim();
+    if (buf.length >= 180) { merged.push(buf); buf = ''; }
   }
   if (buf.trim()) merged.push(buf.trim());
   return merged.filter(s => s.length > 0);
@@ -1568,9 +1944,13 @@ function startMic() {
   recognition.onend = () => {
     isRecording = false;
     document.getElementById('micBtn')?.classList.remove('recording');
-    // auto-send if we got something
     const input = document.getElementById('messageInput');
-    if (input?.value.trim()) sendMessage();
+    if (input?.value.trim()) {
+      sendMessage();
+    } else if (autoDialog) {
+      // Nichts erkannt — kurz warten, dann wieder lauschen
+      setTimeout(() => { if (autoDialog && !isRecording) startMic(); }, 800);
+    }
   };
 
   recognition.onerror = (e) => {
@@ -1592,6 +1972,26 @@ function toggleAutoPlay() {
   document.getElementById('autoplayToggle')?.classList.toggle('on', autoPlay);
 }
 
+// ── Auto-Dialog (Freisprechen) ─────────────────────────────────────────────
+function toggleAutoDialog() {
+  autoDialog = !autoDialog;
+  document.getElementById('autoDialogBtn')?.classList.toggle('on', autoDialog);
+  document.getElementById('micBtn')?.classList.toggle('auto-active', autoDialog);
+  if (autoDialog) {
+    // Auto-Play muss aktiv sein
+    if (!autoPlay) {
+      autoPlay = true;
+      document.getElementById('autoplayToggle')?.classList.add('on');
+    }
+    // Direkt Mikro starten wenn kein Audio läuft
+    if (!currentAudio) {
+      setTimeout(() => { if (autoDialog && !isRecording) startMic(); }, 400);
+    }
+  } else {
+    stopMic();
+  }
+}
+
 // ── Clear Chat ─────────────────────────────────────────────────────────────
 async function clearChat() {
   if (!currentAgent) return;
@@ -1604,37 +2004,60 @@ async function clearChat() {
 function buildVoiceOptions(selectedVoice) {
   const mistralGroups = {};
   mistralVoices.forEach(v => {
-    const lang = v.lang || 'other';
-    if (!mistralGroups[lang]) mistralGroups[lang] = [];
-    mistralGroups[lang].push(v);
+    const label = v.lang_label || v.lang || 'Other';
+    if (!mistralGroups[label]) mistralGroups[label] = [];
+    mistralGroups[label].push(v);
   });
 
   let html = '';
-  Object.entries(mistralGroups).forEach(([lang, voices]) => {
-    html += `<optgroup label="Voxtral – ${lang}">`;
+  const langOrder = ['EN-US', 'EN-GB', 'DE', 'FR', 'ES', 'IT'];
+  const sortedGroups = Object.entries(mistralGroups).sort(([a], [b]) => {
+    const ai = langOrder.indexOf(a), bi = langOrder.indexOf(b);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+  sortedGroups.forEach(([label, voices]) => {
+    html += `<optgroup label="🎙 Voxtral ${label}">`;
     voices.forEach(v => {
-      html += `<option value="${v.slug}" ${v.slug === selectedVoice ? 'selected' : ''}>${v.name}</option>`;
+      const tags = v.tags && v.tags.length ? ` · ${v.tags.filter(t => !['casual','animated'].includes(t)).join(', ')}` : '';
+      html += `<option value="${v.slug}" ${v.slug === selectedVoice ? 'selected' : ''}>${v.name}${tags}</option>`;
     });
     html += '</optgroup>';
   });
 
-  if (macVoices.length > 0) {
-    html += '<optgroup label="🍎 Mac System Voices">';
-    macVoices.forEach(v => {
+  // Mac voices: Eigene Stimmen zuerst, dann DE, EN-GB, EN-US
+  const deVoices       = macVoices.filter(v => v.lang && v.lang.startsWith('de'));
+  const enGbVoices     = macVoices.filter(v => v.lang && (v.lang.startsWith('en-GB') || v.lang.startsWith('en-IE') || v.lang.startsWith('en-AU') || v.lang.startsWith('en-ZA')));
+  const enUsVoices     = macVoices.filter(v => v.lang && v.lang.startsWith('en-US'));
+  const personalVoices = macVoices.filter(v => !deVoices.includes(v) && !enGbVoices.includes(v) && !enUsVoices.includes(v));
+
+  if (personalVoices.length > 0) {
+    html += '<optgroup label="🎤 Eigene Stimmen">';
+    personalVoices.forEach(v => {
       const slug = 'mac:' + v.name;
-      html += `<option value="${slug}" ${slug === selectedVoice ? 'selected' : ''}>${v.name} (${v.lang})</option>`;
+      html += `<option value="${slug}" ${slug === selectedVoice ? 'selected' : ''}>${v.name}</option>`;
     });
     html += '</optgroup>';
-  } else {
-    // fallback mac voices
-    ['Flo', 'Samantha', 'Alex', 'Daniel', 'Moira'].forEach(name => {
-      const slug = 'mac:' + name;
-      html += `<optgroup label="🍎 Mac System Voices">`.includes('optgroup') ? '' : '<optgroup label="🍎 Mac System Voices">';
-    });
-    html += '<optgroup label="🍎 Mac System Voices">';
-    ['Flo', 'Samantha', 'Alex', 'Daniel', 'Moira'].forEach(name => {
-      const slug = 'mac:' + name;
-      html += `<option value="${slug}" ${slug === selectedVoice ? 'selected' : ''}>${name} (Mac)</option>`;
+  }
+
+  html += '<optgroup label="🍎 Mac (DE)">';
+  (deVoices.length > 0 ? deVoices.map(v => v.name) : ['Anna']).forEach(name => {
+    const slug = 'mac:' + name;
+    html += `<option value="${slug}" ${slug === selectedVoice ? 'selected' : ''}>${name}</option>`;
+  });
+  html += '</optgroup>';
+
+  html += '<optgroup label="🍎 Mac (EN-GB)">';
+  (enGbVoices.length > 0 ? enGbVoices.map(v => v.name) : ['Daniel', 'Flo', 'Moira']).forEach(name => {
+    const slug = 'mac:' + name;
+    html += `<option value="${slug}" ${slug === selectedVoice ? 'selected' : ''}>${name}</option>`;
+  });
+  html += '</optgroup>';
+
+  if (enUsVoices.length > 0) {
+    html += '<optgroup label="🍎 Mac (EN-US)">';
+    enUsVoices.forEach(v => {
+      const slug = 'mac:' + v.name;
+      html += `<option value="${slug}" ${slug === selectedVoice ? 'selected' : ''}>${v.name}</option>`;
     });
     html += '</optgroup>';
   }
@@ -1652,8 +2075,7 @@ function openCreateModal() {
   selectColorByValue('#ff6b35');
   document.getElementById('agentProvider').value = 'ollama';
   populateModelSelect('ollama', null);
-  document.getElementById('webSearchGroup').style.display = '';
-  setWebSearch(false);
+  renderSkillsToggles([]);
   document.getElementById('agentMaxTokens').value = 1024;
   document.getElementById('maxTokensVal').textContent = 1024;
   document.getElementById('agentModal').classList.add('open');
@@ -1673,8 +2095,9 @@ function openEditModal(agentId) {
   const provider = agent.provider || 'ollama';
   document.getElementById('agentProvider').value = provider;
   populateModelSelect(provider, agent.model);
-  document.getElementById('webSearchGroup').style.display = '';
-  setWebSearch(agent.web_search || false);
+  // backwards compat: migrate web_search flag to skills
+  const agentSkills = agent.skills || (agent.web_search ? ['web_search'] : []);
+  renderSkillsToggles(agentSkills);
   const mt = agent.max_tokens || 1024;
   document.getElementById('agentMaxTokens').value = mt;
   document.getElementById('maxTokensVal').textContent = mt;
@@ -1713,7 +2136,7 @@ async function saveAgent() {
     voice: document.getElementById('agentVoice').value,
     model: document.getElementById('agentModel').value,
     provider: document.getElementById('agentProvider').value,
-    web_search: getWebSearch(),
+    skills: getActiveSkills(),
     max_tokens: parseInt(document.getElementById('agentMaxTokens').value),
     color: getSelectedColor()
   };
@@ -1774,11 +2197,25 @@ function escAttr(str) {
   return str.replace(/`/g, '\\`').replace(/\$/g, '\\$').replace(/\n/g, '\\n').replace(/\r/g, '');
 }
 
-function copyCode(btn, text) {
+const codeRegistry = {};
+let codeRegistryIdx = 0;
+
+function copyCode(btn, id) {
+  const text = codeRegistry[id] || '';
   navigator.clipboard.writeText(text).then(() => {
     btn.textContent = '✅ Kopiert!';
     btn.classList.add('copied');
     setTimeout(() => { btn.textContent = '📋 Kopieren'; btn.classList.remove('copied'); }, 2000);
+  }).catch(() => {
+    // Fallback for non-https
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = '✅ Kopiert!';
+    setTimeout(() => { btn.textContent = '📋 Kopieren'; }, 2000);
   });
 }
 
@@ -1791,6 +2228,15 @@ document.getElementById('agentModal').addEventListener('click', function(e) {
 });
 document.getElementById('providerModal').addEventListener('click', function(e) {
   if (e.target === this) closeProviderModal();
+});
+document.getElementById('skillsModal').addEventListener('click', function(e) {
+  if (e.target === this) closeSkillsModal();
+});
+document.getElementById('watchdogModal').addEventListener('click', function(e) {
+  if (e.target === this) closeWatchdogModal();
+});
+document.getElementById('watchdogFormModal').addEventListener('click', function(e) {
+  if (e.target === this) closeWatchdogForm();
 });
 
 // ── Provider Modal ──────────────────────────────────────────────────────────
@@ -1837,6 +2283,209 @@ async function testProvider(provider) {
   // save first, then check status
   await saveProviders(true);
   await loadProviderStatus();
+}
+
+// ── Watchdog ────────────────────────────────────────────────────────────────
+let watchdogs = [];
+let editingWatchdogId = null;
+let watchdogCountdownTimer = null;
+
+async function openWatchdogModal() {
+  document.getElementById('watchdogModal').classList.add('open');
+  await loadWatchdogs();
+  renderWatchdogList();
+  startWatchdogCountdown();
+}
+
+function closeWatchdogModal() {
+  document.getElementById('watchdogModal').classList.remove('open');
+  stopWatchdogCountdown();
+}
+
+async function loadWatchdogs() {
+  const resp = await fetch('/api/watchdogs');
+  watchdogs = await resp.json();
+}
+
+function renderWatchdogList() {
+  const container = document.getElementById('watchdogList');
+  if (watchdogs.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:32px;color:#444;font-size:13px">Noch keine Watchdogs.<br>Klicke "+ Neu" um einen anzulegen.</div>';
+    return;
+  }
+  container.innerHTML = watchdogs.map(wd => {
+    const agent = agents.find(a => a.id === wd.agent_id);
+    const now = Date.now();
+    const nextRun = wd.next_run ? new Date(wd.next_run) : null;
+    const secsLeft = nextRun ? Math.max(0, Math.round((nextRun - now) / 1000)) : null;
+    const countdownStr = secsLeft !== null ? formatCountdown(secsLeft) : '–';
+    const lastResult = wd.last_result || '–';
+    const isHit = wd.alert_keyword && lastResult.toLowerCase().includes(wd.alert_keyword.toLowerCase());
+    const resultColor = lastResult.startsWith('⚠️') ? '#ef4444' : isHit ? '#22c55e' : '#888';
+    return `
+      <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:10px;padding:14px 16px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600;color:#fff">${escHtml(wd.name)}</div>
+            <div style="font-size:11px;color:#555;margin-top:2px;font-family:'SF Mono',monospace;word-break:break-all">${escHtml(wd.url.length > 60 ? wd.url.slice(0,60)+'…' : wd.url)}</div>
+          </div>
+          <div class="toggle-switch ${wd.active ? 'on' : ''}" onclick="toggleWatchdogActive('${wd.id}')" style="flex-shrink:0"></div>
+        </div>
+        <div style="display:flex;gap:16px;font-size:11px;color:#555;margin-bottom:10px;flex-wrap:wrap">
+          <span>🤖 ${agent ? agent.name : '–'}</span>
+          <span>⏱ alle ${wd.interval_min} min</span>
+          <span>🔍 ${wd.check_count || 0}× geprüft</span>
+          <span>🎯 ${wd.hit_count || 0}× Treffer</span>
+          ${wd.active ? `<span id="wd-countdown-${wd.id}" style="color:#ff6b35">⏳ ${countdownStr}</span>` : '<span style="color:#555">⏸ Pausiert</span>'}
+        </div>
+        <div style="font-size:12px;color:${resultColor};background:#111;border-radius:6px;padding:8px 10px;margin-bottom:10px;max-height:60px;overflow:hidden;line-height:1.5">
+          ${escHtml(lastResult.length > 150 ? lastResult.slice(0,150)+'…' : lastResult)}
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px" onclick="runWatchdogNow('${wd.id}')">▶ Jetzt prüfen</button>
+          <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px" onclick="openWatchdogForm('${wd.id}')">✏️ Bearbeiten</button>
+          ${wd.history?.length ? `<button class="btn btn-ghost" style="font-size:12px;padding:6px 12px" onclick="showWatchdogHistory('${wd.id}')">📋 History</button>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function formatCountdown(secs) {
+  if (secs <= 0) return 'läuft…';
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function startWatchdogCountdown() {
+  stopWatchdogCountdown();
+  watchdogCountdownTimer = setInterval(() => {
+    watchdogs.forEach(wd => {
+      if (!wd.active || !wd.next_run) return;
+      const el = document.getElementById(`wd-countdown-${wd.id}`);
+      if (!el) return;
+      const secsLeft = Math.max(0, Math.round((new Date(wd.next_run) - Date.now()) / 1000));
+      el.textContent = '⏳ ' + formatCountdown(secsLeft);
+    });
+  }, 1000);
+  // Watchdog-Daten alle 30s neu laden
+  setTimeout(async () => {
+    if (document.getElementById('watchdogModal').classList.contains('open')) {
+      await loadWatchdogs();
+      renderWatchdogList();
+      startWatchdogCountdown();
+    }
+  }, 30000);
+}
+
+function stopWatchdogCountdown() {
+  if (watchdogCountdownTimer) { clearInterval(watchdogCountdownTimer); watchdogCountdownTimer = null; }
+}
+
+async function toggleWatchdogActive(id) {
+  const resp = await fetch(`/api/watchdogs/${id}/toggle`, { method: 'POST' });
+  const data = await resp.json();
+  const wd = watchdogs.find(w => w.id === id);
+  if (wd) wd.active = data.active;
+  renderWatchdogList();
+}
+
+async function runWatchdogNow(id) {
+  const btn = event.target;
+  btn.textContent = '⏳ Läuft…'; btn.disabled = true;
+  await fetch(`/api/watchdogs/${id}/run`, { method: 'POST' });
+  setTimeout(async () => {
+    await loadWatchdogs(); renderWatchdogList();
+  }, 3000);
+  setTimeout(async () => {
+    await loadWatchdogs(); renderWatchdogList();
+  }, 12000);
+}
+
+function showWatchdogHistory(id) {
+  const wd = watchdogs.find(w => w.id === id);
+  if (!wd?.history?.length) return;
+  const lines = wd.history.slice(-10).reverse().map(h => {
+    const ts = new Date(h.ts).toLocaleString('de');
+    const icon = h.hit ? '🎯' : '–';
+    return `${icon} ${ts}\n${h.result}`;
+  }).join('\n\n');
+  alert(`History: ${wd.name}\n\n${lines}`);
+}
+
+function openWatchdogForm(id = null) {
+  editingWatchdogId = id;
+  document.getElementById('watchdogFormTitle').textContent = id ? 'Watchdog bearbeiten' : 'Neuer Watchdog';
+  document.getElementById('wdDeleteBtn').style.display = id ? 'flex' : 'none';
+
+  // Agents befüllen
+  const sel = document.getElementById('wdAgent');
+  sel.innerHTML = agents.map(a => `<option value="${a.id}">${a.name} (${a.model})</option>`).join('');
+
+  if (id) {
+    const wd = watchdogs.find(w => w.id === id);
+    if (wd) {
+      document.getElementById('wdName').value = wd.name;
+      document.getElementById('wdUrl').value = wd.url;
+      document.getElementById('wdPrompt').value = wd.prompt;
+      document.getElementById('wdKeyword').value = wd.alert_keyword || '';
+      document.getElementById('wdInterval').value = wd.interval_min;
+      sel.value = wd.agent_id;
+    }
+  } else {
+    document.getElementById('wdName').value = '';
+    document.getElementById('wdUrl').value = '';
+    document.getElementById('wdPrompt').value = 'Siehst du das gesuchte Produkt? Antworte NUR: JA [Details] oder NEIN';
+    document.getElementById('wdKeyword').value = 'JA';
+    document.getElementById('wdInterval').value = '30';
+    if (agents.length > 0) sel.value = agents[0].id;
+  }
+  document.getElementById('watchdogFormModal').classList.add('open');
+}
+
+function closeWatchdogForm() {
+  document.getElementById('watchdogFormModal').classList.remove('open');
+  editingWatchdogId = null;
+}
+
+async function saveWatchdog() {
+  const payload = {
+    name: document.getElementById('wdName').value.trim(),
+    url: document.getElementById('wdUrl').value.trim(),
+    agent_id: document.getElementById('wdAgent').value,
+    prompt: document.getElementById('wdPrompt').value.trim(),
+    alert_keyword: document.getElementById('wdKeyword').value.trim(),
+    interval_min: parseInt(document.getElementById('wdInterval').value),
+    active: true
+  };
+  if (!payload.name || !payload.url) { alert('Name und URL sind Pflichtfelder.'); return; }
+
+  if (editingWatchdogId) {
+    await fetch(`/api/watchdogs/${editingWatchdogId}`, {
+      method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+  } else {
+    await fetch('/api/watchdogs', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+  }
+  closeWatchdogForm();
+  await loadWatchdogs();
+  renderWatchdogList();
+}
+
+async function deleteWatchdog() {
+  if (!editingWatchdogId) return;
+  const wd = watchdogs.find(w => w.id === editingWatchdogId);
+  if (!confirm(`"${wd?.name}" wirklich löschen?`)) return;
+  await fetch(`/api/watchdogs/${editingWatchdogId}`, { method: 'DELETE' });
+  closeWatchdogForm();
+  await loadWatchdogs();
+  renderWatchdogList();
 }
 
 async function saveProviders(silent = false) {
