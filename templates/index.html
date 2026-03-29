@@ -843,7 +843,7 @@
 
     .home-agent-row {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 10px;
       padding: 10px 12px;
       background: var(--bg2);
@@ -1090,113 +1090,6 @@
     }
     .tts-stop-btn.active { display: flex; }
 
-    /* Phone Sim */
-    .phone-toggle {
-      display: none;
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      z-index: 500;
-    }
-
-    .phone-toggle.visible { display: block; }
-
-    .phone-frame {
-      width: 320px;
-      height: 580px;
-      background: #000;
-      border-radius: 36px;
-      border: 3px solid #222;
-      overflow: hidden;
-      box-shadow: 0 0 0 1px #333, 0 30px 60px rgba(0,0,0,.8);
-      display: flex;
-      flex-direction: column;
-      position: relative;
-    }
-
-    .phone-status-bar {
-      height: 28px;
-      background: #000;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 14px;
-      font-size: 11px;
-      color: #fff;
-      flex-shrink: 0;
-    }
-
-    .phone-content {
-      flex: 1;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .phone-chat {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .phone-msg {
-      max-width: 80%;
-      padding: 7px 10px;
-      border-radius: 14px;
-      font-size: 12px;
-      line-height: 1.4;
-    }
-
-    .phone-msg.user {
-      align-self: flex-end;
-      background: #007aff;
-      color: #fff;
-      border-bottom-right-radius: 4px;
-    }
-
-    .phone-msg.assistant {
-      align-self: flex-start;
-      background: #2c2c2e;
-      color: #fff;
-      border-bottom-left-radius: 4px;
-    }
-
-    .phone-input-row {
-      display: flex;
-      gap: 6px;
-      padding: 8px;
-      background: #1c1c1e;
-      border-top: 1px solid #2c2c2e;
-      flex-shrink: 0;
-    }
-
-    .phone-input {
-      flex: 1;
-      background: #2c2c2e;
-      border: none;
-      border-radius: 18px;
-      padding: 6px 12px;
-      color: #fff;
-      font-size: 13px;
-      outline: none;
-    }
-
-    .phone-send {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      border: none;
-      background: #007aff;
-      color: #fff;
-      cursor: pointer;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
 
     /* Export button flash */
     @keyframes flash-green {
@@ -1242,7 +1135,7 @@
      Activity Bar
 ══════════════════════════════════════════════════════ -->
 <div class="activity-bar" id="activityBar">
-  <div class="app-logo" title="AgentClaw">🦞</div>
+  <div class="app-logo" title="AgentClaw">🤠🤖</div>
   <nav class="activity-nav">
     <button class="nav-btn active" id="navHome"    title="Dashboard"  onclick="setView('home')">🏠</button>
     <button class="nav-btn"        id="navChat"    title="Chat"       onclick="setView('chat')">💬</button>
@@ -1253,7 +1146,6 @@
     <button class="nav-btn" title="Skills"    onclick="openSkillsModal()">🧩</button>
     <button class="nav-btn" title="Memory"    onclick="openMemoryModal()">🧠</button>
     <button class="nav-btn" title="Providers" onclick="openProviderModal()">⚙️</button>
-    <button class="nav-btn" id="navPhone" title="Phone Sim" onclick="togglePhoneSim()">📱</button>
   </div>
 </div>
 
@@ -1271,24 +1163,6 @@
   <!-- rendered by JS -->
 </div>
 
-<!-- ═══════════════════════════════════════════════════
-     Phone Sim
-══════════════════════════════════════════════════════ -->
-<div class="phone-toggle" id="phoneToggle">
-  <div class="phone-frame">
-    <div class="phone-status-bar">
-      <span id="phoneTime">12:00</span>
-      <span>📶 🔋</span>
-    </div>
-    <div class="phone-content">
-      <div class="phone-chat" id="phoneChat"></div>
-      <div class="phone-input-row">
-        <input class="phone-input" id="phoneInput" placeholder="Message…" onkeydown="if(event.key==='Enter')sendPhoneMsg()">
-        <button class="phone-send" onclick="sendPhoneMsg()">↑</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- Modal: Memory Dashboard -->
 <div class="modal-overlay" id="memoryModal">
@@ -1379,6 +1253,10 @@
         <textarea class="form-textarea" id="editAgentSystem" style="min-height:100px"></textarea>
       </div>
       <div class="form-group">
+        <label class="form-label">Max Tokens <span style="font-size:10px;color:var(--textdim);font-family:var(--mono)">(leer = Modell-Standard)</span></label>
+        <input class="form-input" id="editAgentMaxTokens" type="number" min="128" max="32768" placeholder="z.B. 2048" style="width:140px">
+      </div>
+      <div class="form-group">
         <label class="form-label">TTS Voice</label>
         <select class="form-select" id="editAgentVoice">
           <option value="">Off</option>
@@ -1395,7 +1273,7 @@
           <span id="editHeartbeatStatus" style="font-size:11px;color:var(--textdim);font-family:var(--mono)">inaktiv</span>
         </label>
         <div id="editHeartbeatFields" style="display:none;flex-direction:column;gap:8px;margin-top:8px">
-          <input class="form-input" id="editHeartbeatPrompt" placeholder="Aufgabe z.B. Fasse deinen aktuellen Status zusammen">
+          <textarea class="form-textarea" id="editHeartbeatPrompt" placeholder="Aufgabe z.B. Fasse deinen aktuellen Status zusammen. Nutze @AgentName um Aufgaben zu delegieren." style="min-height:80px;resize:vertical"></textarea>
           <div style="display:flex;align-items:center;gap:8px">
             <span style="font-size:12px;color:var(--textdim);font-family:var(--mono);white-space:nowrap">Alle</span>
             <input class="form-input" id="editHeartbeatInterval" type="number" min="1" max="1440" value="30" style="width:70px">
@@ -1554,7 +1432,6 @@ let conversations = {}; // agentId -> [{role,content,ts}]
 let currentView = 'home'; // 'home' | 'chat' | 'multi'
 let selectedAgents = new Set();
 let isSending = false;
-let phoneSim = localStorage.getItem('phoneSim') === 'true';
 let editingAgentId = null;
 let ttsQueue = [];
 let ttsSpeaking = false;
@@ -1570,9 +1447,7 @@ let autoDialogAbort = false;
 // ═══════════════════════════════════════════════════
 async function init() {
   await Promise.all([loadAgents(), loadProviders(), loadSkills(), loadWatchdogs()]);
-  if (phoneSim) document.getElementById('phoneToggle').classList.add('visible');
-  updatePhoneTime();
-  setInterval(updatePhoneTime, 30000);
+
   setInterval(pollWatchdogs, 60000);
   pollActivity();
   setView('home');
@@ -1640,11 +1515,53 @@ let agentActivity = {};
 async function pollActivity() {
   try {
     const data = await api('/api/activity');
+    const hasActivity = Object.keys(data).length > 0;
+    const hadActivity = Object.keys(agentActivity).length > 0;
     const changed = JSON.stringify(data) !== JSON.stringify(agentActivity);
+
+    // Detect agents that just finished activity (were active, now idle)
+    const justFinished = Object.keys(agentActivity).filter(id => !data[id]);
+
     agentActivity = data;
     if (changed) renderSidePanel();
+
+    // If the current agent just finished a task/heartbeat, sync new history
+    if (justFinished.length && currentAgent && justFinished.includes(currentAgent.id) && currentView === 'chat') {
+      await syncAgentHistory(currentAgent.id);
+    }
+    // Invalidate cache for any other agent that just finished so they load fresh
+    for (const id of justFinished) {
+      if (!currentAgent || id !== currentAgent.id) {
+        delete conversations[id];
+      }
+    }
+
+    // Fast polling when agents are active, slow when idle
+    setTimeout(pollActivity, hasActivity || hadActivity ? 2000 : 8000);
+  } catch(e) {
+    setTimeout(pollActivity, 15000);
+  }
+}
+
+// Fetch latest history for an agent and append any new messages to the chat
+async function syncAgentHistory(agentId) {
+  try {
+    const hist = await api(`/api/history/${agentId}`);
+    const existing = conversations[agentId] || [];
+    // Use the count of server-sourced messages we already have
+    // (frontend-appended msgs like from renderTaskResult may not be in server hist yet)
+    const serverCount = existing.filter(m => m._fromServer).length;
+    const newMsgs = hist.slice(serverCount).map(m => ({ ...m, _fromServer: true }));
+    if (!newMsgs.length) return;
+    const el = document.getElementById('chatMessages');
+    for (const m of newMsgs) {
+      const idx = existing.length;
+      existing.push(m);
+      if (el) el.insertAdjacentHTML('beforeend', renderMsg(m, idx));
+    }
+    conversations[agentId] = existing;
+    if (el) el.scrollTop = el.scrollHeight;
   } catch(e) {}
-  setTimeout(pollActivity, 3000);
 }
 
 function getFavs() {
@@ -1692,10 +1609,10 @@ function renderChatSidePanel() {
       <div style="flex:1;min-width:0">
         <span class="agent-name">${esc(a.name)}</span>
         ${a.role ? `<div style="font-size:10px;color:var(--textdim);font-family:var(--mono);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.role)}</div>` : ''}
+        <div style="font-size:10px;color:var(--textdim);font-family:var(--mono);opacity:.5;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc((a.model||'').split('/').pop())}</div>
         ${act ? `<div style="font-size:10px;color:var(--green);font-family:var(--mono);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(act.label)}</div>` : ''}
       </div>
       ${actIcon}
-      <span class="agent-model-tag">${esc((a.model||'').split('/').pop().slice(0,8))}</span>
       <button class="agent-fav-btn${isFav ? ' fav' : ''}" onclick="toggleFav(event,'${a.id}')" title="Favorit">★</button>
     </div>`;
   }).join('');
@@ -1748,15 +1665,40 @@ function renderHome(ws) {
   const totalMsgs = Object.values(conversations).reduce((s, c) => s + c.length, 0);
   const activeWds = watchdogs.filter(w => w.active).length;
 
-  const agentRows = agents.map(a => `
+  const agentRows = agents.map(a => {
+    const favs = getFavs();
+    const act = agentActivity[a.id];
+    const msgCount = (conversations[a.id] || []).length;
+    const agentSkills = (a.skills || []).map(sid => {
+      const s = skills.find(x => x.id === sid);
+      return s ? `<span title="${esc(s.name)}" style="font-size:12px">${s.icon}</span>` : '';
+    }).join('');
+    const hbOn = a.heartbeat?.active;
+    const actLabel = act
+      ? `<span style="font-size:10px;color:var(--green);font-family:var(--mono);animation:blink .6s infinite">${act.type === 'heartbeat' ? '💓' : '⚙️'} ${esc(act.label)}</span>`
+      : '';
+    return `
     <div class="home-agent-row" onclick="selectAgent('${a.id}');setView('chat')">
-      <div class="agent-dot online" style="width:9px;height:9px"></div>
-      <div class="home-agent-info">
-        <div class="home-agent-name">${esc(a.name)}</div>
-        <div class="home-agent-sub">${esc(a.provider || '')} · ${esc(a.model || '')}</div>
+      <div style="padding-top:2px">
+        <div class="agent-dot online" style="width:9px;height:9px"></div>
       </div>
-      <span class="home-agent-badge">${(conversations[a.id] || []).length} msgs</span>
-    </div>`).join('');
+      <div class="home-agent-info">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="home-agent-name">${esc(a.name)}</span>
+          ${favs.has(a.id) ? '<span style="font-size:11px;color:var(--green)">★</span>' : ''}
+          ${hbOn ? '<span title="Heartbeat aktiv" style="font-size:11px;opacity:.6">💓</span>' : ''}
+        </div>
+        ${a.role ? `<div class="home-agent-sub" style="margin-top:1px">${esc(a.role)}</div>` : ''}
+        <div class="home-agent-sub" style="opacity:.5;margin-top:1px">${esc((a.model||'').split('/').pop())}</div>
+        ${agentSkills ? `<div style="display:flex;gap:4px;margin-top:5px;flex-wrap:wrap">${agentSkills}</div>` : ''}
+        ${actLabel ? `<div style="margin-top:4px">${actLabel}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+        <span class="home-agent-badge">${msgCount} msgs</span>
+        ${msgCount > 0 ? `<span style="font-size:9px;color:var(--textdim);font-family:var(--mono)">${(() => { const msgs = conversations[a.id]||[]; const last = msgs[msgs.length-1]; return last?.ts ? new Date(last.ts).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}) : ''; })()}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
 
   ws.innerHTML = `
     <div class="home-shell">
@@ -1793,7 +1735,7 @@ async function selectAgent(id) {
   if (!conversations[id]) {
     try {
       const hist = await api(`/api/history/${id}`);
-      conversations[id] = hist || [];
+      conversations[id] = (hist || []).map(m => ({ ...m, _fromServer: true }));
     } catch(e) { conversations[id] = []; }
   }
   if (currentView !== 'chat') setView('chat');
@@ -1865,7 +1807,7 @@ function renderChatShell(ws) {
 function renderNoAgent(ws) {
   ws.innerHTML = `
     <div class="no-agent">
-      <div class="big-icon">🦞</div>
+      <div class="big-icon">🤠🤖</div>
       <p>Select or create an agent to start chatting</p>
       <button class="btn-primary" onclick="openNewAgentModal()" style="margin-top:8px">➕ New Agent</button>
     </div>`;
@@ -1957,6 +1899,12 @@ function removeThinkingIndicator() {
 // ═══════════════════════════════════════════════════
 // Send Message
 // ═══════════════════════════════════════════════════
+function _releaseSend() {
+  isSending = false;
+  document.getElementById('sendBtn')?.removeAttribute('disabled');
+  document.getElementById('mainInput')?.focus();
+}
+
 async function sendMessage(overrideText) {
   if (isSending) return;
   const input = document.getElementById('mainInput');
@@ -1966,6 +1914,8 @@ async function sendMessage(overrideText) {
   if (input && !overrideText) { input.value = ''; autoResizeTextarea(input); }
   isSending = true;
   document.getElementById('sendBtn')?.setAttribute('disabled', '');
+  // Safety net: always release isSending, even on unexpected throws
+  const _release = () => _releaseSend();
 
   const activeSkills = new Set(currentAgent.skills || []);
   let imageData = null;
@@ -1980,11 +1930,12 @@ async function sendMessage(overrideText) {
       appendSystemMsg(`Unbekannter Agent: @${esc(targetName)} — verfügbar: ${agents.map(a => '@'+a.name).join(', ')}`);
     } else {
       if (input && !overrideText) input.value = '';
-      await handleAgentMention(targetAgent, taskMessage, text);
+      // Release send lock immediately — polling runs in background
+      _release();
+      handleAgentMention(targetAgent, taskMessage, text); // no await
+      return;
     }
-    isSending = false;
-    document.getElementById('sendBtn')?.removeAttribute('disabled');
-    input?.focus();
+    _release();
     return;
   }
 
@@ -2036,9 +1987,7 @@ async function sendMessage(overrideText) {
         removeThinkingIndicator();
         appendSystemMsg('Error: ' + e.message);
       }
-      isSending = false;
-      document.getElementById('sendBtn')?.removeAttribute('disabled');
-      input?.focus();
+      _release();
       return;
     }
   }
@@ -2091,9 +2040,7 @@ async function sendMessage(overrideText) {
           appendSystemMsg('Error: ' + e.message);
         }
       }
-      isSending = false;
-      document.getElementById('sendBtn')?.removeAttribute('disabled');
-      input?.focus();
+      _release();
       return;
     }
   }
@@ -2134,9 +2081,7 @@ async function sendMessage(overrideText) {
         removeThinkingIndicator();
         appendSystemMsg('Error: ' + e.message);
       }
-      isSending = false;
-      document.getElementById('sendBtn')?.removeAttribute('disabled');
-      input?.focus();
+      _release();
       return;
     }
   }
@@ -2175,9 +2120,7 @@ async function sendMessage(overrideText) {
   }
 
   clearImageAttachment();
-  isSending = false;
-  document.getElementById('sendBtn')?.removeAttribute('disabled');
-  input?.focus();
+  _release();
 }
 
 function handleInputKey(e) {
@@ -2515,6 +2458,7 @@ async function openEditAgentModal(id) {
   document.getElementById('editAgentName').value = a.name || '';
   document.getElementById('editAgentRole').value = a.role || '';
   document.getElementById('editAgentSystem').value = a.soul || '';
+  document.getElementById('editAgentMaxTokens').value = a.max_tokens || '';
   await Promise.all([loadModels(), loadProviders()]);
   populateProviderSelects(); // starts populateVoiceSelects() async internally
   const psel = document.getElementById('editAgentProvider');
@@ -2592,7 +2536,8 @@ async function saveEditAgent() {
     // Save agent first
     const updated = await api(`/api/agents/${editingAgentId}`, {
       method: 'PUT',
-      body: { name, role, provider, model, soul: system, voice, skills: activeSkills }
+      body: { name, role, provider, model, soul: system, voice, skills: activeSkills,
+              max_tokens: parseInt(document.getElementById('editAgentMaxTokens')?.value) || null }
     });
     // Save heartbeat separately
     await api(`/api/agents/${editingAgentId}/heartbeat`, {
@@ -2616,6 +2561,7 @@ async function deleteAgent(id) {
   try {
     await api(`/api/agents/${id}`, { method: 'DELETE' });
     agents = agents.filter(a => a.id !== id);
+    delete conversations[id];
     if (currentAgent?.id === id) { currentAgent = null; }
     closeModal('editAgentModal');
     renderSidePanel();
@@ -3328,47 +3274,6 @@ function stopVoice() {
   document.getElementById('voiceIndicator')?.classList.remove('active');
 }
 
-// ═══════════════════════════════════════════════════
-// Phone Sim
-// ═══════════════════════════════════════════════════
-function togglePhoneSim() {
-  phoneSim = !phoneSim;
-  localStorage.setItem('phoneSim', phoneSim);
-  const t = document.getElementById('phoneToggle');
-  t.classList.toggle('visible', phoneSim);
-  document.getElementById('navPhone')?.classList.toggle('active', phoneSim);
-}
-
-function updatePhoneTime() {
-  const el = document.getElementById('phoneTime');
-  if (el) el.textContent = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-}
-
-async function sendPhoneMsg() {
-  const input = document.getElementById('phoneInput');
-  const text = input?.value.trim();
-  if (!text || !currentAgent) return;
-  if (input) input.value = '';
-
-  addPhoneMsg('user', text);
-
-  try {
-    const data = await api('/api/chat', { method: 'POST', body: { agent_id: currentAgent.id, message: text } });
-    addPhoneMsg('assistant', data.response || data.message || '');
-  } catch(e) {
-    addPhoneMsg('assistant', 'Error: ' + e.message);
-  }
-}
-
-function addPhoneMsg(role, text) {
-  const chat = document.getElementById('phoneChat');
-  if (!chat) return;
-  const div = document.createElement('div');
-  div.className = `phone-msg ${role}`;
-  div.textContent = text;
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
-}
 
 // ═══════════════════════════════════════════════════
 // Utilities

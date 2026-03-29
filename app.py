@@ -99,25 +99,13 @@ def activity_end(agent_id: str):
     with _activity_lock:
         _ACTIVITY.pop(agent_id, None)
 
-
-def load_providers():
-    defaults = {
-        "ollama": {"url": "http://localhost:11434"},
-        "mistral": {"api_key": os.getenv("MISTRAL_API_KEY", "")},
-        "openrouter": {"api_key": ""},
-        "searxng": {"url": "http://localhost:8888"},
-        "comfyui": {"url": "http://192.168.3.26:8000", "model": "flux2pro"},
-        "qdrant": {"url": "http://localhost:6333"}
-    }
-    if not os.path.exists(PROVIDERS_FILE):
-        return defaults
-    with open(PROVIDERS_FILE, "r", encoding="utf-8") as f:
-        stored = json.load(f)
-    # merge defaults so new provider keys always exist
-    for k, v in defaults.items():
-        if k not in stored:
-            stored[k] = v
-    return stored
+def activity_cleanup():
+    """Remove stale activity entries older than 10 minutes (crash guard)."""
+    cutoff = (datetime.now() - timedelta(minutes=10)).isoformat()
+    with _activity_lock:
+        stale = [k for k, v in _ACTIVITY.items() if v.get("since", "") < cutoff]
+        for k in stale:
+            del _ACTIVITY[k]
 
 
 def fetch_url_text(url, max_chars=4000):
@@ -459,54 +447,102 @@ DEFAULT_AGENTS = [
 ]
 
 
-def load_agents():
-    if not os.path.exists(AGENTS_FILE):
-        save_agents(DEFAULT_AGENTS)
-        return DEFAULT_AGENTS
-    with open(AGENTS_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+# ─── In-memory cache + file locks ────────────────────────────────────────────
+_cache: dict = {}           # { "agents"|"history"|"providers"|"watchdogs": data }
+_cache_lock  = threading.Lock()
+_agents_lock = threading.Lock()
+_history_lock = threading.Lock()
+_providers_lock = threading.Lock()
+_watchdogs_lock = threading.Lock()
 
+def _read_json(path, default):
+    if not os.path.exists(path):
+        return default
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
+
+def _write_json(path, data):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def load_agents():
+    with _cache_lock:
+        if "agents" not in _cache:
+            data = _read_json(AGENTS_FILE, None)
+            if data is None:
+                data = DEFAULT_AGENTS
+                _write_json(AGENTS_FILE, data)
+            _cache["agents"] = data
+        return _cache["agents"]
 
 def save_agents(agents):
-    with open(AGENTS_FILE, "w", encoding="utf-8") as f:
-        json.dump(agents, f, ensure_ascii=False, indent=2)
-
+    with _agents_lock:
+        _write_json(AGENTS_FILE, agents)
+    with _cache_lock:
+        _cache["agents"] = agents
 
 def load_history():
-    if not os.path.exists(HISTORY_FILE):
-        return {}
-    with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    with _cache_lock:
+        if "history" not in _cache:
+            _cache["history"] = _read_json(HISTORY_FILE, {})
+        return _cache["history"]
 
-
-MAX_HISTORY_PER_AGENT = 500  # Nachrichten pro Agent (250 Exchanges)
-MAX_CONTENT_LENGTH = 8000    # Zeichen pro Nachricht (Bilder etc. kürzen)
+MAX_HISTORY_PER_AGENT = 500
+MAX_CONTENT_LENGTH = 8000
 
 def save_history(history):
-    # Trim each agent's history to the limit (keep newest)
-    for agent_id in history:
-        msgs = history[agent_id]
-        if len(msgs) > MAX_HISTORY_PER_AGENT:
-            history[agent_id] = msgs[-MAX_HISTORY_PER_AGENT:]
-        # Trim oversized content (e.g. huge injected web pages)
-        for msg in history[agent_id]:
-            if isinstance(msg.get("content"), str) and len(msg["content"]) > MAX_CONTENT_LENGTH:
-                msg["content"] = msg["content"][:MAX_CONTENT_LENGTH] + " […]"
-    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(history, f, ensure_ascii=False, indent=2)
+    with _history_lock:
+        for agent_id in history:
+            msgs = history[agent_id]
+            if len(msgs) > MAX_HISTORY_PER_AGENT:
+                history[agent_id] = msgs[-MAX_HISTORY_PER_AGENT:]
+            for msg in history[agent_id]:
+                if isinstance(msg.get("content"), str) and len(msg["content"]) > MAX_CONTENT_LENGTH:
+                    msg["content"] = msg["content"][:MAX_CONTENT_LENGTH] + " […]"
+        _write_json(HISTORY_FILE, history)
+    with _cache_lock:
+        _cache["history"] = history
 
+def load_providers():
+    defaults = {
+        "ollama":      {"url": "http://localhost:11434"},
+        "mistral":     {"api_key": os.getenv("MISTRAL_API_KEY", "")},
+        "openrouter":  {"api_key": ""},
+        "searxng":     {"url": "http://localhost:8888"},
+        "comfyui":     {"url": "http://192.168.3.26:8000", "model": "flux2pro"},
+        "qdrant":      {"url": "http://localhost:6333"}
+    }
+    with _cache_lock:
+        if "providers" not in _cache:
+            stored = _read_json(PROVIDERS_FILE, {})
+            for k, v in defaults.items():
+                if k not in stored:
+                    stored[k] = v
+            _cache["providers"] = stored
+        return _cache["providers"]
+
+def save_providers(providers):
+    with _providers_lock:
+        _write_json(PROVIDERS_FILE, providers)
+    with _cache_lock:
+        _cache["providers"] = providers
 
 # ─── Watchdogs ────────────────────────────────────────────────────────────────
 
 def load_watchdogs():
-    if not os.path.exists(WATCHDOGS_FILE):
-        return []
-    with open(WATCHDOGS_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    with _cache_lock:
+        if "watchdogs" not in _cache:
+            _cache["watchdogs"] = _read_json(WATCHDOGS_FILE, [])
+        return _cache["watchdogs"]
 
 def save_watchdogs(watchdogs):
-    with open(WATCHDOGS_FILE, "w", encoding="utf-8") as f:
-        json.dump(watchdogs, f, ensure_ascii=False, indent=2)
+    with _watchdogs_lock:
+        _write_json(WATCHDOGS_FILE, watchdogs)
+    with _cache_lock:
+        _cache["watchdogs"] = watchdogs
 
 def update_watchdog_field(wd_id, **kwargs):
     watchdogs = load_watchdogs()
@@ -565,7 +601,7 @@ def update_agent(agent_id):
                 "model": data.get("model", a["model"]),
                 "provider": data.get("provider", a.get("provider", "ollama")),
                 "skills": data.get("skills", a.get("skills", [])),
-                "max_tokens": int(data.get("max_tokens", a.get("max_tokens", 1024))),
+                "max_tokens": int(data["max_tokens"]) if data.get("max_tokens") else a.get("max_tokens", None),
                 "color": data.get("color", a["color"])
             })
             save_agents(agents)
@@ -638,16 +674,16 @@ def chat():
         agent_skills.add("url_fetch")
 
     # Web search via SearXNG if skill active and query needs it
-    SEARCH_TRIGGERS = [
-        "news", "aktuell", "heute", "gerade", "neueste", "neuem", "neues", "neu ",
-        "letzte", "letzten", "gibt es", "was gibt",
-        "suche", "such", "finde", "schau nach", "recherchier", "schau mal",
-        "was ist", "wer ist", "wo ist", "wie viel", "wann", "warum",
-        "preis", "wetter", "kurs", "aktie", "sport", "ergebnis",
-        "twitter", " x.com", "instagram", "reddit", "youtube",
-        "wie geht", "was passiert", "was läuft"
-    ]
-    needs_search = any(t in user_message.lower() for t in SEARCH_TRIGGERS)
+    _SEARCH_RX = re.compile(
+        r'\b(news|aktuell\w*|heute|gerade|neueste\w*|neu(es?|em|en)?\b|'
+        r'letzt\w+|gibt es|was gibt|such\w*|find\w*|recherchier\w*|'
+        r'was ist|wer ist|wo ist|wie viel|wann|warum|'
+        r'preis|wetter|kurs|aktie|sport|ergebnis|'
+        r'twitter|x\.com|instagram|reddit|youtube|'
+        r'wie geht|was passiert|was läuft)\b',
+        re.IGNORECASE
+    )
+    needs_search = bool(_SEARCH_RX.search(user_message))
 
     search_context = ""
     if "web_search" in agent_skills and needs_search:
@@ -735,7 +771,9 @@ def chat():
                     ]})
                 else:
                     or_messages.append(m)
-            payload = {"model": agent["model"], "messages": or_messages, "stream": False, "max_tokens": agent.get("max_tokens", 1024)}
+            payload = {"model": agent["model"], "messages": or_messages, "stream": False}
+            if agent.get("max_tokens"):
+                payload["max_tokens"] = agent["max_tokens"]
             if agent.get("web_search"):
                 payload["plugins"] = [{"id": "web", "max_results": 5}]
             print(f"[OpenRouter] key={or_key[:12]}… model={agent['model']} web={agent.get('web_search',False)}", flush=True)
@@ -794,7 +832,8 @@ def chat():
             ollama_url = providers.get("ollama", {}).get("url", "http://localhost:11434")
             resp = requests.post(
                 f"{ollama_url}/api/chat",
-                json={"model": agent["model"], "messages": messages, "stream": False, "options": {"num_predict": agent.get("max_tokens", 1024)}},
+                json={"model": agent["model"], "messages": messages, "stream": False,
+                      **({"options": {"num_predict": agent["max_tokens"]}} if agent.get("max_tokens") else {})},
                 timeout=60
             )
             if resp.status_code == 400:
@@ -1134,8 +1173,8 @@ def call_agent_text(agent, system_suffix, user_prompt):
             f"{OPENROUTER_BASE_URL}/chat/completions",
             headers={"Authorization": f"Bearer {or_key}", "Content-Type": "application/json",
                      "HTTP-Referer": "http://localhost:5050", "X-Title": "AgentClaw"},
-            json={"model": agent["model"], "messages": messages,
-                  "stream": False, "max_tokens": agent.get("max_tokens", 512)},
+            json={"model": agent["model"], "messages": messages, "stream": False,
+                  **({"max_tokens": agent["max_tokens"]} if agent.get("max_tokens") else {})},
             timeout=60
         )
         resp.raise_for_status()
@@ -1145,7 +1184,7 @@ def call_agent_text(agent, system_suffix, user_prompt):
         resp = requests.post(
             f"{ollama_url}/api/chat",
             json={"model": agent["model"], "messages": messages, "stream": False,
-                  "options": {"num_predict": agent.get("max_tokens", 512)}},
+                  **({"options": {"num_predict": agent["max_tokens"]}} if agent.get("max_tokens") else {})},
             timeout=60
         )
         resp.raise_for_status()
@@ -1269,37 +1308,150 @@ def tick_watchdogs():
             threading.Thread(target=run_watchdog, args=(dict(wd),), daemon=True).start()
 
 
+_MENTION_RX = re.compile(r'@([\w\-äöüÄÖÜß]+)', re.UNICODE)
+
+def _dispatch_mentions_from_prompt(sender_agent: dict, prompt: str, task_message: str):
+    """Dispatch tasks to @AgentNames found in the heartbeat PROMPT, using task_message as content."""
+    all_agents = load_agents()
+    name_map = {a["name"].lower(): a for a in all_agents}
+    for m in _MENTION_RX.finditer(prompt):
+        target_name = m.group(1).rstrip(',.;:!?').lower()
+        target = name_map.get(target_name)
+        if not target or target["id"] == sender_agent["id"]:
+            continue
+        print(f"[Heartbeat] dispatch @{target['name']} ← '{task_message[:60]}'", flush=True)
+        now = datetime.now()
+        task = {
+            "id": str(uuid.uuid4()),
+            "sender_agent_id": sender_agent["id"],
+            "sender_agent_name": sender_agent["name"],
+            "recipient_agent_id": target["id"],
+            "recipient_agent_name": target["name"],
+            "message": task_message,
+            "status": "pending",
+            "skill_used": None,
+            "result_text": None,
+            "result_image": None,
+            "error": None,
+            "created_at": now.isoformat(),
+            "completed_at": None,
+            "timeout_at": (now + timedelta(seconds=180)).isoformat(),
+        }
+        with _tasks_lock:
+            _TASKS[task["id"]] = task
+        _save_tasks()
+        threading.Thread(target=process_task, args=(task["id"],), daemon=True).start()
+        break  # one dispatch per heartbeat
+
+
+def _dispatch_mentions_from_reply(sender_agent: dict, reply: str):
+    """Scan reply for @AgentName mentions and create tasks for each (max 1)."""
+    all_agents = load_agents()
+    name_map = {a["name"].lower(): a for a in all_agents}
+    for m in _MENTION_RX.finditer(reply):
+        target_name = m.group(1).rstrip(',.;:!?').lower()
+        target = name_map.get(target_name)
+        if not target or target["id"] == sender_agent["id"]:
+            continue
+        # Extract message after the @mention
+        after = reply[m.end():].lstrip(' ,–—:\t').split('\n')[0].strip()
+        task_msg = after if after else reply.strip()
+        print(f"[Heartbeat] dispatch @{target['name']} ← '{task_msg[:60]}'", flush=True)
+        # Create task inline (reuse the tasks API logic)
+        now = datetime.now()
+        task = {
+            "id": str(uuid.uuid4()),
+            "sender_agent_id": sender_agent["id"],
+            "sender_agent_name": sender_agent["name"],
+            "recipient_agent_id": target["id"],
+            "recipient_agent_name": target["name"],
+            "message": task_msg,
+            "status": "pending",
+            "skill_used": None,
+            "result_text": None,
+            "result_image": None,
+            "error": None,
+            "created_at": now.isoformat(),
+            "completed_at": None,
+            "timeout_at": (now + timedelta(seconds=180)).isoformat(),
+        }
+        with _tasks_lock:
+            _TASKS[task["id"]] = task
+        _save_tasks()
+        threading.Thread(target=process_task, args=(task["id"],), daemon=True).start()
+        break  # one dispatch per heartbeat
+
+
 def run_heartbeat(agent):
     """Führt den Heartbeat-Task eines Agenten aus."""
     agent_id = agent["id"]
     hb = agent.get("heartbeat", {})
     prompt = hb.get("prompt", "").strip() or "Was sind deine aktuellen Gedanken? Gib einen kurzen Status-Update."
+    skills = set(agent.get("skills", []))
     print(f"[Heartbeat] 💓 Agent '{agent['name']}' — {prompt[:60]}", flush=True)
     activity_start(agent_id, "heartbeat", prompt[:60])
     try:
-        system_suffix = f"[Heartbeat — autonome Aktion, kein Benutzer anwesend]"
-        reply = call_agent_text(agent, system_suffix, prompt)
-        # In History speichern
         history = load_history()
         if agent_id not in history:
             history[agent_id] = []
-        history[agent_id].append({
-            "role": "assistant",
-            "content": f"💓 **Heartbeat**\n\n{reply}",
-            "ts": datetime.now().isoformat(),
-            "heartbeat": True
-        })
+        ts = datetime.now().isoformat()
+        result_image = None
+
+        if "image_gen" in skills:
+            # Use prompt directly — no LLM call to avoid model-switch delays.
+            # Append random lighting/mood/location modifiers for variety.
+            _locations = ["Maldives","Bali","Seychelles","Amalfi Coast","Big Sur California",
+                          "Patagonia","Santorini","New Zealand","Iceland","Thailand","Brazil",
+                          "Norwegian fjord","Caribbean","Mozambique","Sri Lanka","Okinawa"]
+            _moods = ["golden hour","blue hour","dramatic stormy sky","misty morning fog",
+                      "blazing sunset","starry night","overcast moody","crystal clear midday"]
+            _styles = ["aerial drone photography","long exposure","35mm film grain",
+                       "hyper-realistic","cinematic wide angle","macro detail"]
+            rnd = random.Random()
+            img_prompt = (
+                f"{prompt.rstrip('.')} — {rnd.choice(_locations)}, "
+                f"{rnd.choice(_moods)}, {rnd.choice(_styles)}, "
+                f"photorealistic, 4k"
+            )
+            print(f"[Heartbeat] image prompt: {img_prompt[:80]}", flush=True)
+            # Generate image via ComfyUI (no LLM involved)
+            result_image = _run_comfyui_sync(img_prompt)
+            history[agent_id].append({
+                "role": "assistant",
+                "content": f"💓 **Heartbeat** — 🎨 _{img_prompt}_",
+                "task_image": result_image,
+                "ts": ts, "heartbeat": True
+            })
+            short = img_prompt[:120].replace('"', "'")
+        else:
+            # Strip @mentions from the prompt before sending to LLM so it
+            # focuses on generating content, not on routing.
+            prompt_for_llm = _MENTION_RX.sub('', prompt).strip()
+            system_suffix = "[Heartbeat — autonome Aktion, kein Benutzer anwesend]"
+            reply = call_agent_text(agent, system_suffix, prompt_for_llm)
+            history[agent_id].append({
+                "role": "assistant",
+                "content": f"💓 **Heartbeat**\n\n{reply}",
+                "ts": ts, "heartbeat": True
+            })
+            short = reply[:120].replace('"', "'").replace('\n', ' ')
+
+            # Dispatch tasks to @AgentNames mentioned in the PROMPT (not reply)
+            # — strip the heartbeat preamble, use the core reply as task message
+            clean_reply = re.sub(r'^\s*\(.*?\)\s*', '', reply, flags=re.DOTALL).strip()
+            clean_reply = re.sub(r'^\s*(Guten\s+\w+|Hallo|Hi|Hey)[^.!?\n]*[.!?\n]', '', clean_reply, flags=re.IGNORECASE).strip()
+            _dispatch_mentions_from_prompt(agent, prompt, clean_reply or reply)
+
         save_history(history)
         # last_result im Agent speichern
-        agents = load_agents()
-        for a in agents:
+        agents_list = load_agents()
+        for a in agents_list:
             if a["id"] == agent_id:
-                a.setdefault("heartbeat", {})["last_run"] = datetime.now().isoformat()
-                a["heartbeat"]["last_result"] = reply[:300]
+                a.setdefault("heartbeat", {})["last_run"] = ts
+                a["heartbeat"]["last_result"] = short[:300]
                 break
-        save_agents(agents)
+        save_agents(agents_list)
         # macOS Notification
-        short = reply[:120].replace('"', "'").replace('\n', ' ')
         try:
             subprocess.run([
                 "osascript", "-e",
@@ -1307,9 +1459,10 @@ def run_heartbeat(agent):
             ], timeout=5, capture_output=True)
         except Exception:
             pass
-        print(f"[Heartbeat] done '{agent['name']}': {reply[:80]}", flush=True)
+        print(f"[Heartbeat] done '{agent['name']}'", flush=True)
     except Exception as e:
-        print(f"[Heartbeat] Fehler '{agent['name']}': {e}", flush=True)
+        import traceback
+        print(f"[Heartbeat] Fehler '{agent['name']}': {traceback.format_exc()}", flush=True)
     finally:
         activity_end(agent_id)
 
@@ -1349,6 +1502,7 @@ def scheduler_loop():
         try:
             tick_watchdogs()
             tick_heartbeats()
+            activity_cleanup()
         except Exception as e:
             print(f"[Scheduler] Fehler: {e}", flush=True)
         time.sleep(60)
@@ -1838,4 +1992,15 @@ def comfyui_generate():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5050)
+    import socket
+    port = 5050
+    while port < 5100:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.bind(('', port))
+            s.close()
+            break
+        except OSError:
+            port += 1
+    print(f"Starting on http://localhost:{port}", flush=True)
+    app.run(debug=True, port=port, use_reloader=False)
