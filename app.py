@@ -15,6 +15,13 @@ from dotenv import load_dotenv
 import requests
 import io
 
+try:
+    from qdrant_client import QdrantClient
+    from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
+    QDRANT_AVAILABLE = True
+except ImportError:
+    QDRANT_AVAILABLE = False
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -51,6 +58,13 @@ SKILLS = [
         "icon": "🎨",
         "description": "Generiert Bilder via ComfyUI (Flux Pro, Wan, DALL-E u.a.) auf Anfrage",
         "requires": "comfyui"
+    },
+    {
+        "id": "memory",
+        "name": "Langzeitspeicher",
+        "icon": "🧠",
+        "description": "Speichert wichtige Gesprächsinhalte in Qdrant und ruft relevante Erinnerungen ab",
+        "requires": "qdrant"
     }
 ]
 
@@ -67,7 +81,8 @@ def load_providers():
         "mistral": {"api_key": os.getenv("MISTRAL_API_KEY", "")},
         "openrouter": {"api_key": ""},
         "searxng": {"url": "http://localhost:8888"},
-        "comfyui": {"url": "http://192.168.3.26:8000", "model": "flux2pro"}
+        "comfyui": {"url": "http://192.168.3.26:8000", "model": "flux2pro"},
+        "qdrant": {"url": "http://localhost:6333"}
     }
     if not os.path.exists(PROVIDERS_FILE):
         return defaults
@@ -115,6 +130,95 @@ def fetch_url_text(url, max_chars=4000):
 def save_providers(providers):
     with open(PROVIDERS_FILE, "w", encoding="utf-8") as f:
         json.dump(providers, f, ensure_ascii=False, indent=2)
+
+
+# ─── Memory (Qdrant + Ollama embeddings) ──────────────────────────────────────
+
+EMBED_MODEL = "nomic-embed-text"
+EMBED_DIM = 768
+
+
+def get_qdrant():
+    if not QDRANT_AVAILABLE:
+        return None
+    try:
+        url = load_providers().get("qdrant", {}).get("url", "http://localhost:6333")
+        return QdrantClient(url=url, timeout=5)
+    except Exception:
+        return None
+
+
+def embed_text(text, ollama_url="http://localhost:11434"):
+    resp = requests.post(f"{ollama_url}/api/embeddings",
+                         json={"model": EMBED_MODEL, "prompt": text[:2000]},
+                         timeout=15)
+    resp.raise_for_status()
+    return resp.json()["embedding"]
+
+
+def collection_name(agent_id):
+    return f"agent_{agent_id.replace('-', '_')}"
+
+
+def ensure_collection(client, agent_id):
+    name = collection_name(agent_id)
+    existing = [c.name for c in client.get_collections().collections]
+    if name not in existing:
+        client.create_collection(name, vectors_config=VectorParams(size=EMBED_DIM, distance=Distance.COSINE))
+    return name
+
+
+def memory_search(agent_id, query, top_k=4):
+    """Return relevant past exchanges as context string."""
+    client = get_qdrant()
+    if not client:
+        return ""
+    try:
+        providers = load_providers()
+        ollama_url = providers.get("ollama", {}).get("url", "http://localhost:11434")
+        vec = embed_text(query, ollama_url)
+        name = collection_name(agent_id)
+        existing = [c.name for c in client.get_collections().collections]
+        if name not in existing:
+            return ""
+        hits = client.search(collection_name=name, query_vector=vec, limit=top_k, score_threshold=0.5)
+        if not hits:
+            return ""
+        parts = []
+        for h in hits:
+            p = h.payload
+            parts.append(f"[Erinnerung] User: {p.get('user','')}\nAssistent: {p.get('assistant','')}")
+        return "\n\n".join(parts)
+    except Exception as e:
+        print(f"[Memory] search error: {e}", flush=True)
+        return ""
+
+
+def memory_store(agent_id, user_msg, assistant_msg):
+    """Store a user↔assistant exchange as a memory point."""
+    client = get_qdrant()
+    if not client:
+        return
+    try:
+        providers = load_providers()
+        ollama_url = providers.get("ollama", {}).get("url", "http://localhost:11434")
+        text = f"{user_msg}\n{assistant_msg}"
+        vec = embed_text(text, ollama_url)
+        name = ensure_collection(client, agent_id)
+        client.upsert(collection_name=name, points=[
+            PointStruct(
+                id=str(uuid.uuid4()),
+                vector=vec,
+                payload={
+                    "user": user_msg[:1000],
+                    "assistant": assistant_msg[:1000],
+                    "ts": datetime.now().isoformat()
+                }
+            )
+        ])
+        print(f"[Memory] stored for agent {agent_id}", flush=True)
+    except Exception as e:
+        print(f"[Memory] store error: {e}", flush=True)
 
 DEFAULT_AGENTS = [
     {
@@ -358,6 +462,13 @@ def chat():
     if search_context:
         system_content += f"\n\n{search_context}"
 
+    # Long-term memory recall (memory skill)
+    if "memory" in agent_skills:
+        memory_context = memory_search(agent["id"], user_message)
+        if memory_context:
+            system_content += f"\n\n{memory_context}"
+            print(f"[Memory] injected {len(memory_context)} chars for agent {agent['id']}", flush=True)
+
     # Auto-fetch URLs mentioned in the user message (url_fetch skill)
     if "url_fetch" in agent_skills:
         urls = re.findall(r'https?://[^\s<>"]+', user_message)
@@ -525,6 +636,10 @@ def chat():
     agent_history.append({"role": "assistant", "content": assistant_reply, "ts": ts})
     history[agent_id] = agent_history
     save_history(history)
+
+    # Store in long-term memory (async, non-blocking)
+    if "memory" in agent_skills:
+        threading.Thread(target=memory_store, args=(agent_id, user_message, assistant_reply), daemon=True).start()
 
     resp_data = {"reply": assistant_reply, "voice": agent["voice"]}
     if provider == "ollama" and 'ollama_stats' in dir():
@@ -1158,6 +1273,37 @@ def build_z_image_turbo_workflow(prompt, seed):
         }
     }
     return wf
+
+
+@app.route("/api/memory/<agent_id>", methods=["GET"])
+def memory_info(agent_id):
+    client = get_qdrant()
+    if not client:
+        return jsonify({"error": "Qdrant nicht verfügbar", "count": 0})
+    try:
+        name = collection_name(agent_id)
+        existing = [c.name for c in client.get_collections().collections]
+        if name not in existing:
+            return jsonify({"count": 0})
+        info = client.get_collection(name)
+        return jsonify({"count": info.points_count})
+    except Exception as e:
+        return jsonify({"error": str(e), "count": 0})
+
+
+@app.route("/api/memory/<agent_id>", methods=["DELETE"])
+def memory_clear(agent_id):
+    client = get_qdrant()
+    if not client:
+        return jsonify({"error": "Qdrant nicht verfügbar"}), 503
+    try:
+        name = collection_name(agent_id)
+        existing = [c.name for c in client.get_collections().collections]
+        if name in existing:
+            client.delete_collection(name)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/comfyui/config", methods=["GET"])
