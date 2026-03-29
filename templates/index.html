@@ -599,6 +599,9 @@
     .send-btn:hover { opacity: .85; }
     .send-btn:active { transform: scale(.95); }
     .send-btn:disabled { opacity: .35; cursor: default; }
+    #voiceBtn { background: var(--b1); color: var(--textdim); border: 1px solid var(--b2); font-size: 18px; }
+    #voiceBtn.conv  { background: var(--green); color: #000; border-color: var(--green); }
+    #voiceBtn.ptt   { background: var(--red);   color: #fff; border-color: var(--red); animation: blink .5s infinite; }
 
     .input-toolbar {
       display: flex;
@@ -1748,13 +1751,15 @@ function renderChatShell(ws) {
           <textarea class="input-box" id="mainInput" placeholder="Message ${esc(currentAgent.name)}…" rows="1"
             onkeydown="handleInputKey(event)"
             oninput="autoResizeTextarea(this)"></textarea>
+          <button class="send-btn" id="voiceBtn" title="Klick: Konversationsmodus · Halten: Push-to-Talk"
+            onmousedown="voiceBtnDown(event)" onmouseup="voiceBtnUp(event)" onmouseleave="voiceBtnUp(event)"
+            ontouchstart="voiceBtnDown(event)" ontouchend="voiceBtnUp(event)">🎤</button>
           <button class="send-btn" id="sendBtn" onclick="sendMessage()">↑</button>
         </div>
         <div class="input-toolbar">
           <div class="voice-indicator" id="voiceIndicator">
             <div class="voice-dot"></div> Listening…
           </div>
-          <button class="tool-btn" id="voiceBtn" onclick="toggleVoice()">🎤 Voice</button>
           <button class="tool-btn" onclick="document.getElementById('imageFileInput').click()" title="Bild hochladen">🖼 Bild</button>
           <input type="file" id="imageFileInput" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
           <div id="skillBtns" style="display:contents"></div>
@@ -2923,15 +2928,39 @@ async function toggleSkill(skillId) {
 // ═══════════════════════════════════════════════════
 // Voice Input
 // ═══════════════════════════════════════════════════
-function toggleVoice() {
-  if (voiceActive) {
+let voicePressTimer = null;
+let voicePttActive = false;
+
+function voiceBtnDown(e) {
+  e.preventDefault();
+  voicePressTimer = setTimeout(() => {
+    voicePressTimer = null;
+    // Long press → Push-to-Talk
+    voicePttActive = true;
+    if (!voiceActive) startVoice(true);
+  }, 400);
+}
+
+function voiceBtnUp(e) {
+  if (voicePressTimer !== null) {
+    // Short click → toggle conversation mode
+    clearTimeout(voicePressTimer);
+    voicePressTimer = null;
+    if (voiceActive && !voicePttActive) stopVoice();
+    else if (!voiceActive) startVoice(false);
+  } else if (voicePttActive) {
+    // Release PTT → stop and send immediately
+    voicePttActive = false;
+    const input = document.getElementById('mainInput');
+    const text = (input?.value || voiceBuffer).trim();
     stopVoice();
-  } else {
-    startVoice();
+    if (text) { if (input) input.value = ''; sendMessage(text); }
   }
 }
 
-function startVoice() {
+function toggleVoice() {} // kept for compat
+
+function startVoice(ptt = false) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) { alert('Speech recognition not supported'); return; }
 
@@ -2954,17 +2983,19 @@ function startVoice() {
     const input = document.getElementById('mainInput');
     if (input) input.value = voiceBuffer + interim;
 
-    // Auto-send after 1.5s pause
-    clearTimeout(voicePauseTimer);
-    if (voiceBuffer.trim()) {
-      voicePauseTimer = setTimeout(() => {
-        if (voiceBuffer.trim()) {
-          const text = voiceBuffer.trim();
-          voiceBuffer = '';
-          if (input) input.value = '';
-          sendMessage(text);
-        }
-      }, 1500);
+    // Auto-send after 1.5s pause (only in conversation mode, not PTT)
+    if (!ptt) {
+      clearTimeout(voicePauseTimer);
+      if (voiceBuffer.trim()) {
+        voicePauseTimer = setTimeout(() => {
+          if (voiceBuffer.trim()) {
+            const text = voiceBuffer.trim();
+            voiceBuffer = '';
+            if (input) input.value = '';
+            sendMessage(text);
+          }
+        }, 1500);
+      }
     }
   };
 
@@ -2979,7 +3010,9 @@ function startVoice() {
 
   speechRecognition.start();
   voiceActive = true;
-  document.getElementById('voiceBtn')?.classList.add('active');
+  const btn = document.getElementById('voiceBtn');
+  btn?.classList.remove('conv', 'ptt');
+  btn?.classList.add(ptt ? 'ptt' : 'conv');
   document.getElementById('voiceIndicator')?.classList.add('active');
 }
 
@@ -2988,7 +3021,8 @@ function stopVoice() {
   speechRecognition?.stop();
   voiceActive = false;
   voiceBuffer = '';
-  document.getElementById('voiceBtn')?.classList.remove('active');
+  const btn = document.getElementById('voiceBtn');
+  btn?.classList.remove('conv', 'ptt');
   document.getElementById('voiceIndicator')?.classList.remove('active');
 }
 
