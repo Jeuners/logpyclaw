@@ -1325,6 +1325,10 @@
           <option value="">Off</option>
         </select>
       </div>
+      <div class="form-group">
+        <label class="form-label">Skills</label>
+        <div id="editAgentSkills" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn-danger" id="editAgentDeleteBtn">Delete</button>
@@ -1890,6 +1894,57 @@ async function sendMessage(overrideText) {
     }
   }
 
+  // Image generation skill
+  if (activeSkills.has('image_gen')) {
+    const imgTrigger = text.match(
+      /(?:generier|erstell|zeig|mal|zeichn|mach|bild\s+(?:von|eines?|einer?))\s+(.+)/i
+    ) || text.match(/(?:generate|draw|create|make|paint)\s+(?:an?\s+)?(?:image|picture|photo)\s+(?:of\s+)?(.+)/i);
+    if (imgTrigger) {
+      const imgPrompt = imgTrigger[1].trim();
+      appendMsg('user', text);
+      appendSystemMsg(`🎨 Generiere Bild: „${imgPrompt}"…`);
+      try {
+        const res = await api('/api/comfyui/generate', { method: 'POST', body: { prompt: imgPrompt } });
+        if (res.image) {
+          imageData = res.image;
+          const el = document.getElementById('chatMessages');
+          if (el) {
+            const div = document.createElement('div');
+            div.className = 'msg assistant';
+            div.innerHTML = `<div class="msg-bubble" style="padding:6px">
+              <img src="${res.image}" style="max-width:100%;border-radius:8px;display:block">
+              <div style="font-size:10px;color:var(--textdim);margin-top:4px;font-family:var(--mono)">🎨 ${esc(imgPrompt)}</div>
+            </div>`;
+            el.appendChild(div);
+            el.scrollTop = el.scrollHeight;
+          }
+        } else if (res.error) {
+          appendSystemMsg('Fehler: ' + res.error);
+        }
+      } catch(e) {
+        appendSystemMsg('Bildgenerierung fehlgeschlagen: ' + e.message);
+      }
+      if (imageData) {
+        showThinkingIndicator();
+        try {
+          const body = { agent_id: currentAgent.id, message: text, image_data: imageData };
+          const data = await api('/api/chat', { method: 'POST', body });
+          removeThinkingIndicator();
+          const reply = data.reply || data.response || data.message || '';
+          const idx = appendMsg('assistant', reply, data.stats);
+          if (autoPlay) togglePlay(idx, reply);
+        } catch(e) {
+          removeThinkingIndicator();
+          appendSystemMsg('Error: ' + e.message);
+        }
+      }
+      isSending = false;
+      document.getElementById('sendBtn')?.removeAttribute('disabled');
+      input?.focus();
+      return;
+    }
+  }
+
   // Show image preview in chat if attached
   if (pendingImageData) {
     const el = document.getElementById('chatMessages');
@@ -2077,8 +2132,29 @@ function renderProviderModal() {
   const body = document.getElementById('providerModalBody');
   if (!body) return;
 
-  const rows = providers.map(p => `
-    <div class="provider-row">
+  const comfyModels = [
+    { id: 'flux2pro',  label: 'Flux Pro 2.0' },
+    { id: 'fluxultra', label: 'Flux Pro Ultra' },
+    { id: 'dalle3',    label: 'DALL-E 3' },
+    { id: 'wan',       label: 'Wan 2.5 T2I' },
+  ];
+  const rows = providers.map(p => {
+    if (p.id === 'comfyui') {
+      const modelOpts = comfyModels.map(m =>
+        `<option value="${m.id}"${p.model === m.id ? ' selected' : ''}>${m.label}</option>`
+      ).join('');
+      return `<div class="provider-row" style="flex-wrap:wrap;gap:6px">
+        <div class="provider-dot ${p.url ? 'ok' : 'err'}"></div>
+        <div style="flex:1;min-width:80px">
+          <div class="provider-name">🎨 ComfyUI</div>
+        </div>
+        <input class="form-input" style="font-size:11px;padding:5px 8px;flex:2;min-width:160px"
+          id="comfyui_url" placeholder="http://…" value="${esc(p.url||'')}">
+        <select class="form-select" style="font-size:11px;padding:5px 8px;flex:1;min-width:120px"
+          id="comfyui_model">${modelOpts}</select>
+      </div>`;
+    }
+    return `<div class="provider-row">
       <div class="provider-dot ${p.configured ? 'ok' : 'err'}"></div>
       <div style="flex:1">
         <div class="provider-name">${esc(p.name)}</div>
@@ -2091,7 +2167,8 @@ function renderProviderModal() {
           placeholder="API Key…"
           value="${esc(p.api_key||'')}">
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   body.innerHTML = rows || `<p style="color:var(--textdim);font-size:13px;font-family:var(--mono)">No providers configured in config.</p>`;
 }
@@ -2100,8 +2177,14 @@ async function saveProviders() {
   // Backend expects a dict: { ollama: {api_key:…}, mistral: {api_key:…}, … }
   const updates = {};
   providers.forEach(p => {
-    const val = document.getElementById(`apikey_${p.id}`)?.value;
-    if (val !== undefined) updates[p.id] = { api_key: val };
+    if (p.id === 'comfyui') {
+      const url   = document.getElementById('comfyui_url')?.value.trim();
+      const model = document.getElementById('comfyui_model')?.value;
+      updates.comfyui = { url, model };
+    } else {
+      const val = document.getElementById(`apikey_${p.id}`)?.value;
+      if (val !== undefined) updates[p.id] = { api_key: val };
+    }
   });
   try {
     await api('/api/providers', { method: 'POST', body: updates });
@@ -2132,9 +2215,15 @@ function populateModelSelect(selectId, provider, currentModel) {
     return;
   }
   if (provider === 'openrouter') {
-    sel.innerHTML = models.map(m =>
-      `<option value="${esc(m.id)}"${m.id === currentModel ? ' selected' : ''}>${esc(m.name)}${m.free ? ' (free)' : ''}</option>`
+    const free = models.filter(m => m.free);
+    const paid = models.filter(m => !m.free);
+    const renderOpts = arr => arr.map(m =>
+      `<option value="${esc(m.id)}"${m.id === currentModel ? ' selected' : ''}>${esc(m.name)}</option>`
     ).join('');
+    sel.innerHTML =
+      (free.length ? `<optgroup label="Free">${renderOpts(free)}</optgroup>` : '') +
+      (paid.length ? `<optgroup label="Paid">${renderOpts(paid)}</optgroup>` : '');
+    if (currentModel) sel.value = currentModel;
   } else {
     sel.innerHTML = models.map(m =>
       `<option value="${esc(m)}"${m === currentModel ? ' selected' : ''}>${esc(m)}</option>`
@@ -2148,7 +2237,7 @@ function populateProviderSelects() {
     if (!sel) return;
     sel.innerHTML = providers.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
   });
-  populateVoiceSelects();
+  populateVoiceSelects(); // async, runs in background
 }
 
 async function openNewAgentModal() {
@@ -2160,25 +2249,35 @@ async function openNewAgentModal() {
   openModal('newAgentModal');
 }
 
-function populateVoiceSelects() {
-  const mistralVoices = [
-    { id: 'neutral_male',    label: 'Neutral Male (EN)' },
-    { id: 'neutral_female',  label: 'Neutral Female (EN)' },
-    { id: 'casual_male',     label: 'Casual Male (EN)' },
-    { id: 'casual_female',   label: 'Casual Female (EN)' },
-    { id: 'cheerful_female', label: 'Cheerful Female (EN)' },
-    { id: 'de_male',         label: 'Male (DE)' },
-    { id: 'de_female',       label: 'Female (DE)' },
-  ];
+async function populateVoiceSelects() {
   const browserVoices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
   const deEnVoices = browserVoices.filter(v => v.lang.startsWith('de') || v.lang.startsWith('en'));
-
-  const mistralGroup = `<optgroup label="Mistral (Voxtral)">${
-    mistralVoices.map(v => `<option value="${v.id}">${v.label}</option>`).join('')
-  }</optgroup>`;
   const macGroup = deEnVoices.length ? `<optgroup label="Mac (Browser)">${
     deEnVoices.map(v => `<option value="mac:${esc(v.name)}">${esc(v.name)} (${v.lang})</option>`).join('')
   }</optgroup>` : '';
+
+  // set placeholders first
+  ['newAgentVoice', 'editAgentVoice'].forEach(selId => {
+    const sel = document.getElementById(selId);
+    if (sel) sel.innerHTML = '<option value="">Off</option><option value="" disabled>Mistral wird geladen…</option>' + macGroup;
+  });
+
+  let mistralGroup = '';
+  try {
+    const data = await api('/api/voices/mistral');
+    const voices = (data.voices || []).filter(v => v.lang.startsWith('de') || v.lang.startsWith('en'));
+    const byLang = {};
+    voices.forEach(v => {
+      const g = v.lang.startsWith('de') ? 'Mistral DE' : 'Mistral EN';
+      if (!byLang[g]) byLang[g] = [];
+      byLang[g].push(v);
+    });
+    mistralGroup = ['Mistral DE', 'Mistral EN'].filter(g => byLang[g]).map(g =>
+      `<optgroup label="${g}">${byLang[g].map(v =>
+        `<option value="${esc(v.slug)}">${esc(v.name)}</option>`
+      ).join('')}</optgroup>`
+    ).join('');
+  } catch(e) {}
 
   ['newAgentVoice', 'editAgentVoice'].forEach(selId => {
     const sel = document.getElementById(selId);
@@ -2218,19 +2317,36 @@ async function openEditAgentModal(id) {
   document.getElementById('editAgentName').value = a.name || '';
   document.getElementById('editAgentSystem').value = a.soul || '';
   await Promise.all([loadModels(), loadProviders()]);
-  populateProviderSelects();
+  populateProviderSelects(); // starts populateVoiceSelects() async internally
   const psel = document.getElementById('editAgentProvider');
   if (psel) { psel.value = a.provider || 'ollama'; }
   populateModelSelect('editAgentModel', a.provider || 'ollama', a.model || '');
   if (psel) psel.onchange = () => populateModelSelect('editAgentModel', psel.value, '');
-  const vsel = document.getElementById('editAgentVoice');
-  if (vsel) {
-    vsel.value = a.voice || '';
-    // migrate old values saved without mac: prefix
-    if (a.voice && !vsel.value && a.voice !== 'voxtral') vsel.value = 'mac:' + a.voice;
-  }
+  // set voice after voices are loaded
+  const savedVoice = a.voice || '';
+  populateVoiceSelects().then(() => {
+    const vsel = document.getElementById('editAgentVoice');
+    if (!vsel) return;
+    vsel.value = savedVoice;
+    if (savedVoice && !vsel.value && savedVoice !== 'voxtral') vsel.value = 'mac:' + savedVoice;
+  });
   document.getElementById('editAgentDeleteBtn').onclick = () => deleteAgent(id);
+  renderEditAgentSkills(a.skills || []);
   openModal('editAgentModal');
+}
+
+function renderEditAgentSkills(activeList) {
+  const el = document.getElementById('editAgentSkills');
+  if (!el) return;
+  const active = new Set(activeList);
+  el.innerHTML = skills.map(s => {
+    const on = active.has(s.id);
+    const unavail = s.available === false ? ';opacity:.45' : '';
+    return `<button type="button" class="tool-btn${on ? ' active' : ''}" style="font-size:12px${unavail}"
+      title="${esc(s.description)}"
+      onclick="this.classList.toggle('active')"
+      data-skill-id="${s.id}">${s.icon} ${esc(s.name)}</button>`;
+  }).join('');
 }
 
 async function saveEditAgent() {
@@ -2240,11 +2356,13 @@ async function saveEditAgent() {
   const model = document.getElementById('editAgentModel')?.value.trim();
   const system = document.getElementById('editAgentSystem')?.value.trim();
   const voice = document.getElementById('editAgentVoice')?.value;
+  const skillEls = document.querySelectorAll('#editAgentSkills [data-skill-id]');
+  const activeSkills = [...skillEls].filter(b => b.classList.contains('active')).map(b => b.dataset.skillId);
 
   try {
     const updated = await api(`/api/agents/${editingAgentId}`, {
       method: 'PUT',
-      body: { name, provider, model, soul: system, voice }
+      body: { name, provider, model, soul: system, voice, skills: activeSkills }
     });
     const idx = agents.findIndex(a => a.id === editingAgentId);
     if (idx >= 0) agents[idx] = updated;

@@ -44,6 +44,13 @@ SKILLS = [
         "icon": "📸",
         "description": "Macht Browser-Screenshots von Websites und sendet sie als Bild an den Agenten (benötigt Playwright)",
         "requires": "playwright"
+    },
+    {
+        "id": "image_gen",
+        "name": "Bild generieren",
+        "icon": "🎨",
+        "description": "Generiert Bilder via ComfyUI (Flux Pro, Wan, DALL-E u.a.) auf Anfrage",
+        "requires": "comfyui"
     }
 ]
 
@@ -59,7 +66,8 @@ def load_providers():
         "ollama": {"url": "http://localhost:11434"},
         "mistral": {"api_key": os.getenv("MISTRAL_API_KEY", "")},
         "openrouter": {"api_key": ""},
-        "searxng": {"url": "http://localhost:8888"}
+        "searxng": {"url": "http://localhost:8888"},
+        "comfyui": {"url": "http://192.168.3.26:8000", "model": "flux2pro"}
     }
     if not os.path.exists(PROVIDERS_FILE):
         return defaults
@@ -729,7 +737,7 @@ def get_all_models():
                              headers={"Authorization": f"Bearer {or_key}"}, timeout=10)
             r.raise_for_status()
             models = r.json().get("data", [])
-            result["openrouter"] = sorted([
+            parsed = [
                 {
                     "id": m["id"],
                     "name": m.get("name", m["id"]),
@@ -739,7 +747,8 @@ def get_all_models():
                     ) or m["id"].endswith(":free")
                 }
                 for m in models
-            ], key=lambda x: x.get("name", ""))
+            ]
+            result["openrouter"] = sorted(parsed, key=lambda x: (0 if x["free"] else 1, x.get("name", "").lower()))
         except Exception:
             result["openrouter"] = []
 
@@ -1094,6 +1103,121 @@ def take_screenshot():
         return jsonify({"image": f"data:image/jpeg;base64,{b64}", "url": url})
     except Exception as e:
         return jsonify({"error": f"Screenshot fehlgeschlagen: {e}"}), 500
+
+
+# ─── ComfyUI Image Generation ─────────────────────────────────────────────────
+
+COMFYUI_WORKFLOWS = {
+    "flux2pro": lambda prompt, w, h, seed: {
+        "1": {"class_type": "Flux2ProImageNode", "inputs": {
+            "prompt": prompt, "width": w, "height": h,
+            "seed": seed, "prompt_upsampling": False
+        }},
+        "2": {"class_type": "SaveImage", "inputs": {
+            "images": ["1", 0], "filename_prefix": "agentclaw"
+        }}
+    },
+    "fluxultra": lambda prompt, w, h, seed: {
+        "1": {"class_type": "FluxProUltraImageNode", "inputs": {
+            "prompt": prompt, "aspect_ratio": f"{w}:{h}",
+            "seed": seed, "prompt_upsampling": False, "raw": False
+        }},
+        "2": {"class_type": "SaveImage", "inputs": {
+            "images": ["1", 0], "filename_prefix": "agentclaw"
+        }}
+    },
+    "dalle3": lambda prompt, w, h, seed: {
+        "1": {"class_type": "OpenAIDalle3", "inputs": {
+            "prompt": prompt, "size": "1024x1024",
+            "quality": "standard", "style": "vivid"
+        }},
+        "2": {"class_type": "SaveImage", "inputs": {
+            "images": ["1", 0], "filename_prefix": "agentclaw"
+        }}
+    },
+    "wan": lambda prompt, w, h, seed: {
+        "1": {"class_type": "WanTextToImageApi", "inputs": {
+            "model": "wan2.5-t2i-preview", "prompt": prompt
+        }},
+        "2": {"class_type": "SaveImage", "inputs": {
+            "images": ["1", 0], "filename_prefix": "agentclaw"
+        }}
+    },
+}
+
+
+@app.route("/api/comfyui/generate", methods=["POST"])
+def comfyui_generate():
+    data = request.json
+    prompt = data.get("prompt", "").strip()
+    width  = int(data.get("width", 1024))
+    height = int(data.get("height", 1024))
+    seed   = data.get("seed", int(__import__("time").time()) % (2**32))
+
+    if not prompt:
+        return jsonify({"error": "Kein Prompt"}), 400
+
+    providers = load_providers()
+    cfg = providers.get("comfyui", {})
+    base_url = cfg.get("url", "http://192.168.3.26:8000").rstrip("/")
+    model_key = cfg.get("model", "flux2pro")
+
+    build_wf = COMFYUI_WORKFLOWS.get(model_key, COMFYUI_WORKFLOWS["flux2pro"])
+    workflow = build_wf(prompt, width, height, seed)
+
+    try:
+        # Queue prompt
+        r = requests.post(f"{base_url}/prompt",
+                          json={"prompt": workflow, "client_id": "agentclaw"},
+                          timeout=15)
+        r.raise_for_status()
+        prompt_id = r.json()["prompt_id"]
+        print(f"[ComfyUI] queued prompt_id={prompt_id} model={model_key}", flush=True)
+
+        # Poll history (max 120s)
+        import time
+        deadline = time.time() + 120
+        outputs = None
+        while time.time() < deadline:
+            time.sleep(2)
+            h = requests.get(f"{base_url}/history/{prompt_id}", timeout=10)
+            entry = h.json().get(prompt_id, {})
+            if entry.get("status", {}).get("completed"):
+                outputs = entry.get("outputs", {})
+                break
+
+        if not outputs:
+            return jsonify({"error": "Timeout: ComfyUI hat nicht rechtzeitig geantwortet"}), 504
+
+        # Find first image in outputs
+        img_info = None
+        for node_out in outputs.values():
+            imgs = node_out.get("images", [])
+            if imgs:
+                img_info = imgs[0]
+                break
+
+        if not img_info:
+            return jsonify({"error": "Keine Bilddaten in der Antwort"}), 500
+
+        filename  = img_info["filename"]
+        subfolder = img_info.get("subfolder", "")
+        img_type  = img_info.get("type", "output")
+        params    = f"filename={filename}&type={img_type}"
+        if subfolder:
+            params += f"&subfolder={subfolder}"
+
+        img_r = requests.get(f"{base_url}/view?{params}", timeout=30)
+        img_r.raise_for_status()
+        mime = img_r.headers.get("Content-Type", "image/png").split(";")[0]
+        b64  = base64.b64encode(img_r.content).decode()
+        print(f"[ComfyUI] image ready: {filename} ({len(img_r.content)//1024}KB)", flush=True)
+        return jsonify({"image": f"data:{mime};base64,{b64}", "filename": filename})
+
+    except requests.exceptions.ConnectionError:
+        return jsonify({"error": f"ComfyUI nicht erreichbar: {base_url}"}), 503
+    except Exception as e:
+        return jsonify({"error": f"ComfyUI Fehler: {e}"}), 500
 
 
 if __name__ == "__main__":
