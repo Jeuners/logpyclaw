@@ -201,7 +201,7 @@
       transition: opacity .15s, transform .15s;
     }
     .agent-fav-btn:hover { opacity: 0.7; }
-    .agent-fav-btn.fav { opacity: 1; }
+    .agent-fav-btn.fav { opacity: 1; color: #ffd700; text-shadow: 0 0 8px #ffd700; }
     .agent-item.fav-item { 
       border-left: 2px solid #ffd700;
       box-shadow: inset 4px 0 12px rgba(255, 215, 0, 0.15);
@@ -605,6 +605,7 @@
       outline: none;
       transition: border-color .15s;
       line-height: 1.5;
+      overflow: hidden;
     }
 
     .input-box:focus { border-color: var(--green); }
@@ -816,16 +817,26 @@
     }
 
     .home-title {
-      font-size: 20px;
+      font-size: 48px;
       font-weight: 700;
       color: var(--green);
       font-family: var(--mono);
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
+      padding: 40px 0 20px;
+      text-shadow: 0 0 30px rgba(0,230,118,.5), 0 0 60px rgba(0,230,118,.3);
+      animation: hero-glow 3s ease-in-out infinite;
     }
 
-    .home-title span { font-size: 11px; color: var(--textdim); font-weight: 400; }
+    @keyframes hero-glow {
+      0%,100% { text-shadow: 0 0 30px rgba(0,230,118,.5), 0 0 60px rgba(0,230,118,.3); }
+      50% { text-shadow: 0 0 40px rgba(0,230,118,.7), 0 0 80px rgba(0,230,118,.4); }
+    }
+
+    .home-title .hero-sub { font-size: 14px; color: var(--textdim); font-weight: 400; letter-spacing: 2px; }
+    .home-title .hero-version { font-size: 12px; color: var(--textdim); opacity: .6; margin-top: 4px; }
 
     .home-grid {
       display: grid;
@@ -1575,7 +1586,7 @@ async function syncAgentHistory(agentId) {
       if (el) el.insertAdjacentHTML('beforeend', renderMsg(m, idx));
     }
     conversations[agentId] = existing;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (el) scrollToBottom(el);
   } catch(e) {}
 }
 
@@ -1619,12 +1630,17 @@ function renderChatSidePanel() {
           ? `<span title="${esc(act.label)}" style="font-size:11px;animation:blink .6s infinite">💓</span>`
           : `<span title="${esc(act.label)}" style="font-size:11px;animation:blink .6s infinite">⚙️</span>`)
       : (hbActive ? `<span title="Heartbeat aktiv" style="font-size:11px;opacity:.5">💓</span>` : '');
+    const agentSkills = (a.skills || []).map(sid => {
+      const s = skills.find(x => x.id === sid);
+      return s ? `<span title="${esc(s.name)}" style="font-size:12px;opacity:.7">${s.icon}</span>` : '';
+    }).join('');
     return `<div class="agent-item ${active}${isFav ? ' fav-item' : ''}" onclick="selectAgent('${a.id}')">
       <div class="agent-dot online"></div>
       <div style="flex:1;min-width:0">
         <span class="agent-name">${esc(a.name)}</span>
         ${a.role ? `<div style="font-size:10px;color:var(--textdim);font-family:var(--mono);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.role)}</div>` : ''}
         <div style="font-size:10px;color:var(--textdim);font-family:var(--mono);opacity:.5;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc((a.model||'').split('/').pop())}</div>
+        ${agentSkills ? `<div style="display:flex;gap:3px;margin-top:3px">${agentSkills}</div>` : ''}
         ${act ? `<div style="font-size:10px;color:var(--green);font-family:var(--mono);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(act.label)}</div>` : ''}
       </div>
       ${actIcon}
@@ -1717,21 +1733,17 @@ function renderHome(ws) {
 
   ws.innerHTML = `
     <div class="home-shell">
-      <div class="home-title">AgentClaw <span>v2 · matrix</span></div>
+      <div class="home-title">AGENT CLAW<div class="hero-sub">MULTI-AGENT VOICE PLATFORM</div><div class="hero-version">v0.7</div></div>
       <div class="home-grid">
         <div class="home-stat"><div class="home-stat-val">${agents.length}</div><div class="home-stat-lbl">Agents</div></div>
         <div class="home-stat"><div class="home-stat-val">${totalMsgs}</div><div class="home-stat-lbl">Messages</div></div>
         <div class="home-stat"><div class="home-stat-val">${providers.length}</div><div class="home-stat-lbl">Providers</div></div>
         <div class="home-stat"><div class="home-stat-val">${activeWds}</div><div class="home-stat-lbl">Watchdogs</div></div>
       </div>
-      <div class="home-section">
-        <div class="home-section-title">Your Agents</div>
-        ${agentRows || '<div style="color:var(--textdim);font-size:13px;font-family:var(--mono)">No agents yet — create one to get started.</div>'}
-      </div>
       ${skills.length > 0 ? `
       <div class="home-section">
         <div class="home-section-title">Skills (${skills.length})</div>
-        ${skills.slice(0,3).map(s => `<div class="home-agent-row" style="cursor:default">
+        ${skills.map(s => `<div class="home-agent-row" style="cursor:default">
           <div style="font-size:18px">${s.icon||'🧩'}</div>
           <div class="home-agent-info">
             <div class="home-agent-name">${esc(s.name)}</div>
@@ -1833,7 +1845,7 @@ function renderMessages() {
   if (!el || !currentAgent) return;
   const msgs = conversations[currentAgent.id] || [];
   el.innerHTML = msgs.map((m, i) => renderMsg(m, i)).join('');
-  el.scrollTop = el.scrollHeight;
+  scrollToBottom(el);
 }
 
 function renderMsg(m, index) {
@@ -1878,7 +1890,7 @@ function appendMsg(role, content, stats) {
     const div = document.createElement('div');
     div.innerHTML = renderMsg(msg, index);
     el.appendChild(div.firstElementChild);
-    el.scrollTop = el.scrollHeight;
+    scrollToBottom(el);
   }
   return index;
 }
@@ -1890,7 +1902,7 @@ function appendSystemMsg(content) {
   div.className = 'msg system';
   div.innerHTML = `<div class="msg-bubble">${esc(content)}</div>`;
   el.appendChild(div);
-  el.scrollTop = el.scrollHeight;
+  scrollToBottom(el);
 }
 
 function showThinkingIndicator() {
@@ -1904,7 +1916,7 @@ function showThinkingIndicator() {
   div.className = 'think-wrap';
   div.innerHTML = `<span class="think-brain">🧠</span><div class="think-eeg">${bars}</div>`;
   el.appendChild(div);
-  el.scrollTop = el.scrollHeight;
+  scrollToBottom(el);
 }
 
 function removeThinkingIndicator() {
@@ -1982,7 +1994,7 @@ async function sendMessage(overrideText) {
               <div style="font-size:10px;color:var(--textdim);margin-top:4px;font-family:var(--mono)">${esc(sc.url)}</div>
             </div>`;
             el.appendChild(div);
-            el.scrollTop = el.scrollHeight;
+            scrollToBottom(el);
           }
         }
       } catch(e) {
@@ -2034,7 +2046,7 @@ async function sendMessage(overrideText) {
               <div style="font-size:10px;color:var(--textdim);margin-top:4px;font-family:var(--mono)">🎨 ${esc(imgPrompt)}</div>
             </div>`;
             el.appendChild(div);
-            el.scrollTop = el.scrollHeight;
+            scrollToBottom(el);
           }
         }
       } catch(e) {
@@ -2112,7 +2124,7 @@ async function sendMessage(overrideText) {
         ${text ? `<span>${esc(text)}</span>` : ''}
       </div>`;
       el.appendChild(div);
-      el.scrollTop = el.scrollHeight;
+      scrollToBottom(el);
     }
   } else {
     appendMsg('user', text);
@@ -2571,14 +2583,22 @@ async function saveEditAgent() {
               max_tokens: parseInt(document.getElementById('editAgentMaxTokens')?.value) || null }
     });
     // Save heartbeat separately
-    await api(`/api/agents/${editingAgentId}/heartbeat`, {
-      method: 'PUT',
-      body: { active: hbActive, prompt: hbPrompt, interval_min: hbInterval }
-    });
-    updated.heartbeat = { active: hbActive, prompt: hbPrompt, interval_min: hbInterval };
-    const idx = agents.findIndex(a => a.id === editingAgentId);
-    if (idx >= 0) agents[idx] = updated;
-    if (currentAgent?.id === editingAgentId) currentAgent = updated;
+    console.log('Saving heartbeat:', { active: hbActive, prompt: hbPrompt, interval_min: hbInterval });
+    try {
+      const hbResult = await api(`/api/agents/${editingAgentId}/heartbeat`, {
+        method: 'PUT',
+        body: { active: hbActive, prompt: hbPrompt, interval_min: hbInterval }
+      });
+      console.log('Heartbeat saved:', hbResult.heartbeat);
+    } catch(hbErr) {
+      console.error('Heartbeat save failed:', hbErr);
+      alert('Heartbeat save failed: ' + hbErr.message);
+    }
+    // Reload agents from server to get fresh data
+    await loadAgents();
+    if (currentAgent?.id === editingAgentId) {
+      currentAgent = agents.find(a => a.id === editingAgentId);
+    }
     closeModal('editAgentModal');
     renderSidePanel();
     if (currentView === 'chat') renderChatShell(document.getElementById('workspace'));
@@ -3059,7 +3079,7 @@ function renderTaskResult(task, fromAgent) {
     const el = document.getElementById('chatMessages');
     if (el) {
       el.insertAdjacentHTML('beforeend', renderMsg(msg, idx));
-      el.scrollTop = el.scrollHeight;
+      scrollToBottom(el);
     }
   } else if (task.result_text) {
     const msg = {
@@ -3072,7 +3092,7 @@ function renderTaskResult(task, fromAgent) {
     const el = document.getElementById('chatMessages');
     if (el) {
       el.insertAdjacentHTML('beforeend', renderMsg(msg, idx));
-      el.scrollTop = el.scrollHeight;
+      scrollToBottom(el);
     }
   }
 }
@@ -3312,6 +3332,15 @@ function stopVoice() {
 function esc(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function scrollToBottom(el, smooth = true) {
+  if (!el) return;
+  if (smooth) {
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  } else {
+    scrollToBottom(el);
+  }
 }
 
 function agentName(id) {

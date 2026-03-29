@@ -420,6 +420,68 @@ def build_firered_edit_workflow(
     return wf
 
 
+def _run_comfyui_sync(prompt: str) -> str:
+    """Run ComfyUI image generation synchronously. Returns base64 data URL."""
+    providers = load_providers()
+    cfg = providers.get("comfyui", {})
+    base_url = cfg.get("url", "http://192.168.3.26:8000").rstrip("/")
+    seed = int(time.time()) % (2**32)
+
+    # Optimize prompt: English only, no text
+    optimized = _optimize_prompt_for_image(prompt)
+    print(f"[ComfyUI] original: {prompt[:60]}...", flush=True)
+    print(f"[ComfyUI] optimized: {optimized[:60]}...", flush=True)
+
+    workflow = build_z_image_turbo_workflow(optimized, seed)
+
+    r = requests.post(
+        f"{base_url}/prompt",
+        json={"prompt": workflow, "client_id": "agentclaw-task"},
+        timeout=30,
+    )
+    r.raise_for_status()
+    resp_json = r.json()
+    if "prompt_id" not in resp_json:
+        raise RuntimeError(f"ComfyUI Antwort unerwartet: {resp_json}")
+    prompt_id = resp_json["prompt_id"]
+
+    deadline = time.time() + 120
+    outputs = None
+    while time.time() < deadline:
+        time.sleep(2)
+        h = requests.get(f"{base_url}/history/{prompt_id}", timeout=10)
+        entry = h.json().get(prompt_id, {})
+        if entry.get("status", {}).get("completed"):
+            outputs = entry.get("outputs", {})
+            break
+
+    if not outputs:
+        raise RuntimeError("Timeout: ComfyUI hat nicht rechtzeitig geantwortet")
+
+    img_info = None
+    for node_out in outputs.values():
+        imgs = node_out.get("images", [])
+        if imgs:
+            img_info = imgs[0]
+            break
+
+    if not img_info:
+        raise RuntimeError("Keine Bilddaten in der ComfyUI-Antwort")
+
+    filename = img_info["filename"]
+    subfolder = img_info.get("subfolder", "")
+    img_type = img_info.get("type", "output")
+    params = f"filename={filename}&type={img_type}"
+    if subfolder:
+        params += f"&subfolder={subfolder}"
+
+    img_r = requests.get(f"{base_url}/view?{params}", timeout=30)
+    img_r.raise_for_status()
+    mime = img_r.headers.get("Content-Type", "image/png").split(";")[0]
+    b64 = base64.b64encode(img_r.content).decode()
+    return f"data:{mime};base64,{b64}"
+
+
 def _run_comfyui_edit(image_b64: str, prompt: str, use_lightning: bool = True) -> str:
     """Run FireRed Image Edit via ComfyUI. Returns base64 data URL."""
     providers = load_providers()
@@ -589,14 +651,6 @@ def process_task(task_id: str):
         r"send.*to\s*telegram|"
         r"telegram.*(bild|foto|image)|"
         r"tg\s*send",
-        re.IGNORECASE,
-    )
-
-    IMAGE_EDIT_TRIGGERS = re.compile(
-        r"\b(bearbeite|ändere|editier|modifiziere|verändere|verwandle|transformiere|konvertiere)\b|"
-        r"\b(edit|modify|change|transform|convert)\b.*\b(bild|image|photo|picture)\b|"
-        r"(bild|image|photo|picture).*\b(edit|modify|change|transform|convert)\b|"
-        r"@.*edit\b",
         re.IGNORECASE,
     )
 
@@ -1062,6 +1116,15 @@ def clear_history(agent_id):
 
 
 # ─── Chat ─────────────────────────────────────────────────────────────────────
+
+IMAGE_EDIT_TRIGGERS = re.compile(
+    r"\b(bearbeite|ändere|editier|modifiziere|verändere|verwandle|transformiere|konvertiere)\b|"
+    r"\b(edit|modify|change|transform|convert)\b.*\b(bild|image|photo|picture)\b|"
+    r"(bild|image|photo|picture).*\b(edit|modify|change|transform|convert)\b|"
+    r"@.*edit\b|"
+    r"ersetz\w*|replace\w*",
+    re.IGNORECASE,
+)
 
 
 @app.route("/api/chat", methods=["POST"])
@@ -2697,7 +2760,7 @@ def comfyui_generate():
         # Poll history (max 120s)
         import time
 
-        deadline = time.time() + 120
+    deadline = time.time() + 360  # 6 min timeout for image editing
         outputs = None
         while time.time() < deadline:
             time.sleep(2)
