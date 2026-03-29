@@ -2759,12 +2759,47 @@ function playMacVoiceAsync(text, voiceName, btn) {
   });
 }
 
-// ─── ComfyUI image generation (proxied via Flask) ─────────────────────────────
+// ─── ComfyUI image generation (browser-direct, CORS enabled on server) ────────
 async function comfyuiGenerate(prompt) {
-  const res = await api('/api/comfyui/generate', { method: 'POST', body: { prompt } });
-  if (res.error) throw new Error(res.error);
-  if (!res.image) throw new Error('Keine Bilddaten erhalten');
-  return res.image;
+  const cfg = await api('/api/comfyui/config');
+  const baseUrl = cfg.url.replace(/\/$/, '');
+  const workflow = cfg.workflow;
+
+  const seed = Math.floor(Math.random() * 2**32);
+  for (const node of Object.values(workflow)) {
+    if (node.class_type === 'CLIPTextEncode' && node.inputs?.text === '__PROMPT__')
+      node.inputs.text = prompt;
+    if (node.class_type === 'KSampler')
+      node.inputs.seed = seed;
+  }
+
+  const queueResp = await fetch(`${baseUrl}/prompt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt: workflow, client_id: 'agentclaw' })
+  });
+  if (!queueResp.ok) throw new Error(`ComfyUI ${queueResp.status}: ${(await queueResp.text()).slice(0,200)}`);
+  const { prompt_id } = await queueResp.json();
+
+  const deadline = Date.now() + 120000;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 2000));
+    const hist = await (await fetch(`${baseUrl}/history/${prompt_id}`)).json();
+    const entry = hist[prompt_id];
+    if (entry?.status?.completed) {
+      for (const nodeOut of Object.values(entry.outputs || {})) {
+        const imgs = nodeOut.images || [];
+        if (imgs.length) {
+          const { filename, subfolder, type } = imgs[0];
+          const params = new URLSearchParams({ filename, type: type || 'output' });
+          if (subfolder) params.set('subfolder', subfolder);
+          const blob = await (await fetch(`${baseUrl}/view?${params}`)).blob();
+          return await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
+        }
+      }
+    }
+  }
+  throw new Error('Timeout: ComfyUI hat nicht rechtzeitig geantwortet');
 }
 
 function renderSkillBtns() {
