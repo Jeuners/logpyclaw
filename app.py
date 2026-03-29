@@ -1160,6 +1160,15 @@ def build_z_image_turbo_workflow(prompt, seed):
     return wf
 
 
+@app.route("/api/comfyui/config", methods=["GET"])
+def comfyui_config():
+    cfg = load_providers().get("comfyui", {})
+    return jsonify({
+        "url": cfg.get("url", "http://192.168.3.26:8000"),
+        "workflow": build_z_image_turbo_workflow("__PROMPT__", 0)
+    })
+
+
 @app.route("/api/comfyui/generate", methods=["POST"])
 def comfyui_generate():
     data = request.json

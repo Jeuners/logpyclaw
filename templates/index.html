@@ -1909,22 +1909,20 @@ async function sendMessage(overrideText) {
       appendMsg('user', text);
       appendSystemMsg(`🎨 Generiere: „${imgPrompt}"…`);
       try {
-        const res = await api('/api/comfyui/generate', { method: 'POST', body: { prompt: imgPrompt } });
-        if (res.image) {
-          imageData = res.image;
+        const imgDataUrl = await comfyuiGenerate(imgPrompt);
+        if (imgDataUrl) {
+          imageData = imgDataUrl;
           const el = document.getElementById('chatMessages');
           if (el) {
             const div = document.createElement('div');
             div.className = 'msg assistant';
             div.innerHTML = `<div class="msg-bubble" style="padding:6px">
-              <img src="${res.image}" style="max-width:100%;border-radius:8px;display:block">
+              <img src="${imgDataUrl}" style="max-width:100%;border-radius:8px;display:block">
               <div style="font-size:10px;color:var(--textdim);margin-top:4px;font-family:var(--mono)">🎨 ${esc(imgPrompt)}</div>
             </div>`;
             el.appendChild(div);
             el.scrollTop = el.scrollHeight;
           }
-        } else if (res.error) {
-          appendSystemMsg('Fehler: ' + res.error);
         }
       } catch(e) {
         appendSystemMsg('Bildgenerierung fehlgeschlagen: ' + e.message);
@@ -2759,6 +2757,66 @@ function playMacVoiceAsync(text, voiceName, btn) {
     utt.onend = resolve; utt.onerror = resolve;
     window.speechSynthesis.speak(utt);
   });
+}
+
+// ─── ComfyUI: browser-direct generation ───────────────────────────────────────
+async function comfyuiGenerate(prompt) {
+  // Fetch config + workflow template from Flask (just config, no proxying)
+  const cfg = await api('/api/comfyui/config');
+  const baseUrl = cfg.url.replace(/\/$/, '');
+  const workflow = cfg.workflow;
+
+  // Inject prompt + random seed
+  const seed = Math.floor(Math.random() * 2**32);
+  // Find the CLIPTextEncode node with placeholder and the KSampler node
+  for (const node of Object.values(workflow)) {
+    if (node.class_type === 'CLIPTextEncode' && node.inputs?.text === '__PROMPT__') {
+      node.inputs.text = prompt;
+    }
+    if (node.class_type === 'KSampler') {
+      node.inputs.seed = seed;
+    }
+  }
+
+  // Submit to ComfyUI directly from browser
+  const queueResp = await fetch(`${baseUrl}/prompt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt: workflow, client_id: 'agentclaw' })
+  });
+  if (!queueResp.ok) {
+    const err = await queueResp.text();
+    throw new Error(`ComfyUI queue error ${queueResp.status}: ${err.slice(0, 200)}`);
+  }
+  const { prompt_id } = await queueResp.json();
+
+  // Poll history until done (max 120s)
+  const deadline = Date.now() + 120000;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 2000));
+    const histResp = await fetch(`${baseUrl}/history/${prompt_id}`);
+    const hist = await histResp.json();
+    const entry = hist[prompt_id];
+    if (entry?.status?.completed) {
+      // Find first image output
+      for (const nodeOut of Object.values(entry.outputs || {})) {
+        const imgs = nodeOut.images || [];
+        if (imgs.length) {
+          const { filename, subfolder, type } = imgs[0];
+          const params = new URLSearchParams({ filename, type: type || 'output' });
+          if (subfolder) params.set('subfolder', subfolder);
+          const imgResp = await fetch(`${baseUrl}/view?${params}`);
+          const blob = await imgResp.blob();
+          return await new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+          });
+        }
+      }
+    }
+  }
+  throw new Error('Timeout: ComfyUI hat nicht rechtzeitig geantwortet');
 }
 
 function renderSkillBtns() {
