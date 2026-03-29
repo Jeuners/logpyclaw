@@ -531,6 +531,8 @@ def tts():
     data = request.json
     text = data.get("text", "").strip()
     voice = data.get("voice", "en_paul_neutral")
+    if not voice or voice in ("voxtral", "en_paul_neutral"):
+        voice = "neutral_male"
 
     if not text:
         return jsonify({"error": "Kein Text"}), 400

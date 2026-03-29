@@ -5,633 +5,858 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AgentClaw</title>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230d0d0d'/><circle cx='50' cy='50' r='14' fill='%23ff6b35'/><circle cx='50' cy='50' r='24' fill='none' stroke='%23ff6b35' stroke-width='3' opacity='0.5'/><circle cx='50' cy='50' r='36' fill='none' stroke='%238b5cf6' stroke-width='2' opacity='0.35'/></svg>">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23050a06'/><circle cx='50' cy='50' r='14' fill='%2300e676'/><circle cx='50' cy='50' r='24' fill='none' stroke='%2300e676' stroke-width='3' opacity='0.5'/><circle cx='50' cy='50' r='36' fill='none' stroke='%2300e676' stroke-width='2' opacity='0.25'/></svg>">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --bg:     #050a06;
+      --bg2:    #070d08;
+      --bg3:    #0d1a0e;
+      --bg4:    #111f12;
+      --bghov:  #141f14;
+      --b1:     #0f2010;
+      --b2:     #182e18;
+      --green:  #00e676;
+      --gg:     rgba(0,230,118,.08);
+      --gm:     rgba(0,230,118,.18);
+      --text:   #b8d4b8;
+      --textbr: #e4f4e4;
+      --textdim:#3a5a3a;
+      --mono:   'SF Mono','Fira Code','Consolas',monospace;
+      --orange: #ff6b35;
+      --odim:   rgba(255,107,53,.14);
+      --purple: #8b5cf6;
+      --red:    #ef4444;
+      --cyan:   #00bcd4;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      background: #0d0d0d;
-      color: #e8e8e8;
+      background: var(--bg);
+      color: var(--text);
       height: 100vh;
       display: flex;
       overflow: hidden;
     }
 
-    /* ── Sidebar ── */
-    .sidebar {
-      width: 220px;
-      min-width: 220px;
-      background: #111;
-      border-right: 1px solid #1e1e1e;
+    /* ─── Scrollbars ─────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--b2); border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--textdim); }
+
+    /* ─── Activity Bar ───────────────────────────────── */
+    .activity-bar {
+      width: 52px;
+      min-width: 52px;
+      background: var(--bg2);
+      border-right: 1px solid var(--b1);
       display: flex;
       flex-direction: column;
+      align-items: center;
+      padding: 8px 0;
+      z-index: 10;
     }
 
-    .sidebar-header {
-      padding: 20px 16px 12px;
+    .app-logo {
+      font-size: 22px;
+      padding: 10px 0 14px;
+      cursor: default;
+      filter: drop-shadow(0 0 6px var(--green));
+    }
+
+    .activity-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+      width: 100%;
+      align-items: center;
+      padding-top: 4px;
+    }
+
+    .activity-foot {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      width: 100%;
+      align-items: center;
+      padding-bottom: 6px;
+    }
+
+    .nav-btn {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--textdim);
+      transition: background .15s, color .15s;
+      position: relative;
+    }
+
+    .nav-btn:hover {
+      background: var(--gg);
+      color: var(--text);
+    }
+
+    .nav-btn.active {
+      background: var(--gg);
+      color: var(--green);
+      box-shadow: inset 2px 0 0 var(--green);
+    }
+
+    .nav-btn[title]:hover::after {
+      content: attr(title);
+      position: absolute;
+      left: calc(100% + 8px);
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--bg4);
+      color: var(--textbr);
       font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      border: 1px solid var(--b2);
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* ─── Side Panel ─────────────────────────────────── */
+    .side-panel {
+      width: 228px;
+      min-width: 228px;
+      background: var(--bg2);
+      border-right: 1px solid var(--b1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-head {
+      padding: 14px 14px 8px;
+      font-size: 10px;
       font-weight: 700;
-      color: #444;
+      color: var(--textdim);
       text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 1.2px;
+      flex-shrink: 0;
+      font-family: var(--mono);
     }
 
     .agent-list {
       flex: 1;
       overflow-y: auto;
+      min-height: 0;
       padding: 4px 8px;
     }
 
     .agent-item {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 10px;
-      border-radius: 8px;
+      gap: 8px;
+      padding: 9px 8px;
+      border-radius: 6px;
       cursor: pointer;
-      transition: background 0.15s;
-      position: relative;
+      transition: background .12s;
+      border: 1px solid transparent;
     }
 
-    .agent-item:hover { background: #1a1a1a; }
-    .agent-item.active { background: #1e1e1e; }
+    .agent-item:hover { background: var(--bghov); }
 
-    .agent-avatar {
-      width: 32px;
-      height: 32px;
+    .agent-item.active {
+      background: var(--gg);
+      border-color: var(--b2);
+    }
+
+    .agent-item.active .agent-name { color: var(--green); }
+
+    .agent-dot {
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      font-weight: 700;
-      color: #fff;
+      background: var(--textdim);
       flex-shrink: 0;
     }
+
+    .agent-dot.online { background: var(--green); box-shadow: 0 0 5px var(--green); }
 
     .agent-name {
-      font-size: 14px;
-      color: #ccc;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
       flex: 1;
-      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .agent-item.active .agent-name { color: #fff; font-weight: 500; }
-
-    .sidebar-footer {
-      padding: 12px 8px;
-      border-top: 1px solid #1e1e1e;
-    }
-
-    .btn-new-agent {
-      width: 100%;
-      padding: 10px;
-      background: #1a1a1a;
-      border: 1px dashed #333;
-      border-radius: 8px;
-      color: #666;
-      font-size: 13px;
-      cursor: pointer;
-      transition: all 0.15s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-
-    .btn-new-agent:hover { background: #222; color: #aaa; border-color: #444; }
-
-    .sidebar-footer-row {
-      display: flex;
-      gap: 6px;
-    }
-
-    .btn-settings {
-      width: 42px;
-      height: 42px;
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
-      border-radius: 8px;
-      color: #555;
-      font-size: 15px;
-      cursor: pointer;
-      transition: all 0.15s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .agent-model-tag {
+      font-size: 10px;
+      font-family: var(--mono);
+      color: var(--textdim);
+      background: var(--b1);
+      padding: 1px 5px;
+      border-radius: 3px;
       flex-shrink: 0;
     }
 
-    .btn-settings:hover { background: #222; color: #aaa; border-color: #444; }
-
-    /* ── Provider Modal ── */
-    .provider-section {
-      border: 1px solid #2a2a2a;
-      border-radius: 10px;
-      padding: 16px;
-      margin-bottom: 14px;
+    .panel-section-label {
+      padding: 12px 14px 4px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--textdim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-family: var(--mono);
+      flex-shrink: 0;
     }
 
-    .provider-header {
+    /* Multi mode: checkboxes */
+    .agent-cb {
+      width: 15px;
+      height: 15px;
+      accent-color: var(--green);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .panel-foot {
+      flex-shrink: 0;
+      border-top: 1px solid var(--b1);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .panel-foot-btn {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-
-    .provider-icon { font-size: 18px; }
-
-    .provider-title {
-      flex: 1;
-      font-size: 14px;
-      font-weight: 600;
-      color: #ccc;
-    }
-
-    .provider-subtitle {
-      font-size: 11px;
-      color: #555;
-    }
-
-    .status-pill {
-      font-size: 11px;
-      padding: 3px 9px;
-      border-radius: 20px;
-      font-weight: 500;
-    }
-
-    .status-pill.ok { background: rgba(34,197,94,0.15); color: #22c55e; }
-    .status-pill.err { background: rgba(239,68,68,0.15); color: #ef4444; }
-    .status-pill.loading { background: rgba(255,107,53,0.1); color: #ff6b35; }
-
-    .input-with-btn {
-      display: flex;
       gap: 8px;
-    }
-
-    .input-with-btn input { flex: 1; }
-
-    .btn-test {
-      background: #1e1e1e;
-      border: 1px solid #2a2a2a;
-      border-radius: 8px;
-      color: #666;
-      padding: 0 14px;
-      font-size: 12px;
+      padding: 7px 8px;
+      border-radius: 6px;
       cursor: pointer;
-      white-space: nowrap;
-      transition: all 0.15s;
+      font-size: 12px;
+      color: var(--textdim);
+      transition: background .12s, color .12s;
+      border: none;
+      background: transparent;
+      width: 100%;
+      text-align: left;
     }
 
-    .btn-test:hover { background: #252525; color: #aaa; }
+    .panel-foot-btn:hover { background: var(--gg); color: var(--text); }
 
-    /* ── Provider select in agent modal ── */
-    .provider-model-row {
+    /* Dashboard stats */
+    .stat-grid {
       display: grid;
-      grid-template-columns: 1fr 2fr;
-      gap: 10px;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      padding: 8px;
+      flex-shrink: 0;
     }
 
-    /* ── Main Chat Area ── */
-    .main {
+    .stat-card {
+      background: var(--bg3);
+      border: 1px solid var(--b1);
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+
+    .stat-val {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--green);
+      font-family: var(--mono);
+      line-height: 1;
+    }
+
+    .stat-lbl {
+      font-size: 10px;
+      color: var(--textdim);
+      margin-top: 2px;
+      font-family: var(--mono);
+    }
+
+    /* ─── Workspace ──────────────────────────────────── */
+    .workspace {
       flex: 1;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      background: var(--bg);
     }
 
-    /* ── Chat Header ── */
-    .chat-header {
-      background: #111;
-      border-bottom: 1px solid #1e1e1e;
-      padding: 14px 20px;
+    /* ─── Chat Shell ─────────────────────────────────── */
+    .chat-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .chat-topbar {
       display: flex;
       align-items: center;
       gap: 12px;
+      padding: 0 16px;
+      height: 46px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--b1);
       flex-shrink: 0;
     }
 
-    .chat-header-avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      font-weight: 700;
-      color: #fff;
+    .chat-topbar-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--textbr);
+      flex: 1;
     }
 
-    .chat-header-info { flex: 1; }
-    .chat-header-info h2 { font-size: 16px; font-weight: 600; color: #fff; }
-    .chat-header-info span { font-size: 12px; color: #555; }
-
-    .header-actions {
-      display: flex;
-      gap: 8px;
-      align-items: center;
+    .topbar-badge {
+      font-size: 10px;
+      font-family: var(--mono);
+      padding: 2px 7px;
+      border-radius: 3px;
+      background: var(--b1);
+      color: var(--textdim);
+      border: 1px solid var(--b2);
     }
 
-    .btn-icon {
-      background: none;
-      border: none;
-      color: #555;
+    .topbar-btn {
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 5px;
+      border: 1px solid var(--b2);
+      background: transparent;
+      color: var(--textdim);
+      font-size: 11px;
       cursor: pointer;
-      padding: 6px;
-      border-radius: 6px;
-      font-size: 16px;
-      transition: all 0.15s;
-      display: flex;
-      align-items: center;
+      transition: background .12s, color .12s;
     }
 
-    .btn-icon:hover { background: #1a1a1a; color: #aaa; }
+    .topbar-btn:hover { background: var(--gg); color: var(--text); }
 
-    .autoplay-toggle {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: #555;
-      cursor: pointer;
-    }
+    .topbar-btn.active { background: var(--gg); color: var(--green); border-color: var(--green); }
 
-    .toggle-switch {
-      width: 32px;
-      height: 18px;
-      background: #333;
-      border-radius: 9px;
-      position: relative;
-      transition: background 0.2s;
-      cursor: pointer;
-    }
-
-    .toggle-switch.on { background: #22c55e; }
-
-    .toggle-switch::after {
-      content: '';
-      width: 14px;
-      height: 14px;
-      background: #fff;
-      border-radius: 50%;
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      transition: left 0.2s;
-    }
-
-    .toggle-switch.on::after { left: 16px; }
-
-    /* ── Messages ── */
-    .messages {
+    .chat-messages {
       flex: 1;
       overflow-y: auto;
-      padding: 20px;
+      padding: 16px 20px;
+      min-height: 0;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
     }
 
-    .messages::-webkit-scrollbar { width: 4px; }
-    .messages::-webkit-scrollbar-track { background: transparent; }
-    .messages::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
-
+    /* ─── Messages ───────────────────────────────────── */
     .msg {
       display: flex;
-      gap: 10px;
-      max-width: 80%;
+      flex-direction: column;
+      gap: 4px;
+      max-width: 820px;
     }
 
-    .msg.user {
-      align-self: flex-end;
-      flex-direction: row-reverse;
-    }
-
-    .msg-avatar {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-weight: 700;
-      color: #fff;
-      flex-shrink: 0;
-      margin-top: 2px;
-    }
-
-    .msg-body { display: flex; flex-direction: column; gap: 4px; }
+    .msg.user { align-self: flex-end; align-items: flex-end; }
+    .msg.assistant { align-self: flex-start; align-items: flex-start; }
+    .msg.system { align-self: center; }
 
     .msg-meta {
-      font-size: 11px;
-      color: #444;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      font-size: 10px;
+      font-family: var(--mono);
+      color: var(--textdim);
+      padding: 0 4px;
     }
-
-    .msg.user .msg-meta { justify-content: flex-end; }
 
     .msg-bubble {
       padding: 10px 14px;
-      border-radius: 16px;
+      border-radius: 10px;
       font-size: 14px;
       line-height: 1.6;
       word-break: break-word;
     }
-    .msg-bubble p { margin: 0 0 8px; }
-    .msg-bubble p:last-child { margin-bottom: 0; }
-    .msg-bubble ul, .msg-bubble ol { margin: 4px 0 8px 20px; }
-    .msg-bubble li { margin: 2px 0; }
-    .msg-bubble h1,.msg-bubble h2,.msg-bubble h3 { margin: 10px 0 4px; font-weight: 600; }
-    .msg-bubble h1 { font-size: 1.1em; }
-    .msg-bubble h2 { font-size: 1em; }
-    .msg-bubble h3 { font-size: 0.95em; }
-    .msg-bubble code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', monospace; font-size: 0.88em; }
-    .msg-bubble pre { background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 8px 0; }
-    .msg-bubble pre code { background: none; padding: 0; font-size: 0.85em; color: #c9d1d9; }
-    .msg-bubble a { color: #ff6b35; text-decoration: underline; }
-    .msg-bubble blockquote { border-left: 3px solid #ff6b35; margin: 8px 0; padding: 4px 12px; opacity: 0.8; background: rgba(255,107,53,0.05); border-radius: 0 6px 6px 0; }
-    .msg-bubble strong { color: #fff; font-weight: 600; }
-    .msg-bubble hr { border: none; border-top: 1px solid #2a2a2a; margin: 10px 0; }
-    .msg-bubble table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 0.88em; }
-    .msg-bubble th,.msg-bubble td { border: 1px solid #2a2a2a; padding: 6px 10px; }
-    .msg-bubble th { background: #1a1a1a; font-weight: 600; }
-    .code-block { position: relative; margin: 8px 0; }
-    .btn-copy { position: absolute; top: 8px; right: 8px; background: #2a2a2a; border: 1px solid #3a3a3a; color: #888; font-size: 11px; cursor: pointer; padding: 3px 8px; border-radius: 5px; transition: all 0.15s; z-index: 1; }
-    .btn-copy:hover { background: #333; color: #ccc; }
-    .btn-copy.copied { color: #4caf50; border-color: #4caf50; }
-    .code-block pre { margin: 0; padding-top: 32px; }
-    .msg-image { max-width: 240px; border-radius: 10px; margin-bottom: 6px; display: block; cursor: pointer; }
-    .img-preview-bar { display: none; align-items: center; gap: 8px; padding: 6px 10px; background: #1a1a1a; border-radius: 8px; margin-bottom: 6px; }
-    .img-preview-bar img { height: 48px; width: 48px; object-fit: cover; border-radius: 6px; }
-    .img-preview-bar button { background: none; border: none; color: #888; font-size: 16px; cursor: pointer; padding: 2px 6px; }
-    .img-preview-bar button:hover { color: #ff6b35; }
-    .btn-img { background: none; border: none; font-size: 18px; cursor: pointer; padding: 6px; border-radius: 8px; color: #666; transition: color 0.2s; line-height: 1; }
-    .btn-img:hover { color: #ff6b35; }
-
-    .msg.assistant .msg-bubble {
-      background: #1a1a1a;
-      border: 1px solid #252525;
-      border-top-left-radius: 4px;
-      color: #e8e8e8;
-    }
 
     .msg.user .msg-bubble {
-      background: #1e3a5f;
-      border: 1px solid #234876;
-      border-top-right-radius: 4px;
-      color: #e8e8e8;
+      background: var(--gg);
+      border: 1px solid var(--b2);
+      color: var(--textbr);
+      border-bottom-right-radius: 3px;
     }
 
+    .msg.assistant .msg-bubble {
+      background: var(--bg3);
+      border: 1px solid var(--b1);
+      color: var(--text);
+      border-bottom-left-radius: 3px;
+    }
+
+    .msg.system .msg-bubble {
+      background: var(--odim);
+      border: 1px solid rgba(255,107,53,.2);
+      color: var(--orange);
+      font-size: 12px;
+      font-family: var(--mono);
+    }
+
+    /* Markdown in messages */
+    .msg-bubble p { margin-bottom: 8px; }
+    .msg-bubble p:last-child { margin-bottom: 0; }
+    .msg-bubble code {
+      background: rgba(0,0,0,.35);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--green);
+    }
+    .msg-bubble pre {
+      background: rgba(0,0,0,.4);
+      border: 1px solid var(--b2);
+      border-radius: 6px;
+      padding: 10px 12px;
+      overflow-x: auto;
+      margin: 6px 0;
+    }
+    .msg-bubble pre code { background: none; padding: 0; color: var(--textbr); }
+    .msg-bubble ul, .msg-bubble ol { padding-left: 18px; margin-bottom: 6px; }
+    .msg-bubble h1,.msg-bubble h2,.msg-bubble h3 {
+      color: var(--green); margin-bottom: 6px; font-size: 15px;
+    }
+    .msg-bubble blockquote {
+      border-left: 3px solid var(--b2);
+      padding-left: 10px;
+      color: var(--textdim);
+      margin: 6px 0;
+    }
+    .msg-bubble table { border-collapse: collapse; width: 100%; margin: 6px 0; }
+    .msg-bubble th { background: var(--b1); color: var(--green); padding: 5px 8px; font-size: 11px; }
+    .msg-bubble td { border-top: 1px solid var(--b1); padding: 5px 8px; font-size: 13px; }
+
+    /* ─── Message actions (TTS) ──────────────────────── */
     .msg-actions {
       display: flex;
       gap: 6px;
-      margin-top: 2px;
+      margin-top: 6px;
     }
-
-    .msg-stats { font-size: 10px; color: #444; margin-top: 4px; font-family: 'SF Mono', monospace; letter-spacing: 0.02em; }
-    .msg-stats span { margin-right: 10px; }
-    .btn-play, .btn-dl {
-      background: none;
-      border: none;
-      color: #555;
+    .btn-play {
+      height: 24px;
+      padding: 0 10px;
+      border-radius: 4px;
+      border: 1px solid var(--b2);
+      background: transparent;
+      color: var(--textdim);
+      font-size: 11px;
+      cursor: pointer;
+      transition: background .12s, color .12s;
+    }
+    .btn-play:hover { background: var(--gg); color: var(--text); }
+    .btn-play.playing { background: var(--gg); color: var(--green); border-color: var(--green); }
+    .btn-dl {
+      height: 24px;
+      width: 24px;
+      border-radius: 4px;
+      border: 1px solid var(--b2);
+      background: transparent;
+      color: var(--textdim);
       font-size: 12px;
       cursor: pointer;
-      padding: 2px 6px;
-      border-radius: 4px;
-      transition: all 0.15s;
       display: flex;
       align-items: center;
-      gap: 4px;
+      justify-content: center;
+      transition: background .12s;
     }
-    .btn-play:hover { background: #1e1e1e; color: #aaa; }
-    .btn-dl:hover { background: #1e1e1e; color: #aaa; }
-    .btn-play.playing { color: #ff6b35; background: rgba(255,107,53,0.1); }
+    .btn-dl:hover { background: var(--gg); color: var(--text); }
 
-    /* ── Think Animation (identisch mit Ladescreen, 55% skaliert) ── */
-    .think-anim {
-      padding: 12px 16px;
-      background: #1a1a1a;
-      border: 1px solid #252525;
-      border-radius: 16px;
-      border-top-left-radius: 4px;
-      display: inline-flex;
-      flex-direction: column;
+    /* autoplay toggle */
+    .autoplay-toggle {
+      display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 5px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--textdim);
+      user-select: none;
     }
-
-    .think-waves {
+    .toggle-switch {
+      width: 28px;
+      height: 16px;
+      border-radius: 8px;
+      background: var(--b2);
       position: relative;
-      width: 44px;
-      height: 44px;
+      transition: background .2s;
+    }
+    .toggle-switch::after {
+      content: '';
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--textdim);
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: left .2s, background .2s;
+    }
+    .toggle-switch.on { background: var(--gm); }
+    .toggle-switch.on::after { left: 14px; background: var(--green); }
+
+    /* ─── Think Animation ────────────────────────────── */
+    .think-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      background: var(--bg3);
+      border: 1px solid var(--b1);
+      border-radius: 10px;
+      border-bottom-left-radius: 3px;
+      align-self: flex-start;
     }
 
-    .think-waves .wave-ring {
-      transition: border-color 0.6s ease;
-    }
-
-    .think-waves .brain-core {
-      width: 9px;
-      height: 9px;
-      box-shadow: 0 0 7px #ff6b35, 0 0 14px rgba(255,107,53,0.4);
-      transition: background 0.6s ease, box-shadow 0.6s ease;
+    .think-brain { font-size: 18px; animation: pulse-brain 1.2s ease-in-out infinite; }
+    @keyframes pulse-brain {
+      0%,100% { filter: brightness(1); transform: scale(1); }
+      50% { filter: brightness(1.4) drop-shadow(0 0 6px var(--green)); transform: scale(1.08); }
     }
 
     .think-eeg {
       display: flex;
       align-items: center;
-      gap: 1px;
-      height: 16px;
+      gap: 2px;
+      height: 22px;
     }
 
-    .think-eeg-bar {
-      width: 2px;
-      border-radius: 1px;
-      animation: eegBounce 1.2s ease-in-out infinite;
-      transition: background 0.6s ease;
+    .eeg-bar {
+      width: 3px;
+      background: var(--green);
+      border-radius: 2px;
+      animation: eeg-wave 0.8s ease-in-out infinite;
+      opacity: 0.8;
     }
 
-    .think-eeg-bar:nth-child(1)  { height: 3px;  animation-delay: 0s;    background: #ff6b35; }
-    .think-eeg-bar:nth-child(2)  { height: 10px; animation-delay: 0.1s;  background: #ff7a47; }
-    .think-eeg-bar:nth-child(3)  { height: 15px; animation-delay: 0.2s;  background: #8b5cf6; }
-    .think-eeg-bar:nth-child(4)  { height: 7px;  animation-delay: 0.3s;  background: #9d70f7; }
-    .think-eeg-bar:nth-child(5)  { height: 12px; animation-delay: 0.15s; background: #ff6b35; }
-    .think-eeg-bar:nth-child(6)  { height: 4px;  animation-delay: 0.25s; background: #22c55e; }
-    .think-eeg-bar:nth-child(7)  { height: 11px; animation-delay: 0.35s; background: #34d36a; }
-    .think-eeg-bar:nth-child(8)  { height: 8px;  animation-delay: 0.05s; background: #8b5cf6; }
-    .think-eeg-bar:nth-child(9)  { height: 13px; animation-delay: 0.45s; background: #ff6b35; }
-    .think-eeg-bar:nth-child(10) { height: 3px;  animation-delay: 0.55s; background: #ff7a47; }
-    .think-eeg-bar:nth-child(11) { height: 9px;  animation-delay: 0.4s;  background: #22c55e; }
-    .think-eeg-bar:nth-child(12) { height: 5px;  animation-delay: 0.5s;  background: #8b5cf6; }
-
-    @keyframes bounce {
-      0%, 60%, 100% { transform: translateY(0); }
-      30% { transform: translateY(-6px); }
+    @keyframes eeg-wave {
+      0%,100% { height: 4px; }
+      50% { height: 18px; }
     }
 
-    /* ── Input Bar ── */
-    .input-bar {
-      padding: 16px 20px;
-      background: #111;
-      border-top: 1px solid #1e1e1e;
-      display: flex;
-      gap: 10px;
-      align-items: flex-end;
+    /* ─── Input Area ─────────────────────────────────── */
+    .input-area {
+      padding: 12px 16px;
+      border-top: 1px solid var(--b1);
+      background: var(--bg2);
       flex-shrink: 0;
     }
 
-    .btn-mic {
-      width: 42px;
+    .input-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .input-box {
+      flex: 1;
+      background: var(--bg3);
+      border: 1px solid var(--b2);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--textbr);
+      font-size: 14px;
+      font-family: inherit;
+      resize: none;
+      min-height: 42px;
+      max-height: 140px;
+      outline: none;
+      transition: border-color .15s;
+      line-height: 1.5;
+    }
+
+    .input-box:focus { border-color: var(--green); }
+    .input-box::placeholder { color: var(--textdim); }
+
+    .send-btn {
       height: 42px;
-      border-radius: 50%;
+      width: 42px;
+      border-radius: 8px;
       border: none;
-      background: #1e1e1e;
-      color: #666;
+      background: var(--green);
+      color: #000;
       font-size: 18px;
       cursor: pointer;
-      transition: all 0.15s;
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: opacity .15s, transform .1s;
       flex-shrink: 0;
     }
 
-    .btn-mic:hover { background: #252525; color: #aaa; }
-    .btn-mic.recording { background: #ef4444; color: #fff; animation: pulse 1s infinite; }
-    .btn-mic.auto-active { box-shadow: 0 0 0 2px rgba(139,92,246,0.5); }
+    .send-btn:hover { opacity: .85; }
+    .send-btn:active { transform: scale(.95); }
+    .send-btn:disabled { opacity: .35; cursor: default; }
 
-    .mic-cluster {
+    .input-toolbar {
       display: flex;
-      flex-direction: column;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .tool-btn {
+      height: 26px;
+      padding: 0 10px;
+      border-radius: 4px;
+      border: 1px solid var(--b2);
+      background: transparent;
+      color: var(--textdim);
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
       align-items: center;
-      gap: 5px;
-      flex-shrink: 0;
+      gap: 4px;
+      transition: background .12s, color .12s;
     }
 
-    .btn-auto-dialog {
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.8px;
-      padding: 2px 9px;
-      border-radius: 10px;
-      border: 1px solid #2a2a2a;
-      background: #1a1a1a;
-      color: #3a3a3a;
-      cursor: pointer;
-      transition: all 0.2s;
-      white-space: nowrap;
-      text-transform: uppercase;
+    .tool-btn:hover { background: var(--gg); color: var(--text); }
+    .tool-btn.active { background: var(--gg); color: var(--green); border-color: var(--green); }
+
+    /* Voice indicator */
+    .voice-indicator {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(239,68,68,.08);
+      border: 1px solid rgba(239,68,68,.25);
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--red);
+      font-family: var(--mono);
     }
+    .voice-indicator.active { display: flex; }
+    .voice-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); animation: blink 1s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-    .btn-auto-dialog:hover { border-color: #444; color: #666; }
-
-    .btn-auto-dialog.on {
-      background: rgba(139,92,246,0.15);
-      border-color: #8b5cf6;
-      color: #a78bfa;
-    }
-
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.05); }
-    }
-
-    .input-wrap {
-      flex: 1;
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
-      border-radius: 12px;
-      display: flex;
-      align-items: flex-end;
-      padding: 8px 12px;
-      gap: 8px;
-      transition: border-color 0.2s;
-    }
-
-    .input-wrap:focus-within { border-color: #333; }
-
-    #messageInput {
-      flex: 1;
-      background: none;
-      border: none;
-      color: #e8e8e8;
-      font-size: 14px;
-      line-height: 1.5;
-      resize: none;
-      outline: none;
-      max-height: 120px;
-      font-family: inherit;
-    }
-
-    #messageInput::placeholder { color: #444; }
-
-    .btn-send {
-      background: #ff6b35;
-      border: none;
-      border-radius: 8px;
-      color: #fff;
-      padding: 7px 14px;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.15s;
-      flex-shrink: 0;
-    }
-
-    .btn-send:hover { background: #e85d2a; }
-    .btn-send:disabled { background: #3a2a20; color: #666; cursor: not-allowed; }
-
-    /* ── Empty State ── */
-    .empty-state {
+    /* ─── No-agent placeholder ───────────────────────── */
+    .no-agent {
       flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 12px;
-      color: #333;
+      color: var(--textdim);
     }
 
-    .empty-state .big-avatar {
-      width: 72px;
-      height: 72px;
-      border-radius: 50%;
+    .no-agent .big-icon { font-size: 48px; opacity: .3; }
+    .no-agent p { font-size: 14px; font-family: var(--mono); }
+
+    /* ─── Multi-agent Workspace ──────────────────────── */
+    .multi-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .multi-topbar {
       display: flex;
       align-items: center;
-      justify-content: center;
-      font-size: 32px;
-      font-weight: 700;
-      color: #fff;
-      margin-bottom: 8px;
+      gap: 10px;
+      padding: 0 16px;
+      height: 46px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--b1);
+      flex-shrink: 0;
     }
 
-    .empty-state h3 { font-size: 18px; color: #555; font-weight: 500; }
-    .empty-state p { font-size: 13px; color: #333; }
-
-    /* ── No Agent Selected ── */
-    .no-agent {
+    .multi-topbar-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--green);
+      font-family: var(--mono);
       flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #333;
-      font-size: 14px;
     }
 
-    /* ── Modal ── */
+    .broadcast-area {
+      padding: 12px 16px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--b1);
+      flex-shrink: 0;
+      display: flex;
+      gap: 8px;
+    }
+
+    .broadcast-input {
+      flex: 1;
+      background: var(--bg3);
+      border: 1px solid var(--b2);
+      border-radius: 8px;
+      padding: 9px 14px;
+      color: var(--textbr);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .15s;
+    }
+
+    .broadcast-input:focus { border-color: var(--green); }
+    .broadcast-input::placeholder { color: var(--textdim); }
+
+    .broadcast-btn {
+      padding: 0 18px;
+      border-radius: 8px;
+      border: none;
+      background: var(--green);
+      color: #000;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity .15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .broadcast-btn:hover { opacity: .85; }
+    .broadcast-btn:disabled { opacity: .4; cursor: default; }
+
+    .multi-grid {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 14px;
+      align-content: start;
+      min-height: 0;
+    }
+
+    .multi-card {
+      background: var(--bg2);
+      border: 1px solid var(--b1);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 160px;
+    }
+
+    .multi-card-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--b1);
+      background: var(--bg3);
+      flex-shrink: 0;
+    }
+
+    .multi-card-head .agent-dot { width: 7px; height: 7px; }
+    .multi-card-name { font-size: 12px; font-weight: 600; color: var(--textbr); flex: 1; font-family: var(--mono); }
+    .multi-card-model { font-size: 10px; color: var(--textdim); font-family: var(--mono); }
+
+    .multi-card-body {
+      flex: 1;
+      padding: 12px;
+      overflow-y: auto;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+
+    .multi-card-body .think-wrap { transform: scale(.85); transform-origin: left center; }
+    .multi-card-empty { color: var(--textdim); font-size: 12px; font-family: var(--mono); padding: 8px 0; }
+
+    /* ─── Home / Dashboard ───────────────────────────── */
+    .home-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow-y: auto;
+      padding: 24px;
+      gap: 20px;
+    }
+
+    .home-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--green);
+      font-family: var(--mono);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .home-title span { font-size: 11px; color: var(--textdim); font-weight: 400; }
+
+    .home-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .home-stat {
+      background: var(--bg2);
+      border: 1px solid var(--b1);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .home-stat-val { font-size: 28px; font-weight: 700; color: var(--green); font-family: var(--mono); }
+    .home-stat-lbl { font-size: 11px; color: var(--textdim); font-family: var(--mono); text-transform: uppercase; }
+
+    .home-section { display: flex; flex-direction: column; gap: 8px; }
+    .home-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--textdim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-family: var(--mono);
+    }
+
+    .home-agent-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--bg2);
+      border: 1px solid var(--b1);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color .12s, background .12s;
+    }
+
+    .home-agent-row:hover { background: var(--bghov); border-color: var(--b2); }
+
+    .home-agent-info { flex: 1; }
+    .home-agent-name { font-size: 13px; font-weight: 600; color: var(--textbr); }
+    .home-agent-sub { font-size: 11px; color: var(--textdim); font-family: var(--mono); margin-top: 2px; }
+
+    .home-agent-badge {
+      font-size: 10px;
+      font-family: var(--mono);
+      padding: 2px 7px;
+      border-radius: 3px;
+      background: var(--b1);
+      color: var(--textdim);
+    }
+
+    /* ─── Modals ─────────────────────────────────────── */
     .modal-overlay {
+      display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.7);
+      background: rgba(0,0,0,.7);
       z-index: 1000;
-      display: none;
       align-items: center;
       justify-content: center;
     }
@@ -639,1240 +864,1676 @@
     .modal-overlay.open { display: flex; }
 
     .modal {
-      background: #161616;
-      border: 1px solid #2a2a2a;
-      border-radius: 16px;
-      padding: 28px;
-      width: 480px;
-      max-width: 95vw;
-      max-height: 90vh;
-      overflow-y: auto;
+      background: var(--bg2);
+      border: 1px solid var(--b2);
+      border-radius: 12px;
+      padding: 24px;
+      min-width: 400px;
+      max-width: 600px;
+      width: 90vw;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.6), 0 0 0 1px var(--b1);
     }
 
-    .modal h2 {
-      font-size: 18px;
-      font-weight: 600;
+    .modal-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--textbr);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .modal-title .close-btn {
+      margin-left: auto;
+      width: 26px;
+      height: 26px;
+      border-radius: 5px;
+      border: none;
+      background: transparent;
+      color: var(--textdim);
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-title .close-btn:hover { background: var(--b1); color: var(--text); }
+
+    .modal-body { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px; }
+
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-label { font-size: 11px; font-weight: 600; color: var(--textdim); text-transform: uppercase; letter-spacing: .8px; font-family: var(--mono); }
+
+    .form-input, .form-select, .form-textarea {
+      background: var(--bg3);
+      border: 1px solid var(--b2);
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: var(--textbr);
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .15s;
+    }
+
+    .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--green); }
+    .form-select option { background: var(--bg3); }
+    .form-textarea { resize: vertical; min-height: 80px; }
+
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0; }
+
+    .btn-primary {
+      padding: 8px 18px;
+      border-radius: 7px;
+      border: none;
+      background: var(--green);
+      color: #000;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn-primary:hover { opacity: .85; }
+    .btn-primary:disabled { opacity: .4; cursor: default; }
+
+    .btn-secondary {
+      padding: 8px 18px;
+      border-radius: 7px;
+      border: 1px solid var(--b2);
+      background: transparent;
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+      transition: background .12s;
+    }
+    .btn-secondary:hover { background: var(--gg); }
+
+    .btn-danger {
+      padding: 8px 18px;
+      border-radius: 7px;
+      border: 1px solid rgba(239,68,68,.4);
+      background: transparent;
+      color: var(--red);
+      font-size: 13px;
+      cursor: pointer;
+      transition: background .12s;
+    }
+    .btn-danger:hover { background: rgba(239,68,68,.1); }
+
+    /* Provider rows */
+    .provider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--bg3);
+      border: 1px solid var(--b1);
+      border-radius: 7px;
+    }
+
+    .provider-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--textdim);
+      flex-shrink: 0;
+    }
+
+    .provider-dot.ok { background: var(--green); box-shadow: 0 0 5px var(--green); }
+    .provider-dot.err { background: var(--red); }
+
+    .provider-name { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; }
+    .provider-model { font-size: 11px; font-family: var(--mono); color: var(--textdim); }
+
+    /* Skill rows */
+    .skill-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--bg3);
+      border: 1px solid var(--b1);
+      border-radius: 7px;
+    }
+
+    .skill-icon { font-size: 20px; }
+    .skill-info { flex: 1; }
+    .skill-name { font-size: 13px; font-weight: 600; color: var(--textbr); }
+    .skill-desc { font-size: 11px; color: var(--textdim); margin-top: 2px; font-family: var(--mono); }
+
+    /* Watchdog rows */
+    .watchdog-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--bg3);
+      border: 1px solid var(--b1);
+      border-radius: 7px;
+    }
+
+    .watchdog-info { flex: 1; }
+    .watchdog-name { font-size: 13px; font-weight: 600; color: var(--textbr); }
+    .watchdog-schedule { font-size: 11px; color: var(--textdim); font-family: var(--mono); margin-top: 2px; }
+    .watchdog-badge {
+      font-size: 10px;
+      font-family: var(--mono);
+      padding: 2px 7px;
+      border-radius: 3px;
+    }
+    .watchdog-badge.active { background: var(--gg); color: var(--green); }
+    .watchdog-badge.paused { background: var(--b1); color: var(--textdim); }
+
+    .wd-delete-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 4px;
+      border: none;
+      background: transparent;
+      color: var(--textdim);
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .wd-delete-btn:hover { background: rgba(239,68,68,.1); color: var(--red); }
+
+    /* TTS speaking indicator */
+    .speaking-dot {
+      display: none;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 6px var(--cyan);
+      animation: blink 0.7s infinite;
+    }
+    .speaking-dot.active { display: inline-block; }
+
+    /* Phone Sim */
+    .phone-toggle {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 500;
+    }
+
+    .phone-toggle.visible { display: block; }
+
+    .phone-frame {
+      width: 320px;
+      height: 580px;
+      background: #000;
+      border-radius: 36px;
+      border: 3px solid #222;
+      overflow: hidden;
+      box-shadow: 0 0 0 1px #333, 0 30px 60px rgba(0,0,0,.8);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .phone-status-bar {
+      height: 28px;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      font-size: 11px;
       color: #fff;
-      margin-bottom: 24px;
+      flex-shrink: 0;
     }
 
-    .form-group {
+    .phone-content {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .phone-chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
       display: flex;
       flex-direction: column;
       gap: 6px;
-      margin-bottom: 18px;
     }
 
-    .form-group label {
-      font-size: 11px;
-      font-weight: 600;
-      color: #666;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    .phone-msg {
+      max-width: 80%;
+      padding: 7px 10px;
+      border-radius: 14px;
+      font-size: 12px;
+      line-height: 1.4;
     }
 
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
-      background: #1e1e1e;
-      border: 1px solid #2a2a2a;
-      border-radius: 8px;
-      color: #e8e8e8;
-      padding: 10px 12px;
-      font-size: 14px;
-      font-family: inherit;
+    .phone-msg.user {
+      align-self: flex-end;
+      background: #007aff;
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .phone-msg.assistant {
+      align-self: flex-start;
+      background: #2c2c2e;
+      color: #fff;
+      border-bottom-left-radius: 4px;
+    }
+
+    .phone-input-row {
+      display: flex;
+      gap: 6px;
+      padding: 8px;
+      background: #1c1c1e;
+      border-top: 1px solid #2c2c2e;
+      flex-shrink: 0;
+    }
+
+    .phone-input {
+      flex: 1;
+      background: #2c2c2e;
+      border: none;
+      border-radius: 18px;
+      padding: 6px 12px;
+      color: #fff;
+      font-size: 13px;
       outline: none;
-      transition: border-color 0.2s;
     }
 
-    .form-group input:focus,
-    .form-group select:focus,
-    .form-group textarea:focus { border-color: #ff6b35; }
-
-    .form-group textarea {
-      resize: vertical;
-      min-height: 100px;
-      line-height: 1.5;
-    }
-
-    .color-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .color-swatch {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
+    .phone-send {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: none;
+      background: #007aff;
+      color: #fff;
       cursor: pointer;
-      border: 2px solid transparent;
-      transition: border-color 0.15s;
-    }
-
-    .color-swatch.selected { border-color: #fff; }
-
-    .modal-actions {
+      font-size: 14px;
       display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-      margin-top: 24px;
-    }
-
-    .btn { display: flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px; border: none; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
-    .btn-primary { background: #ff6b35; color: #fff; }
-    .btn-primary:hover { background: #e85d2a; }
-    .btn-ghost { background: #1e1e1e; color: #aaa; border: 1px solid #2a2a2a; }
-    .btn-ghost:hover { background: #252525; color: #e8e8e8; }
-    .btn-danger { background: #2a1a1a; color: #ef4444; border: 1px solid #3a1a1a; }
-    .btn-danger:hover { background: #3a1a1a; }
-
-    optgroup { color: #666; }
-    option { color: #e8e8e8; }
-
-    /* ── Loading Screen ── */
-    #loadingScreen {
-      position: fixed;
-      inset: 0;
-      background: #0d0d0d;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 28px;
-      transition: opacity 0.4s ease;
     }
 
-    #loadingScreen.hide {
-      opacity: 0;
-      pointer-events: none;
+    /* Export button flash */
+    @keyframes flash-green {
+      0%,100% { background: var(--green); }
+      50% { background: #00ff88; }
     }
 
-    .brain-waves {
-      position: relative;
-      width: 80px;
-      height: 80px;
-    }
+    .flash { animation: flash-green .4s; }
 
-    .brain-core {
-      position: absolute;
-      inset: 50%;
-      transform: translate(-50%, -50%);
-      width: 16px;
-      height: 16px;
-      background: #ff6b35;
-      border-radius: 50%;
-      box-shadow: 0 0 12px #ff6b35, 0 0 24px rgba(255,107,53,0.4);
-      animation: corePulse 1.6s ease-in-out infinite;
-    }
-
-    @keyframes corePulse {
-      0%, 100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 12px #ff6b35, 0 0 24px rgba(255,107,53,0.4); }
-      50% { transform: translate(-50%, -50%) scale(1.3); box-shadow: 0 0 20px #ff6b35, 0 0 40px rgba(255,107,53,0.6); }
-    }
-
-    .wave-ring {
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      border: 1.5px solid rgba(255,107,53,0.6);
-      animation: ringExpand 1.6s ease-out infinite;
-    }
-
-    .wave-ring:nth-child(2) { animation-delay: 0.4s; border-color: rgba(139,92,246,0.5); }
-    .wave-ring:nth-child(3) { animation-delay: 0.8s; border-color: rgba(34,197,94,0.4); }
-    .wave-ring:nth-child(4) { animation-delay: 1.2s; border-color: rgba(255,107,53,0.3); }
-
-    @keyframes ringExpand {
-      0%   { transform: scale(0.2); opacity: 1; }
-      100% { transform: scale(1.8); opacity: 0; }
-    }
-
-    .eeg-line {
-      display: flex;
+    /* Auto-dialog banner */
+    .auto-banner {
+      display: none;
       align-items: center;
-      gap: 2px;
-      height: 28px;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(139,92,246,.1);
+      border-bottom: 1px solid rgba(139,92,246,.2);
+      font-size: 11px;
+      color: var(--purple);
+      font-family: var(--mono);
+      flex-shrink: 0;
+    }
+    .auto-banner.active { display: flex; }
+
+    /* Glow separator */
+    .glow-sep {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--green), transparent);
+      opacity: .15;
+      margin: 4px 0;
     }
 
-    .eeg-bar {
-      width: 3px;
-      border-radius: 2px;
-      background: #ff6b35;
-      animation: eegBounce 1.2s ease-in-out infinite;
-    }
-
-    .eeg-bar:nth-child(1)  { height: 6px;  animation-delay: 0s;    background: #ff6b35; }
-    .eeg-bar:nth-child(2)  { height: 18px; animation-delay: 0.1s;  background: #ff7a47; }
-    .eeg-bar:nth-child(3)  { height: 28px; animation-delay: 0.2s;  background: #8b5cf6; }
-    .eeg-bar:nth-child(4)  { height: 12px; animation-delay: 0.3s;  background: #9d70f7; }
-    .eeg-bar:nth-child(5)  { height: 22px; animation-delay: 0.15s; background: #ff6b35; }
-    .eeg-bar:nth-child(6)  { height: 8px;  animation-delay: 0.25s; background: #22c55e; }
-    .eeg-bar:nth-child(7)  { height: 20px; animation-delay: 0.35s; background: #34d36a; }
-    .eeg-bar:nth-child(8)  { height: 14px; animation-delay: 0.05s; background: #8b5cf6; }
-    .eeg-bar:nth-child(9)  { height: 24px; animation-delay: 0.45s; background: #ff6b35; }
-    .eeg-bar:nth-child(10) { height: 6px;  animation-delay: 0.55s; background: #ff7a47; }
-    .eeg-bar:nth-child(11) { height: 16px; animation-delay: 0.4s;  background: #22c55e; }
-    .eeg-bar:nth-child(12) { height: 10px; animation-delay: 0.5s;  background: #8b5cf6; }
-
-    @keyframes eegBounce {
-      0%, 100% { transform: scaleY(0.3); opacity: 0.4; }
-      50%       { transform: scaleY(1);   opacity: 1; }
-    }
-
-    .loading-text {
-      font-size: 12px;
-      color: #444;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      animation: textFade 1.6s ease-in-out infinite;
-    }
-
-    @keyframes textFade {
-      0%, 100% { opacity: 0.4; }
-      50% { opacity: 1; }
+    /* Responsive tweaks */
+    @media (max-width: 700px) {
+      .side-panel { display: none; }
+      .activity-bar { width: 44px; min-width: 44px; }
     }
   </style>
 </head>
 <body>
 
-<!-- Loading Screen -->
-<div id="loadingScreen">
-  <div class="brain-waves">
-    <div class="wave-ring"></div>
-    <div class="wave-ring"></div>
-    <div class="wave-ring"></div>
-    <div class="wave-ring"></div>
-    <div class="brain-core"></div>
+<!-- ═══════════════════════════════════════════════════
+     Activity Bar
+══════════════════════════════════════════════════════ -->
+<div class="activity-bar" id="activityBar">
+  <div class="app-logo" title="AgentClaw">🦞</div>
+  <nav class="activity-nav">
+    <button class="nav-btn active" id="navHome"    title="Dashboard"  onclick="setView('home')">🏠</button>
+    <button class="nav-btn"        id="navChat"    title="Chat"       onclick="setView('chat')">💬</button>
+    <button class="nav-btn"        id="navMulti"   title="Broadcast"  onclick="setView('multi')">⚡</button>
+    <button class="nav-btn"        id="navWatchdog" title="Watchdogs" onclick="openWatchdogModal()">⏰</button>
+  </nav>
+  <div class="activity-foot">
+    <button class="nav-btn" title="Skills"    onclick="openSkillsModal()">🧩</button>
+    <button class="nav-btn" title="Providers" onclick="openProviderModal()">⚙️</button>
+    <button class="nav-btn" id="navPhone" title="Phone Sim" onclick="togglePhoneSim()">📱</button>
   </div>
-  <div class="eeg-line">
-    <div class="eeg-bar"></div>
-    <div class="eeg-bar"></div>
-    <div class="eeg-bar"></div>
-    <div class="eeg-bar"></div>
-    <div class="eeg-bar"></div>
-    <div class="eeg-bar"></div>
-    <div class="eeg-bar"></div>
-    <div class="eeg-bar"></div>
-    <div class="eeg-bar"></div>
-    <div class="eeg-bar"></div>
-    <div class="eeg-bar"></div>
-    <div class="eeg-bar"></div>
-  </div>
-  <div class="loading-text">Agenten werden geladen</div>
 </div>
 
-<!-- Sidebar -->
-<div class="sidebar">
-  <!-- Home Dashboard -->
-  <div id="homeDashboard" style="padding:12px 12px 8px;border-bottom:1px solid #1a1a1a;cursor:pointer" onclick="toggleDashboard()" title="Dashboard">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e;flex-shrink:0" id="dashStatusDot"></div>
-      <span style="font-size:11px;font-weight:700;color:#444;text-transform:uppercase;letter-spacing:1px;flex:1">AgentClaw</span>
-      <span style="font-size:10px;color:#333" id="dashChevron">▾</span>
+<!-- ═══════════════════════════════════════════════════
+     Side Panel
+══════════════════════════════════════════════════════ -->
+<div class="side-panel" id="sidePanel">
+  <!-- rendered by JS -->
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     Workspace
+══════════════════════════════════════════════════════ -->
+<div class="workspace" id="workspace">
+  <!-- rendered by JS -->
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     Phone Sim
+══════════════════════════════════════════════════════ -->
+<div class="phone-toggle" id="phoneToggle">
+  <div class="phone-frame">
+    <div class="phone-status-bar">
+      <span id="phoneTime">12:00</span>
+      <span>📶 🔋</span>
     </div>
-    <div id="dashContent" style="display:flex;flex-direction:column;gap:4px">
-      <div style="display:flex;justify-content:space-between;font-size:11px">
-        <span style="color:#555">Agenten</span>
-        <span style="color:#888" id="dashAgentCount">–</span>
+    <div class="phone-content">
+      <div class="phone-chat" id="phoneChat"></div>
+      <div class="phone-input-row">
+        <input class="phone-input" id="phoneInput" placeholder="Message…" onkeydown="if(event.key==='Enter')sendPhoneMsg()">
+        <button class="phone-send" onclick="sendPhoneMsg()">↑</button>
       </div>
-      <div style="display:flex;justify-content:space-between;font-size:11px">
-        <span style="color:#555">Watchdogs aktiv</span>
-        <span style="color:#888" id="dashWatchdogCount">–</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:11px">
-        <span style="color:#555">Ollama</span>
-        <span id="dashOllamaStatus" style="color:#555">–</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:11px">
-        <span style="color:#555">Treffer heute</span>
-        <span style="color:#888" id="dashHitsToday">–</span>
-      </div>
-    </div>
-  </div>
-  <div class="sidebar-header">Agenten</div>
-  <div class="agent-list" id="agentList"></div>
-  <div class="sidebar-footer">
-    <div class="sidebar-footer-row">
-      <button class="btn-new-agent" onclick="openCreateModal()">
-        <span>+</span> Neuer Agent
-      </button>
-      <button class="btn-settings" onclick="openWatchdogModal()" title="Watchdogs">⏰</button>
-      <button class="btn-settings" onclick="openSkillsModal()" title="Skills & Tools">🧩</button>
-      <button class="btn-settings" onclick="openProviderModal()" title="Anbieter / Provider">⚙</button>
     </div>
   </div>
 </div>
 
-<!-- Main -->
-<div class="main" id="main">
-  <div class="no-agent" id="noAgentMsg">← Wähle einen Agenten</div>
-</div>
-
-<!-- Modal: Agent erstellen / bearbeiten -->
-<div class="modal-overlay" id="agentModal">
+<!-- ═══════════════════════════════════════════════════
+     Modal: New Agent
+══════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="newAgentModal">
   <div class="modal">
-    <h2 id="modalTitle">Neuer Agent</h2>
-
-    <div class="form-group">
-      <label>Name</label>
-      <input type="text" id="agentName" placeholder="z.B. Alex">
+    <div class="modal-title">
+      ➕ New Agent
+      <button class="close-btn" onclick="closeModal('newAgentModal')">✕</button>
     </div>
-
-    <div class="form-group">
-      <label>Soul / Persönlichkeit</label>
-      <textarea id="agentSoul" placeholder="Beschreibe wie dieser Agent denkt, spricht und sich verhält..."></textarea>
-    </div>
-
-    <div class="form-group">
-      <label>Stimme</label>
-      <select id="agentVoice">
-        <option value="">Lädt...</option>
-      </select>
-    </div>
-
-    <div class="form-group">
-      <label>Anbieter & Modell</label>
-      <div class="provider-model-row">
-        <select id="agentProvider" onchange="onProviderChange()">
-          <option value="ollama">🏠 Ollama</option>
-          <option value="openrouter">🔀 OpenRouter</option>
-        </select>
-        <select id="agentModel">
-          <option value="">Lädt…</option>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Agent Name</label>
+        <input class="form-input" id="newAgentName" placeholder="e.g. Research Bot">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Provider</label>
+        <select class="form-select" id="newAgentProvider"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Model</label>
+        <select class="form-select" id="newAgentModel"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">System Prompt</label>
+        <textarea class="form-textarea" id="newAgentSystem" placeholder="You are a helpful assistant…" style="min-height:100px"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">TTS Voice</label>
+        <select class="form-select" id="newAgentVoice">
+          <option value="">Off</option>
         </select>
       </div>
     </div>
-
-    <div class="form-group">
-      <label>Max Tokens <span id="maxTokensVal" style="color:#ff6b35;font-weight:700">1024</span></label>
-      <input type="range" id="agentMaxTokens" min="256" max="4096" step="256" value="1024"
-        oninput="document.getElementById('maxTokensVal').textContent = this.value"
-        style="width:100%;accent-color:#ff6b35;cursor:pointer">
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:#555;margin-top:4px">
-        <span>256 (kurz)</span><span>1024 (normal)</span><span>4096 (ausführlich)</span>
-      </div>
-    </div>
-
-    <div class="form-group" id="skillsGroup">
-      <label>Skills</label>
-      <div id="skillsToggles"></div>
-    </div>
-
-    <div class="form-group">
-      <label>Farbe</label>
-      <div class="color-row" id="colorPicker">
-        <div class="color-swatch selected" style="background:#ff6b35" data-color="#ff6b35" onclick="selectColor(this)"></div>
-        <div class="color-swatch" style="background:#8b5cf6" data-color="#8b5cf6" onclick="selectColor(this)"></div>
-        <div class="color-swatch" style="background:#22c55e" data-color="#22c55e" onclick="selectColor(this)"></div>
-        <div class="color-swatch" style="background:#3b82f6" data-color="#3b82f6" onclick="selectColor(this)"></div>
-        <div class="color-swatch" style="background:#ec4899" data-color="#ec4899" onclick="selectColor(this)"></div>
-        <div class="color-swatch" style="background:#f59e0b" data-color="#f59e0b" onclick="selectColor(this)"></div>
-        <div class="color-swatch" style="background:#06b6d4" data-color="#06b6d4" onclick="selectColor(this)"></div>
-      </div>
-    </div>
-
     <div class="modal-actions">
-      <button class="btn btn-danger" id="btnDeleteAgent" onclick="deleteCurrentAgent()" style="display:none; margin-right:auto">🗑 Löschen</button>
-      <button class="btn btn-ghost" id="btnExportAgent" onclick="exportAgent()" style="display:none" title="Agent als JSON exportieren">📤</button>
-      <button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button>
-      <button class="btn btn-primary" onclick="saveAgent()">Speichern</button>
+      <button class="btn-secondary" onclick="closeModal('newAgentModal')">Cancel</button>
+      <button class="btn-primary" onclick="createAgent()">Create</button>
     </div>
   </div>
 </div>
 
-<!-- Modal: Provider / Einstellungen -->
+<!-- Modal: Edit Agent -->
+<div class="modal-overlay" id="editAgentModal">
+  <div class="modal">
+    <div class="modal-title">
+      ✏️ Edit Agent
+      <button class="close-btn" onclick="closeModal('editAgentModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Agent Name</label>
+        <input class="form-input" id="editAgentName">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Provider</label>
+        <select class="form-select" id="editAgentProvider"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Model</label>
+        <select class="form-select" id="editAgentModel"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">System Prompt</label>
+        <textarea class="form-textarea" id="editAgentSystem" style="min-height:100px"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">TTS Voice</label>
+        <select class="form-select" id="editAgentVoice">
+          <option value="">Off</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-danger" id="editAgentDeleteBtn">Delete</button>
+      <button class="btn-secondary" onclick="closeModal('editAgentModal')">Cancel</button>
+      <button class="btn-primary" onclick="saveEditAgent()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Provider Panel -->
 <div class="modal-overlay" id="providerModal">
-  <div class="modal" style="width:520px">
-    <h2>Anbieter & API Keys</h2>
-
-    <!-- Ollama -->
-    <div class="provider-section">
-      <div class="provider-header">
-        <span class="provider-icon">🏠</span>
-        <div>
-          <div class="provider-title">Ollama</div>
-          <div class="provider-subtitle">Lokale Modelle</div>
-        </div>
-        <span class="status-pill loading" id="statusOllama">…</span>
-      </div>
-      <div class="form-group" style="margin-bottom:0">
-        <label>Server URL</label>
-        <div class="input-with-btn">
-          <input type="text" id="ollamaUrl" placeholder="http://localhost:11434">
-          <button class="btn-test" onclick="testProvider('ollama')">Testen</button>
-        </div>
-      </div>
+  <div class="modal" style="max-width:700px">
+    <div class="modal-title">
+      ⚙️ Provider Settings
+      <button class="close-btn" onclick="closeModal('providerModal')">✕</button>
     </div>
-
-    <!-- Mistral -->
-    <div class="provider-section">
-      <div class="provider-header">
-        <span class="provider-icon">🔊</span>
-        <div>
-          <div class="provider-title">Mistral</div>
-          <div class="provider-subtitle">Text-to-Speech (Voxtral)</div>
-        </div>
-        <span class="status-pill loading" id="statusMistral">…</span>
-      </div>
-      <div class="form-group" style="margin-bottom:0">
-        <label>API Key</label>
-        <div class="input-with-btn">
-          <input type="password" id="mistralKey" placeholder="sk-…" autocomplete="off">
-          <button class="btn-test" onclick="testProvider('mistral')">Testen</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- SearXNG -->
-    <div class="provider-section">
-      <div class="provider-header">
-        <span class="provider-icon">🔍</span>
-        <div>
-          <div class="provider-title">SearXNG</div>
-          <div class="provider-subtitle">Lokale Web-Suche (selbst gehostet)</div>
-        </div>
-        <span class="status-pill loading" id="statusSearxng">…</span>
-      </div>
-      <div class="form-group" style="margin-bottom:0">
-        <label>URL</label>
-        <div class="input-with-btn">
-          <input type="text" id="searxngUrl" placeholder="http://localhost:8888">
-          <button class="btn-test" onclick="testProvider('searxng')">Testen</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- OpenRouter -->
-    <div class="provider-section">
-      <div class="provider-header">
-        <span class="provider-icon">🔀</span>
-        <div>
-          <div class="provider-title">OpenRouter</div>
-          <div class="provider-subtitle">Zugang zu hunderten Modellen</div>
-        </div>
-        <span class="status-pill loading" id="statusOpenrouter">…</span>
-      </div>
-      <div class="form-group" style="margin-bottom:0">
-        <label>API Key</label>
-        <div class="input-with-btn">
-          <input type="password" id="openrouterKey" placeholder="sk-or-…" autocomplete="off">
-          <button class="btn-test" onclick="testProvider('openrouter')">Testen</button>
-        </div>
-      </div>
-    </div>
-
+    <div class="modal-body" id="providerModalBody"></div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="exportAllAgents()" title="Alle Agenten als JSON exportieren">📤 Agenten exportieren</button>
-      <button class="btn btn-ghost" onclick="closeProviderModal()">Schließen</button>
-      <button class="btn btn-primary" onclick="saveProviders()">Speichern</button>
+      <button class="btn-secondary" onclick="closeModal('providerModal')">Close</button>
+      <button class="btn-primary" onclick="saveProviders()">Save</button>
     </div>
   </div>
 </div>
 
-<!-- Modal: Watchdogs -->
-<div class="modal-overlay" id="watchdogModal">
-  <div class="modal" style="width:600px;max-height:90vh">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-      <h2 style="margin:0;flex:1">⏰ Watchdogs</h2>
-      <button class="btn btn-primary" onclick="openWatchdogForm()">+ Neu</button>
-    </div>
-    <div id="watchdogList"></div>
-    <div class="modal-actions" style="margin-top:16px">
-      <button class="btn btn-ghost" onclick="closeWatchdogModal()">Schließen</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Watchdog erstellen/bearbeiten -->
-<div class="modal-overlay" id="watchdogFormModal">
-  <div class="modal" style="width:520px">
-    <h2 id="watchdogFormTitle">Neuer Watchdog</h2>
-
-    <div class="form-group">
-      <label>Name</label>
-      <input type="text" id="wdName" placeholder="z.B. Mac Mini Warehouse">
-    </div>
-    <div class="form-group">
-      <label>URL</label>
-      <input type="text" id="wdUrl" placeholder="https://www.amazon.de/s?i=warehouse-deals&k=mac+mini">
-    </div>
-    <div class="form-group">
-      <label>Agent (analysiert die Seite)</label>
-      <select id="wdAgent"></select>
-    </div>
-    <div class="form-group">
-      <label>Prompt (was soll der Agent prüfen?)</label>
-      <textarea id="wdPrompt" style="min-height:80px" placeholder="Siehst du gebrauchte Mac Minis unter 500€? Antworte NUR: JA [Preis] oder NEIN"></textarea>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div class="form-group">
-        <label>Alert wenn Antwort enthält</label>
-        <input type="text" id="wdKeyword" placeholder="JA">
-      </div>
-      <div class="form-group">
-        <label>Intervall (Minuten)</label>
-        <select id="wdInterval">
-          <option value="15">15 min</option>
-          <option value="30" selected>30 min</option>
-          <option value="60">60 min</option>
-          <option value="120">2 Stunden</option>
-          <option value="360">6 Stunden</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="modal-actions">
-      <button class="btn btn-danger" id="wdDeleteBtn" onclick="deleteWatchdog()" style="display:none;margin-right:auto">🗑 Löschen</button>
-      <button class="btn btn-ghost" onclick="closeWatchdogForm()">Abbrechen</button>
-      <button class="btn btn-primary" onclick="saveWatchdog()">Speichern</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Skills & Tools -->
+<!-- Modal: Skills -->
 <div class="modal-overlay" id="skillsModal">
-  <div class="modal" style="width:540px">
-    <h2>Skills & Tools</h2>
-    <p style="font-size:13px;color:#555;margin-bottom:20px;margin-top:-16px">Verfügbare Fähigkeiten für deine Agenten. Einzelne Skills pro Agent im Agent-Einstellungen aktivieren.</p>
-    <div id="skillsModalList"></div>
+  <div class="modal">
+    <div class="modal-title">
+      🧩 Skills
+      <button class="close-btn" onclick="closeModal('skillsModal')">✕</button>
+    </div>
+    <div class="modal-body" id="skillsModalBody">
+      <p style="color:var(--textdim);font-size:13px;font-family:var(--mono)">Loading skills…</p>
+    </div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeSkillsModal()">Schließen</button>
+      <button class="btn-secondary" onclick="closeModal('skillsModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Watchdog -->
+<div class="modal-overlay" id="watchdogModal">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-title">
+      ⏰ Watchdog Scheduler
+      <button class="close-btn" onclick="closeModal('watchdogModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="watchdogList" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div class="glow-sep"></div>
+      <div style="font-size:11px;color:var(--textdim);font-family:var(--mono);padding:4px 0 2px">New Watchdog</div>
+      <div class="form-group">
+        <label class="form-label">Agent</label>
+        <select class="form-select" id="wdAgentSelect"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">URL to monitor</label>
+        <input class="form-input" id="wdUrl" placeholder="https://example.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Interval (minutes)</label>
+        <input class="form-input" id="wdInterval" type="number" value="30" min="1">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Prompt</label>
+        <textarea class="form-textarea" id="wdPrompt" placeholder="Hat sich etwas Relevantes geändert?"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Alert keyword (trigger alert when response contains)</label>
+        <input class="form-input" id="wdKeyword" placeholder="JA" value="JA">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('watchdogModal')">Close</button>
+      <button class="btn-primary" onclick="createWatchdog()">Add Watchdog</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Export -->
+<div class="modal-overlay" id="exportModal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-title">
+      📤 Export Conversation
+      <button class="close-btn" onclick="closeModal('exportModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn-secondary" onclick="exportAs('json')" style="justify-content:flex-start;text-align:left">
+          📋 JSON — full message history
+        </button>
+        <button class="btn-secondary" onclick="exportAs('md')" style="justify-content:flex-start;text-align:left">
+          📝 Markdown — readable transcript
+        </button>
+        <button class="btn-secondary" onclick="exportAs('txt')" style="justify-content:flex-start;text-align:left">
+          📄 Plain text
+        </button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('exportModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Auto Dialog -->
+<div class="modal-overlay" id="autoDialogModal">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-title">
+      🤖 Auto-Dialog Setup
+      <button class="close-btn" onclick="closeModal('autoDialogModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Agent A</label>
+        <select class="form-select" id="autoAgentA"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Agent B</label>
+        <select class="form-select" id="autoAgentB"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Opening Message</label>
+        <textarea class="form-textarea" id="autoDialogPrompt" placeholder="Start the conversation with…"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Turns (each direction)</label>
+        <input class="form-input" id="autoDialogTurns" type="number" value="5" min="1" max="50">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('autoDialogModal')">Cancel</button>
+      <button class="btn-primary" onclick="startAutoDialog()">Start</button>
     </div>
   </div>
 </div>
 
 <script>
-// ── State ──────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════
 let agents = [];
+let providers = [];
+let skills = [];
+let watchdogs = [];
 let currentAgent = null;
+let conversations = {}; // agentId -> [{role,content,ts}]
+let currentView = 'home'; // 'home' | 'chat' | 'multi'
+let selectedAgents = new Set();
+let isSending = false;
+let phoneSim = localStorage.getItem('phoneSim') === 'true';
 let editingAgentId = null;
-let autoPlay = true;
-let isRecording = false;
-let recognition = null;
-let mistralVoices = [];
-let macVoices = [];
-let allModels = { ollama: [], openrouter: [] };
-let allSkills = [];
-let ringAbort = false;
-let phoneSimEnabled = JSON.parse(localStorage.getItem('phoneSimEnabled') ?? 'true');
-let autoDialog = false;
+let ttsQueue = [];
+let ttsSpeaking = false;
+let speechRecognition = null;
+let voiceActive = false;
+let voicePauseTimer = null;
+let voiceBuffer = '';
+let autoDialogActive = false;
+let autoDialogAbort = false;
 
-// ── Phone Ring ──────────────────────────────────────────────────────────────
-function playRingTone(ctx, startTime) {
-  // Europäischer Klingelton: 400Hz + 450Hz, 1s an / 4s aus
-  const freqs = [400, 450];
-  freqs.forEach(freq => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = freq;
-    osc.type = 'sine';
-    gain.gain.setValueAtTime(0, startTime);
-    gain.gain.linearRampToValueAtTime(0.15, startTime + 0.02);
-    gain.gain.setValueAtTime(0.15, startTime + 0.98);
-    gain.gain.linearRampToValueAtTime(0, startTime + 1.0);
-    osc.start(startTime);
-    osc.stop(startTime + 1.0);
+// ═══════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════
+async function init() {
+  await Promise.all([loadAgents(), loadProviders(), loadSkills(), loadWatchdogs()]);
+  if (phoneSim) document.getElementById('phoneToggle').classList.add('visible');
+  updatePhoneTime();
+  setInterval(updatePhoneTime, 30000);
+  setInterval(pollWatchdogs, 60000);
+  setView('home');
+}
+
+// ═══════════════════════════════════════════════════
+// API helpers
+// ═══════════════════════════════════════════════════
+async function api(path, opts = {}) {
+  const r = await fetch(path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
   });
-}
-
-async function phoneRingAndGreet(agent) {
-  ringAbort = false;
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const ringInterval = 4.0; // 1s klingeln, 3s pause
-  const rings = 3;
-
-  // 3x klingeln
-  for (let i = 0; i < rings; i++) {
-    if (ringAbort) { ctx.close(); return; }
-    playRingTone(ctx, ctx.currentTime);
-    await new Promise(r => setTimeout(r, ringInterval * 1000));
-    if (ringAbort) { ctx.close(); return; }
-  }
-  ctx.close();
-
-  if (ringAbort) return;
-
-  // Zufällige Ansage — ohne Namen, mal mit KI-Hinweis, mal ohne
-  const greetings = [
-    "Ja bitte?",
-    "Ja?",
-    "Bitte?",
-    "Ja, ich höre?",
-    "KI Assistent, ja bitte?",
-    "Ja, was kann ich tun?",
-    "Hallo, ja bitte?",
-  ];
-  const text = greetings[Math.floor(Math.random() * greetings.length)];
-  try {
-    const resp = await fetch('/api/tts', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ text, voice: agent.voice })
-    });
-    if (!resp.ok || ringAbort) return;
-    const blob = await resp.blob();
-    if (ringAbort) return;
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.play().catch(() => {});
-  } catch(e) {}
-}
-
-// ── Init ───────────────────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', async () => {
-  await Promise.all([loadVoices(), loadAllModels(), loadSkills()]);
-  await loadAgents();
-  loadMacVoices();
-  const ls = document.getElementById('loadingScreen');
-  ls.classList.add('hide');
-  setTimeout(() => ls.remove(), 450);
-});
-
-async function loadSkills() {
-  try {
-    const resp = await fetch('/api/skills');
-    allSkills = await resp.json();
-  } catch(e) { allSkills = []; }
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
 }
 
 async function loadAgents() {
-  const resp = await fetch('/api/agents');
-  agents = await resp.json();
-  renderSidebar();
-  updateDashboard();
-  if (agents.length > 0) selectAgent(agents[0].id);
+  try { agents = await api('/api/agents'); } catch(e) { agents = []; }
 }
 
-// ── Dashboard ───────────────────────────────────────────────────────────────
-let dashCollapsed = false;
-
-function toggleDashboard() {
-  dashCollapsed = !dashCollapsed;
-  document.getElementById('dashContent').style.display = dashCollapsed ? 'none' : 'flex';
-  document.getElementById('dashChevron').textContent = dashCollapsed ? '▸' : '▾';
-}
-
-async function updateDashboard() {
-  // Agenten
-  document.getElementById('dashAgentCount').textContent = agents.length;
-
-  // Watchdogs
+async function loadProviders() {
   try {
-    const wds = await fetch('/api/watchdogs').then(r => r.json());
-    const active = wds.filter(w => w.active).length;
-    document.getElementById('dashWatchdogCount').textContent =
-      active > 0 ? `${active} / ${wds.length}` : wds.length;
-
-    // Treffer heute
-    const today = new Date().toDateString();
-    const hits = wds.reduce((n, w) => n + (w.history || []).filter(h =>
-      h.hit && new Date(h.ts).toDateString() === today).length, 0);
-    const hitsEl = document.getElementById('dashHitsToday');
-    hitsEl.textContent = hits;
-    hitsEl.style.color = hits > 0 ? '#22c55e' : '#555';
-  } catch(e) {}
-
-  // Ollama Status
-  try {
-    const st = await fetch('/api/providers/status').then(r => r.json());
-    const ollamaEl = document.getElementById('dashOllamaStatus');
-    const dot = document.getElementById('dashStatusDot');
-    if (st.ollama?.ok) {
-      ollamaEl.textContent = st.ollama.info;
-      ollamaEl.style.color = '#22c55e';
-      dot.style.background = '#22c55e';
-      dot.style.boxShadow = '0 0 6px #22c55e';
-    } else {
-      ollamaEl.textContent = 'Offline';
-      ollamaEl.style.color = '#ef4444';
-      dot.style.background = '#ef4444';
-      dot.style.boxShadow = '0 0 6px #ef4444';
-    }
-  } catch(e) {}
+    const raw = await api('/api/providers');
+    // Backend returns a dict {ollama: {...}, mistral: {...}} — convert to array
+    providers = Object.entries(raw).map(([id, v]) => ({ id, name: id, ...v }));
+  } catch(e) { providers = []; }
 }
 
-async function loadVoices() {
-  const resp = await fetch('/api/voices/mistral');
-  const data = await resp.json();
-  mistralVoices = data.voices || [];
+async function loadSkills() {
+  try { skills = await api('/api/skills'); } catch(e) { skills = []; }
 }
 
-function loadMacVoices() {
-  if (!window.speechSynthesis) return;
-  const populate = () => {
-    macVoices = window.speechSynthesis.getVoices().filter(v => v.localService);
-  };
-  populate();
-  window.speechSynthesis.onvoiceschanged = populate;
+async function loadWatchdogs() {
+  try { watchdogs = await api('/api/watchdogs'); } catch(e) { watchdogs = []; }
 }
 
-async function loadAllModels() {
-  const resp = await fetch('/api/models');
-  allModels = await resp.json();
-}
+// ═══════════════════════════════════════════════════
+// View Router
+// ═══════════════════════════════════════════════════
+function setView(v) {
+  currentView = v;
+  document.querySelectorAll('.nav-btn[id^="nav"]').forEach(b => b.classList.remove('active'));
+  const map = { home: 'navHome', chat: 'navChat', multi: 'navMulti' };
+  if (map[v]) document.getElementById(map[v])?.classList.add('active');
+  renderSidePanel();
+  const ws = document.getElementById('workspace');
 
-function onProviderChange() {
-  const provider = document.getElementById('agentProvider').value;
-  populateModelSelect(provider, null);
-}
-
-// ── Skills ─────────────────────────────────────────────────────────────────
-function renderSkillsToggles(agentSkills) {
-  const container = document.getElementById('skillsToggles');
-  if (!container) return;
-  if (allSkills.length === 0) {
-    container.innerHTML = '<div style="font-size:12px;color:#555;padding:8px 0">Skills werden geladen…</div>';
-    return;
-  }
-  container.innerHTML = allSkills.map(skill => {
-    const active = agentSkills.includes(skill.id);
-    const unavail = !skill.available;
-    return `
-      <label style="display:flex;align-items:center;gap:10px;cursor:${unavail ? 'default' : 'pointer'};padding:10px 12px;background:#1e1e1e;border:1px solid #2a2a2a;border-radius:8px;margin-bottom:6px;${unavail ? 'opacity:0.5' : ''}">
-        <div class="toggle-switch ${active && !unavail ? 'on' : ''}" id="skillToggle-${skill.id}"
-             ${unavail ? '' : `onclick="toggleSkill('${skill.id}')"`}></div>
-        <div style="flex:1">
-          <div style="font-size:13px;color:#ccc">${skill.icon} ${skill.name}</div>
-          <div style="font-size:11px;color:#555;margin-top:2px">${skill.description}</div>
-          ${unavail && skill.install_hint ? `<div style="font-size:10px;color:#ef4444;margin-top:3px;font-family:'SF Mono',monospace">${skill.install_hint}</div>` : ''}
-        </div>
-        <span class="status-pill ${unavail ? 'err' : 'ok'}" style="font-size:10px;flex-shrink:0">${unavail ? 'Nicht verfügbar' : 'Verfügbar'}</span>
-      </label>
-    `;
-  }).join('');
-}
-
-function toggleSkill(skillId) {
-  document.getElementById(`skillToggle-${skillId}`)?.classList.toggle('on');
-}
-
-function getActiveSkills() {
-  return allSkills
-    .filter(s => document.getElementById(`skillToggle-${s.id}`)?.classList.contains('on'))
-    .map(s => s.id);
-}
-
-// ── Skills Modal ────────────────────────────────────────────────────────────
-async function openSkillsModal() {
-  document.getElementById('skillsModal').classList.add('open');
-  await loadSkills();
-  renderSkillsModalContent();
-}
-
-function closeSkillsModal() {
-  document.getElementById('skillsModal').classList.remove('open');
-}
-
-function renderSkillsModalContent() {
-  const container = document.getElementById('skillsModalList');
-  container.innerHTML = allSkills.map(skill => {
-    const enabledAgents = agents.filter(a => (a.skills || []).includes(skill.id));
-    return `
-      <div class="provider-section">
-        <div class="provider-header">
-          <span class="provider-icon">${skill.icon}</span>
-          <div style="flex:1">
-            <div class="provider-title">${skill.name}</div>
-            <div class="provider-subtitle">${skill.description}</div>
-          </div>
-          <span class="status-pill ${skill.available ? 'ok' : 'err'}">${skill.available ? 'Verfügbar' : 'Nicht verfügbar'}</span>
-        </div>
-        ${!skill.available && skill.install_hint ? `
-          <div style="font-size:11px;color:#666;margin-bottom:10px">
-            Installieren: <code style="background:#1a1a1a;color:#ff6b35;padding:2px 8px;border-radius:4px;font-size:10px">${skill.install_hint}</code>
-          </div>` : ''}
-        <div style="font-size:11px;color:#555">
-          ${enabledAgents.length > 0
-            ? 'Aktiv bei: ' + enabledAgents.map(a => `<span style="color:${a.color};font-weight:600">${a.name}</span>`).join(', ')
-            : 'Kein Agent hat diesen Skill aktiviert'}
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-// ── Screenshot ──────────────────────────────────────────────────────────────
-async function takeScreenshot() {
-  const input = document.getElementById('messageInput');
-  let url = input?.value.trim();
-  const urlMatch = url?.match(/https?:\/\/[^\s]+/);
-  url = urlMatch ? urlMatch[0] : url;
-  if (!url || !url.startsWith('http')) {
-    url = prompt('Website URL eingeben:', 'https://');
-  }
-  if (!url) return;
-
-  const btn = document.getElementById('screenshotBtn');
-  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
-
-  try {
-    const resp = await fetch('/api/screenshot', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url })
-    });
-    const data = await resp.json();
-    if (data.error) { alert('Screenshot Fehler: ' + data.error); return; }
-
-    pendingImage = { dataUrl: data.image, name: new URL(data.url).hostname };
-    document.getElementById('imgPreviewThumb').src = data.image;
-    document.getElementById('imgPreviewName').textContent = new URL(data.url).hostname;
-    document.getElementById('imgPreviewBar').style.display = 'flex';
-
-    if (input && !input.value.trim()) {
-      input.value = 'Was siehst du auf diesem Screenshot?';
-      autoResize(input);
-    }
-  } catch(e) {
-    alert('Screenshot Fehler: ' + e.message);
-  } finally {
-    if (btn) { btn.textContent = '📸'; btn.disabled = false; }
+  if (v === 'home') {
+    renderHome(ws);
+  } else if (v === 'chat') {
+    if (currentAgent) renderChatShell(ws);
+    else renderNoAgent(ws);
+  } else if (v === 'multi') {
+    renderMultiShell(ws);
   }
 }
 
-function populateModelSelect(provider, selectedModel) {
-  const sel = document.getElementById('agentModel');
-  const models = allModels[provider] || [];
-
-  if (models.length === 0) {
-    if (provider === 'openrouter') {
-      sel.innerHTML = '<option value="">OpenRouter Key in Einstellungen eintragen</option>';
-    } else {
-      sel.innerHTML = '<option value="">Keine Modelle gefunden</option>';
-    }
-    return;
-  }
-
-  if (provider === 'openrouter') {
-    const free = models.filter(m => m.free);
-    const paid = models.filter(m => !m.free);
-
-    // group paid by provider prefix
-    const groups = {};
-    paid.forEach(m => {
-      const prefix = m.id.split('/')[0];
-      if (!groups[prefix]) groups[prefix] = [];
-      groups[prefix].push(m);
-    });
-
-    let html = '';
-    if (free.length > 0) {
-      html += `<optgroup label="⭐ Kostenlos (${free.length})">` +
-        free.map(m => `<option value="${m.id}" ${m.id === selectedModel ? 'selected' : ''}>${m.name}</option>`).join('') +
-        '</optgroup>';
-    }
-    html += Object.entries(groups).map(([prefix, ms]) =>
-      `<optgroup label="${prefix}">` +
-      ms.map(m => `<option value="${m.id}" ${m.id === selectedModel ? 'selected' : ''}>${m.name}</option>`).join('') +
-      '</optgroup>'
-    ).join('');
-    sel.innerHTML = html;
+// ═══════════════════════════════════════════════════
+// Side Panel
+// ═══════════════════════════════════════════════════
+function renderSidePanel() {
+  const sp = document.getElementById('sidePanel');
+  if (currentView === 'multi') {
+    sp.innerHTML = renderMultiSidePanel();
   } else {
-    sel.innerHTML = models.map(m =>
-      `<option value="${m}" ${m === selectedModel ? 'selected' : ''}>${m}</option>`
-    ).join('');
+    sp.innerHTML = renderChatSidePanel();
   }
 }
 
-// ── Sidebar ────────────────────────────────────────────────────────────────
-function renderSidebar() {
-  const list = document.getElementById('agentList');
-  list.innerHTML = agents.map(a => `
-    <div class="agent-item ${currentAgent?.id === a.id ? 'active' : ''}" onclick="selectAgent('${a.id}')">
-      <div class="agent-avatar" style="background:${a.color}">${a.name[0].toUpperCase()}</div>
-      <span class="agent-name">${a.name}</span>
-    </div>
-  `).join('');
-}
-
-async function selectAgent(agentId) {
-  ringAbort = true; // laufendes Klingeln abbrechen falls Agent gewechselt
-  await new Promise(r => setTimeout(r, 50));
-  ringAbort = false;
-
-  currentAgent = agents.find(a => a.id === agentId);
-  renderSidebar();
-  renderChatShell();
-  const history = await loadHistory(agentId);
-  renderMessages(history);
-
-  // Beim ersten Klick klingeln + Ansage (nicht beim Seitenstart)
-  if (window._agentclaw_booted && phoneSimEnabled) {
-    phoneRingAndGreet(currentAgent);
-  }
-}
-
-// Seitenstart-Flag — kein Klingeln beim initialen Laden
-window._agentclaw_booted = false;
-setTimeout(() => { window._agentclaw_booted = true; }, 1500);
-
-// ── Chat Shell ─────────────────────────────────────────────────────────────
-function renderChatShell() {
-  const a = currentAgent;
-  document.getElementById('main').innerHTML = `
-    <div class="chat-header">
-      <div class="chat-header-avatar" style="background:${a.color}">${a.name[0].toUpperCase()}</div>
-      <div class="chat-header-info">
-        <h2>${a.name}</h2>
-        <span>${getVoiceName(a.voice)} · ${a.model}</span>
-      </div>
-      <div class="header-actions">
-        <label class="autoplay-toggle" title="Auto-Play TTS">
-          🔊
-          <div class="toggle-switch ${autoPlay ? 'on' : ''}" id="autoplayToggle" onclick="toggleAutoPlay()"></div>
-        </label>
-        <button class="btn-icon" id="phoneSimBtn" title="Telefon-Simulation ${phoneSimEnabled ? 'an' : 'aus'}" onclick="togglePhoneSim()" style="opacity:${phoneSimEnabled ? '1' : '0.3'}">📞</button>
-        <button class="btn-icon" title="Verlauf löschen" onclick="clearChat()">🗑</button>
-        <button class="btn-icon" title="Agent bearbeiten" onclick="openEditModal('${a.id}')">⚙️</button>
-      </div>
-    </div>
-    <div class="messages" id="messages"></div>
-    <div class="input-bar">
-      <div class="mic-cluster">
-        <button class="btn-mic ${autoDialog ? 'auto-active' : ''}" id="micBtn" onclick="toggleMic()" title="Mikrofon">🎤</button>
-        <button class="btn-auto-dialog ${autoDialog ? 'on' : ''}" id="autoDialogBtn" onclick="toggleAutoDialog()" title="Auto-Dialog: Mikro startet automatisch nach Antwort">Auto</button>
-      </div>
-      <div class="input-wrap">
-        <div class="img-preview-bar" id="imgPreviewBar">
-          <img id="imgPreviewThumb" src="" alt="">
-          <span id="imgPreviewName" style="font-size:12px;color:#aaa;flex:1"></span>
-          <button onclick="clearPendingImage()" title="Bild entfernen">✕</button>
-        </div>
-        <textarea id="messageInput" placeholder="Nachricht eingeben..." rows="1"
-          onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-        <div style="display:flex;gap:4px;align-items:center">
-          ${(currentAgent.skills || []).includes('screenshot') ? `<button class="btn-img" onclick="takeScreenshot()" title="Screenshot machen" id="screenshotBtn">📸</button>` : ''}
-          <button class="btn-img" onclick="document.getElementById('imgFileInput').click()" title="Bild anhängen">📎</button>
-          <input type="file" id="imgFileInput" accept="image/*" style="display:none" onchange="handleImageSelect(event)">
-          <button class="btn-send" id="sendBtn" onclick="sendMessage()">Senden</button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function getVoiceName(voice) {
-  if (voice.startsWith('mac:')) return '🍎 ' + voice.replace('mac:', '');
-  const v = mistralVoices.find(x => x.slug === voice);
-  return v ? v.name : voice;
-}
-
-// ── Messages ───────────────────────────────────────────────────────────────
-async function loadHistory(agentId) {
-  const resp = await fetch(`/api/history/${agentId}`);
-  return await resp.json();
-}
-
-function renderMessages(history) {
-  const container = document.getElementById('messages');
-  if (!container) return;
-
-  if (history.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="big-avatar" style="background:${currentAgent.color}">${currentAgent.name[0].toUpperCase()}</div>
-        <h3>Hallo! Ich bin ${currentAgent.name}.</h3>
-        <p>Schreib etwas oder drücke das Mikrofon 🎤</p>
-      </div>
-    `;
-    return;
-  }
-
-  container.innerHTML = history.map((msg, i) => buildMessageHTML(msg, i)).join('');
-  container.scrollTop = container.scrollHeight;
-}
-
-function togglePlayByIndex(index) { togglePlay(index, msgRegistry[index] || ''); }
-function downloadAudioByIndex(index) { downloadAudio(index, msgRegistry[index] || ''); }
-
-function buildMessageHTML(msg, index) {
-  const isUser = msg.role === 'user';
-  const time = msg.ts ? new Date(msg.ts).toLocaleTimeString('de', {hour:'2-digit', minute:'2-digit'}) : '';
-  // Store content in registry for safe onclick access
-  if (!isUser) msgRegistry[index] = msg.content;
-
-  if (isUser) {
-    const imgHtml = msg.image ? `<img class="msg-image" src="${msg.image}" onclick="this.style.maxWidth=this.style.maxWidth?'':'100%'">` : '';
-    return `
-      <div class="msg user">
-        <div class="msg-body">
-          <div class="msg-meta">${time}</div>
-          <div class="msg-bubble">${imgHtml}${escHtml(msg.content)}</div>
-        </div>
-        <div class="msg-avatar" style="background:#2a4a6a">Du</div>
-      </div>
-    `;
-  }
+function renderChatSidePanel() {
+  const agentRows = agents.map(a => {
+    const active = currentAgent && currentAgent.id === a.id ? 'active' : '';
+    const online = 'online';
+    return `<div class="agent-item ${active}" onclick="selectAgent('${a.id}')">
+      <div class="agent-dot ${online}"></div>
+      <span class="agent-name">${esc(a.name)}</span>
+      <span class="agent-model-tag">${esc((a.model||'').split('/').pop().slice(0,8))}</span>
+    </div>`;
+  }).join('');
 
   return `
-    <div class="msg assistant">
-      <div class="msg-avatar" style="background:${currentAgent.color}">${currentAgent.name[0].toUpperCase()}</div>
-      <div class="msg-body">
-        <div class="msg-meta">${currentAgent.name} · ${time}</div>
-        <div class="msg-bubble">${renderMarkdown(cleanDisplay(msg.content))}</div>
-        ${msg.stats ? `<div class="msg-stats"><span>⚡ ${msg.stats.tok_s} tok/s</span><span>🔢 ${msg.stats.tokens} tokens</span><span>⏱ ${msg.stats.total_s}s</span></div>` : ''}
-        <div class="msg-actions">
-          <button class="btn-play" id="playBtn-${index}" onclick="togglePlayByIndex(${index})">▶ Abspielen</button>
-          <button class="btn-dl" onclick="downloadAudioByIndex(${index})" title="Audio herunterladen">⬇ Download</button>
-        </div>
+    <div class="panel-head">Agents</div>
+    <div class="agent-list">${agentRows || '<div style="padding:12px 14px;font-size:12px;color:var(--textdim)">No agents yet</div>'}</div>
+    <div class="panel-foot">
+      <button class="panel-foot-btn" onclick="openNewAgentModal()">➕ New Agent</button>
+      <button class="panel-foot-btn" onclick="openAutoDialogModal()">🤖 Auto-Dialog</button>
+      <button class="panel-foot-btn" onclick="openExportModal()">📤 Export</button>
+    </div>`;
+}
+
+function renderMultiSidePanel() {
+  const agentRows = agents.map(a => {
+    const checked = selectedAgents.has(a.id) ? 'checked' : '';
+    return `<label class="agent-item" style="cursor:pointer">
+      <input type="checkbox" class="agent-cb" ${checked} onchange="toggleSelectAgent('${a.id}',this.checked)">
+      <div class="agent-dot online"></div>
+      <span class="agent-name">${esc(a.name)}</span>
+    </label>`;
+  }).join('');
+
+  const selCount = selectedAgents.size;
+  return `
+    <div class="panel-head">Select Agents</div>
+    <div style="padding:4px 14px 6px;font-size:11px;font-family:var(--mono);color:var(--textdim)">${selCount} selected</div>
+    <div class="agent-list">${agentRows || '<div style="padding:12px 14px;font-size:12px;color:var(--textdim)">No agents</div>'}</div>
+    <div class="panel-foot">
+      <button class="panel-foot-btn" onclick="selectedAgents=new Set(agents.map(a=>a.id));renderSidePanel();renderMultiCards()">✅ Select All</button>
+      <button class="panel-foot-btn" onclick="selectedAgents.clear();renderSidePanel();renderMultiCards()">☐ Deselect All</button>
+    </div>`;
+}
+
+function toggleSelectAgent(id, checked) {
+  if (checked) selectedAgents.add(id);
+  else selectedAgents.delete(id);
+  // update count label
+  const sp = document.getElementById('sidePanel');
+  const lbl = sp.querySelector('[style*="selected"]');
+  if (lbl) lbl.textContent = selectedAgents.size + ' selected';
+  renderMultiCards();
+}
+
+// ═══════════════════════════════════════════════════
+// Home / Dashboard
+// ═══════════════════════════════════════════════════
+function renderHome(ws) {
+  const totalMsgs = Object.values(conversations).reduce((s, c) => s + c.length, 0);
+  const activeWds = watchdogs.filter(w => w.active).length;
+
+  const agentRows = agents.map(a => `
+    <div class="home-agent-row" onclick="selectAgent('${a.id}');setView('chat')">
+      <div class="agent-dot online" style="width:9px;height:9px"></div>
+      <div class="home-agent-info">
+        <div class="home-agent-name">${esc(a.name)}</div>
+        <div class="home-agent-sub">${esc(a.provider || '')} · ${esc(a.model || '')}</div>
       </div>
-    </div>
-  `;
-}
+      <span class="home-agent-badge">${(conversations[a.id] || []).length} msgs</span>
+    </div>`).join('');
 
-function appendMessage(msg) {
-  const container = document.getElementById('messages');
-  if (!container) return;
-  const empty = container.querySelector('.empty-state');
-  if (empty) container.innerHTML = '';
-  const index = container.querySelectorAll('.msg').length;
-  container.insertAdjacentHTML('beforeend', buildMessageHTML(msg, index));
-  container.scrollTop = container.scrollHeight;
-}
-
-const THINK_COLORS = [
-  '#ff6b35', '#8b5cf6', '#22c55e', '#06b6d4',
-  '#ec4899', '#f59e0b', '#3b82f6', '#a78bfa', '#34d36a', '#f97316'
-];
-let thinkColorTimer = null;
-
-function showTyping() {
-  const container = document.getElementById('messages');
-  if (!container) return;
-  const empty = container.querySelector('.empty-state');
-  if (empty) container.innerHTML = '';
-  container.insertAdjacentHTML('beforeend', `
-    <div class="msg assistant" id="typingIndicator">
-      <div class="msg-avatar" style="background:${currentAgent.color}">${currentAgent.name[0].toUpperCase()}</div>
-      <div class="think-anim">
-        <div class="think-waves">
-          <div class="wave-ring" id="tr0"></div>
-          <div class="wave-ring" id="tr1"></div>
-          <div class="wave-ring" id="tr2"></div>
-          <div class="wave-ring" id="tr3"></div>
-          <div class="brain-core" id="thinkCore"></div>
-        </div>
-        <div class="think-eeg">
-          <div class="think-eeg-bar" id="teb0"></div>
-          <div class="think-eeg-bar" id="teb1"></div>
-          <div class="think-eeg-bar" id="teb2"></div>
-          <div class="think-eeg-bar" id="teb3"></div>
-          <div class="think-eeg-bar" id="teb4"></div>
-          <div class="think-eeg-bar" id="teb5"></div>
-          <div class="think-eeg-bar" id="teb6"></div>
-          <div class="think-eeg-bar" id="teb7"></div>
-          <div class="think-eeg-bar" id="teb8"></div>
-          <div class="think-eeg-bar" id="teb9"></div>
-          <div class="think-eeg-bar" id="teb10"></div>
-          <div class="think-eeg-bar" id="teb11"></div>
-        </div>
+  ws.innerHTML = `
+    <div class="home-shell">
+      <div class="home-title">AgentClaw <span>v2 · matrix</span></div>
+      <div class="home-grid">
+        <div class="home-stat"><div class="home-stat-val">${agents.length}</div><div class="home-stat-lbl">Agents</div></div>
+        <div class="home-stat"><div class="home-stat-val">${totalMsgs}</div><div class="home-stat-lbl">Messages</div></div>
+        <div class="home-stat"><div class="home-stat-val">${providers.length}</div><div class="home-stat-lbl">Providers</div></div>
+        <div class="home-stat"><div class="home-stat-val">${activeWds}</div><div class="home-stat-lbl">Watchdogs</div></div>
       </div>
-    </div>
-  `);
-  container.scrollTop = container.scrollHeight;
-  startThinkColors();
+      <div class="home-section">
+        <div class="home-section-title">Your Agents</div>
+        ${agentRows || '<div style="color:var(--textdim);font-size:13px;font-family:var(--mono)">No agents yet — create one to get started.</div>'}
+      </div>
+      ${skills.length > 0 ? `
+      <div class="home-section">
+        <div class="home-section-title">Skills (${skills.length})</div>
+        ${skills.slice(0,3).map(s => `<div class="home-agent-row" style="cursor:default">
+          <div style="font-size:18px">${s.icon||'🧩'}</div>
+          <div class="home-agent-info">
+            <div class="home-agent-name">${esc(s.name)}</div>
+            <div class="home-agent-sub">${esc(s.description||'')}</div>
+          </div>
+        </div>`).join('')}
+      </div>` : ''}
+    </div>`;
 }
 
-function removeTyping() {
-  stopThinkColors();
-  document.getElementById('typingIndicator')?.remove();
-}
-
-function startThinkColors() {
-  stopThinkColors();
-  function rnd() { return THINK_COLORS[Math.floor(Math.random() * THINK_COLORS.length)]; }
-  function hexA(c, a) { return c + Math.round(a * 255).toString(16).padStart(2, '0'); }
-  function cycle() {
-    // Ringe
-    for (let i = 0; i < 4; i++) {
-      const el = document.getElementById(`tr${i}`);
-      if (el) el.style.borderColor = hexA(rnd(), 0.4 + Math.random() * 0.4);
-    }
-    // Kern
-    const core = document.getElementById('thinkCore');
-    if (core) {
-      const c = rnd();
-      core.style.background = c;
-      core.style.boxShadow = `0 0 7px ${c}, 0 0 14px ${hexA(c, 0.4)}`;
-    }
-    // EEG Bars
-    for (let i = 0; i < 12; i++) {
-      const bar = document.getElementById(`teb${i}`);
-      if (bar) bar.style.background = rnd();
-    }
+// ═══════════════════════════════════════════════════
+// Select Agent & Chat
+// ═══════════════════════════════════════════════════
+async function selectAgent(id) {
+  currentAgent = agents.find(a => a.id === id) || null;
+  if (!conversations[id]) {
+    try {
+      const hist = await api(`/api/history/${id}`);
+      conversations[id] = hist || [];
+    } catch(e) { conversations[id] = []; }
   }
-  cycle();
-  thinkColorTimer = setInterval(cycle, 700);
-}
-
-function stopThinkColors() {
-  if (thinkColorTimer) { clearInterval(thinkColorTimer); thinkColorTimer = null; }
-}
-
-// ── Image Handling ─────────────────────────────────────────────────────────
-let pendingImage = null;
-
-function handleImageSelect(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    pendingImage = { dataUrl: ev.target.result, name: file.name };
-    document.getElementById('imgPreviewThumb').src = ev.target.result;
-    document.getElementById('imgPreviewName').textContent = file.name;
-    document.getElementById('imgPreviewBar').style.display = 'flex';
-  };
-  reader.readAsDataURL(file);
-  e.target.value = '';
-}
-
-function clearPendingImage() {
-  pendingImage = null;
-  document.getElementById('imgPreviewBar').style.display = 'none';
-  document.getElementById('imgPreviewThumb').src = '';
-  document.getElementById('imgPreviewName').textContent = '';
-}
-
-function renderMarkdown(str) {
-  try {
-    marked.setOptions({ breaks: true, gfm: true });
-    const html = marked.parse(str);
-    // Wrap each <pre> with a container that has a copy button — use registry instead of inline text
-    return html.replace(/<pre><code([^>]*)>([\s\S]*?)<\/code><\/pre>/g, (_, attrs, code) => {
-      const raw = code.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"');
-      const id = 'c' + (codeRegistryIdx++);
-      codeRegistry[id] = raw;
-      return `<div class="code-block"><button class="btn-copy" onclick="copyCode(this,'${id}')">📋 Kopieren</button><pre><code${attrs}>${code}</code></pre></div>`;
-    });
-  } catch(e) {
-    return escHtml(str);
+  if (currentView !== 'chat') setView('chat');
+  else {
+    renderSidePanel();
+    renderChatShell(document.getElementById('workspace'));
   }
 }
 
-// ── Send Message ───────────────────────────────────────────────────────────
-async function sendMessage() {
-  const input = document.getElementById('messageInput');
-  const sendBtn = document.getElementById('sendBtn');
-  const text = input?.value.trim();
-  if (!text && !pendingImage || !currentAgent) return;
+function renderChatShell(ws) {
+  if (!currentAgent) { renderNoAgent(ws); return; }
+  const msgs = conversations[currentAgent.id] || [];
 
-  const imgToSend = pendingImage;
-  input.value = '';
-  autoResize(input);
-  sendBtn.disabled = true;
-  clearPendingImage();
+  ws.innerHTML = `
+    <div class="chat-shell" id="chatShell">
+      <div class="chat-topbar">
+        <div class="agent-dot online"></div>
+        <div class="chat-topbar-name">${esc(currentAgent.name)}</div>
+        <span class="topbar-badge">${esc(currentAgent.model||'')}</span>
+        <span class="speaking-dot" id="speakingDot"></span>
+        <label class="autoplay-toggle" title="Auto-Play TTS">
+          🔊 <div class="toggle-switch ${autoPlay ? 'on' : ''}" id="autoplayToggle" onclick="toggleAutoPlay()"></div>
+        </label>
+        <button class="topbar-btn" onclick="openEditAgentModal('${currentAgent.id}')">✏️ Edit</button>
+        <button class="topbar-btn" onclick="openAutoDialogModal()">🤖 Auto</button>
+        <button class="topbar-btn" onclick="openExportModal()">📤</button>
+        <button class="topbar-btn" onclick="clearChat()">🗑</button>
+      </div>
+      <div class="auto-banner" id="autoBanner">
+        <span>🤖</span><span id="autoBannerText">Auto-dialog running…</span>
+        <button onclick="autoDialogAbort=true" style="margin-left:auto;background:transparent;border:none;color:var(--purple);cursor:pointer;font-size:11px">Stop</button>
+      </div>
+      <div class="chat-messages" id="chatMessages"></div>
+      <div class="input-area">
+        <div id="imagePreviewWrap" style="display:none;padding:6px 0 0">
+          <div style="display:flex;align-items:center;gap:8px">
+            <img id="imagePreview" style="max-height:80px;border-radius:6px;border:1px solid var(--b2)">
+            <button onclick="clearImageAttachment()" style="background:transparent;border:none;color:var(--textdim);cursor:pointer;font-size:16px" title="Bild entfernen">✕</button>
+          </div>
+        </div>
+        <div class="input-row">
+          <textarea class="input-box" id="mainInput" placeholder="Message ${esc(currentAgent.name)}…" rows="1"
+            onkeydown="handleInputKey(event)"
+            oninput="autoResizeTextarea(this)"></textarea>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()">↑</button>
+        </div>
+        <div class="input-toolbar">
+          <div class="voice-indicator" id="voiceIndicator">
+            <div class="voice-dot"></div> Listening…
+          </div>
+          <button class="tool-btn" id="voiceBtn" onclick="toggleVoice()">🎤 Voice</button>
+          <button class="tool-btn" onclick="document.getElementById('imageFileInput').click()" title="Bild hochladen">🖼 Bild</button>
+          <input type="file" id="imageFileInput" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
+          <div id="skillBtns" style="display:contents"></div>
+        </div>
+      </div>
+    </div>`;
 
-  const userMsg = { role: 'user', content: text || '', image: imgToSend?.dataUrl, ts: new Date().toISOString() };
-  appendMessage(userMsg);
-  showTyping();
+  renderMessages();
+  renderSkillBtns();
+}
 
-  try {
-    const body = { agent_id: currentAgent.id, message: text || '' };
-    if (imgToSend) body.image_data = imgToSend.dataUrl;
-    const resp = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    const data = await resp.json();
-    removeTyping();
+function renderNoAgent(ws) {
+  ws.innerHTML = `
+    <div class="no-agent">
+      <div class="big-icon">🦞</div>
+      <p>Select or create an agent to start chatting</p>
+      <button class="btn-primary" onclick="openNewAgentModal()" style="margin-top:8px">➕ New Agent</button>
+    </div>`;
+}
 
-    if (data.error) {
-      appendMessage({ role: 'assistant', content: '⚠️ ' + data.error, ts: new Date().toISOString() });
+function renderMessages() {
+  const el = document.getElementById('chatMessages');
+  if (!el || !currentAgent) return;
+  const msgs = conversations[currentAgent.id] || [];
+  el.innerHTML = msgs.map((m, i) => renderMsg(m, i)).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function renderMsg(m, index) {
+  let content = m.content;
+  if (m.role === 'assistant') {
+    try { content = marked.parse(content); } catch(e) {}
+  } else {
+    content = `<p>${esc(content).replace(/\n/g,'<br>')}</p>`;
+  }
+  const ts = m.ts ? `<span class="msg-meta">${new Date(m.ts).toLocaleTimeString()}</span>` : '';
+  if (m.role === 'assistant') {
+    const idx = index !== undefined ? index : (conversations[currentAgent?.id]?.length - 1);
+    return `<div class="msg assistant" data-idx="${idx}">
+      ${ts}
+      <div class="msg-bubble">${content}</div>
+      ${m.stats ? `<div style="font-size:10px;color:var(--textdim);font-family:var(--mono);padding:2px 4px">⚡${m.stats.tok_s} tok/s · ${m.stats.tokens} tkn · ${m.stats.total_s}s</div>` : ''}
+      <div class="msg-actions">
+        <button class="btn-play" id="playBtn-${idx}" onclick="togglePlayByIndex(${idx})">▶ Abspielen</button>
+        <button class="btn-dl" title="Audio herunterladen" onclick="downloadAudioByIndex(${idx})">⬇</button>
+      </div>
+    </div>`;
+  }
+  return `<div class="msg ${m.role}">
+    ${m.role === 'assistant' ? ts : ''}
+    <div class="msg-bubble">${content}</div>
+    ${m.role === 'user' ? ts : ''}
+  </div>`;
+}
+
+function appendMsg(role, content, stats) {
+  if (!currentAgent) return -1;
+  if (!conversations[currentAgent.id]) conversations[currentAgent.id] = [];
+  const msg = { role, content, ts: Date.now() };
+  if (stats) msg.stats = stats;
+  const index = conversations[currentAgent.id].length;
+  conversations[currentAgent.id].push(msg);
+  const el = document.getElementById('chatMessages');
+  if (el) {
+    const div = document.createElement('div');
+    div.innerHTML = renderMsg(msg, index);
+    el.appendChild(div.firstElementChild);
+    el.scrollTop = el.scrollHeight;
+  }
+  return index;
+}
+
+function appendSystemMsg(content) {
+  const el = document.getElementById('chatMessages');
+  if (!el) return;
+  const div = document.createElement('div');
+  div.className = 'msg system';
+  div.innerHTML = `<div class="msg-bubble">${esc(content)}</div>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function showThinkingIndicator() {
+  const el = document.getElementById('chatMessages');
+  if (!el) return;
+  const bars = [2,4,6,5,3,6,4,5,3,4].map((h,i) =>
+    `<div class="eeg-bar" style="animation-delay:${i*0.08}s"></div>`
+  ).join('');
+  const div = document.createElement('div');
+  div.id = 'thinkIndicator';
+  div.className = 'think-wrap';
+  div.innerHTML = `<span class="think-brain">🧠</span><div class="think-eeg">${bars}</div>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function removeThinkingIndicator() {
+  document.getElementById('thinkIndicator')?.remove();
+}
+
+// ═══════════════════════════════════════════════════
+// Send Message
+// ═══════════════════════════════════════════════════
+async function sendMessage(overrideText) {
+  if (isSending) return;
+  const input = document.getElementById('mainInput');
+  const text = overrideText || (input ? input.value.trim() : '');
+  if (!text || !currentAgent) return;
+
+  if (input && !overrideText) { input.value = ''; autoResizeTextarea(input); }
+  isSending = true;
+  document.getElementById('sendBtn')?.setAttribute('disabled', '');
+
+  const activeSkills = new Set(currentAgent.skills || []);
+  let imageData = null;
+
+  // Screenshot skill: detect URL or domain/keyword, fetch screenshot, show in chat
+  if (activeSkills.has('screenshot')) {
+    // Match full URLs, bare domains (web.de), or "screenshot von X" pattern
+    let rawUrl = null;
+    const fullUrl = text.match(/https?:\/\/[^\s]+/);
+    const screenshotOf = text.match(/screenshot\s+(?:von\s+|of\s+)?([^\s]+)/i);
+    const bareDomain = text.match(/\b([a-z0-9-]+\.[a-z]{2,}(?:\.[a-z]{2,})?(?:\/[^\s]*)?)\b/i);
+    if (fullUrl) rawUrl = fullUrl[0];
+    else if (screenshotOf) rawUrl = screenshotOf[1];
+    else if (bareDomain) rawUrl = bareDomain[1];
+    if (rawUrl && !rawUrl.startsWith('http')) rawUrl = 'https://' + rawUrl;
+    if (rawUrl) {
+      appendMsg('user', text);
+      appendSystemMsg(`📸 Screenshot von ${rawUrl}…`);
+      try {
+        const sc = await api('/api/screenshot', { method: 'POST', body: { url: rawUrl } });
+        if (sc.image) {
+          imageData = sc.image;
+          // Show screenshot in chat
+          const el = document.getElementById('chatMessages');
+          if (el) {
+            const div = document.createElement('div');
+            div.className = 'msg assistant';
+            div.innerHTML = `<div class="msg-bubble" style="padding:6px">
+              <img src="${sc.image}" style="max-width:100%;border-radius:6px;display:block">
+              <div style="font-size:10px;color:var(--textdim);margin-top:4px;font-family:var(--mono)">${esc(sc.url)}</div>
+            </div>`;
+            el.appendChild(div);
+            el.scrollTop = el.scrollHeight;
+          }
+        }
+      } catch(e) {
+        appendSystemMsg('Screenshot fehlgeschlagen: ' + e.message);
+      }
+      showThinkingIndicator();
+      try {
+        const body = { agent_id: currentAgent.id, message: text };
+        if (imageData) body.image_data = imageData;
+        const data = await api('/api/chat', { method: 'POST', body });
+        removeThinkingIndicator();
+        const reply = data.reply || data.response || data.message || '';
+        appendMsg('assistant', reply);
+        if (autoPlay) togglePlay(idx, reply);
+      } catch(e) {
+        removeThinkingIndicator();
+        appendSystemMsg('Error: ' + e.message);
+      }
+      isSending = false;
+      document.getElementById('sendBtn')?.removeAttribute('disabled');
+      input?.focus();
       return;
     }
-
-    const botMsg = { role: 'assistant', content: data.reply, ts: new Date().toISOString(), stats: data.stats };
-    appendMessage(botMsg);
-
-    if (autoPlay) {
-      const msgCount = document.querySelectorAll('.msg').length - 1;
-      await togglePlay(msgCount, data.reply);
-    }
-
-    // Auto-Dialog: nach TTS automatisch Mikro starten (700ms Puffer damit Audio wirklich weg ist)
-    if (autoDialog) {
-      setTimeout(() => { if (autoDialog && !isRecording && !currentAudio) startMic(); }, 700);
-    }
-  } catch (e) {
-    removeTyping();
-    appendMessage({ role: 'assistant', content: '⚠️ Verbindungsfehler: ' + e.message, ts: new Date().toISOString() });
-  } finally {
-    sendBtn.disabled = false;
-    input?.focus();
   }
+
+  // Show image preview in chat if attached
+  if (pendingImageData) {
+    const el = document.getElementById('chatMessages');
+    if (el) {
+      const div = document.createElement('div');
+      div.className = 'msg user';
+      div.innerHTML = `<div class="msg-bubble" style="padding:6px">
+        <img src="${pendingImageData}" style="max-width:260px;border-radius:6px;display:block;margin-bottom:4px">
+        ${text ? `<span>${esc(text)}</span>` : ''}
+      </div>`;
+      el.appendChild(div);
+      el.scrollTop = el.scrollHeight;
+    }
+  } else {
+    appendMsg('user', text);
+  }
+
+  showThinkingIndicator();
+
+  try {
+    const body = { agent_id: currentAgent.id, message: text };
+    if (pendingImageData) body.image_data = pendingImageData;
+    const data = await api('/api/chat', { method: 'POST', body });
+    removeThinkingIndicator();
+    const reply = data.reply || data.response || data.message || '';
+    const idx = appendMsg('assistant', reply, data.stats);
+    if (autoPlay) togglePlay(idx, reply);
+  } catch (e) {
+    removeThinkingIndicator();
+    appendSystemMsg('Error: ' + e.message);
+  }
+
+  clearImageAttachment();
+  isSending = false;
+  document.getElementById('sendBtn')?.removeAttribute('disabled');
+  input?.focus();
 }
 
-function handleKey(e) {
+function handleInputKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     sendMessage();
   }
 }
 
-function autoResize(el) {
+function autoResizeTextarea(el) {
   el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  el.style.height = Math.min(el.scrollHeight, 140) + 'px';
 }
 
-// ── TTS ────────────────────────────────────────────────────────────────────
-function cleanDisplay(text) {
-  // Remove system injections from displayed text
-  return text
-    .replace(/\[Current Time:[^\]]*\]/gi, '')
-    .replace(/\[Aktuelle Zeit:[^\]]*\]/gi, '')
-    .replace(/^\s*\n/, '')
-    .trim();
+async function clearChat() {
+  if (!currentAgent) return;
+  conversations[currentAgent.id] = [];
+  try { await api(`/api/history/${currentAgent.id}`, { method: 'DELETE' }); } catch(e) {}
+  renderMessages();
+  appendSystemMsg('Conversation cleared.');
+}
+
+// ═══════════════════════════════════════════════════
+// Multi-Agent Broadcast
+// ═══════════════════════════════════════════════════
+function renderMultiShell(ws) {
+  ws.innerHTML = `
+    <div class="multi-shell">
+      <div class="multi-topbar">
+        <span class="multi-topbar-title">⚡ Broadcast</span>
+        <span style="font-size:11px;color:var(--textdim);font-family:var(--mono)" id="multiStatus">Select agents →</span>
+      </div>
+      <div class="broadcast-area">
+        <input class="broadcast-input" id="broadcastInput" placeholder="Send to all selected agents simultaneously…"
+          onkeydown="if(event.key==='Enter')sendBroadcast()">
+        <button class="broadcast-btn" id="broadcastBtn" onclick="sendBroadcast()">
+          ⚡ Broadcast
+        </button>
+      </div>
+      <div class="multi-grid" id="multiGrid"></div>
+    </div>`;
+  renderMultiCards();
+}
+
+function renderMultiCards() {
+  const grid = document.getElementById('multiGrid');
+  if (!grid) return;
+
+  const statusEl = document.getElementById('multiStatus');
+  if (statusEl) statusEl.textContent = selectedAgents.size + ' agent(s) selected';
+
+  if (selectedAgents.size === 0) {
+    grid.innerHTML = `<div style="grid-column:1/-1;color:var(--textdim);font-size:13px;font-family:var(--mono);padding:20px;text-align:center">
+      Select agents in the panel to broadcast a message
+    </div>`;
+    return;
+  }
+
+  const arr = agents.filter(a => selectedAgents.has(a.id));
+  grid.innerHTML = arr.map(a => `
+    <div class="multi-card" id="mc_${a.id}">
+      <div class="multi-card-head">
+        <div class="agent-dot online"></div>
+        <span class="multi-card-name">${esc(a.name)}</span>
+        <span class="multi-card-model">${esc((a.model||'').split('/').pop().slice(0,12))}</span>
+      </div>
+      <div class="multi-card-body">
+        <span class="multi-card-empty">Waiting for broadcast…</span>
+      </div>
+    </div>`).join('');
+}
+
+async function sendBroadcast() {
+  const text = document.getElementById('broadcastInput')?.value.trim();
+  if (!text || selectedAgents.size === 0) return;
+
+  const btn = document.getElementById('broadcastBtn');
+  if (btn) btn.disabled = true;
+
+  const arr = agents.filter(a => selectedAgents.has(a.id));
+
+  // Show thinking on all cards
+  arr.forEach(a => {
+    const body = document.querySelector(`#mc_${a.id} .multi-card-body`);
+    if (body) {
+      const bars = [2,4,6,4,3].map((h,i) =>
+        `<div class="eeg-bar" style="animation-delay:${i*0.1}s;height:${h*3}px"></div>`
+      ).join('');
+      body.innerHTML = `<div class="think-wrap" style="transform:scale(.82);transform-origin:left center">
+        <span class="think-brain" style="font-size:16px">🧠</span>
+        <div class="think-eeg">${bars}</div>
+      </div>`;
+    }
+  });
+
+  // Broadcast in parallel
+  await Promise.all(arr.map(async agent => {
+    try {
+      const data = await api('/api/chat', {
+        method: 'POST',
+        body: { agent_id: agent.id, message: text }
+      });
+      const reply = data.reply || data.response || data.message || '';
+      const body = document.querySelector(`#mc_${agent.id} .multi-card-body`);
+      if (body) {
+        let html = '';
+        try { html = marked.parse(reply); } catch(e) { html = esc(reply).replace(/\n/g,'<br>'); }
+        body.innerHTML = `<div style="font-size:13px;line-height:1.6">${html}</div>`;
+      }
+      // Save to conversation
+      if (!conversations[agent.id]) conversations[agent.id] = [];
+      conversations[agent.id].push({ role: 'user', content: text, ts: Date.now() });
+      conversations[agent.id].push({ role: 'assistant', content: reply, ts: Date.now() });
+    } catch(e) {
+      const body = document.querySelector(`#mc_${agent.id} .multi-card-body`);
+      if (body) body.innerHTML = `<span style="color:var(--red);font-size:12px;font-family:var(--mono)">Error: ${esc(e.message)}</span>`;
+    }
+  }));
+
+  if (btn) btn.disabled = false;
+}
+
+// ═══════════════════════════════════════════════════
+// Modals
+// ═══════════════════════════════════════════════════
+function openModal(id) {
+  document.getElementById(id)?.classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id)?.classList.remove('open');
+}
+
+// Close modal on overlay click
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('modal-overlay')) {
+    e.target.classList.remove('open');
+  }
+});
+
+// ─── Provider Modal ───────────────────────────────
+async function openProviderModal() {
+  openModal('providerModal');
+  await loadProviders();
+  renderProviderModal();
+}
+
+function renderProviderModal() {
+  const body = document.getElementById('providerModalBody');
+  if (!body) return;
+
+  const rows = providers.map(p => `
+    <div class="provider-row">
+      <div class="provider-dot ${p.configured ? 'ok' : 'err'}"></div>
+      <div style="flex:1">
+        <div class="provider-name">${esc(p.name)}</div>
+        <div class="provider-model">${esc(p.models?.join(', ') || '')}</div>
+      </div>
+      <div class="form-group" style="margin:0;flex:1">
+        <input class="form-input" style="font-size:11px;padding:5px 8px"
+          id="apikey_${esc(p.id)}"
+          type="password"
+          placeholder="API Key…"
+          value="${esc(p.api_key||'')}">
+      </div>
+    </div>`).join('');
+
+  body.innerHTML = rows || `<p style="color:var(--textdim);font-size:13px;font-family:var(--mono)">No providers configured in config.</p>`;
+}
+
+async function saveProviders() {
+  // Backend expects a dict: { ollama: {api_key:…}, mistral: {api_key:…}, … }
+  const updates = {};
+  providers.forEach(p => {
+    const val = document.getElementById(`apikey_${p.id}`)?.value;
+    if (val !== undefined) updates[p.id] = { api_key: val };
+  });
+  try {
+    await api('/api/providers', { method: 'POST', body: updates });
+    await loadProviders();
+    closeModal('providerModal');
+  } catch(e) {
+    alert('Save failed: ' + e.message);
+  }
+}
+
+// ─── Agent Create / Edit ──────────────────────────
+let allModels = { ollama: [], openrouter: [] };
+
+async function loadModels() {
+  try { allModels = await api('/api/models'); } catch(e) {}
+}
+
+function populateModelSelect(selectId, provider, currentModel) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const models = provider === 'openrouter'
+    ? allModels.openrouter || []
+    : allModels.ollama || [];
+  if (models.length === 0) {
+    sel.innerHTML = currentModel
+      ? `<option value="${esc(currentModel)}">${esc(currentModel)}</option>`
+      : `<option value="">— keine Modelle gefunden —</option>`;
+    return;
+  }
+  if (provider === 'openrouter') {
+    sel.innerHTML = models.map(m =>
+      `<option value="${esc(m.id)}"${m.id === currentModel ? ' selected' : ''}>${esc(m.name)}${m.free ? ' (free)' : ''}</option>`
+    ).join('');
+  } else {
+    sel.innerHTML = models.map(m =>
+      `<option value="${esc(m)}"${m === currentModel ? ' selected' : ''}>${esc(m)}</option>`
+    ).join('');
+  }
+}
+
+function populateProviderSelects() {
+  ['newAgentProvider', 'editAgentProvider'].forEach(selId => {
+    const sel = document.getElementById(selId);
+    if (!sel) return;
+    sel.innerHTML = providers.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+  });
+  populateVoiceSelects();
+}
+
+async function openNewAgentModal() {
+  await Promise.all([loadModels(), loadProviders()]);
+  populateProviderSelects();
+  const provSel = document.getElementById('newAgentProvider');
+  populateModelSelect('newAgentModel', provSel?.value, '');
+  if (provSel) provSel.onchange = () => populateModelSelect('newAgentModel', provSel.value, '');
+  openModal('newAgentModal');
+}
+
+function populateVoiceSelects() {
+  const mistralVoices = [
+    { id: 'neutral_male',    label: 'Neutral Male (EN)' },
+    { id: 'neutral_female',  label: 'Neutral Female (EN)' },
+    { id: 'casual_male',     label: 'Casual Male (EN)' },
+    { id: 'casual_female',   label: 'Casual Female (EN)' },
+    { id: 'cheerful_female', label: 'Cheerful Female (EN)' },
+    { id: 'de_male',         label: 'Male (DE)' },
+    { id: 'de_female',       label: 'Female (DE)' },
+  ];
+  const browserVoices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+  const deEnVoices = browserVoices.filter(v => v.lang.startsWith('de') || v.lang.startsWith('en'));
+
+  const mistralGroup = `<optgroup label="Mistral (Voxtral)">${
+    mistralVoices.map(v => `<option value="${v.id}">${v.label}</option>`).join('')
+  }</optgroup>`;
+  const macGroup = deEnVoices.length ? `<optgroup label="Mac (Browser)">${
+    deEnVoices.map(v => `<option value="mac:${esc(v.name)}">${esc(v.name)} (${v.lang})</option>`).join('')
+  }</optgroup>` : '';
+
+  ['newAgentVoice', 'editAgentVoice'].forEach(selId => {
+    const sel = document.getElementById(selId);
+    if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML = '<option value="">Off</option>' + mistralGroup + macGroup;
+    if (current) sel.value = current;
+  });
+}
+
+async function createAgent() {
+  const name = document.getElementById('newAgentName')?.value.trim();
+  const provider = document.getElementById('newAgentProvider')?.value;
+  const model = document.getElementById('newAgentModel')?.value.trim();
+  const system = document.getElementById('newAgentSystem')?.value.trim();
+  const voice = document.getElementById('newAgentVoice')?.value;
+  if (!name) { alert('Name required'); return; }
+
+  try {
+    const agent = await api('/api/agents', { method: 'POST', body: { name, provider, model, soul: system, voice } });
+    agents.push(agent);
+    closeModal('newAgentModal');
+    selectAgent(agent.id);
+    renderSidePanel();
+    document.getElementById('newAgentName').value = '';
+    document.getElementById('newAgentModel').value = '';
+    document.getElementById('newAgentSystem').value = '';
+  } catch(e) {
+    alert('Create failed: ' + e.message);
+  }
+}
+
+async function openEditAgentModal(id) {
+  const a = agents.find(x => x.id === id);
+  if (!a) return;
+  editingAgentId = id;
+  document.getElementById('editAgentName').value = a.name || '';
+  document.getElementById('editAgentSystem').value = a.soul || '';
+  await Promise.all([loadModels(), loadProviders()]);
+  populateProviderSelects();
+  const psel = document.getElementById('editAgentProvider');
+  if (psel) { psel.value = a.provider || 'ollama'; }
+  populateModelSelect('editAgentModel', a.provider || 'ollama', a.model || '');
+  if (psel) psel.onchange = () => populateModelSelect('editAgentModel', psel.value, '');
+  const vsel = document.getElementById('editAgentVoice');
+  if (vsel) {
+    vsel.value = a.voice || '';
+    // migrate old values saved without mac: prefix
+    if (a.voice && !vsel.value && a.voice !== 'voxtral') vsel.value = 'mac:' + a.voice;
+  }
+  document.getElementById('editAgentDeleteBtn').onclick = () => deleteAgent(id);
+  openModal('editAgentModal');
+}
+
+async function saveEditAgent() {
+  if (!editingAgentId) return;
+  const name = document.getElementById('editAgentName')?.value.trim();
+  const provider = document.getElementById('editAgentProvider')?.value;
+  const model = document.getElementById('editAgentModel')?.value.trim();
+  const system = document.getElementById('editAgentSystem')?.value.trim();
+  const voice = document.getElementById('editAgentVoice')?.value;
+
+  try {
+    const updated = await api(`/api/agents/${editingAgentId}`, {
+      method: 'PUT',
+      body: { name, provider, model, soul: system, voice }
+    });
+    const idx = agents.findIndex(a => a.id === editingAgentId);
+    if (idx >= 0) agents[idx] = updated;
+    if (currentAgent?.id === editingAgentId) currentAgent = updated;
+    closeModal('editAgentModal');
+    renderSidePanel();
+    if (currentView === 'chat') renderChatShell(document.getElementById('workspace'));
+  } catch(e) {
+    alert('Save failed: ' + e.message);
+  }
+}
+
+async function deleteAgent(id) {
+  if (!confirm('Delete this agent?')) return;
+  try {
+    await api(`/api/agents/${id}`, { method: 'DELETE' });
+    agents = agents.filter(a => a.id !== id);
+    if (currentAgent?.id === id) { currentAgent = null; }
+    closeModal('editAgentModal');
+    renderSidePanel();
+    if (currentView === 'chat') {
+      if (currentAgent) renderChatShell(document.getElementById('workspace'));
+      else renderNoAgent(document.getElementById('workspace'));
+    }
+  } catch(e) {
+    alert('Delete failed: ' + e.message);
+  }
+}
+
+// ─── Skills Modal ──────────────────────────────────
+async function openSkillsModal() {
+  openModal('skillsModal');
+  await loadSkills();
+  const body = document.getElementById('skillsModalBody');
+  if (!body) return;
+  if (!skills.length) {
+    body.innerHTML = `<p style="color:var(--textdim);font-size:13px;font-family:var(--mono)">No skills loaded.</p>`;
+    return;
+  }
+  body.innerHTML = skills.map(s => `
+    <div class="skill-row">
+      <div class="skill-icon">${s.icon || '🧩'}</div>
+      <div class="skill-info">
+        <div class="skill-name">${esc(s.name)}</div>
+        <div class="skill-desc">${esc(s.description || '')}</div>
+      </div>
+      ${s.trigger ? `<button class="btn-secondary" style="font-size:11px;padding:5px 10px" onclick="useSkill('${esc(s.id)}')">Use</button>` : ''}
+    </div>`).join('');
+}
+
+function useSkill(id) {
+  if (!currentAgent) { alert('Zuerst einen Agenten auswählen'); return; }
+  const skill = skills.find(s => s.id === id);
+  closeModal('skillsModal');
+  if (currentView !== 'chat') setView('chat');
+  setTimeout(() => {
+    const input = document.getElementById('mainInput');
+    if (input && skill) {
+      input.value = skill.name + ': ';
+      input.focus();
+    }
+  }, 100);
+}
+
+// ─── Watchdog Modal ────────────────────────────────
+async function openWatchdogModal() {
+  document.getElementById('navWatchdog')?.classList.add('active');
+  setTimeout(() => document.getElementById('navWatchdog')?.classList.remove('active'), 1000);
+  await loadWatchdogs();
+  renderWatchdogModal();
+  populateWatchdogAgentSelect();
+  openModal('watchdogModal');
+}
+
+function renderWatchdogModal() {
+  const list = document.getElementById('watchdogList');
+  if (!list) return;
+  if (!watchdogs.length) {
+    list.innerHTML = `<p style="color:var(--textdim);font-size:12px;font-family:var(--mono)">No watchdogs configured.</p>`;
+    return;
+  }
+  list.innerHTML = watchdogs.map(w => `
+    <div class="watchdog-row">
+      <div class="watchdog-info">
+        <div class="watchdog-name">${esc(w.name || agentName(w.agent_id))}</div>
+        <div class="watchdog-schedule">alle ${w.interval_min} min · ${esc(agentName(w.agent_id))}</div>
+      </div>
+      <span class="watchdog-badge ${w.active ? 'active' : 'paused'}">${w.active ? 'active' : 'paused'}</span>
+      <button class="wd-delete-btn" onclick="deleteWatchdog('${w.id}')">🗑</button>
+    </div>`).join('');
+}
+
+function populateWatchdogAgentSelect() {
+  const sel = document.getElementById('wdAgentSelect');
+  if (!sel) return;
+  sel.innerHTML = agents.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
+}
+
+async function createWatchdog() {
+  const agent_id = document.getElementById('wdAgentSelect')?.value;
+  const url = document.getElementById('wdUrl')?.value.trim();
+  const interval_min = parseInt(document.getElementById('wdInterval')?.value || '30');
+  const prompt = document.getElementById('wdPrompt')?.value.trim();
+  const alert_keyword = document.getElementById('wdKeyword')?.value.trim() || 'JA';
+  if (!agent_id || !url || !prompt) { alert('Agent, URL und Prompt sind Pflichtfelder'); return; }
+  try {
+    const wd = await api('/api/watchdogs', { method: 'POST', body: { agent_id, url, interval_min, prompt, alert_keyword } });
+    watchdogs.push(wd);
+    renderWatchdogModal();
+    document.getElementById('wdUrl').value = '';
+    document.getElementById('wdPrompt').value = '';
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+async function deleteWatchdog(id) {
+  try {
+    await api(`/api/watchdogs/${id}`, { method: 'DELETE' });
+    watchdogs = watchdogs.filter(w => w.id !== id);
+    renderWatchdogModal();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function pollWatchdogs() {
+  // No poll endpoint — watchdogs run server-side via background thread
+}
+
+// ─── Export ────────────────────────────────────────
+function openExportModal() { openModal('exportModal'); }
+
+function exportAs(fmt) {
+  if (!currentAgent) { alert('Select an agent first'); return; }
+  const msgs = conversations[currentAgent.id] || [];
+  let content = '', filename = `${currentAgent.name}-${Date.now()}`;
+
+  if (fmt === 'json') {
+    content = JSON.stringify({ agent: currentAgent, messages: msgs }, null, 2);
+    filename += '.json';
+  } else if (fmt === 'md') {
+    content = `# ${currentAgent.name}\n\n` + msgs.map(m =>
+      `**${m.role === 'user' ? 'You' : currentAgent.name}** *(${new Date(m.ts).toLocaleString()})*\n\n${m.content}\n\n---\n`
+    ).join('');
+    filename += '.md';
+  } else {
+    content = msgs.map(m => `[${m.role.toUpperCase()}] ${m.content}`).join('\n\n');
+    filename += '.txt';
+  }
+
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+  closeModal('exportModal');
+}
+
+// ─── Auto Dialog ───────────────────────────────────
+function openAutoDialogModal() {
+  const selA = document.getElementById('autoAgentA');
+  const selB = document.getElementById('autoAgentB');
+  if (selA && selB) {
+    const opts = agents.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
+    selA.innerHTML = opts;
+    selB.innerHTML = opts;
+    if (agents.length > 1) selB.value = agents[1].id;
+  }
+  openModal('autoDialogModal');
+}
+
+async function startAutoDialog() {
+  const idA = document.getElementById('autoAgentA')?.value;
+  const idB = document.getElementById('autoAgentB')?.value;
+  const opening = document.getElementById('autoDialogPrompt')?.value.trim();
+  const turns = parseInt(document.getElementById('autoDialogTurns')?.value || '5');
+  const agentA = agents.find(a => a.id === idA);
+  const agentB = agents.find(a => a.id === idB);
+
+  if (!agentA || !agentB || !opening) { alert('All fields required'); return; }
+  if (idA === idB) { alert('Select two different agents'); return; }
+
+  closeModal('autoDialogModal');
+  selectAgent(idA);
+  await new Promise(r => setTimeout(r, 100));
+
+  const banner = document.getElementById('autoBanner');
+  const bannerText = document.getElementById('autoBannerText');
+  if (banner) banner.classList.add('active');
+  autoDialogAbort = false;
+
+  let msgA = opening;
+  let currentTurns = 0;
+
+  while (currentTurns < turns && !autoDialogAbort) {
+    // A replies
+    if (bannerText) bannerText.textContent = `Auto-dialog: ${agentA.name} thinking…`;
+    const tmpAgent = currentAgent;
+    currentAgent = agentA;
+    appendMsg('user', msgA);
+    showThinkingIndicator();
+    let replyA = '';
+    try {
+      const d = await api('/api/chat', { method: 'POST', body: { agent_id: idA, message: msgA } });
+      replyA = d.reply || d.response || d.message || '';
+    } catch(e) { replyA = '[error]'; }
+    removeThinkingIndicator();
+    appendMsg('assistant', replyA);
+    if (autoDialogAbort) break;
+
+    await new Promise(r => setTimeout(r, 600));
+
+    // B replies
+    if (bannerText) bannerText.textContent = `Auto-dialog: ${agentB.name} thinking…`;
+    currentAgent = agentB;
+    appendMsg('user', replyA);
+    showThinkingIndicator();
+    let replyB = '';
+    try {
+      const d = await api('/api/chat', { method: 'POST', body: { agent_id: idB, message: replyA } });
+      replyB = d.reply || d.response || d.message || '';
+    } catch(e) { replyB = '[error]'; }
+    removeThinkingIndicator();
+    appendMsg('assistant', replyB);
+
+    msgA = replyB;
+    currentTurns++;
+    if (autoDialogAbort) break;
+    await new Promise(r => setTimeout(r, 600));
+  }
+
+  currentAgent = agentA;
+  if (banner) banner.classList.remove('active');
+  appendSystemMsg(`Auto-dialog ended after ${currentTurns} turns.`);
+}
+
+// ═══════════════════════════════════════════════════
+// Image Upload
+// ═══════════════════════════════════════════════════
+let pendingImageData = null;
+
+function handleImageUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    pendingImageData = ev.target.result; // data:image/...;base64,...
+    const preview = document.getElementById('imagePreview');
+    const wrap = document.getElementById('imagePreviewWrap');
+    if (preview) preview.src = pendingImageData;
+    if (wrap) wrap.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+  e.target.value = ''; // reset so same file can be picked again
+}
+
+function clearImageAttachment() {
+  pendingImageData = null;
+  const wrap = document.getElementById('imagePreviewWrap');
+  if (wrap) wrap.style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════
+// TTS
+// ═══════════════════════════════════════════════════
+// TTS — sentence-chunked, per-message play buttons
+// ═══════════════════════════════════════════════════
+let autoPlay = true;
+let currentAudio = null;
+let currentPlayingIndex = -1;
+
+function toggleAutoPlay() {
+  autoPlay = !autoPlay;
+  document.getElementById('autoplayToggle')?.classList.toggle('on', autoPlay);
 }
 
 function cleanForTTS(text) {
   return text
-    .replace(/\[.*?\]/gs, '')          // [alles in eckigen Klammern]
-    .replace(/https?:\/\/\S+/g, '')    // URLs
-    .replace(/\*\*(.*?)\*\*/g, '$1')   // **fett** → fett
-    .replace(/\*(.*?)\*/g, '$1')       // *kursiv* → kursiv
-    .replace(/#{1,6}\s/g, '')          // # Header
-    .replace(/`[^`]*`/g, '')           // `code`
-    .replace(/\s{2,}/g, ' ')           // mehrfache Leerzeichen
+    .replace(/\[.*?\]/gs, '')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/#{1,6}\s/g, '')
+    .replace(/`[^`]*`/g, '')
+    .replace(/\s{2,}/g, ' ')
     .trim();
 }
 
-let currentAudio = null;
-let currentPlayingIndex = -1;
-let audioBlobCache = {}; // index → blob URL
-
-function stopCurrentAudio() {
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio.currentTime = 0;
-    currentAudio = null;
-  }
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
-  if (currentPlayingIndex >= 0) {
-    const btn = document.getElementById(`playBtn-${currentPlayingIndex}`);
-    if (btn) { btn.textContent = '▶ Abspielen'; btn.classList.remove('playing'); }
-    currentPlayingIndex = -1;
-  }
-}
-
-async function fetchAudioBlob(text, voice) {
-  const resp = await fetch('/api/tts', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, voice })
-  });
-  if (!resp.ok) throw new Error('TTS error');
-  return await resp.blob();
-}
-
 function splitSentences(text) {
-  // Split on sentence endings
   const raw = text.match(/[^.!?…\n]+[.!?…\n]+|[^.!?…\n]+$/g) || [text];
-  // Merge sentences until chunk reaches ~180 chars (sinnvolle Sprecheinheit)
   const merged = [];
   let buf = '';
   for (const s of raw) {
@@ -1883,113 +2544,84 @@ function splitSentences(text) {
   return merged.filter(s => s.length > 0);
 }
 
+function stopCurrentAudio() {
+  if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; currentAudio = null; }
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  if (currentPlayingIndex >= 0) {
+    const btn = document.getElementById(`playBtn-${currentPlayingIndex}`);
+    if (btn) { btn.textContent = '▶ Abspielen'; btn.classList.remove('playing'); }
+    currentPlayingIndex = -1;
+  }
+  document.getElementById('speakingDot')?.classList.remove('active');
+}
+
+async function fetchAudioBlob(text, voice) {
+  const resp = await fetch('/api/tts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, voice })
+  });
+  if (!resp.ok) throw new Error('TTS error ' + resp.status);
+  return await resp.blob();
+}
+
+function togglePlayByIndex(index) {
+  const msgs = conversations[currentAgent?.id] || [];
+  const msg = msgs[index];
+  if (msg) togglePlay(index, msg.content);
+}
+
 async function togglePlay(index, text) {
   if (!currentAgent || !text) return;
   text = cleanForTTS(text);
   if (!text) return;
-  const voice = currentAgent.voice;
-
-  // Stop if already playing this one
-  if (currentPlayingIndex === index) {
-    stopCurrentAudio();
-    return;
-  }
-
+  const voice = currentAgent.voice || '';
+  if (currentPlayingIndex === index) { stopCurrentAudio(); return; }
   stopCurrentAudio();
-  stopMic(); // Mic stoppen damit KI sich nicht selbst hört
   currentPlayingIndex = index;
-
   const btn = document.getElementById(`playBtn-${index}`);
   if (btn) { btn.textContent = '⏳ Laden…'; btn.classList.add('playing'); }
-
+  document.getElementById('speakingDot')?.classList.add('active');
   if (voice.startsWith('mac:')) {
-    // Promise-basiert: await wartet bis Sprache wirklich fertig ist
     await playMacVoiceAsync(text, voice.replace('mac:', ''), btn);
     if (currentPlayingIndex === index) stopCurrentAudio();
     return;
   }
-
-  // Sentence-chunked: play sentence by sentence
   const sentences = splitSentences(text);
-
-  // Reuse single audio element to preserve autoplay permission
   const audioEl = new Audio();
-
   try {
     for (let i = 0; i < sentences.length; i++) {
       if (currentPlayingIndex !== index) break;
-
       let blob;
-      try {
-        blob = await fetchAudioBlob(sentences[i], voice);
-      } catch(e) {
-        console.warn(`TTS Satz ${i} fehlgeschlagen, überspringe:`, e);
-        continue;
-      }
-
+      try { blob = await fetchAudioBlob(sentences[i], voice || 'en_paul_neutral'); }
+      catch(e) { continue; }
       if (currentPlayingIndex !== index) break;
-
       const url = URL.createObjectURL(blob);
-      if (i === 0 && !audioBlobCache[index]) audioBlobCache[index] = url;
-
       audioEl.src = url;
       currentAudio = audioEl;
       if (btn) { btn.textContent = '⏹ Stop'; btn.classList.add('playing'); }
-
-      await new Promise(resolve => {
-        audioEl.onended = resolve;
-        audioEl.onerror = resolve;
-        audioEl.play().catch(resolve);
-      });
-
-      // Small pause between sentences
-      if (i < sentences.length - 1 && currentPlayingIndex === index) {
+      await new Promise(resolve => { audioEl.onended = resolve; audioEl.onerror = resolve; audioEl.play().catch(resolve); });
+      URL.revokeObjectURL(url);
+      if (i < sentences.length - 1 && currentPlayingIndex === index)
         await new Promise(r => setTimeout(r, 150));
-      }
     }
-  } catch(e) {
-    console.error('TTS Fehler:', e);
-  } finally {
-    if (currentPlayingIndex === index) stopCurrentAudio();
-  }
+  } catch(e) {}
+  finally { if (currentPlayingIndex === index) stopCurrentAudio(); }
 }
 
-async function downloadAudio(index, text) {
-  if (!currentAgent) return;
-  text = cleanForTTS(text);
+async function downloadAudioByIndex(index) {
+  const msgs = conversations[currentAgent?.id] || [];
+  const msg = msgs[index];
+  if (!msg || !currentAgent) return;
+  const text = cleanForTTS(msg.content);
   if (!text) return;
-  const voice = currentAgent.voice;
-  if (voice.startsWith('mac:')) {
-    alert('Mac-Stimmen können nicht heruntergeladen werden.');
-    return;
-  }
-  const btn = document.querySelector(`#playBtn-${index}`)?.parentElement?.querySelector('.btn-dl');
-  if (btn) btn.textContent = '⏳…';
+  const voice = currentAgent.voice || 'en_paul_neutral';
   try {
-    let blobUrl = audioBlobCache[index];
-    if (!blobUrl) {
-      const blob = await fetchAudioBlob(text, voice);
-      blobUrl = URL.createObjectURL(blob);
-      audioBlobCache[index] = blobUrl;
-    }
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = `agentclaw-${index}.mp3`;
-    a.click();
-  } catch(e) {
-    console.error('Download error:', e);
-  } finally {
-    if (btn) btn.textContent = '⬇ Download';
-  }
-}
-
-async function playText(index, text) {
-  await togglePlay(index ?? -99, text);
-}
-
-function playMacVoice(text, voiceName) {
-  // Legacy — nur noch für manuellen Aufruf ohne await
-  playMacVoiceAsync(text, voiceName, null);
+    const blob = await fetchAudioBlob(text.slice(0, 500), voice);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `msg-${index}.mp3`; a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) { alert('Download fehlgeschlagen: ' + e.message); }
 }
 
 function playMacVoiceAsync(text, voiceName, btn) {
@@ -2000,665 +2632,180 @@ function playMacVoiceAsync(text, voiceName, btn) {
     const voices = window.speechSynthesis.getVoices();
     const found = voices.find(v => v.name === voiceName || v.name.startsWith(voiceName));
     if (found) utt.voice = found;
-    utt.rate = 1.0;
-    if (btn) btn.textContent = '⏹ Stop';
-    utt.onend = () => resolve();
-    utt.onerror = () => resolve();
+    utt.onstart = () => { if (btn) { btn.textContent = '⏹ Stop'; btn.classList.add('playing'); } };
+    utt.onend = resolve; utt.onerror = resolve;
     window.speechSynthesis.speak(utt);
   });
 }
 
-// ── Speech Recognition ─────────────────────────────────────────────────────
-function toggleMic() {
-  if (isRecording) {
-    stopMic();
-  } else {
-    startMic();
-  }
-}
-
-let sendAfterPauseTimer = null;
-const PAUSE_SEND_MS = 1500; // ms Pause bis automatisch gesendet wird
-
-function startMic() {
-  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRec) {
-    alert('Spracherkennung wird in diesem Browser nicht unterstützt. Bitte Chrome oder Safari nutzen.');
-    return;
-  }
-
-  recognition = new SpeechRec();
-  recognition.continuous = true;   // Weiterhören auch bei kurzen Pausen
-  recognition.interimResults = true;
-  recognition.lang = 'de-DE';
-
-  recognition.onstart = () => {
-    isRecording = true;
-    document.getElementById('micBtn')?.classList.add('recording');
-  };
-
-  recognition.onresult = (e) => {
-    const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
-    const input = document.getElementById('messageInput');
-    if (input) { input.value = transcript; autoResize(input); }
-
-    // Pause-Timer neu starten wenn etwas erkannt wurde
-    clearTimeout(sendAfterPauseTimer);
-    const lastResult = e.results[e.results.length - 1];
-    if (lastResult.isFinal) {
-      // Nach 1.5s Stille → automatisch stoppen & senden
-      sendAfterPauseTimer = setTimeout(() => {
-        stopMic(); // löst onend aus → sendet
-      }, PAUSE_SEND_MS);
-    }
-  };
-
-  recognition.onend = () => {
-    clearTimeout(sendAfterPauseTimer);
-    isRecording = false;
-    document.getElementById('micBtn')?.classList.remove('recording');
-    const input = document.getElementById('messageInput');
-    if (input?.value.trim()) {
-      sendMessage();
-    } else if (autoDialog) {
-      setTimeout(() => { if (autoDialog && !isRecording && !currentAudio) startMic(); }, 800);
-    }
-  };
-
-  recognition.onerror = (e) => {
-    if (e.error === 'no-speech') return; // ignorieren — kein echter Fehler
-    console.error('Speech error:', e.error);
-    clearTimeout(sendAfterPauseTimer);
-    isRecording = false;
-    document.getElementById('micBtn')?.classList.remove('recording');
-  };
-
-  recognition.start();
-}
-
-function stopMic() {
-  recognition?.stop();
-}
-
-// ── Auto-Play Toggle ───────────────────────────────────────────────────────
-function togglePhoneSim() {
-  phoneSimEnabled = !phoneSimEnabled;
-  localStorage.setItem('phoneSimEnabled', JSON.stringify(phoneSimEnabled));
-  const btn = document.getElementById('phoneSimBtn');
-  if (btn) {
-    btn.style.opacity = phoneSimEnabled ? '1' : '0.3';
-    btn.title = `Telefon-Simulation ${phoneSimEnabled ? 'an' : 'aus'}`;
-  }
-}
-
-function toggleAutoPlay() {
-  autoPlay = !autoPlay;
-  document.getElementById('autoplayToggle')?.classList.toggle('on', autoPlay);
-}
-
-// ── Auto-Dialog (Freisprechen) ─────────────────────────────────────────────
-function toggleAutoDialog() {
-  autoDialog = !autoDialog;
-  document.getElementById('autoDialogBtn')?.classList.toggle('on', autoDialog);
-  document.getElementById('micBtn')?.classList.toggle('auto-active', autoDialog);
-  if (autoDialog) {
-    // Auto-Play muss aktiv sein
-    if (!autoPlay) {
-      autoPlay = true;
-      document.getElementById('autoplayToggle')?.classList.add('on');
-    }
-    // Direkt Mikro starten wenn kein Audio läuft
-    if (!currentAudio) {
-      setTimeout(() => { if (autoDialog && !isRecording) startMic(); }, 400);
-    }
-  } else {
-    stopMic();
-  }
-}
-
-// ── Clear Chat ─────────────────────────────────────────────────────────────
-async function clearChat() {
-  if (!currentAgent) return;
-  if (!confirm(`Verlauf von ${currentAgent.name} löschen?`)) return;
-  await fetch(`/api/history/${currentAgent.id}`, { method: 'DELETE' });
-  renderMessages([]);
-}
-
-// ── Modal: Create / Edit Agent ─────────────────────────────────────────────
-function buildVoiceOptions(selectedVoice) {
-  const mistralGroups = {};
-  mistralVoices.forEach(v => {
-    const label = v.lang_label || v.lang || 'Other';
-    if (!mistralGroups[label]) mistralGroups[label] = [];
-    mistralGroups[label].push(v);
-  });
-
-  let html = '';
-  const langOrder = ['EN-US', 'EN-GB', 'DE', 'FR', 'ES', 'IT'];
-  const sortedGroups = Object.entries(mistralGroups).sort(([a], [b]) => {
-    const ai = langOrder.indexOf(a), bi = langOrder.indexOf(b);
-    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-  });
-  sortedGroups.forEach(([label, voices]) => {
-    html += `<optgroup label="🎙 Voxtral ${label}">`;
-    voices.forEach(v => {
-      const tags = v.tags && v.tags.length ? ` · ${v.tags.filter(t => !['casual','animated'].includes(t)).join(', ')}` : '';
-      html += `<option value="${v.slug}" ${v.slug === selectedVoice ? 'selected' : ''}>${v.name}${tags}</option>`;
-    });
-    html += '</optgroup>';
-  });
-
-  // Mac voices: Eigene Stimmen zuerst, dann DE, EN-GB, EN-US
-  const deVoices       = macVoices.filter(v => v.lang && v.lang.startsWith('de'));
-  const enGbVoices     = macVoices.filter(v => v.lang && (v.lang.startsWith('en-GB') || v.lang.startsWith('en-IE') || v.lang.startsWith('en-AU') || v.lang.startsWith('en-ZA')));
-  const enUsVoices     = macVoices.filter(v => v.lang && v.lang.startsWith('en-US'));
-  const personalVoices = macVoices.filter(v => !deVoices.includes(v) && !enGbVoices.includes(v) && !enUsVoices.includes(v));
-
-  if (personalVoices.length > 0) {
-    html += '<optgroup label="🎤 Eigene Stimmen">';
-    personalVoices.forEach(v => {
-      const slug = 'mac:' + v.name;
-      html += `<option value="${slug}" ${slug === selectedVoice ? 'selected' : ''}>${v.name}</option>`;
-    });
-    html += '</optgroup>';
-  }
-
-  html += '<optgroup label="🍎 Mac (DE)">';
-  (deVoices.length > 0 ? deVoices.map(v => v.name) : ['Anna']).forEach(name => {
-    const slug = 'mac:' + name;
-    html += `<option value="${slug}" ${slug === selectedVoice ? 'selected' : ''}>${name}</option>`;
-  });
-  html += '</optgroup>';
-
-  html += '<optgroup label="🍎 Mac (EN-GB)">';
-  (enGbVoices.length > 0 ? enGbVoices.map(v => v.name) : ['Daniel', 'Flo', 'Moira']).forEach(name => {
-    const slug = 'mac:' + name;
-    html += `<option value="${slug}" ${slug === selectedVoice ? 'selected' : ''}>${name}</option>`;
-  });
-  html += '</optgroup>';
-
-  if (enUsVoices.length > 0) {
-    html += '<optgroup label="🍎 Mac (EN-US)">';
-    enUsVoices.forEach(v => {
-      const slug = 'mac:' + v.name;
-      html += `<option value="${slug}" ${slug === selectedVoice ? 'selected' : ''}>${v.name}</option>`;
-    });
-    html += '</optgroup>';
-  }
-
-  return html;
-}
-
-function openCreateModal() {
-  editingAgentId = null;
-  document.getElementById('modalTitle').textContent = 'Neuer Agent';
-  document.getElementById('agentName').value = '';
-  document.getElementById('agentSoul').value = '';
-  document.getElementById('agentVoice').innerHTML = buildVoiceOptions('en_paul_neutral');
-  document.getElementById('btnDeleteAgent').style.display = 'none';
-  selectColorByValue('#ff6b35');
-  document.getElementById('agentProvider').value = 'ollama';
-  populateModelSelect('ollama', null);
-  renderSkillsToggles([]);
-  document.getElementById('agentMaxTokens').value = 1024;
-  document.getElementById('maxTokensVal').textContent = 1024;
-  document.getElementById('agentModal').classList.add('open');
-}
-
-function openEditModal(agentId) {
-  const agent = agents.find(a => a.id === agentId);
-  if (!agent) return;
-  editingAgentId = agentId;
-  document.getElementById('modalTitle').textContent = 'Agent bearbeiten';
-  document.getElementById('agentName').value = agent.name;
-  document.getElementById('agentSoul').value = agent.soul;
-  document.getElementById('agentVoice').innerHTML = buildVoiceOptions(agent.voice);
-  document.getElementById('btnDeleteAgent').style.display = 'flex';
-  document.getElementById('btnExportAgent').style.display = 'flex';
-  selectColorByValue(agent.color);
-
-  const provider = agent.provider || 'ollama';
-  document.getElementById('agentProvider').value = provider;
-  populateModelSelect(provider, agent.model);
-  // backwards compat: migrate web_search flag to skills
-  const agentSkills = agent.skills || (agent.web_search ? ['web_search'] : []);
-  renderSkillsToggles(agentSkills);
-  const mt = agent.max_tokens || 1024;
-  document.getElementById('agentMaxTokens').value = mt;
-  document.getElementById('maxTokensVal').textContent = mt;
-
-  document.getElementById('agentModal').classList.add('open');
-}
-
-function closeModal() {
-  document.getElementById('agentModal').classList.remove('open');
-  editingAgentId = null;
-}
-
-function selectColor(el) {
-  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
-  el.classList.add('selected');
-}
-
-function selectColorByValue(color) {
-  document.querySelectorAll('.color-swatch').forEach(s => {
-    s.classList.toggle('selected', s.dataset.color === color);
-  });
-}
-
-function getSelectedColor() {
-  const sel = document.querySelector('.color-swatch.selected');
-  return sel ? sel.dataset.color : '#ff6b35';
-}
-
-async function saveAgent() {
-  const name = document.getElementById('agentName').value.trim();
-  if (!name) { alert('Name eingeben!'); return; }
-
-  const payload = {
-    name,
-    soul: document.getElementById('agentSoul').value.trim() || 'Du bist ein hilfreicher Assistent.',
-    voice: document.getElementById('agentVoice').value,
-    model: document.getElementById('agentModel').value,
-    provider: document.getElementById('agentProvider').value,
-    skills: getActiveSkills(),
-    max_tokens: parseInt(document.getElementById('agentMaxTokens').value),
-    color: getSelectedColor()
-  };
-
-  if (editingAgentId) {
-    const resp = await fetch(`/api/agents/${editingAgentId}`, {
-      method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
-    });
-    const updated = await resp.json();
-    agents = agents.map(a => a.id === editingAgentId ? updated : a);
-    if (currentAgent?.id === editingAgentId) {
-      currentAgent = updated;
-      renderChatShell();
-      const history = await loadHistory(editingAgentId);
-      renderMessages(history);
-    }
-  } else {
-    const resp = await fetch('/api/agents', {
-      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
-    });
-    const created = await resp.json();
-    agents.push(created);
-    selectAgent(created.id);
-  }
-
-  renderSidebar();
-  closeModal();
-}
-
-function downloadJSON(data, filename) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
-function exportAgent() {
-  const agent = agents.find(a => a.id === editingAgentId);
-  if (!agent) return;
-  const { id, ...exportData } = agent; // ID weglassen für portablen Import
-  downloadJSON(exportData, `agent_${agent.name.toLowerCase().replace(/\s+/g,'_')}.json`);
-}
-
-function exportAllAgents() {
-  const exportData = agents.map(({ id, ...rest }) => rest);
-  downloadJSON(exportData, `agentclaw_agents_${new Date().toISOString().slice(0,10)}.json`);
-}
-
-async function deleteCurrentAgent() {
-  if (!editingAgentId) return;
-  const agent = agents.find(a => a.id === editingAgentId);
-  if (!confirm(`"${agent?.name}" wirklich löschen?`)) return;
-
-  await fetch(`/api/agents/${editingAgentId}`, { method: 'DELETE' });
-  agents = agents.filter(a => a.id !== editingAgentId);
-  closeModal();
-
-  if (currentAgent?.id === editingAgentId) {
-    currentAgent = null;
-    document.getElementById('main').innerHTML = '<div class="no-agent">← Wähle einen Agenten</div>';
-    if (agents.length > 0) selectAgent(agents[0].id);
-  }
-
-  renderSidebar();
-}
-
-// ── Utils ──────────────────────────────────────────────────────────────────
-function escHtml(str) {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-function escAttr(str) {
-  return str.replace(/`/g, '\\`').replace(/\$/g, '\\$').replace(/\n/g, '\\n').replace(/\r/g, '');
-}
-
-const codeRegistry = {};
-let codeRegistryIdx = 0;
-
-function copyCode(btn, id) {
-  const text = codeRegistry[id] || '';
-  navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = '✅ Kopiert!';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = '📋 Kopieren'; btn.classList.remove('copied'); }, 2000);
-  }).catch(() => {
-    // Fallback for non-https
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    btn.textContent = '✅ Kopiert!';
-    setTimeout(() => { btn.textContent = '📋 Kopieren'; }, 2000);
-  });
-}
-
-// Message text registry — avoids embedding raw text in onclick attributes
-const msgRegistry = {};
-
-// Close modal on overlay click
-document.getElementById('agentModal').addEventListener('click', function(e) {
-  if (e.target === this) closeModal();
-});
-document.getElementById('providerModal').addEventListener('click', function(e) {
-  if (e.target === this) closeProviderModal();
-});
-document.getElementById('skillsModal').addEventListener('click', function(e) {
-  if (e.target === this) closeSkillsModal();
-});
-document.getElementById('watchdogModal').addEventListener('click', function(e) {
-  if (e.target === this) closeWatchdogModal();
-});
-document.getElementById('watchdogFormModal').addEventListener('click', function(e) {
-  if (e.target === this) closeWatchdogForm();
-});
-
-// ── Provider Modal ──────────────────────────────────────────────────────────
-async function openProviderModal() {
-  document.getElementById('providerModal').classList.add('open');
-  // load current values
-  const resp = await fetch('/api/providers');
-  const data = await resp.json();
-  document.getElementById('ollamaUrl').value = data.ollama?.url || 'http://localhost:11434';
-  document.getElementById('searxngUrl').value = data.searxng?.url || 'http://localhost:8888';
-  document.getElementById('mistralKey').value = '';
-  document.getElementById('mistralKey').placeholder = data.mistral?.api_key_masked || 'sk-…';
-  document.getElementById('openrouterKey').value = '';
-  document.getElementById('openrouterKey').placeholder = data.openrouter?.api_key_masked || 'sk-or-…';
-  // load status
-  loadProviderStatus();
-}
-
-function closeProviderModal() {
-  document.getElementById('providerModal').classList.remove('open');
-}
-
-async function loadProviderStatus() {
-  ['ollama', 'searxng', 'mistral', 'openrouter'].forEach(p => {
-    const el = document.getElementById('status' + p.charAt(0).toUpperCase() + p.slice(1));
-    if (el) { el.textContent = '…'; el.className = 'status-pill loading'; }
-  });
-  try {
-    const resp = await fetch('/api/providers/status');
-    const data = await resp.json();
-    for (const [key, val] of Object.entries(data)) {
-      const id = 'status' + key.charAt(0).toUpperCase() + key.slice(1);
-      const el = document.getElementById(id);
-      if (!el) continue;
-      el.textContent = val.info;
-      el.className = 'status-pill ' + (val.ok ? 'ok' : 'err');
-    }
-  } catch(e) {
-    console.error('Status error:', e);
-  }
-}
-
-async function testProvider(provider) {
-  // save first, then check status
-  await saveProviders(true);
-  await loadProviderStatus();
-}
-
-// ── Watchdog ────────────────────────────────────────────────────────────────
-let watchdogs = [];
-let editingWatchdogId = null;
-let watchdogCountdownTimer = null;
-
-async function openWatchdogModal() {
-  document.getElementById('watchdogModal').classList.add('open');
-  await loadWatchdogs();
-  renderWatchdogList();
-  startWatchdogCountdown();
-}
-
-function closeWatchdogModal() {
-  document.getElementById('watchdogModal').classList.remove('open');
-  stopWatchdogCountdown();
-}
-
-async function loadWatchdogs() {
-  const resp = await fetch('/api/watchdogs');
-  watchdogs = await resp.json();
-}
-
-function renderWatchdogList() {
-  const container = document.getElementById('watchdogList');
-  if (watchdogs.length === 0) {
-    container.innerHTML = '<div style="text-align:center;padding:32px;color:#444;font-size:13px">Noch keine Watchdogs.<br>Klicke "+ Neu" um einen anzulegen.</div>';
-    return;
-  }
-  container.innerHTML = watchdogs.map(wd => {
-    const agent = agents.find(a => a.id === wd.agent_id);
-    const now = Date.now();
-    const nextRun = wd.next_run ? new Date(wd.next_run) : null;
-    const secsLeft = nextRun ? Math.max(0, Math.round((nextRun - now) / 1000)) : null;
-    const countdownStr = secsLeft !== null ? formatCountdown(secsLeft) : '–';
-    const lastResult = wd.last_result || '–';
-    const isHit = wd.alert_keyword && lastResult.toLowerCase().includes(wd.alert_keyword.toLowerCase());
-    const resultColor = lastResult.startsWith('⚠️') ? '#ef4444' : isHit ? '#22c55e' : '#888';
-    return `
-      <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:10px;padding:14px 16px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-          <div style="flex:1">
-            <div style="font-size:14px;font-weight:600;color:#fff">${escHtml(wd.name)}</div>
-            <div style="font-size:11px;color:#555;margin-top:2px;font-family:'SF Mono',monospace;word-break:break-all">${escHtml(wd.url.length > 60 ? wd.url.slice(0,60)+'…' : wd.url)}</div>
-          </div>
-          <div class="toggle-switch ${wd.active ? 'on' : ''}" onclick="toggleWatchdogActive('${wd.id}')" style="flex-shrink:0"></div>
-        </div>
-        <div style="display:flex;gap:16px;font-size:11px;color:#555;margin-bottom:10px;flex-wrap:wrap">
-          <span>🤖 ${agent ? agent.name : '–'}</span>
-          <span>⏱ alle ${wd.interval_min} min</span>
-          <span>🔍 ${wd.check_count || 0}× geprüft</span>
-          <span>🎯 ${wd.hit_count || 0}× Treffer</span>
-          ${wd.active ? `<span id="wd-countdown-${wd.id}" style="color:#ff6b35">⏳ ${countdownStr}</span>` : '<span style="color:#555">⏸ Pausiert</span>'}
-        </div>
-        <div style="font-size:12px;color:${resultColor};background:#111;border-radius:6px;padding:8px 10px;margin-bottom:10px;max-height:60px;overflow:hidden;line-height:1.5">
-          ${escHtml(lastResult.length > 150 ? lastResult.slice(0,150)+'…' : lastResult)}
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px" onclick="runWatchdogNow('${wd.id}')">▶ Jetzt prüfen</button>
-          <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px" onclick="openWatchdogForm('${wd.id}')">✏️ Bearbeiten</button>
-          ${wd.history?.length ? `<button class="btn btn-ghost" style="font-size:12px;padding:6px 12px" onclick="showWatchdogHistory('${wd.id}')">📋 History</button>` : ''}
-        </div>
-      </div>
-    `;
+function renderSkillBtns() {
+  const el = document.getElementById('skillBtns');
+  if (!el || !currentAgent) return;
+  const active = new Set(currentAgent.skills || []);
+  el.innerHTML = skills.map(s => {
+    const on = active.has(s.id);
+    const unavail = s.available === false ? ' opacity:.45' : '';
+    return `<button class="tool-btn${on ? ' active' : ''}" style="${unavail}"
+      title="${esc(s.description)}"
+      onclick="toggleSkill('${s.id}')">${s.icon} ${esc(s.name)}</button>`;
   }).join('');
 }
 
-function formatCountdown(secs) {
-  if (secs <= 0) return 'läuft…';
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  const s = secs % 60;
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
-}
-
-function startWatchdogCountdown() {
-  stopWatchdogCountdown();
-  watchdogCountdownTimer = setInterval(() => {
-    watchdogs.forEach(wd => {
-      if (!wd.active || !wd.next_run) return;
-      const el = document.getElementById(`wd-countdown-${wd.id}`);
-      if (!el) return;
-      const secsLeft = Math.max(0, Math.round((new Date(wd.next_run) - Date.now()) / 1000));
-      el.textContent = '⏳ ' + formatCountdown(secsLeft);
+async function toggleSkill(skillId) {
+  if (!currentAgent) return;
+  const active = new Set(currentAgent.skills || []);
+  if (active.has(skillId)) active.delete(skillId);
+  else active.add(skillId);
+  currentAgent.skills = [...active];
+  // update in agents array too
+  const idx = agents.findIndex(a => a.id === currentAgent.id);
+  if (idx >= 0) agents[idx].skills = currentAgent.skills;
+  try {
+    await api(`/api/agents/${currentAgent.id}`, {
+      method: 'PUT',
+      body: { skills: currentAgent.skills }
     });
-  }, 1000);
-  // Watchdog-Daten alle 30s neu laden
-  setTimeout(async () => {
-    if (document.getElementById('watchdogModal').classList.contains('open')) {
-      await loadWatchdogs();
-      renderWatchdogList();
-      startWatchdogCountdown();
-    }
-  }, 30000);
+  } catch(e) {}
+  renderSkillBtns();
 }
 
-function stopWatchdogCountdown() {
-  if (watchdogCountdownTimer) { clearInterval(watchdogCountdownTimer); watchdogCountdownTimer = null; }
-}
 
-async function toggleWatchdogActive(id) {
-  const resp = await fetch(`/api/watchdogs/${id}/toggle`, { method: 'POST' });
-  const data = await resp.json();
-  const wd = watchdogs.find(w => w.id === id);
-  if (wd) wd.active = data.active;
-  renderWatchdogList();
-}
-
-async function runWatchdogNow(id) {
-  const btn = event.target;
-  btn.textContent = '⏳ Läuft…'; btn.disabled = true;
-  await fetch(`/api/watchdogs/${id}/run`, { method: 'POST' });
-  setTimeout(async () => {
-    await loadWatchdogs(); renderWatchdogList();
-  }, 3000);
-  setTimeout(async () => {
-    await loadWatchdogs(); renderWatchdogList();
-  }, 12000);
-}
-
-function showWatchdogHistory(id) {
-  const wd = watchdogs.find(w => w.id === id);
-  if (!wd?.history?.length) return;
-  const lines = wd.history.slice(-10).reverse().map(h => {
-    const ts = new Date(h.ts).toLocaleString('de');
-    const icon = h.hit ? '🎯' : '–';
-    return `${icon} ${ts}\n${h.result}`;
-  }).join('\n\n');
-  alert(`History: ${wd.name}\n\n${lines}`);
-}
-
-function openWatchdogForm(id = null) {
-  editingWatchdogId = id;
-  document.getElementById('watchdogFormTitle').textContent = id ? 'Watchdog bearbeiten' : 'Neuer Watchdog';
-  document.getElementById('wdDeleteBtn').style.display = id ? 'flex' : 'none';
-
-  // Agents befüllen
-  const sel = document.getElementById('wdAgent');
-  sel.innerHTML = agents.map(a => `<option value="${a.id}">${a.name} (${a.model})</option>`).join('');
-
-  if (id) {
-    const wd = watchdogs.find(w => w.id === id);
-    if (wd) {
-      document.getElementById('wdName').value = wd.name;
-      document.getElementById('wdUrl').value = wd.url;
-      document.getElementById('wdPrompt').value = wd.prompt;
-      document.getElementById('wdKeyword').value = wd.alert_keyword || '';
-      document.getElementById('wdInterval').value = wd.interval_min;
-      sel.value = wd.agent_id;
-    }
+// ═══════════════════════════════════════════════════
+// Voice Input
+// ═══════════════════════════════════════════════════
+function toggleVoice() {
+  if (voiceActive) {
+    stopVoice();
   } else {
-    document.getElementById('wdName').value = '';
-    document.getElementById('wdUrl').value = '';
-    document.getElementById('wdPrompt').value = 'Siehst du das gesuchte Produkt? Antworte NUR: JA [Details] oder NEIN';
-    document.getElementById('wdKeyword').value = 'JA';
-    document.getElementById('wdInterval').value = '30';
-    if (agents.length > 0) sel.value = agents[0].id;
+    startVoice();
   }
-  document.getElementById('watchdogFormModal').classList.add('open');
 }
 
-function closeWatchdogForm() {
-  document.getElementById('watchdogFormModal').classList.remove('open');
-  editingWatchdogId = null;
-}
+function startVoice() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { alert('Speech recognition not supported'); return; }
 
-async function saveWatchdog() {
-  const payload = {
-    name: document.getElementById('wdName').value.trim(),
-    url: document.getElementById('wdUrl').value.trim(),
-    agent_id: document.getElementById('wdAgent').value,
-    prompt: document.getElementById('wdPrompt').value.trim(),
-    alert_keyword: document.getElementById('wdKeyword').value.trim(),
-    interval_min: parseInt(document.getElementById('wdInterval').value),
-    active: true
+  speechRecognition = new SpeechRecognition();
+  speechRecognition.continuous = true;
+  speechRecognition.interimResults = true;
+  speechRecognition.lang = 'de-DE';
+
+  voiceBuffer = '';
+
+  speechRecognition.onresult = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        voiceBuffer += e.results[i][0].transcript + ' ';
+      } else {
+        interim = e.results[i][0].transcript;
+      }
+    }
+    const input = document.getElementById('mainInput');
+    if (input) input.value = voiceBuffer + interim;
+
+    // Auto-send after 1.5s pause
+    clearTimeout(voicePauseTimer);
+    if (voiceBuffer.trim()) {
+      voicePauseTimer = setTimeout(() => {
+        if (voiceBuffer.trim()) {
+          const text = voiceBuffer.trim();
+          voiceBuffer = '';
+          if (input) input.value = '';
+          sendMessage(text);
+        }
+      }, 1500);
+    }
   };
-  if (!payload.name || !payload.url) { alert('Name und URL sind Pflichtfelder.'); return; }
 
-  if (editingWatchdogId) {
-    await fetch(`/api/watchdogs/${editingWatchdogId}`, {
-      method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
-    });
-  } else {
-    await fetch('/api/watchdogs', {
-      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
-    });
-  }
-  closeWatchdogForm();
-  await loadWatchdogs();
-  renderWatchdogList();
-}
-
-async function deleteWatchdog() {
-  if (!editingWatchdogId) return;
-  const wd = watchdogs.find(w => w.id === editingWatchdogId);
-  if (!confirm(`"${wd?.name}" wirklich löschen?`)) return;
-  await fetch(`/api/watchdogs/${editingWatchdogId}`, { method: 'DELETE' });
-  closeWatchdogForm();
-  await loadWatchdogs();
-  renderWatchdogList();
-}
-
-async function saveProviders(silent = false) {
-  const update = {
-    ollama: { url: document.getElementById('ollamaUrl').value.trim() },
-    searxng: { url: document.getElementById('searxngUrl').value.trim() },
-    mistral: {},
-    openrouter: {}
+  speechRecognition.onerror = e => {
+    console.error('Speech error:', e.error);
+    stopVoice();
   };
-  const mk = document.getElementById('mistralKey').value.trim();
-  if (mk) update.mistral.api_key = mk;
-  const ok = document.getElementById('openrouterKey').value.trim();
-  if (ok) update.openrouter.api_key = ok;
 
-  await fetch('/api/providers', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(update)
-  });
+  speechRecognition.onend = () => {
+    if (voiceActive) speechRecognition.start(); // keep going
+  };
 
-  // reload models in case openrouter key changed
-  await loadAllModels();
+  speechRecognition.start();
+  voiceActive = true;
+  document.getElementById('voiceBtn')?.classList.add('active');
+  document.getElementById('voiceIndicator')?.classList.add('active');
+}
 
-  if (!silent) {
-    closeProviderModal();
+function stopVoice() {
+  clearTimeout(voicePauseTimer);
+  speechRecognition?.stop();
+  voiceActive = false;
+  voiceBuffer = '';
+  document.getElementById('voiceBtn')?.classList.remove('active');
+  document.getElementById('voiceIndicator')?.classList.remove('active');
+}
+
+// ═══════════════════════════════════════════════════
+// Phone Sim
+// ═══════════════════════════════════════════════════
+function togglePhoneSim() {
+  phoneSim = !phoneSim;
+  localStorage.setItem('phoneSim', phoneSim);
+  const t = document.getElementById('phoneToggle');
+  t.classList.toggle('visible', phoneSim);
+  document.getElementById('navPhone')?.classList.toggle('active', phoneSim);
+}
+
+function updatePhoneTime() {
+  const el = document.getElementById('phoneTime');
+  if (el) el.textContent = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
+
+async function sendPhoneMsg() {
+  const input = document.getElementById('phoneInput');
+  const text = input?.value.trim();
+  if (!text || !currentAgent) return;
+  if (input) input.value = '';
+
+  addPhoneMsg('user', text);
+
+  try {
+    const data = await api('/api/chat', { method: 'POST', body: { agent_id: currentAgent.id, message: text } });
+    addPhoneMsg('assistant', data.response || data.message || '');
+  } catch(e) {
+    addPhoneMsg('assistant', 'Error: ' + e.message);
   }
 }
+
+function addPhoneMsg(role, text) {
+  const chat = document.getElementById('phoneChat');
+  if (!chat) return;
+  const div = document.createElement('div');
+  div.className = `phone-msg ${role}`;
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// ═══════════════════════════════════════════════════
+// Utilities
+// ═══════════════════════════════════════════════════
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function agentName(id) {
+  return agents.find(a => a.id === id)?.name || id;
+}
+
+// ═══════════════════════════════════════════════════
+// Boot
+// ═══════════════════════════════════════════════════
+window.addEventListener('load', () => {
+  if (window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = () => {};
+    window.speechSynthesis.getVoices();
+  }
+  init();
+});
 </script>
 </body>
 </html>
