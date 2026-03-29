@@ -1896,13 +1896,18 @@ async function sendMessage(overrideText) {
 
   // Image generation skill
   if (activeSkills.has('image_gen')) {
-    const imgTrigger = text.match(
-      /(?:generier|erstell|zeig|mal|zeichn|mach|bild\s+(?:von|eines?|einer?))\s+(.+)/i
-    ) || text.match(/(?:generate|draw|create|make|paint)\s+(?:an?\s+)?(?:image|picture|photo)\s+(?:of\s+)?(.+)/i);
-    if (imgTrigger) {
-      const imgPrompt = imgTrigger[1].trim();
+    const IMG_TRIGGERS = /\b(generier\w*|erstell\w*|zeig\w*|mal\w*|zeichn\w*|mach\w*|bild\w*|generate|draw|create|make|paint|image|picture|photo)\b/i;
+    const isImgRequest = IMG_TRIGGERS.test(text);
+    // Extract subject: everything after stripping known trigger words and filler
+    let imgPrompt = null;
+    if (isImgRequest) {
+      imgPrompt = text
+        .replace(/\b(bild|generier\w*|erstell\w*|zeich\w*|mal\w*|mach\w*|zeig\w*|mir\w*|ein\w*|eine\w*|eines\w*|von|eines?|einer?|generate|draw|create|make|paint|an?|image|picture|photo|of)\b/gi, ' ')
+        .replace(/\s{2,}/g, ' ').trim();
+    }
+    if (imgPrompt && imgPrompt.length > 2) {
       appendMsg('user', text);
-      appendSystemMsg(`🎨 Generiere Bild: „${imgPrompt}"…`);
+      appendSystemMsg(`🎨 Generiere: „${imgPrompt}"…`);
       try {
         const res = await api('/api/comfyui/generate', { method: 'POST', body: { prompt: imgPrompt } });
         if (res.image) {
