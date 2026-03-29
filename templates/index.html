@@ -178,6 +178,21 @@
 
     .agent-item.active .agent-name { color: var(--green); }
 
+    .agent-fav-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1;
+      padding: 0 1px;
+      opacity: 0.25;
+      flex-shrink: 0;
+      transition: opacity .15s, transform .15s;
+    }
+    .agent-fav-btn:hover { opacity: 0.7; }
+    .agent-fav-btn.fav { opacity: 1; }
+    .agent-item.fav-item { border-left: 2px solid var(--green); }
+
     .agent-dot {
       width: 8px;
       height: 8px;
@@ -1059,6 +1074,22 @@
     }
     .speaking-dot.active { display: inline-block; }
 
+    .tts-stop-btn {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 5px;
+      border: 1px solid var(--cyan);
+      background: transparent;
+      color: var(--cyan);
+      font-size: 11px;
+      font-family: var(--mono);
+      cursor: pointer;
+      animation: blink 0.7s infinite;
+    }
+    .tts-stop-btn.active { display: flex; }
+
     /* Phone Sim */
     .phone-toggle {
       display: none;
@@ -1357,6 +1388,22 @@
         <label class="form-label">Skills</label>
         <div id="editAgentSkills" style="display:flex;flex-wrap:wrap;gap:6px"></div>
       </div>
+      <div class="form-group" style="border-top:1px solid var(--b2);padding-top:12px">
+        <label class="form-label" style="display:flex;align-items:center;gap:8px">
+          💓 Heartbeat
+          <div class="toggle-switch" id="editHeartbeatToggle" onclick="toggleEditHeartbeat()"></div>
+          <span id="editHeartbeatStatus" style="font-size:11px;color:var(--textdim);font-family:var(--mono)">inaktiv</span>
+        </label>
+        <div id="editHeartbeatFields" style="display:none;flex-direction:column;gap:8px;margin-top:8px">
+          <input class="form-input" id="editHeartbeatPrompt" placeholder="Aufgabe z.B. Fasse deinen aktuellen Status zusammen">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;color:var(--textdim);font-family:var(--mono);white-space:nowrap">Alle</span>
+            <input class="form-input" id="editHeartbeatInterval" type="number" min="1" max="1440" value="30" style="width:70px">
+            <span style="font-size:12px;color:var(--textdim);font-family:var(--mono)">Minuten</span>
+            <button class="btn-secondary" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="runHeartbeatNow()">▶ Jetzt</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn-danger" id="editAgentDeleteBtn">Delete</button>
@@ -1527,6 +1574,7 @@ async function init() {
   updatePhoneTime();
   setInterval(updatePhoneTime, 30000);
   setInterval(pollWatchdogs, 60000);
+  pollActivity();
   setView('home');
 }
 
@@ -1587,6 +1635,32 @@ function setView(v) {
 // ═══════════════════════════════════════════════════
 // Side Panel
 // ═══════════════════════════════════════════════════
+let agentActivity = {};
+
+async function pollActivity() {
+  try {
+    const data = await api('/api/activity');
+    const changed = JSON.stringify(data) !== JSON.stringify(agentActivity);
+    agentActivity = data;
+    if (changed) renderSidePanel();
+  } catch(e) {}
+  setTimeout(pollActivity, 3000);
+}
+
+function getFavs() {
+  try { return new Set(JSON.parse(localStorage.getItem('agentFavs') || '[]')); }
+  catch(e) { return new Set(); }
+}
+
+function toggleFav(e, agentId) {
+  e.stopPropagation();
+  const favs = getFavs();
+  if (favs.has(agentId)) favs.delete(agentId);
+  else favs.add(agentId);
+  localStorage.setItem('agentFavs', JSON.stringify([...favs]));
+  renderSidePanel();
+}
+
 function renderSidePanel() {
   const sp = document.getElementById('sidePanel');
   if (currentView === 'multi') {
@@ -1597,16 +1671,32 @@ function renderSidePanel() {
 }
 
 function renderChatSidePanel() {
-  const agentRows = agents.map(a => {
+  const favs = getFavs();
+  const sorted = [...agents].sort((a, b) => {
+    const fa = favs.has(a.id) ? 0 : 1;
+    const fb = favs.has(b.id) ? 0 : 1;
+    return fa - fb;
+  });
+  const agentRows = sorted.map(a => {
     const active = currentAgent && currentAgent.id === a.id ? 'active' : '';
-    const online = 'online';
-    return `<div class="agent-item ${active}" onclick="selectAgent('${a.id}')">
-      <div class="agent-dot ${online}"></div>
+    const isFav = favs.has(a.id);
+    const hbActive = a.heartbeat?.active;
+    const act = agentActivity[a.id];
+    const actIcon = act
+      ? (act.type === 'heartbeat'
+          ? `<span title="${esc(act.label)}" style="font-size:11px;animation:blink .6s infinite">💓</span>`
+          : `<span title="${esc(act.label)}" style="font-size:11px;animation:blink .6s infinite">⚙️</span>`)
+      : (hbActive ? `<span title="Heartbeat aktiv" style="font-size:11px;opacity:.5">💓</span>` : '');
+    return `<div class="agent-item ${active}${isFav ? ' fav-item' : ''}" onclick="selectAgent('${a.id}')">
+      <div class="agent-dot online"></div>
       <div style="flex:1;min-width:0">
         <span class="agent-name">${esc(a.name)}</span>
         ${a.role ? `<div style="font-size:10px;color:var(--textdim);font-family:var(--mono);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.role)}</div>` : ''}
+        ${act ? `<div style="font-size:10px;color:var(--green);font-family:var(--mono);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(act.label)}</div>` : ''}
       </div>
+      ${actIcon}
       <span class="agent-model-tag">${esc((a.model||'').split('/').pop().slice(0,8))}</span>
+      <button class="agent-fav-btn${isFav ? ' fav' : ''}" onclick="toggleFav(event,'${a.id}')" title="Favorit">★</button>
     </div>`;
   }).join('');
 
@@ -1727,6 +1817,7 @@ function renderChatShell(ws) {
         </div>
         <span class="topbar-badge">${esc(currentAgent.model||'')}</span>
         <span class="speaking-dot" id="speakingDot"></span>
+        <button class="tts-stop-btn" id="ttsStopBtn" onclick="stopCurrentAudio()" title="Sprachausgabe stoppen (Esc)">⏹ Stop</button>
         <label class="autoplay-toggle" title="Auto-Play TTS">
           🔊 <div class="toggle-switch ${autoPlay ? 'on' : ''}" id="autoplayToggle" onclick="toggleAutoPlay()"></div>
         </label>
@@ -1798,9 +1889,12 @@ function renderMsg(m, index) {
   const ts = m.ts ? `<span class="msg-meta">${new Date(m.ts).toLocaleTimeString()}</span>` : '';
   if (m.role === 'assistant') {
     const idx = index !== undefined ? index : (conversations[currentAgent?.id]?.length - 1);
+    const imgHtml = m.task_image
+      ? `<img src="${m.task_image}" style="max-width:100%;border-radius:8px;display:block;margin-top:8px">`
+      : '';
     return `<div class="msg assistant" data-idx="${idx}">
       ${ts}
-      <div class="msg-bubble">${content}</div>
+      <div class="msg-bubble">${content}${imgHtml}</div>
       ${m.stats ? `<div style="font-size:10px;color:var(--textdim);font-family:var(--mono);padding:2px 4px">⚡${m.stats.tok_s} tok/s · ${m.stats.tokens} tkn · ${m.stats.total_s}s</div>` : ''}
       <div class="msg-actions">
         <button class="btn-play" id="playBtn-${idx}" onclick="togglePlayByIndex(${idx})">▶ Abspielen</button>
@@ -1876,6 +1970,24 @@ async function sendMessage(overrideText) {
   const activeSkills = new Set(currentAgent.skills || []);
   let imageData = null;
 
+  // ── @AgentName mention → delegate task ────────────────────────────────────
+  const mentionMatch = text.match(/^@(\S+)\s+([\s\S]+)$/);
+  if (mentionMatch) {
+    const targetName = mentionMatch[1].replace(/[,;:.!?]+$/, '');
+    const taskMessage = mentionMatch[2].trim();
+    const targetAgent = agents.find(a => a.name.toLowerCase() === targetName.toLowerCase());
+    if (!targetAgent) {
+      appendSystemMsg(`Unbekannter Agent: @${esc(targetName)} — verfügbar: ${agents.map(a => '@'+a.name).join(', ')}`);
+    } else {
+      if (input && !overrideText) input.value = '';
+      await handleAgentMention(targetAgent, taskMessage, text);
+    }
+    isSending = false;
+    document.getElementById('sendBtn')?.removeAttribute('disabled');
+    input?.focus();
+    return;
+  }
+
   // Screenshot skill: detect URL or domain/keyword, fetch screenshot, show in chat
   if (activeSkills.has('screenshot')) {
     // Match full URLs, bare domains (web.de), or "screenshot von X" pattern
@@ -1919,6 +2031,7 @@ async function sendMessage(overrideText) {
         const reply = data.reply || data.response || data.message || '';
         appendMsg('assistant', reply);
         if (autoPlay) togglePlay(idx, reply);
+        dispatchReplyMentions(reply);
       } catch(e) {
         removeThinkingIndicator();
         appendSystemMsg('Error: ' + e.message);
@@ -1972,10 +2085,54 @@ async function sendMessage(overrideText) {
           const reply = data.reply || data.response || data.message || '';
           const idx = appendMsg('assistant', reply, data.stats);
           if (autoPlay) togglePlay(idx, reply);
+          dispatchReplyMentions(reply);
         } catch(e) {
           removeThinkingIndicator();
           appendSystemMsg('Error: ' + e.message);
         }
+      }
+      isSending = false;
+      document.getElementById('sendBtn')?.removeAttribute('disabled');
+      input?.focus();
+      return;
+    }
+  }
+
+  // Tagesschau news skill
+  if (activeSkills.has('tagesschau')) {
+    const NEWS_TRIGGERS = /\b(nachrichten|news|tagesschau|schlagzeilen|aktuell\w*|headlines?|meldungen|was.*passiert|was.*läuft|top\s*news)\b/i;
+    if (NEWS_TRIGGERS.test(text)) {
+      const CAT_MAP = [
+        [/\bsport\w*\b/i, 'sport'],
+        [/\bwirtschaft\w*|wirtschaft|finanzen|börse\b/i, 'wirtschaft'],
+        [/\bausland\w*|international|welt\b/i, 'ausland'],
+        [/\binland\w*|deutschland|deutsch\b/i, 'inland'],
+        [/\bfakten\w*|fake\w*|faktencheck\b/i, 'faktenfinder'],
+        [/\binvestigativ\w*|recherche\b/i, 'investigativ'],
+      ];
+      let category = 'top';
+      for (const [rx, cat] of CAT_MAP) { if (rx.test(text)) { category = cat; break; } }
+      appendMsg('user', text);
+      appendSystemMsg(`📰 Lade Tagesschau (${category})…`);
+      let newsContext = '';
+      try {
+        const nd = await api(`/api/tagesschau?category=${category}&limit=10`);
+        if (nd.items && nd.items.length) {
+          newsContext = `Aktuelle Tagesschau-Nachrichten (${nd.category}, ${nd.date}):\n` +
+            nd.items.map((it, i) => `${i+1}. **${it.title}**${it.description ? ' — ' + it.description : ''}${it.link ? ' ('+it.link+')' : ''}`).join('\n');
+        }
+      } catch(e) { newsContext = ''; }
+      showThinkingIndicator();
+      try {
+        const body = { agent_id: currentAgent.id, message: text, system_extra: newsContext };
+        const data = await api('/api/chat', { method: 'POST', body });
+        removeThinkingIndicator();
+        const reply = data.reply || data.response || data.message || '';
+        const idx = appendMsg('assistant', reply, data.stats);
+        if (autoPlay) togglePlay(idx, reply);
+      } catch(e) {
+        removeThinkingIndicator();
+        appendSystemMsg('Error: ' + e.message);
       }
       isSending = false;
       document.getElementById('sendBtn')?.removeAttribute('disabled');
@@ -2011,6 +2168,7 @@ async function sendMessage(overrideText) {
     const reply = data.reply || data.response || data.message || '';
     const idx = appendMsg('assistant', reply, data.stats);
     if (autoPlay) togglePlay(idx, reply);
+    dispatchReplyMentions(reply);
   } catch (e) {
     removeThinkingIndicator();
     appendSystemMsg('Error: ' + e.message);
@@ -2373,6 +2531,14 @@ async function openEditAgentModal(id) {
   });
   document.getElementById('editAgentDeleteBtn').onclick = () => deleteAgent(id);
   renderEditAgentSkills(a.skills || []);
+  // Heartbeat
+  const hb = a.heartbeat || {};
+  const hbActive = !!hb.active;
+  document.getElementById('editHeartbeatToggle').classList.toggle('on', hbActive);
+  document.getElementById('editHeartbeatStatus').textContent = hbActive ? 'aktiv' : 'inaktiv';
+  document.getElementById('editHeartbeatFields').style.display = hbActive ? 'flex' : 'none';
+  document.getElementById('editHeartbeatPrompt').value = hb.prompt || '';
+  document.getElementById('editHeartbeatInterval').value = hb.interval_min || 30;
   openModal('editAgentModal');
 }
 
@@ -2390,6 +2556,24 @@ function renderEditAgentSkills(activeList) {
   }).join('');
 }
 
+function toggleEditHeartbeat() {
+  const tog = document.getElementById('editHeartbeatToggle');
+  const fields = document.getElementById('editHeartbeatFields');
+  const status = document.getElementById('editHeartbeatStatus');
+  const on = !tog.classList.contains('on');
+  tog.classList.toggle('on', on);
+  fields.style.display = on ? 'flex' : 'none';
+  status.textContent = on ? 'aktiv' : 'inaktiv';
+}
+
+async function runHeartbeatNow() {
+  if (!editingAgentId) return;
+  try {
+    await api(`/api/agents/${editingAgentId}/heartbeat/run`, { method: 'POST' });
+    appendSystemMsg('💓 Heartbeat ausgeführt — Antwort erscheint im Chat');
+  } catch(e) { alert('Fehler: ' + e.message); }
+}
+
 async function saveEditAgent() {
   if (!editingAgentId) return;
   const name = document.getElementById('editAgentName')?.value.trim();
@@ -2400,12 +2584,22 @@ async function saveEditAgent() {
   const role  = document.getElementById('editAgentRole')?.value.trim();
   const skillEls = document.querySelectorAll('#editAgentSkills [data-skill-id]');
   const activeSkills = [...skillEls].filter(b => b.classList.contains('active')).map(b => b.dataset.skillId);
+  const hbActive = document.getElementById('editHeartbeatToggle')?.classList.contains('on');
+  const hbPrompt = document.getElementById('editHeartbeatPrompt')?.value.trim();
+  const hbInterval = parseInt(document.getElementById('editHeartbeatInterval')?.value) || 30;
 
   try {
+    // Save agent first
     const updated = await api(`/api/agents/${editingAgentId}`, {
       method: 'PUT',
       body: { name, role, provider, model, soul: system, voice, skills: activeSkills }
     });
+    // Save heartbeat separately
+    await api(`/api/agents/${editingAgentId}/heartbeat`, {
+      method: 'PUT',
+      body: { active: hbActive, prompt: hbPrompt, interval_min: hbInterval }
+    });
+    updated.heartbeat = { active: hbActive, prompt: hbPrompt, interval_min: hbInterval };
     const idx = agents.findIndex(a => a.id === editingAgentId);
     if (idx >= 0) agents[idx] = updated;
     if (currentAgent?.id === editingAgentId) currentAgent = updated;
@@ -2705,14 +2899,24 @@ function splitSentences(text) {
 }
 
 function stopCurrentAudio() {
-  if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; currentAudio = null; }
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  if (currentAudio) { try { currentAudio.pause(); currentAudio.currentTime = 0; } catch(e) {} currentAudio = null; }
+  // speechSynthesis.cancel() is unreliable — call twice with a tiny delay
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+    setTimeout(() => { try { window.speechSynthesis.cancel(); } catch(e) {} }, 80);
+  }
   if (currentPlayingIndex >= 0) {
     const btn = document.getElementById(`playBtn-${currentPlayingIndex}`);
     if (btn) { btn.textContent = '▶ Abspielen'; btn.classList.remove('playing'); }
     currentPlayingIndex = -1;
   }
   document.getElementById('speakingDot')?.classList.remove('active');
+  document.getElementById('ttsStopBtn')?.classList.remove('active');
+}
+
+function setTTSPlaying(on) {
+  document.getElementById('speakingDot')?.classList.toggle('active', on);
+  document.getElementById('ttsStopBtn')?.classList.toggle('active', on);
 }
 
 async function fetchAudioBlob(text, voice) {
@@ -2741,7 +2945,7 @@ async function togglePlay(index, text) {
   currentPlayingIndex = index;
   const btn = document.getElementById(`playBtn-${index}`);
   if (btn) { btn.textContent = '⏳ Laden…'; btn.classList.add('playing'); }
-  document.getElementById('speakingDot')?.classList.add('active');
+  setTTSPlaying(true);
   if (voice.startsWith('mac:')) {
     await playMacVoiceAsync(text, voice.replace('mac:', ''), btn);
     if (currentPlayingIndex === index) stopCurrentAudio();
@@ -2796,6 +3000,104 @@ function playMacVoiceAsync(text, voiceName, btn) {
     utt.onend = resolve; utt.onerror = resolve;
     window.speechSynthesis.speak(utt);
   });
+}
+
+// ─── Agent-to-Agent Tasks ──────────────────────────────────────────────────────
+
+function dispatchReplyMentions(reply) {
+  // Scan an assistant reply for @AgentName mentions and auto-dispatch tasks
+  if (!reply || !currentAgent) return;
+  const rx = /@([A-Za-zÄÖÜäöüß][\w\s&]*?)(?=[,\s:!?.–—]|$)/g;
+  let m;
+  while ((m = rx.exec(reply)) !== null) {
+    const rawName = m[1].trim().replace(/[,;:.!?]+$/, '');
+    const target = agents.find(a => a.name.toLowerCase() === rawName.toLowerCase());
+    if (!target || target.id === currentAgent.id) continue;
+    // Extract task: everything after the @Name mention (strip leading punctuation/space)
+    const afterMention = reply.slice(m.index + m[0].length).replace(/^[,\s–—:]+/, '').trim();
+    const taskMsg = afterMention || reply;
+    appendSystemMsg(`🤖 ${esc(currentAgent.name)} delegiert an @${esc(target.name)}…`);
+    handleAgentMention(target, taskMsg, `@${target.name} ${taskMsg}`);
+    break; // one dispatch per reply to avoid spam
+  }
+}
+
+async function handleAgentMention(targetAgent, message, rawText) {
+  appendMsg('user', rawText);
+  appendSystemMsg(`⏳ @${esc(targetAgent.name)} bearbeitet die Anfrage…`);
+
+  let task;
+  try {
+    task = await api('/api/tasks', {
+      method: 'POST',
+      body: {
+        sender_agent_id: currentAgent.id,
+        sender_agent_name: currentAgent.name,
+        recipient_agent_id: targetAgent.id,
+        recipient_agent_name: targetAgent.name,
+        message
+      }
+    });
+  } catch(e) {
+    appendSystemMsg(`Fehler: ${esc(e.message)}`);
+    return;
+  }
+
+  // Poll with gentle back-off (1.5s → 4s)
+  let delay = 1500;
+  const MAX_POLLS = 60;
+  for (let i = 0; i < MAX_POLLS; i++) {
+    await new Promise(r => setTimeout(r, delay));
+    delay = Math.min(delay * 1.25, 4000);
+    let result;
+    try { result = await api(`/api/tasks/${task.id}`); } catch(e) { continue; }
+
+    if (result.status === 'done') {
+      renderTaskResult(result, targetAgent);
+      return;
+    }
+    if (result.status === 'error') {
+      appendSystemMsg(`@${esc(targetAgent.name)} Fehler: ${esc(result.error || 'Unbekannt')}`);
+      return;
+    }
+  }
+  appendSystemMsg(`@${esc(targetAgent.name)} — Timeout nach 3 Minuten`);
+}
+
+function renderTaskResult(task, fromAgent) {
+  if (!currentAgent) return;
+  if (!conversations[currentAgent.id]) conversations[currentAgent.id] = [];
+
+  const prefix = `📬 **@${fromAgent.name}**`;
+
+  if (task.skill_used === 'image_gen' && task.result_image) {
+    const msg = {
+      role: 'assistant',
+      content: `${prefix}: ${task.message}`,
+      task_image: task.result_image,
+      ts: Date.now()
+    };
+    const idx = conversations[currentAgent.id].length;
+    conversations[currentAgent.id].push(msg);
+    const el = document.getElementById('chatMessages');
+    if (el) {
+      el.insertAdjacentHTML('beforeend', renderMsg(msg, idx));
+      el.scrollTop = el.scrollHeight;
+    }
+  } else if (task.result_text) {
+    const msg = {
+      role: 'assistant',
+      content: `${prefix}: ${task.result_text}`,
+      ts: Date.now()
+    };
+    const idx = conversations[currentAgent.id].length;
+    conversations[currentAgent.id].push(msg);
+    const el = document.getElementById('chatMessages');
+    if (el) {
+      el.insertAdjacentHTML('beforeend', renderMsg(msg, idx));
+      el.scrollTop = el.scrollHeight;
+    }
+  }
 }
 
 // ─── ComfyUI image generation (browser-direct, CORS enabled on server) ────────
@@ -3089,6 +3391,12 @@ window.addEventListener('load', () => {
     window.speechSynthesis.getVoices();
   }
   init();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && currentPlayingIndex >= 0) {
+    stopCurrentAudio();
+  }
 });
 </script>
 </body>

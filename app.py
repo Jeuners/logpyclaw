@@ -60,6 +60,13 @@ SKILLS = [
         "requires": "comfyui"
     },
     {
+        "id": "tagesschau",
+        "name": "Tagesschau",
+        "icon": "📰",
+        "description": "Ruft aktuelle Nachrichten von tagesschau.de ab (Inland, Ausland, Wirtschaft, Sport …)",
+        "requires": None
+    },
+    {
         "id": "memory",
         "name": "Langzeitspeicher",
         "icon": "🧠",
@@ -73,6 +80,24 @@ AGENTS_FILE = os.path.join(BASE_DIR, "agents.json")
 HISTORY_FILE = os.path.join(BASE_DIR, "history.json")
 PROVIDERS_FILE = os.path.join(BASE_DIR, "providers.json")
 WATCHDOGS_FILE = os.path.join(BASE_DIR, "watchdogs.json")
+TASKS_FILE = os.path.join(BASE_DIR, "tasks.json")
+
+# ── Agent-Tasks in-memory store ──────────────────────────────────────────────
+_TASKS: dict = {}
+_tasks_lock = threading.Lock()
+
+# ── Live activity tracker ─────────────────────────────────────────────────────
+# { agent_id: { "type": "heartbeat"|"task", "label": str, "since": iso } }
+_ACTIVITY: dict = {}
+_activity_lock = threading.Lock()
+
+def activity_start(agent_id: str, atype: str, label: str):
+    with _activity_lock:
+        _ACTIVITY[agent_id] = {"type": atype, "label": label, "since": datetime.now().isoformat()}
+
+def activity_end(agent_id: str):
+    with _activity_lock:
+        _ACTIVITY.pop(agent_id, None)
 
 
 def load_providers():
@@ -132,6 +157,191 @@ def save_providers(providers):
         json.dump(providers, f, ensure_ascii=False, indent=2)
 
 
+# ─── Agent Tasks ──────────────────────────────────────────────────────────────
+
+def _load_tasks_from_disk():
+    if not os.path.exists(TASKS_FILE):
+        return {}
+    try:
+        with open(TASKS_FILE, "r", encoding="utf-8") as f:
+            tasks = json.load(f)
+        return {t["id"]: t for t in tasks} if isinstance(tasks, list) else tasks
+    except Exception:
+        return {}
+
+
+def _save_tasks():
+    with _tasks_lock:
+        tasks_list = list(_TASKS.values())
+    with open(TASKS_FILE, "w", encoding="utf-8") as f:
+        json.dump(tasks_list, f, ensure_ascii=False, indent=2)
+
+
+def _extract_img_prompt(message: str) -> str:
+    cleaned = re.sub(
+        r'\b(bild|generier\w*|erstell\w*|zeich\w*|mal\w*|mach\w*|zeig\w*|'
+        r'mir\w*|eine?\w*|eines?\w*|von|generate|draw|create|make|'
+        r'paint|an?\b|image|picture|photo|of|bitte|please|einen?|einer?)\b',
+        ' ', message, flags=re.IGNORECASE
+    )
+    return re.sub(r'\s{2,}', ' ', cleaned).strip()
+
+
+def _run_comfyui_sync(prompt: str) -> str:
+    """Run ComfyUI image generation synchronously. Returns base64 data URL."""
+    providers = load_providers()
+    cfg = providers.get("comfyui", {})
+    base_url = cfg.get("url", "http://192.168.3.26:8000").rstrip("/")
+    seed = int(time.time()) % (2**32)
+    workflow = build_z_image_turbo_workflow(prompt, seed)
+
+    r = requests.post(f"{base_url}/prompt",
+                      json={"prompt": workflow, "client_id": "agentclaw-task"},
+                      timeout=30)
+    r.raise_for_status()
+    resp_json = r.json()
+    if "prompt_id" not in resp_json:
+        raise RuntimeError(f"ComfyUI Antwort unerwartet: {resp_json}")
+    prompt_id = resp_json["prompt_id"]
+
+    deadline = time.time() + 120
+    outputs = None
+    while time.time() < deadline:
+        time.sleep(2)
+        h = requests.get(f"{base_url}/history/{prompt_id}", timeout=10)
+        entry = h.json().get(prompt_id, {})
+        if entry.get("status", {}).get("completed"):
+            outputs = entry.get("outputs", {})
+            break
+
+    if not outputs:
+        raise RuntimeError("Timeout: ComfyUI hat nicht rechtzeitig geantwortet")
+
+    img_info = None
+    for node_out in outputs.values():
+        imgs = node_out.get("images", [])
+        if imgs:
+            img_info = imgs[0]
+            break
+
+    if not img_info:
+        raise RuntimeError("Keine Bilddaten in der ComfyUI-Antwort")
+
+    filename = img_info["filename"]
+    subfolder = img_info.get("subfolder", "")
+    img_type = img_info.get("type", "output")
+    params = f"filename={filename}&type={img_type}"
+    if subfolder:
+        params += f"&subfolder={subfolder}"
+
+    img_r = requests.get(f"{base_url}/view?{params}", timeout=30)
+    img_r.raise_for_status()
+    mime = img_r.headers.get("Content-Type", "image/png").split(";")[0]
+    b64 = base64.b64encode(img_r.content).decode()
+    return f"data:{mime};base64,{b64}"
+
+
+def process_task(task_id: str):
+    """Background worker: process an agent task."""
+    with _tasks_lock:
+        task = _TASKS.get(task_id)
+    if not task:
+        return
+
+    task["status"] = "processing"
+    _save_tasks()
+    print(f"[Task] processing {task_id}: {task['message'][:60]}", flush=True)
+    activity_start(task["recipient_agent_id"], "task",
+                   f"Aufgabe von @{task['sender_agent_name']}: {task['message'][:50]}")
+
+    agents = load_agents()
+    recipient = next((a for a in agents if a["id"] == task["recipient_agent_id"]), None)
+    if not recipient:
+        task["status"] = "error"
+        task["error"] = f"Agent '{task['recipient_agent_name']}' nicht gefunden"
+        _save_tasks()
+        return
+
+    skills = set(recipient.get("skills", []))
+    message = task["message"]
+
+    IMG_TRIGGERS = re.compile(
+        r'\b(bild|generier\w*|erstell\w*|zeig\w*|mal\w*|zeichn\w*|mach\w*|'
+        r'generate|draw|create|make|paint|image|picture|photo|foto|zeichnung|gemälde|illustration)\b', re.IGNORECASE
+    )
+    # If agent only has image_gen skill, treat every task as an image prompt
+    only_image_gen = skills == {"image_gen"}
+
+    try:
+        if "image_gen" in skills and (IMG_TRIGGERS.search(message) or only_image_gen):
+            img_prompt = _extract_img_prompt(message)
+            if not img_prompt:
+                img_prompt = message
+            print(f"[Task] image_gen prompt: {img_prompt}", flush=True)
+            task["result_image"] = _run_comfyui_sync(img_prompt)
+            task["skill_used"] = "image_gen"
+        else:
+            system_suffix = (
+                f"[Aufgabe delegiert von Agent {task['sender_agent_name']}]\n"
+                f"Bearbeite die folgende Anfrage direkt und präzise."
+            )
+            task["result_text"] = call_agent_text(recipient, system_suffix, message)
+            task["skill_used"] = "llm"
+
+        task["status"] = "done"
+        task["completed_at"] = datetime.now().isoformat()
+        print(f"[Task] done {task_id} via {task['skill_used']}", flush=True)
+
+        # ── Save result to recipient's chat history ───────────────────────────
+        ts = datetime.now().isoformat()
+        history = load_history()
+        recipient_id = task["recipient_agent_id"]
+        sender_id    = task["sender_agent_id"]
+        if recipient_id not in history:
+            history[recipient_id] = []
+
+        if task["skill_used"] == "image_gen" and task.get("result_image"):
+            content = f'[Aufgabe von {task["sender_agent_name"]}]: {task["message"]}'
+            history[recipient_id].append({
+                "role": "assistant", "content": content,
+                "task_image": task["result_image"], "task_id": task_id, "ts": ts
+            })
+            # Also notify sender agent's history (without the heavy base64 — ref only)
+            if sender_id and sender_id != "system":
+                if sender_id not in history:
+                    history[sender_id] = []
+                history[sender_id].append({
+                    "role": "assistant",
+                    "content": f'📬 **@{task["recipient_agent_name"]}** hat das Bild fertig: _{task["message"][:80]}_',
+                    "task_image": task["result_image"], "task_id": task_id, "ts": ts
+                })
+        elif task.get("result_text"):
+            history[recipient_id].append({
+                "role": "assistant",
+                "content": f'[Aufgabe von {task["sender_agent_name"]}]: {task["result_text"]}',
+                "task_id": task_id, "ts": ts
+            })
+            if sender_id and sender_id != "system":
+                if sender_id not in history:
+                    history[sender_id] = []
+                history[sender_id].append({
+                    "role": "assistant",
+                    "content": f'📬 **@{task["recipient_agent_name"]}**: {task["result_text"]}',
+                    "task_id": task_id, "ts": ts
+                })
+        save_history(history)
+
+    except Exception as e:
+        import traceback
+        print(f"[Task] error {task_id}: {traceback.format_exc()}", flush=True)
+        task["status"] = "error"
+        task["error"] = str(e)
+    finally:
+        activity_end(task["recipient_agent_id"])
+
+    _save_tasks()
+
+
 # ─── Memory (Qdrant + Ollama embeddings) ──────────────────────────────────────
 
 EMBED_MODEL = "nomic-embed-text"
@@ -181,7 +391,8 @@ def memory_search(agent_id, query, top_k=4):
         existing = [c.name for c in client.get_collections().collections]
         if name not in existing:
             return ""
-        hits = client.search(collection_name=name, query_vector=vec, limit=top_k, score_threshold=0.5)
+        result = client.query_points(collection_name=name, query=vec, limit=top_k, score_threshold=0.45)
+        hits = result.points
         if not hits:
             return ""
         parts = []
@@ -348,6 +559,7 @@ def update_agent(agent_id):
         if a["id"] == agent_id:
             agents[i].update({
                 "name": data.get("name", a["name"]),
+                "role": data.get("role", a.get("role", "")),
                 "soul": data.get("soul", a["soul"]),
                 "voice": data.get("voice", a["voice"]),
                 "model": data.get("model", a["model"]),
@@ -397,6 +609,7 @@ def chat():
     agent_id = data.get("agent_id")
     user_message = data.get("message", "").strip()
     image_data = data.get("image_data")  # base64 data URL from frontend
+    system_extra = data.get("system_extra", "")  # extra context injected by frontend skills
 
     if not user_message and not image_data:
         return jsonify({"error": "Keine Nachricht"}), 400
@@ -461,6 +674,10 @@ def chat():
 
     if search_context:
         system_content += f"\n\n{search_context}"
+
+    # Extra context injected by frontend skills (e.g. tagesschau news)
+    if system_extra:
+        system_content += f"\n\n{system_extra}"
 
     # Long-term memory recall (memory skill)
     if "memory" in agent_skills:
@@ -1052,11 +1269,86 @@ def tick_watchdogs():
             threading.Thread(target=run_watchdog, args=(dict(wd),), daemon=True).start()
 
 
+def run_heartbeat(agent):
+    """Führt den Heartbeat-Task eines Agenten aus."""
+    agent_id = agent["id"]
+    hb = agent.get("heartbeat", {})
+    prompt = hb.get("prompt", "").strip() or "Was sind deine aktuellen Gedanken? Gib einen kurzen Status-Update."
+    print(f"[Heartbeat] 💓 Agent '{agent['name']}' — {prompt[:60]}", flush=True)
+    activity_start(agent_id, "heartbeat", prompt[:60])
+    try:
+        system_suffix = f"[Heartbeat — autonome Aktion, kein Benutzer anwesend]"
+        reply = call_agent_text(agent, system_suffix, prompt)
+        # In History speichern
+        history = load_history()
+        if agent_id not in history:
+            history[agent_id] = []
+        history[agent_id].append({
+            "role": "assistant",
+            "content": f"💓 **Heartbeat**\n\n{reply}",
+            "ts": datetime.now().isoformat(),
+            "heartbeat": True
+        })
+        save_history(history)
+        # last_result im Agent speichern
+        agents = load_agents()
+        for a in agents:
+            if a["id"] == agent_id:
+                a.setdefault("heartbeat", {})["last_run"] = datetime.now().isoformat()
+                a["heartbeat"]["last_result"] = reply[:300]
+                break
+        save_agents(agents)
+        # macOS Notification
+        short = reply[:120].replace('"', "'").replace('\n', ' ')
+        try:
+            subprocess.run([
+                "osascript", "-e",
+                f'display notification "{short}" with title "💓 {agent["name"]}" sound name "Ping"'
+            ], timeout=5, capture_output=True)
+        except Exception:
+            pass
+        print(f"[Heartbeat] done '{agent['name']}': {reply[:80]}", flush=True)
+    except Exception as e:
+        print(f"[Heartbeat] Fehler '{agent['name']}': {e}", flush=True)
+    finally:
+        activity_end(agent_id)
+
+
+def tick_heartbeats():
+    """Prüft welche Agenten-Heartbeats fällig sind."""
+    agents = load_agents()
+    now = datetime.now()
+    for agent in agents:
+        hb = agent.get("heartbeat", {})
+        if not hb.get("active"):
+            continue
+        interval_min = int(hb.get("interval_min", 30))
+        next_run_str = hb.get("next_run")
+        if not next_run_str:
+            next_run = now
+        else:
+            try:
+                next_run = datetime.fromisoformat(next_run_str)
+            except Exception:
+                next_run = now
+        if now >= next_run:
+            # Nächsten Run planen
+            new_next = (now + timedelta(minutes=interval_min)).isoformat()
+            agents2 = load_agents()
+            for a in agents2:
+                if a["id"] == agent["id"]:
+                    a.setdefault("heartbeat", {})["next_run"] = new_next
+                    break
+            save_agents(agents2)
+            threading.Thread(target=run_heartbeat, args=(dict(agent),), daemon=True).start()
+
+
 def scheduler_loop():
     print("[Scheduler] Watchdog-Scheduler gestartet", flush=True)
     while True:
         try:
             tick_watchdogs()
+            tick_heartbeats()
         except Exception as e:
             print(f"[Scheduler] Fehler: {e}", flush=True)
         time.sleep(60)
@@ -1185,6 +1477,33 @@ def toggle_watchdog(wd_id):
     return jsonify({"error": "Nicht gefunden"}), 404
 
 
+@app.route("/api/agents/<agent_id>/heartbeat", methods=["PUT"])
+def set_heartbeat(agent_id):
+    data = request.json
+    agents = load_agents()
+    for a in agents:
+        if a["id"] == agent_id:
+            hb = a.setdefault("heartbeat", {})
+            hb["active"]       = bool(data.get("active", hb.get("active", False)))
+            hb["prompt"]       = data.get("prompt", hb.get("prompt", ""))
+            hb["interval_min"] = int(data.get("interval_min", hb.get("interval_min", 30)))
+            if hb["active"]:
+                hb["next_run"] = None  # sofort beim nächsten Tick
+            save_agents(agents)
+            return jsonify(a)
+    return jsonify({"error": "Agent nicht gefunden"}), 404
+
+
+@app.route("/api/agents/<agent_id>/heartbeat/run", methods=["POST"])
+def run_heartbeat_now(agent_id):
+    agents = load_agents()
+    agent = next((a for a in agents if a["id"] == agent_id), None)
+    if not agent:
+        return jsonify({"error": "Agent nicht gefunden"}), 404
+    threading.Thread(target=run_heartbeat, args=(dict(agent),), daemon=True).start()
+    return jsonify({"ok": True})
+
+
 # ─── Screenshot ───────────────────────────────────────────────────────────────
 
 @app.route("/api/screenshot", methods=["POST"])
@@ -1218,6 +1537,128 @@ def take_screenshot():
         return jsonify({"image": f"data:image/jpeg;base64,{b64}", "url": url})
     except Exception as e:
         return jsonify({"error": f"Screenshot fehlgeschlagen: {e}"}), 500
+
+
+# ─── Tagesschau RSS ───────────────────────────────────────────────────────────
+
+TAGESSCHAU_FEEDS = {
+    "top":          "https://www.tagesschau.de/index~rss2.xml",
+    "inland":       "https://www.tagesschau.de/inland/index~rss2.xml",
+    "ausland":      "https://www.tagesschau.de/ausland/index~rss2.xml",
+    "wirtschaft":   "https://www.tagesschau.de/wirtschaft/index~rss2.xml",
+    "sport":        "https://www.tagesschau.de/sport/index~rss2.xml",
+    "faktenfinder": "https://www.tagesschau.de/faktenfinder/index~rss2.xml",
+    "investigativ": "https://www.tagesschau.de/investigativ/index~rss2.xml",
+}
+
+
+def fetch_tagesschau(category="top", limit=10):
+    import xml.etree.ElementTree as ET
+    url = TAGESSCHAU_FEEDS.get(category, TAGESSCHAU_FEEDS["top"])
+    r = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+    r.raise_for_status()
+    root = ET.fromstring(r.content)
+    items = []
+    for item in root.findall(".//item")[:limit]:
+        title = (item.findtext("title") or "").strip()
+        desc  = (item.findtext("description") or "").strip()
+        link  = (item.findtext("link") or "").strip()
+        pub   = (item.findtext("pubDate") or "").strip()
+        # strip HTML from description
+        desc = re.sub(r"<[^>]+>", "", desc).strip()
+        items.append({"title": title, "description": desc, "link": link, "pubDate": pub})
+    return items
+
+
+@app.route("/api/tagesschau", methods=["GET"])
+def tagesschau_feed():
+    category = request.args.get("category", "top")
+    limit    = min(int(request.args.get("limit", 10)), 20)
+    if category not in TAGESSCHAU_FEEDS:
+        return jsonify({"error": f"Unbekannte Kategorie: {category}", "categories": list(TAGESSCHAU_FEEDS.keys())}), 400
+    try:
+        items = fetch_tagesschau(category, limit)
+        return jsonify({"category": category, "items": items})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ─── Agent Tasks API ──────────────────────────────────────────────────────────
+
+@app.route("/api/tasks", methods=["POST"])
+def create_task():
+    data = request.json
+    sender_id   = data.get("sender_agent_id", "")
+    sender_name = data.get("sender_agent_name", "?")
+    target_name = data.get("recipient_agent_name", "")
+    message     = data.get("message", "").strip()
+
+    if not message:
+        return jsonify({"error": "Keine Nachricht"}), 400
+
+    agents = load_agents()
+    recipient = next(
+        (a for a in agents if a["name"].lower() == target_name.lower()), None
+    )
+    if not recipient:
+        available = [a["name"] for a in agents]
+        return jsonify({"error": f"Agent '{target_name}' nicht gefunden", "available": available}), 404
+
+    now = datetime.now()
+    task = {
+        "id": str(uuid.uuid4()),
+        "sender_agent_id": sender_id,
+        "sender_agent_name": sender_name,
+        "recipient_agent_id": recipient["id"],
+        "recipient_agent_name": recipient["name"],
+        "message": message,
+        "status": "pending",
+        "skill_used": None,
+        "result_text": None,
+        "result_image": None,
+        "error": None,
+        "created_at": now.isoformat(),
+        "completed_at": None,
+        "timeout_at": (now + timedelta(seconds=180)).isoformat(),
+    }
+    with _tasks_lock:
+        _TASKS[task["id"]] = task
+    _save_tasks()
+
+    t = threading.Thread(target=process_task, args=(task["id"],), daemon=True)
+    t.start()
+    print(f"[Task] created {task['id']}: {sender_name} → {recipient['name']}: {message[:60]}", flush=True)
+    return jsonify(task), 202
+
+
+@app.route("/api/tasks/<task_id>", methods=["GET"])
+def get_task(task_id):
+    with _tasks_lock:
+        task = _TASKS.get(task_id)
+    if not task:
+        # Fall back to disk (e.g. after server restart)
+        tasks_on_disk = _load_tasks_from_disk()
+        task = tasks_on_disk.get(task_id)
+    if not task:
+        return jsonify({"error": "Task nicht gefunden"}), 404
+
+    # Auto-timeout stuck tasks
+    if task["status"] in ("pending", "processing"):
+        try:
+            if datetime.now().isoformat() > task["timeout_at"]:
+                task["status"] = "error"
+                task["error"] = "Timeout"
+                _save_tasks()
+        except Exception:
+            pass
+
+    return jsonify(task)
+
+
+@app.route("/api/activity", methods=["GET"])
+def get_activity():
+    with _activity_lock:
+        return jsonify(dict(_ACTIVITY))
 
 
 # ─── ComfyUI Image Generation ─────────────────────────────────────────────────
