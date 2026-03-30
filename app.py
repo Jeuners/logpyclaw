@@ -451,7 +451,7 @@ def _run_comfyui_sync(prompt: str) -> str:
     """Run ComfyUI image generation synchronously. Returns base64 data URL."""
     providers = load_providers()
     cfg = providers.get("comfyui", {})
-    base_url = cfg.get("url", "http://192.168.3.26:8000").rstrip("/")
+    base_url = cfg.get("url", "http://localhost:8188").rstrip("/")
     seed = int(time.time()) % (2**32)
 
     # Optimize prompt: English only, no text
@@ -513,7 +513,7 @@ def _run_comfyui_edit(image_b64: str, prompt: str, use_lightning: bool = True) -
     """Run FireRed Image Edit via ComfyUI. Returns base64 data URL."""
     providers = load_providers()
     cfg = providers.get("comfyui", {})
-    base_url = cfg.get("url", "http://192.168.3.26:8000").rstrip("/")
+    base_url = cfg.get("url", "http://localhost:8188").rstrip("/")
     seed = int(time.time()) % (2**32)
 
     # Optimize prompt
@@ -1005,7 +1005,7 @@ def load_providers():
         "mistral": {"api_key": os.getenv("MISTRAL_API_KEY", "")},
         "openrouter": {"api_key": ""},
         "searxng": {"url": "http://localhost:8888"},
-        "comfyui": {"url": "http://192.168.3.26:8000", "model": "flux2pro"},
+        "comfyui": {"url": "http://localhost:8188", "model": "flux2pro"},
         "qdrant": {"url": "http://localhost:6333"},
         "telegram": {"bot_token": "", "chat_id": ""},
     }
@@ -2887,7 +2887,7 @@ def comfyui_config():
     cfg = load_providers().get("comfyui", {})
     return jsonify(
         {
-            "url": cfg.get("url", "http://192.168.3.26:8000"),
+            "url": cfg.get("url", "http://localhost:8188"),
             "workflow": build_z_image_turbo_workflow("__PROMPT__", 0),
         }
     )
@@ -2906,7 +2906,7 @@ def comfyui_generate():
 
     providers = load_providers()
     cfg = providers.get("comfyui", {})
-    base_url = cfg.get("url", "http://192.168.3.26:8000").rstrip("/")
+    base_url = cfg.get("url", "http://localhost:8188").rstrip("/")
 
     workflow = build_z_image_turbo_workflow(prompt, seed)
 
