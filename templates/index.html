@@ -31,6 +31,8 @@
       --cyan:   #00bcd4;
     }
 
+    html { height: 100%; overflow: hidden; }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       background: var(--bg);
@@ -38,6 +40,7 @@
       height: 100vh;
       display: flex;
       overflow: hidden;
+      overscroll-behavior: none;
     }
 
     /* ─── Scrollbars ─────────────────────────────────── */
@@ -50,6 +53,7 @@
     .activity-bar {
       width: 64px;
       min-width: 64px;
+      flex-shrink: 0;
       background: var(--bg2);
       border-right: 1px solid var(--b1);
       display: flex;
@@ -57,6 +61,7 @@
       align-items: center;
       padding: 8px 0;
       z-index: 10;
+      overflow: hidden;
     }
 
     .app-logo {
@@ -144,6 +149,7 @@
     .side-panel {
       width: 228px;
       min-width: 228px;
+      flex-shrink: 0;
       background: var(--bg2);
       border-right: 1px solid var(--b1);
       display: flex;
@@ -1717,7 +1723,7 @@ function renderHome(ws) {
         <div style="display:flex;align-items:center;gap:6px">
           <span class="home-agent-name">${esc(a.name)}</span>
           ${favs.has(a.id) ? '<span style="font-size:11px;color:var(--green)">★</span>' : ''}
-          ${hbOn ? '<span title="Heartbeat aktiv" style="font-size:11px;opacity:.6">💓</span>' : ''}
+          ${hbOn ? '<span title="Heartbeat active" style="font-size:11px;opacity:.6">💓</span>' : ''}
         </div>
         ${a.role ? `<div class="home-agent-sub" style="margin-top:1px">${esc(a.role)}</div>` : ''}
         <div class="home-agent-sub" style="opacity:.5;margin-top:1px">${esc((a.model||'').split('/').pop())}</div>
@@ -1726,7 +1732,7 @@ function renderHome(ws) {
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
         <span class="home-agent-badge">${msgCount} msgs</span>
-        ${msgCount > 0 ? `<span style="font-size:9px;color:var(--textdim);font-family:var(--mono)">${(() => { const msgs = conversations[a.id]||[]; const last = msgs[msgs.length-1]; return last?.ts ? new Date(last.ts).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}) : ''; })()}</span>` : ''}
+        ${msgCount > 0 ? `<span style="font-size:9px;color:var(--textdim);font-family:var(--mono)">${(() => { const msgs = conversations[a.id]||[]; const last = msgs[msgs.length-1]; return last?.ts ? new Date(last.ts).toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit'}) : ''; })()}</span>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -1740,6 +1746,11 @@ function renderHome(ws) {
         <div class="home-stat"><div class="home-stat-val">${providers.length}</div><div class="home-stat-lbl">Providers</div></div>
         <div class="home-stat"><div class="home-stat-val">${activeWds}</div><div class="home-stat-lbl">Watchdogs</div></div>
       </div>
+      ${agentRows ? `
+      <div class="home-section">
+        <div class="home-section-title">Agents (${agents.length})</div>
+        ${agentRows}
+      </div>` : ''}
       ${skills.length > 0 ? `
       <div class="home-section">
         <div class="home-section-title">Skills (${skills.length})</div>

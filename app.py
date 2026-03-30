@@ -1105,8 +1105,8 @@ def create_agent():
     data = request.json
     agent = {
         "id": str(uuid.uuid4()),
-        "name": data.get("name", "Neu"),
-        "soul": data.get("soul", "You are a helpful assistant."),
+        "name": data.get("name", "New Agent"),
+        "soul": data.get("soul", "You are a capable AI assistant. You are clear, concise and honest. You help the user with any task, ask clarifying questions when the request is ambiguous, and always aim to deliver practical, actionable answers. You adapt your tone to the context — friendly in casual conversation, precise in technical discussions."),
         "voice": data.get("voice", "en_paul_neutral"),
         "model": data.get("model", "StarCoder2:latest"),
         "provider": data.get("provider", "ollama"),
@@ -2543,7 +2543,7 @@ def create_watchdog():
     now = datetime.now().isoformat()
     wd = {
         "id": str(uuid.uuid4()),
-        "name": data.get("name", "Neuer Watchdog"),
+        "name": data.get("name", "New Watchdog"),
         "url": data.get("url", ""),
         "interval_min": int(data.get("interval_min", 30)),
         "agent_id": data.get("agent_id", ""),
