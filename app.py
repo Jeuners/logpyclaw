@@ -120,7 +120,11 @@ SKILLS = [
 ]
 
 # Im py2app-Bundle zeigt __file__ auf die .zip — deshalb CWD nutzen (gesetzt durch chdir in main_app.py)
-BASE_DIR = os.getcwd() if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = (
+    os.getcwd()
+    if getattr(sys, "frozen", False)
+    else os.path.dirname(os.path.abspath(__file__))
+)
 AGENTS_FILE = os.path.join(BASE_DIR, "agents.json")
 HISTORY_FILE = os.path.join(BASE_DIR, "history.json")
 PROVIDERS_FILE = os.path.join(BASE_DIR, "providers.json")
@@ -645,7 +649,7 @@ def process_task(task_id: str):
     activity_start(
         task["recipient_agent_id"],
         "task",
-        f"Aufgabe von @{task['sender_agent_name']}: {task['message'][:50]}",
+        f"Task from @{task['sender_agent_name']}: {task['message'][:50]}",
     )
 
     agents = load_agents()
@@ -719,8 +723,9 @@ def process_task(task_id: str):
             task["skill_used"] = "image_gen"
         else:
             system_suffix = (
-                f"[Aufgabe delegiert von Agent {task['sender_agent_name']}]\n"
-                f"Bearbeite die folgende Anfrage direkt und präzise."
+                f"[Task delegated by agent {task['sender_agent_name']}]\n"
+                f"Handle the following request directly and concisely. "
+                f"You are acting autonomously — no user is present. Respond with a result, not a question."
             )
             task["result_text"] = call_agent_text(recipient, system_suffix, message)
             task["skill_used"] = "llm"
@@ -738,7 +743,7 @@ def process_task(task_id: str):
             history[recipient_id] = []
 
         if task["skill_used"] == "image_gen" and task.get("result_image"):
-            content = f"[Aufgabe von {task['sender_agent_name']}]: {task['message']}"
+            content = f"[Task from {task['sender_agent_name']}]: {task['message']}"
             history[recipient_id].append(
                 {
                     "role": "assistant",
@@ -755,7 +760,7 @@ def process_task(task_id: str):
                 history[sender_id].append(
                     {
                         "role": "assistant",
-                        "content": f"📬 **@{task['recipient_agent_name']}** hat das Bild fertig: _{task['message'][:80]}_",
+                        "content": f"📬 **@{task['recipient_agent_name']}** finished the image: _{task['message'][:80]}_",
                         "task_image": task["result_image"],
                         "task_id": task_id,
                         "ts": ts,
@@ -858,7 +863,7 @@ def memory_search(agent_id, query, top_k=4):
         for h in hits:
             p = h.payload
             parts.append(
-                f"[Erinnerung] User: {p.get('user', '')}\nAssistent: {p.get('assistant', '')}"
+                f"[Memory] User: {p.get('user', '')}\nAssistant: {p.get('assistant', '')}"
             )
         return "\n\n".join(parts)
     except Exception as e:
@@ -900,7 +905,7 @@ DEFAULT_AGENTS = [
     {
         "id": str(uuid.uuid4()),
         "name": "Alex",
-        "soul": "Du bist Alex, ein freundlicher, witziger und neugieriger Assistent. Du antwortest immer auf Deutsch, bist locker und humorvoll, aber hilfreich. Du hast eine lebhafte Persönlichkeit und zeigst echte Begeisterung für Themen die dich interessieren.",
+        "soul": "You are Alex, a friendly, witty and curious assistant. You always respond in German, are easygoing and humorous, but genuinely helpful. You have a vivid personality and show real enthusiasm for topics that interest you.",
         "voice": "en_paul_neutral",
         "model": "StarCoder2:latest",
         "color": "#ff6b35",
@@ -916,7 +921,7 @@ DEFAULT_AGENTS = [
     {
         "id": str(uuid.uuid4()),
         "name": "Flo",
-        "soul": "Du bist Flo, eine ruhige, einfühlsame und achtsame Assistentin. Du sprichst Deutsch, bist geduldig, warmherzig und gibst durchdachte Antworten. Du nimmst dir Zeit, Dinge zu erklären und bist sehr unterstützend.",
+        "soul": "You are Flo, a calm, empathetic and mindful assistant. You always respond in German, are patient and warm, and give thoughtful answers. You take time to explain things clearly and are very supportive.",
         "voice": "mac:Flo",
         "model": "StarCoder2:latest",
         "color": "#22c55e",
@@ -1069,7 +1074,7 @@ def create_agent():
     agent = {
         "id": str(uuid.uuid4()),
         "name": data.get("name", "Neu"),
-        "soul": data.get("soul", "Du bist ein hilfreicher Assistent."),
+        "soul": data.get("soul", "You are a helpful assistant."),
         "voice": data.get("voice", "en_paul_neutral"),
         "model": data.get("model", "StarCoder2:latest"),
         "provider": data.get("provider", "ollama"),
@@ -1176,8 +1181,8 @@ def chat():
     agent_history = history.get(agent_id, [])
 
     # Inject current datetime into system prompt
-    now = datetime.now().strftime("%A, %d. %B %Y, %H:%M Uhr")
-    system_content = f"[Aktuelle Zeit: {now}]\n\n{agent['soul']}"
+    now = datetime.now().strftime("%A, %B %d %Y, %H:%M")
+    system_content = f"[Current time: {now}]\n\n{agent['soul']}"
 
     # Determine active skills (with backwards compat for old web_search field)
     agent_skills = set(agent.get("skills", []))
@@ -1273,22 +1278,22 @@ def chat():
             sx_url = providers.get("searxng", {}).get("url", "http://localhost:8888")
             sx_resp = requests.get(
                 f"{sx_url}/search",
-                params={"q": user_message, "format": "json", "language": "de"},
+                params={"q": user_message, "format": "json", "language": "auto"},
                 timeout=8,
             )
             results = sx_resp.json().get("results", [])[:5]
             if results:
                 lines = [
-                    "⚠️ WICHTIG: Du hast Zugriff auf aktuelle Websuche-Ergebnisse (gerade eben abgerufen).",
-                    "Nutze AUSSCHLIESSLICH diese Ergebnisse um die Frage zu beantworten. Sage NICHT, dass du keine aktuellen Infos hast.",
-                    f"[Websuche für: {user_message}]",
+                    "⚠️ IMPORTANT: You have access to live web search results (fetched just now).",
+                    "Use ONLY these results to answer the question. Do NOT say you lack current information. If results are unclear or conflicting, say so.",
+                    f"[Web search for: {user_message}]",
                 ]
                 for r in results:
                     lines.append(
                         f"- {r.get('title', '')} — {r.get('url', '')}\n  {r.get('content', '')[:300]}"
                     )
                 lines.append(
-                    "Beantworte die Frage basierend auf diesen Suchergebnissen und nenne die Quellen."
+                    "Answer based on these search results and cite your sources."
                 )
                 search_context = "\n".join(lines)
         except Exception as e:
@@ -1305,7 +1310,7 @@ def chat():
     if "memory" in agent_skills:
         memory_context = memory_search(agent["id"], user_message)
         if memory_context:
-            system_content += f"\n\n{memory_context}"
+            system_content += f"\n\n[Relevant past conversations — use for context and continuity:]\n{memory_context}"
             print(
                 f"[Memory] injected {len(memory_context)} chars for agent {agent['id']}",
                 flush=True,
@@ -1319,7 +1324,7 @@ def chat():
             for url in urls[:3]:  # max 3 URLs per message
                 print(f"[URL-Fetch] {url}", flush=True)
                 content = fetch_url_text(url)
-                url_parts.append(f"[Inhalt von {url}]\n{content}")
+                url_parts.append(f"[Content from {url}]\n{content}\nUse the content above to answer the user's question.")
             system_content += "\n\n" + "\n\n".join(url_parts)
 
     # Build messages
@@ -1989,8 +1994,8 @@ def run_watchdog(wd):
         )
         return
 
-    prompt = wd.get("prompt", "Was hat sich auf dieser Seite geändert?")
-    system_suffix = f"[Watchdog-Seiteninhalt von {url}]\n\n{page_text[:6000]}"
+    prompt = wd.get("prompt", "Has anything relevant changed on this page? Answer with YES or NO, followed by a one-sentence summary of what changed.")
+    system_suffix = f"[Watchdog — page content from {url}]\n\n{page_text[:6000]}"
 
     try:
         reply = call_agent_text(agent, system_suffix, prompt)
@@ -2144,7 +2149,7 @@ def run_heartbeat(agent):
     hb = agent.get("heartbeat", {})
     prompt = (
         hb.get("prompt", "").strip()
-        or "Was sind deine aktuellen Gedanken? Gib einen kurzen Status-Update."
+        or "What are your current thoughts? Give a brief status update."
     )
     skills = set(agent.get("skills", []))
     print(f"[Heartbeat] 💓 Agent '{agent['name']}' — {prompt[:60]}", flush=True)
@@ -2218,7 +2223,7 @@ def run_heartbeat(agent):
             # Strip @mentions from the prompt before sending to LLM so it
             # focuses on generating content, not on routing.
             prompt_for_llm = _MENTION_RX.sub("", prompt).strip()
-            system_suffix = "[Heartbeat — autonome Aktion, kein Benutzer anwesend]"
+            system_suffix = "[Heartbeat — autonomous action, no user present. Respond with content, not questions.]"
             reply = call_agent_text(agent, system_suffix, prompt_for_llm)
             history[agent_id].append(
                 {
@@ -2234,7 +2239,7 @@ def run_heartbeat(agent):
             # — strip the heartbeat preamble, use the core reply as task message
             clean_reply = re.sub(r"^\s*\(.*?\)\s*", "", reply, flags=re.DOTALL).strip()
             clean_reply = re.sub(
-                r"^\s*(Guten\s+\w+|Hallo|Hi|Hey)[^.!?\n]*[.!?\n]",
+                r"^\s*(Guten\s+\w+|Hallo|Hi|Hey|Good\s+\w+|Hello|Greetings)[^.!?\n]*[.!?\n]",
                 "",
                 clean_reply,
                 flags=re.IGNORECASE,
@@ -2319,27 +2324,37 @@ def tick_telegram():
     token = tg.get("bot_token", "")
     chat_id = tg.get("chat_id", "")
 
-    print(f"[Telegram] tick: token={bool(token)}, chat_id={chat_id}", flush=True)
-
     if not token or not chat_id:
         return
 
     try:
-        # Get updates - first time get all, then only new ones
+        # Reset polling to avoid conflict - get all pending updates first
         params = {"timeout": 1}
+
+        # First reset: get offset=0 to clear any stale polling
+        try:
+            requests.get(
+                f"https://api.telegram.org/bot{token}/getUpdates",
+                params={"offset": 0, "timeout": 1},
+                timeout=2,
+            )
+        except:
+            pass
+
+        # Then get updates with offset
         if _telegram_last_update_id is not None:
             params["offset"] = _telegram_last_update_id + 1
 
         r = requests.get(
             f"https://api.telegram.org/bot{token}/getUpdates",
             params=params,
-            timeout=1,
+            timeout=2,
         )
         if not r.ok:
             print(f"[Telegram] API error: {r.text[:100]}", flush=True)
             return
         updates = r.json().get("result", [])
-        print(f"[Telegram] got {len(updates)} updates", flush=True)
+
         if not updates:
             return
 
@@ -2348,10 +2363,7 @@ def tick_telegram():
         target_agents = [
             a for a in agents if "telegram_incoming" in a.get("skills", [])
         ]
-        print(
-            f"[Telegram] target_agents: {[a['name'] for a in target_agents]}, updates: {len(updates)}",
-            flush=True,
-        )
+
         if not target_agents:
             return
 
@@ -2417,7 +2429,7 @@ def scheduler_loop():
             activity_cleanup()
         except Exception as e:
             print(f"[Scheduler] Fehler: {e}", flush=True)
-        time.sleep(5)  # Telegram polling every 5 seconds
+        time.sleep(3600)  # Telegram polling every hour
 
 
 # Scheduler als Daemon-Thread starten (nicht blockierend)
@@ -2484,8 +2496,8 @@ def create_watchdog():
         "url": data.get("url", ""),
         "interval_min": int(data.get("interval_min", 30)),
         "agent_id": data.get("agent_id", ""),
-        "prompt": data.get("prompt", "Hat sich etwas Relevantes geändert?"),
-        "alert_keyword": data.get("alert_keyword", "JA"),
+        "prompt": data.get("prompt", "Has anything relevant changed on this page? Answer with YES or NO, followed by a one-sentence summary of what changed."),
+        "alert_keyword": data.get("alert_keyword", "YES"),
         "active": data.get("active", True),
         "created_at": now,
         "last_run": None,
@@ -2973,5 +2985,5 @@ if __name__ == "__main__":
             break
         except OSError:
             port += 1
-    print(f"Starting on http://localhost:{port}", flush=True)
-    app.run(debug=True, port=port, use_reloader=False)
+    print(f"Starting on http://0.0.0.0:{port}", flush=True)
+    app.run(debug=True, host="0.0.0.0", port=port, use_reloader=False)
