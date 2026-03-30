@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1221,8 +1221,8 @@
         <input class="form-input" id="newAgentName" placeholder="e.g. Research Bot">
       </div>
       <div class="form-group">
-        <label class="form-label">Aufgabengebiet</label>
-        <input class="form-input" id="newAgentRole" placeholder="z.B. Recherche-Assistent">
+        <label class="form-label">Role / Focus</label>
+        <input class="form-input" id="newAgentRole" placeholder="e.g. Research Assistant">
       </div>
       <div class="form-group">
         <label class="form-label">Provider</label>
@@ -1263,8 +1263,8 @@
         <input class="form-input" id="editAgentName">
       </div>
       <div class="form-group">
-        <label class="form-label">Aufgabengebiet</label>
-        <input class="form-input" id="editAgentRole" placeholder="z.B. Recherche-Assistent">
+        <label class="form-label">Role / Focus</label>
+        <input class="form-input" id="editAgentRole" placeholder="e.g. Research Assistant">
       </div>
       <div class="form-group">
         <label class="form-label">Provider</label>
@@ -1279,8 +1279,8 @@
         <textarea class="form-textarea" id="editAgentSystem" style="min-height:100px"></textarea>
       </div>
       <div class="form-group">
-        <label class="form-label">Max Tokens <span style="font-size:10px;color:var(--textdim);font-family:var(--mono)">(leer = Modell-Standard)</span></label>
-        <input class="form-input" id="editAgentMaxTokens" type="number" min="128" max="32768" placeholder="z.B. 2048" style="width:140px">
+        <label class="form-label">Max Tokens <span style="font-size:10px;color:var(--textdim);font-family:var(--mono)">(empty = model default)</span></label>
+        <input class="form-input" id="editAgentMaxTokens" type="number" min="128" max="32768" placeholder="e.g. 2048" style="width:140px">
       </div>
       <div class="form-group">
         <label class="form-label">TTS Voice</label>
@@ -1296,15 +1296,15 @@
         <label class="form-label" style="display:flex;align-items:center;gap:8px">
           💓 Heartbeat
           <div class="toggle-switch" id="editHeartbeatToggle" onclick="toggleEditHeartbeat()"></div>
-          <span id="editHeartbeatStatus" style="font-size:11px;color:var(--textdim);font-family:var(--mono)">inaktiv</span>
+          <span id="editHeartbeatStatus" style="font-size:11px;color:var(--textdim);font-family:var(--mono)">inactive</span>
         </label>
         <div id="editHeartbeatFields" style="display:none;flex-direction:column;gap:8px;margin-top:8px">
-          <textarea class="form-textarea" id="editHeartbeatPrompt" placeholder="Aufgabe z.B. Fasse deinen aktuellen Status zusammen. Nutze @AgentName um Aufgaben zu delegieren." style="min-height:80px;resize:vertical"></textarea>
+          <textarea class="form-textarea" id="editHeartbeatPrompt" placeholder="Task e.g. Summarize your current status. Use @AgentName to delegate tasks." style="min-height:80px;resize:vertical"></textarea>
           <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:12px;color:var(--textdim);font-family:var(--mono);white-space:nowrap">Alle</span>
+            <span style="font-size:12px;color:var(--textdim);font-family:var(--mono);white-space:nowrap">Every</span>
             <input class="form-input" id="editHeartbeatInterval" type="number" min="1" max="1440" value="30" style="width:70px">
-            <span style="font-size:12px;color:var(--textdim);font-family:var(--mono)">Minuten</span>
-            <button class="btn-secondary" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="runHeartbeatNow()">▶ Jetzt</button>
+            <span style="font-size:12px;color:var(--textdim);font-family:var(--mono)">minutes</span>
+            <button class="btn-secondary" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="runHeartbeatNow()">▶ Run now</button>
           </div>
         </div>
       </div>
@@ -1373,11 +1373,11 @@
       </div>
       <div class="form-group">
         <label class="form-label">Prompt</label>
-        <textarea class="form-textarea" id="wdPrompt" placeholder="Hat sich etwas Relevantes geändert?"></textarea>
+        <textarea class="form-textarea" id="wdPrompt" placeholder="Has anything relevant changed? Answer YES or NO with a brief summary."></textarea>
       </div>
       <div class="form-group">
         <label class="form-label">Alert keyword (trigger alert when response contains)</label>
-        <input class="form-input" id="wdKeyword" placeholder="JA" value="JA">
+        <input class="form-input" id="wdKeyword" placeholder="YES" value="YES">
       </div>
     </div>
     <div class="modal-actions">
@@ -1804,14 +1804,14 @@ function renderChatShell(ws) {
         <div id="imagePreviewWrap" style="display:none;padding:6px 0 0">
           <div style="display:flex;align-items:center;gap:8px">
             <img id="imagePreview" style="max-height:80px;border-radius:6px;border:1px solid var(--b2)">
-            <button onclick="clearImageAttachment()" style="background:transparent;border:none;color:var(--textdim);cursor:pointer;font-size:16px" title="Bild entfernen">✕</button>
+            <button onclick="clearImageAttachment()" style="background:transparent;border:none;color:var(--textdim);cursor:pointer;font-size:16px" title="Remove image">✕</button>
           </div>
         </div>
         <div class="input-row">
           <textarea class="input-box" id="mainInput" placeholder="Message ${esc(currentAgent.name)}…" rows="1"
             onkeydown="handleInputKey(event)"
             oninput="autoResizeTextarea(this)"></textarea>
-          <button class="send-btn" id="voiceBtn" title="Klick: Konversationsmodus · Halten: Push-to-Talk"
+          <button class="send-btn" id="voiceBtn" title="Click: Conversation mode · Hold: Push-to-Talk"
             onmousedown="voiceBtnDown(event)" onmouseup="voiceBtnUp(event)" onmouseleave="voiceBtnUp(event)"
             ontouchstart="voiceBtnDown(event)" ontouchend="voiceBtnUp(event)">🎤</button>
           <button class="send-btn" id="sendBtn" onclick="sendMessage()">↑</button>
@@ -1820,7 +1820,7 @@ function renderChatShell(ws) {
           <div class="voice-indicator" id="voiceIndicator">
             <div class="voice-dot"></div> Listening…
           </div>
-          <button class="tool-btn" onclick="document.getElementById('imageFileInput').click()" title="Bild hochladen">🖼 Bild</button>
+          <button class="tool-btn" onclick="document.getElementById('imageFileInput').click()" title="Upload image">🖼 Image</button>
           <input type="file" id="imageFileInput" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
           <div id="skillBtns" style="display:contents"></div>
         </div>
@@ -1866,8 +1866,8 @@ function renderMsg(m, index) {
       <div class="msg-bubble">${content}${imgHtml}</div>
       ${m.stats ? `<div style="font-size:10px;color:var(--textdim);font-family:var(--mono);padding:2px 4px">⚡${m.stats.tok_s} tok/s · ${m.stats.tokens} tkn · ${m.stats.total_s}s</div>` : ''}
       <div class="msg-actions">
-        <button class="btn-play" id="playBtn-${idx}" onclick="togglePlayByIndex(${idx})">▶ Abspielen</button>
-        <button class="btn-dl" title="Audio herunterladen" onclick="downloadAudioByIndex(${idx})">⬇</button>
+        <button class="btn-play" id="playBtn-${idx}" onclick="togglePlayByIndex(${idx})">▶ Play</button>
+        <button class="btn-dl" title="Download audio" onclick="downloadAudioByIndex(${idx})">⬇</button>
       </div>
     </div>`;
   }
@@ -1954,7 +1954,7 @@ async function sendMessage(overrideText) {
     const taskMessage = mentionMatch[2].trim();
     const targetAgent = agents.find(a => a.name.toLowerCase() === targetName.toLowerCase());
     if (!targetAgent) {
-      appendSystemMsg(`Unbekannter Agent: @${esc(targetName)} — verfügbar: ${agents.map(a => '@'+a.name).join(', ')}`);
+      appendSystemMsg(`Unknown agent: @${esc(targetName)} — available: ${agents.map(a => '@'+a.name).join(', ')}`);
     } else {
       if (input && !overrideText) input.value = '';
       // Release send lock immediately — polling runs in background
@@ -1979,7 +1979,7 @@ async function sendMessage(overrideText) {
     if (rawUrl && !rawUrl.startsWith('http')) rawUrl = 'https://' + rawUrl;
     if (rawUrl) {
       appendMsg('user', text);
-      appendSystemMsg(`📸 Screenshot von ${rawUrl}…`);
+      appendSystemMsg(`📸 Taking screenshot of ${rawUrl}…`);
       try {
         const sc = await api('/api/screenshot', { method: 'POST', body: { url: rawUrl } });
         if (sc.image) {
@@ -1998,7 +1998,7 @@ async function sendMessage(overrideText) {
           }
         }
       } catch(e) {
-        appendSystemMsg('Screenshot fehlgeschlagen: ' + e.message);
+        appendSystemMsg('Screenshot failed: ' + e.message);
       }
       showThinkingIndicator();
       try {
@@ -2032,7 +2032,7 @@ async function sendMessage(overrideText) {
     }
     if (imgPrompt && imgPrompt.length > 2) {
       appendMsg('user', text);
-      appendSystemMsg(`🎨 Generiere: „${imgPrompt}"…`);
+      appendSystemMsg(`🎨 Generating: "${imgPrompt}"…`);
       try {
         const imgDataUrl = await comfyuiGenerate(imgPrompt);
         if (imgDataUrl) {
@@ -2050,7 +2050,7 @@ async function sendMessage(overrideText) {
           }
         }
       } catch(e) {
-        appendSystemMsg('Bildgenerierung fehlgeschlagen: ' + e.message);
+        appendSystemMsg('Image generation failed: ' + e.message);
       }
       if (imageData) {
         showThinkingIndicator();
@@ -2087,12 +2087,12 @@ async function sendMessage(overrideText) {
       let category = 'top';
       for (const [rx, cat] of CAT_MAP) { if (rx.test(text)) { category = cat; break; } }
       appendMsg('user', text);
-      appendSystemMsg(`📰 Lade Tagesschau (${category})…`);
+      appendSystemMsg(`📰 Loading Tagesschau news (${category})…`);
       let newsContext = '';
       try {
         const nd = await api(`/api/tagesschau?category=${category}&limit=10`);
         if (nd.items && nd.items.length) {
-          newsContext = `Aktuelle Tagesschau-Nachrichten (${nd.category}, ${nd.date}):\n` +
+          newsContext = `Current Tagesschau news (${nd.category}, ${nd.date}):\n` +
             nd.items.map((it, i) => `${i+1}. **${it.title}**${it.description ? ' — ' + it.description : ''}${it.link ? ' ('+it.link+')' : ''}`).join('\n');
         }
       } catch(e) { newsContext = ''; }
@@ -2522,7 +2522,7 @@ async function openEditAgentModal(id) {
   const hb = a.heartbeat || {};
   const hbActive = !!hb.active;
   document.getElementById('editHeartbeatToggle').classList.toggle('on', hbActive);
-  document.getElementById('editHeartbeatStatus').textContent = hbActive ? 'aktiv' : 'inaktiv';
+  document.getElementById('editHeartbeatStatus').textContent = hbActive ? 'active' : 'inactive';
   document.getElementById('editHeartbeatFields').style.display = hbActive ? 'flex' : 'none';
   document.getElementById('editHeartbeatPrompt').value = hb.prompt || '';
   document.getElementById('editHeartbeatInterval').value = hb.interval_min || 30;
@@ -2550,15 +2550,15 @@ function toggleEditHeartbeat() {
   const on = !tog.classList.contains('on');
   tog.classList.toggle('on', on);
   fields.style.display = on ? 'flex' : 'none';
-  status.textContent = on ? 'aktiv' : 'inaktiv';
+  status.textContent = on ? 'active' : 'inactive';
 }
 
 async function runHeartbeatNow() {
   if (!editingAgentId) return;
   try {
     await api(`/api/agents/${editingAgentId}/heartbeat/run`, { method: 'POST' });
-    appendSystemMsg('💓 Heartbeat ausgeführt — Antwort erscheint im Chat');
-  } catch(e) { alert('Fehler: ' + e.message); }
+    appendSystemMsg('💓 Heartbeat triggered — response will appear in chat');
+  } catch(e) { alert('Error: ' + e.message); }
 }
 
 async function saveEditAgent() {
@@ -2647,7 +2647,7 @@ async function openSkillsModal() {
 }
 
 function useSkill(id) {
-  if (!currentAgent) { alert('Zuerst einen Agenten auswählen'); return; }
+  if (!currentAgent) { alert('Please select an agent first'); return; }
   const skill = skills.find(s => s.id === id);
   closeModal('skillsModal');
   if (currentView !== 'chat') setView('chat');
@@ -2699,8 +2699,8 @@ async function createWatchdog() {
   const url = document.getElementById('wdUrl')?.value.trim();
   const interval_min = parseInt(document.getElementById('wdInterval')?.value || '30');
   const prompt = document.getElementById('wdPrompt')?.value.trim();
-  const alert_keyword = document.getElementById('wdKeyword')?.value.trim() || 'JA';
-  if (!agent_id || !url || !prompt) { alert('Agent, URL und Prompt sind Pflichtfelder'); return; }
+  const alert_keyword = document.getElementById('wdKeyword')?.value.trim() || 'YES';
+  if (!agent_id || !url || !prompt) { alert('Agent, URL and prompt are required fields'); return; }
   try {
     const wd = await api('/api/watchdogs', { method: 'POST', body: { agent_id, url, interval_min, prompt, alert_keyword } });
     watchdogs.push(wd);
@@ -2904,7 +2904,7 @@ function stopCurrentAudio() {
   }
   if (currentPlayingIndex >= 0) {
     const btn = document.getElementById(`playBtn-${currentPlayingIndex}`);
-    if (btn) { btn.textContent = '▶ Abspielen'; btn.classList.remove('playing'); }
+    if (btn) { btn.textContent = '▶ Play'; btn.classList.remove('playing'); }
     currentPlayingIndex = -1;
   }
   document.getElementById('speakingDot')?.classList.remove('active');
@@ -2941,7 +2941,7 @@ async function togglePlay(index, text) {
   stopCurrentAudio();
   currentPlayingIndex = index;
   const btn = document.getElementById(`playBtn-${index}`);
-  if (btn) { btn.textContent = '⏳ Laden…'; btn.classList.add('playing'); }
+  if (btn) { btn.textContent = '⏳ Loading…'; btn.classList.add('playing'); }
   setTTSPlaying(true);
   if (voice.startsWith('mac:')) {
     await playMacVoiceAsync(text, voice.replace('mac:', ''), btn);
@@ -2982,7 +2982,7 @@ async function downloadAudioByIndex(index) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = `msg-${index}.mp3`; a.click();
     URL.revokeObjectURL(url);
-  } catch(e) { alert('Download fehlgeschlagen: ' + e.message); }
+  } catch(e) { alert('Download failed: ' + e.message); }
 }
 
 function playMacVoiceAsync(text, voiceName, btn) {
@@ -3013,7 +3013,7 @@ function dispatchReplyMentions(reply) {
     // Extract task: everything after the @Name mention (strip leading punctuation/space)
     const afterMention = reply.slice(m.index + m[0].length).replace(/^[,\s–—:]+/, '').trim();
     const taskMsg = afterMention || reply;
-    appendSystemMsg(`🤖 ${esc(currentAgent.name)} delegiert an @${esc(target.name)}…`);
+    appendSystemMsg(`🤖 ${esc(currentAgent.name)} delegating to @${esc(target.name)}…`);
     handleAgentMention(target, taskMsg, `@${target.name} ${taskMsg}`);
     break; // one dispatch per reply to avoid spam
   }
@@ -3021,7 +3021,7 @@ function dispatchReplyMentions(reply) {
 
 async function handleAgentMention(targetAgent, message, rawText) {
   appendMsg('user', rawText);
-  appendSystemMsg(`⏳ @${esc(targetAgent.name)} bearbeitet die Anfrage…`);
+  appendSystemMsg(`⏳ @${esc(targetAgent.name)} is working on it…`);
 
   let task;
   try {
@@ -3054,11 +3054,11 @@ async function handleAgentMention(targetAgent, message, rawText) {
       return;
     }
     if (result.status === 'error') {
-      appendSystemMsg(`@${esc(targetAgent.name)} Fehler: ${esc(result.error || 'Unbekannt')}`);
+      appendSystemMsg(`@${esc(targetAgent.name)} Error: ${esc(result.error || 'Unknown')}`);
       return;
     }
   }
-  appendSystemMsg(`@${esc(targetAgent.name)} — Timeout nach 3 Minuten`);
+  appendSystemMsg(`@${esc(targetAgent.name)} — Timeout after 3 minutes`);
 }
 
 function renderTaskResult(task, fromAgent) {
@@ -3137,14 +3137,14 @@ async function comfyuiGenerate(prompt) {
       }
     }
   }
-  throw new Error('Timeout: ComfyUI hat nicht rechtzeitig geantwortet');
+  throw new Error('Timeout: ComfyUI did not respond in time');
 }
 
 // ─── Memory Dashboard ──────────────────────────────────────────────────────────
 async function openMemoryModal() {
   openModal('memoryModal');
   const body = document.getElementById('memoryModalBody');
-  body.innerHTML = '<p style="color:var(--textdim);font-size:13px;font-family:var(--mono)">Lädt…</p>';
+  body.innerHTML = '<p style="color:var(--textdim);font-size:13px;font-family:var(--mono)">Loading…</p>';
   try {
     const stats = await Promise.all(agents.map(async a => {
       try {
@@ -3156,7 +3156,7 @@ async function openMemoryModal() {
     }));
     renderMemoryModal(stats);
   } catch(e) {
-    body.innerHTML = `<p style="color:var(--red);font-family:var(--mono);font-size:13px">Fehler: ${esc(e.message)}</p>`;
+    body.innerHTML = `<p style="color:var(--red);font-family:var(--mono);font-size:13px">Error: ${esc(e.message)}</p>`;
   }
 }
 
@@ -3171,24 +3171,24 @@ function renderMemoryModal(stats) {
         ${a.role ? `<div style="font-size:11px;color:var(--textdim);font-family:var(--mono)">${esc(a.role)}</div>` : ''}
       </div>
       <div style="font-family:var(--mono);font-size:12px;color:${a.memCount > 0 ? 'var(--green)' : 'var(--textdim)'}">
-        ${a.memError ? '⚠ ' + esc(a.memError.slice(0,40)) : `🧠 ${a.memCount} Erinnerungen`}
+        ${a.memError ? '⚠ ' + esc(a.memError.slice(0,40)) : `🧠 ${a.memCount} memories`}
       </div>
-      ${a.memCount > 0 ? `<button class="btn-danger" style="font-size:11px;padding:4px 10px" onclick="clearMemory('${a.id}')">Löschen</button>` : ''}
+      ${a.memCount > 0 ? `<button class="btn-danger" style="font-size:11px;padding:4px 10px" onclick="clearMemory('${a.id}')">Clear</button>` : ''}
     </div>`).join('');
   body.innerHTML = `
     <div style="font-size:12px;font-family:var(--mono);color:var(--textdim);margin-bottom:12px">
-      Gesamt: ${total} gespeicherte Erinnerungen · Vektor-DB: Qdrant (localhost:6333)
+      Total: ${total} stored memories · Vector DB: Qdrant (localhost:6333)
     </div>
-    ${rows || '<p style="color:var(--textdim);font-family:var(--mono);font-size:13px">Keine Agenten gefunden</p>'}`;
+    ${rows || '<p style="color:var(--textdim);font-family:var(--mono);font-size:13px">No agents found</p>'}`;
 }
 
 async function clearMemory(agentId) {
-  if (!confirm('Alle Erinnerungen für diesen Agenten löschen?')) return;
+  if (!confirm('Delete all memories for this agent?')) return;
   try {
     await api(`/api/memory/${agentId}`, { method: 'DELETE' });
     await openMemoryModal();
   } catch(e) {
-    alert('Fehler: ' + e.message);
+    alert('Error: ' + e.message);
   }
 }
 
