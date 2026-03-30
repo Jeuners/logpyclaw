@@ -2576,24 +2576,15 @@ async function saveEditAgent() {
   const hbInterval = parseInt(document.getElementById('editHeartbeatInterval')?.value) || 30;
 
   try {
-    // Save agent first
-    const updated = await api(`/api/agents/${editingAgentId}`, {
+    // Save agent + heartbeat in a single call to avoid race conditions
+    await api(`/api/agents/${editingAgentId}`, {
       method: 'PUT',
-      body: { name, role, provider, model, soul: system, voice, skills: activeSkills,
-              max_tokens: parseInt(document.getElementById('editAgentMaxTokens')?.value) || null }
+      body: {
+        name, role, provider, model, soul: system, voice, skills: activeSkills,
+        max_tokens: parseInt(document.getElementById('editAgentMaxTokens')?.value) || null,
+        heartbeat: { active: hbActive, prompt: hbPrompt, interval_min: hbInterval }
+      }
     });
-    // Save heartbeat separately
-    console.log('Saving heartbeat:', { active: hbActive, prompt: hbPrompt, interval_min: hbInterval });
-    try {
-      const hbResult = await api(`/api/agents/${editingAgentId}/heartbeat`, {
-        method: 'PUT',
-        body: { active: hbActive, prompt: hbPrompt, interval_min: hbInterval }
-      });
-      console.log('Heartbeat saved:', hbResult.heartbeat);
-    } catch(hbErr) {
-      console.error('Heartbeat save failed:', hbErr);
-      alert('Heartbeat save failed: ' + hbErr.message);
-    }
     // Reload agents from server to get fresh data
     await loadAgents();
     if (currentAgent?.id === editingAgentId) {

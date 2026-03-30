@@ -1141,6 +1141,16 @@ def update_agent(agent_id):
                     "color": data.get("color", a["color"]),
                 }
             )
+            # Heartbeat — save atomically together with the agent
+            if "heartbeat" in data:
+                hb_data = data["heartbeat"]
+                hb = agents[i].setdefault("heartbeat", {})
+                hb["active"] = bool(hb_data.get("active", False))
+                hb["prompt"] = hb_data.get("prompt", hb.get("prompt", ""))
+                hb["interval_min"] = int(hb_data.get("interval_min", hb.get("interval_min", 30)))
+                if hb["active"]:
+                    hb["next_run"] = None  # trigger on next tick
+                print(f"[Agent] heartbeat saved: active={hb['active']} for {agents[i]['name']}", flush=True)
             save_agents(agents)
             return jsonify(agents[i])
     return jsonify({"error": "Agent not found"}), 404
