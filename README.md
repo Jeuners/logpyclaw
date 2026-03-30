@@ -2,8 +2,8 @@
 
 # 🦀 AgentClaw
 
-**A local multi-agent AI platform for macOS**
-*Chat with multiple AI personalities — each with their own voice, skills, and autonomous capabilities*
+**Build, test and talk to your AI agents — locally**
+*Configure, experiment and deploy AI agents with personality, voice and skills — 100% local, GDPR-ready by design*
 
 [![Python](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-3.1-000000?style=flat-square&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
@@ -285,12 +285,18 @@ Monitor any URL and get AI-analyzed alerts:
 
 ---
 
-## Privacy
+## Privacy & GDPR
 
-- All conversations stay **local by default** (Ollama)
+AgentClaw is **GDPR-ready by design** — not as an afterthought.
+
+- All conversations stay **local by default** (Ollama) — no data leaves your machine
+- No cloud processing, no third-party logging, no training on your data
 - API keys stored in `.env` — never committed to git
 - `agents.json`, `history.json`, `providers.json` are in `.gitignore`
-- No telemetry, no tracking, no external calls unless explicitly configured
+- No telemetry, no tracking, no external calls unless you explicitly configure them
+- Cloud providers (OpenRouter, Mistral) are **opt-in only**
+
+> Built for use cases where data privacy isn't optional — agencies, freelancers, and businesses operating under GDPR.
 
 ---
 
