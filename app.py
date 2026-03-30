@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import base64
 import uuid
@@ -32,7 +33,21 @@ except ImportError:
 
 load_dotenv()
 
-app = Flask(__name__)
+# Wenn als py2app .app-Bundle gestartet, Resources-Verzeichnis ermitteln
+if getattr(sys, "frozen", False):
+    # Contents/MacOS/AgentClaw → Contents/Resources/
+    _bundle_resources = os.path.join(
+        os.path.dirname(os.path.dirname(sys.executable)), "Resources"
+    )
+    app = Flask(
+        __name__,
+        template_folder=os.path.join(_bundle_resources, "templates"),
+        static_folder=os.path.join(_bundle_resources, "static"),
+    )
+    # Daten-Dateien liegen in Resources/
+    os.chdir(_bundle_resources)
+else:
+    app = Flask(__name__)
 
 MISTRAL_TTS_URL = "https://api.mistral.ai/v1/audio/speech"
 MISTRAL_VOICES_URL = "https://api.mistral.ai/v1/audio/voices"
@@ -89,6 +104,13 @@ SKILLS = [
         "requires": None,
     },
     {
+        "id": "telegram_incoming",
+        "name": "Telegram Empfang",
+        "icon": "📥",
+        "description": "Empfängt eingehende Nachrichten aus Telegram und leitet sie an den Agenten weiter",
+        "requires": None,
+    },
+    {
         "id": "image_edit",
         "name": "Bild bearbeiten",
         "icon": "✏️",
@@ -97,7 +119,8 @@ SKILLS = [
     },
 ]
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Im py2app-Bundle zeigt __file__ auf die .zip — deshalb CWD nutzen (gesetzt durch chdir in main_app.py)
+BASE_DIR = os.getcwd() if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
 AGENTS_FILE = os.path.join(BASE_DIR, "agents.json")
 HISTORY_FILE = os.path.join(BASE_DIR, "history.json")
 PROVIDERS_FILE = os.path.join(BASE_DIR, "providers.json")
@@ -1174,6 +1197,36 @@ def chat():
         re.IGNORECASE,
     )
     needs_search = bool(_SEARCH_RX.search(user_message))
+
+    # Telegram: check if user wants to send to Telegram
+    TG_TRIGGERS = re.compile(
+        r"schick.*(das\s*)?(bild|foto|photo|image).*telegram|"
+        r"schick.*telegram|"
+        r"sende.*(das\s*)?(bild|foto|photo|image)?.*telegram|"
+        r"sende.*telegram|"
+        r"send.*(the\s*)?(image|picture|photo).*telegram|"
+        r"send.*to\s*telegram|"
+        r"telegram.*(bild|foto|image)|"
+        r"tg\s*send",
+        re.IGNORECASE,
+    )
+    if "telegram" in agent_skills and TG_TRIGGERS.search(user_message):
+        print(f"[Chat] telegram trigger: {user_message[:60]}...", flush=True)
+        # If there's an image, use it; otherwise send text
+        result = _run_telegram(user_message, image_data)
+        history[agent_id].append(
+            {
+                "role": "user",
+                "content": user_message,
+                "image": image_data,
+                "ts": datetime.now().isoformat(),
+            }
+        )
+        history[agent_id].append(
+            {"role": "assistant", "content": result, "ts": datetime.now().isoformat()}
+        )
+        save_history(history)
+        return jsonify({"reply": result, "image": image_data})
 
     # Image Edit: check if user uploaded image + has edit skill + trigger words
     if (
@@ -2253,16 +2306,118 @@ def tick_heartbeats():
             ).start()
 
 
+# Telegram polling state - start from latest to avoid duplicates
+_telegram_last_update_id = None
+
+
+def tick_telegram():
+    """Poll Telegram for new messages and forward to agents with telegram_incoming skill."""
+    global _telegram_last_update_id
+
+    providers = load_providers()
+    tg = providers.get("telegram", {})
+    token = tg.get("bot_token", "")
+    chat_id = tg.get("chat_id", "")
+
+    print(f"[Telegram] tick: token={bool(token)}, chat_id={chat_id}", flush=True)
+
+    if not token or not chat_id:
+        return
+
+    try:
+        # Get updates - first time get all, then only new ones
+        params = {"timeout": 1}
+        if _telegram_last_update_id is not None:
+            params["offset"] = _telegram_last_update_id + 1
+
+        r = requests.get(
+            f"https://api.telegram.org/bot{token}/getUpdates",
+            params=params,
+            timeout=1,
+        )
+        if not r.ok:
+            print(f"[Telegram] API error: {r.text[:100]}", flush=True)
+            return
+        updates = r.json().get("result", [])
+        print(f"[Telegram] got {len(updates)} updates", flush=True)
+        if not updates:
+            return
+
+        # Find agents with telegram_incoming skill
+        agents = load_agents()
+        target_agents = [
+            a for a in agents if "telegram_incoming" in a.get("skills", [])
+        ]
+        print(
+            f"[Telegram] target_agents: {[a['name'] for a in target_agents]}, updates: {len(updates)}",
+            flush=True,
+        )
+        if not target_agents:
+            return
+
+        for update in updates:
+            upd_id = update.get("update_id", 0)
+            if _telegram_last_update_id is None:
+                _telegram_last_update_id = upd_id
+            else:
+                _telegram_last_update_id = max(_telegram_last_update_id, upd_id)
+            msg = update.get("message", {})
+            if not msg:
+                continue
+
+            # Extract content
+            text = msg.get("text", "")
+            photo = msg.get("photo", [])
+
+            # Get sender info
+            from_user = msg.get("from", {})
+            sender_name = from_user.get("first_name", "Unknown")
+
+            if text or photo:
+                # Build message to forward
+                if text:
+                    content = f"[Telegram von {sender_name}]: {text}"
+                else:
+                    content = f"[Telegram Bild von {sender_name}]"
+
+                # Forward to all agents with telegram_incoming skill
+                for agent in target_agents:
+                    print(
+                        f"[Telegram] Forwarding to {agent['name']}: {content[:50]}...",
+                        flush=True,
+                    )
+
+                    # Add to history
+                    history = load_history()
+                    agent_id = agent["id"]
+                    if agent_id not in history:
+                        history[agent_id] = []
+
+                    history[agent_id].append(
+                        {
+                            "role": "user",
+                            "content": content,
+                            "ts": datetime.now().isoformat(),
+                            "from_telegram": True,
+                        }
+                    )
+                    save_history(history)
+
+    except Exception as e:
+        print(f"[Telegram] Polling error: {e}", flush=True)
+
+
 def scheduler_loop():
     print("[Scheduler] Watchdog-Scheduler gestartet", flush=True)
     while True:
         try:
             tick_watchdogs()
             tick_heartbeats()
+            tick_telegram()
             activity_cleanup()
         except Exception as e:
             print(f"[Scheduler] Fehler: {e}", flush=True)
-        time.sleep(60)
+        time.sleep(5)  # Telegram polling every 5 seconds
 
 
 # Scheduler als Daemon-Thread starten (nicht blockierend)
@@ -2756,68 +2911,54 @@ def comfyui_generate():
             return jsonify({"error": f"ComfyUI Antwort unerwartet: {resp_json}"}), 500
         prompt_id = resp_json["prompt_id"]
         print(f"[ComfyUI] queued prompt_id={prompt_id}", flush=True)
+    except Exception as e:
+        return jsonify({"error": f"ComfyUI Fehler: {str(e)}"}), 500
 
-        # Poll history (max 120s)
-        import time
+    # Poll history (max 360s)
+    import time
 
     deadline = time.time() + 360  # 6 min timeout for image editing
-        outputs = None
-        while time.time() < deadline:
-            time.sleep(2)
-            h = requests.get(f"{base_url}/history/{prompt_id}", timeout=10)
-            entry = h.json().get(prompt_id, {})
-            if entry.get("status", {}).get("completed"):
-                outputs = entry.get("outputs", {})
-                break
+    outputs = None
+    while time.time() < deadline:
+        time.sleep(2)
+        h = requests.get(f"{base_url}/history/{prompt_id}", timeout=10)
+        entry = h.json().get(prompt_id, {})
+        if entry.get("status", {}).get("completed"):
+            outputs = entry.get("outputs", {})
+            break
 
-        if not outputs:
-            return jsonify(
-                {"error": "Timeout: ComfyUI hat nicht rechtzeitig geantwortet"}
-            ), 504
-
-        # Find first image in outputs
-        img_info = None
-        for node_out in outputs.values():
-            imgs = node_out.get("images", [])
-            if imgs:
-                img_info = imgs[0]
-                break
-
-        if not img_info:
-            return jsonify({"error": "Keine Bilddaten in der Antwort"}), 500
-
-        filename = img_info["filename"]
-        subfolder = img_info.get("subfolder", "")
-        img_type = img_info.get("type", "output")
-        params = f"filename={filename}&type={img_type}"
-        if subfolder:
-            params += f"&subfolder={subfolder}"
-
-        img_r = requests.get(f"{base_url}/view?{params}", timeout=30)
-        img_r.raise_for_status()
-        mime = img_r.headers.get("Content-Type", "image/png").split(";")[0]
-        b64 = base64.b64encode(img_r.content).decode()
-        print(
-            f"[ComfyUI] image ready: {filename} ({len(img_r.content) // 1024}KB)",
-            flush=True,
-        )
-        return jsonify({"image": f"data:{mime};base64,{b64}", "filename": filename})
-
-    except requests.exceptions.ConnectionError as e:
-        return jsonify({"error": f"ComfyUI nicht erreichbar ({base_url}): {e}"}), 503
-    except requests.exceptions.Timeout:
-        return jsonify({"error": f"ComfyUI Timeout ({base_url})"}), 504
-    except requests.exceptions.HTTPError as e:
+    if not outputs:
         return jsonify(
-            {
-                "error": f"ComfyUI HTTP Fehler: {e.response.status_code} — {e.response.text[:200]}"
-            }
-        ), 500
-    except Exception as e:
-        import traceback
+            {"error": "Timeout: ComfyUI hat nicht rechtzeitig geantwortet"}
+        ), 504
 
-        print(f"[ComfyUI] Fehler: {traceback.format_exc()}", flush=True)
-        return jsonify({"error": f"ComfyUI Fehler: {e}"}), 500
+    # Find first image in outputs
+    img_info = None
+    for node_out in outputs.values():
+        imgs = node_out.get("images", [])
+        if imgs:
+            img_info = imgs[0]
+            break
+
+    if not img_info:
+        return jsonify({"error": "Keine Bilddaten in der Antwort"}), 500
+
+    filename = img_info["filename"]
+    subfolder = img_info.get("subfolder", "")
+    img_type = img_info.get("type", "output")
+    params = f"filename={filename}&type={img_type}"
+    if subfolder:
+        params += f"&subfolder={subfolder}"
+
+    img_r = requests.get(f"{base_url}/view?{params}", timeout=30)
+    img_r.raise_for_status()
+    mime = img_r.headers.get("Content-Type", "image/png").split(";")[0]
+    b64 = base64.b64encode(img_r.content).decode()
+    print(
+        f"[ComfyUI] image ready: {filename} ({len(img_r.content) // 1024}KB)",
+        flush=True,
+    )
+    return jsonify({"image": f"data:{mime};base64,{b64}", "filename": filename})
 
 
 if __name__ == "__main__":

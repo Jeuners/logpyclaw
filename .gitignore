@@ -5,3 +5,14 @@ providers.json
 agents.json
 history.json
 .DS_Store
+
+# py2app Build-Artefakte
+build/
+dist/
+*.egg-info/
+
+# Icon-Quelldatei (wird per make_icon.py generiert)
+AgentClaw_icon.png
+
+# Python venv
+venv/
