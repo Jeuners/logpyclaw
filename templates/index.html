@@ -3594,7 +3594,11 @@ async function downloadAudioByIndex(index) {
   if (!msg || !currentAgent) return;
   const text = cleanForTTS(msg.content);
   if (!text) return;
-  const voice = currentAgent.voice || 'en_paul_neutral';
+  let voice = currentAgent.voice || '';
+  if (!voice || voice.startsWith('mac:')) {
+    showToast('Download nur für Mistral-Stimmen verfügbar', 'error');
+    return;
+  }
   try {
     const blob = await fetchAudioBlob(text.slice(0, 500), voice);
     const url = URL.createObjectURL(blob);
