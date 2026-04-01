@@ -4634,16 +4634,6 @@ def comfyui_generate():
 
 
 if __name__ == "__main__":
-    import socket
-
     port = 5050
-    while port < 5100:
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.bind(("", port))
-            s.close()
-            break
-        except OSError:
-            port += 1
     print(f"Starting on http://0.0.0.0:{port}", flush=True)
     app.run(debug=True, host="0.0.0.0", port=port, use_reloader=False)
