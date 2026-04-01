@@ -1783,7 +1783,8 @@ def create_agent():
         "provider": data.get("provider", "ollama"),
         "skills": data.get("skills", []),
         "max_tokens": int(data.get("max_tokens", 1024)),
-        "color": data.get("color", "#444"),
+        "color": data.get("color", "#4f46e5"),
+        "avatar": data.get("avatar", ""),
     }
     agents = load_agents()
     agents.append(agent)
@@ -1821,6 +1822,8 @@ def update_agent(agent_id):
                 agents[i]["max_tokens"] = data["max_tokens"]
             if "color" in data:
                 agents[i]["color"] = data["color"]
+            if "avatar" in data:
+                agents[i]["avatar"] = data["avatar"]  # base64 data URL or ""
 
             # Heartbeat — save atomically together with the agent
             if "heartbeat" in data:
@@ -3848,6 +3851,8 @@ def update_agent_settings(agent_id):
                 agents[i]["max_tokens"] = data["max_tokens"]
             if "color" in data:
                 agents[i]["color"] = data["color"]
+            if "avatar" in data:
+                agents[i]["avatar"] = data["avatar"]  # base64 data URL or ""
 
             try:
                 save_agents(agents)

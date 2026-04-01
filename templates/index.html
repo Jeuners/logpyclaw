@@ -225,6 +225,76 @@
 
     .agent-dot.online { background: var(--green); box-shadow: 0 0 5px var(--green); }
 
+    /* Agent avatar / initial */
+    .agent-avatar-wrap {
+      flex-shrink: 0;
+      position: relative;
+    }
+    .agent-avatar-img {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--b2);
+      display: block;
+    }
+    .agent-avatar-initial {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+      color: #fff;
+      border: 2px solid transparent;
+      flex-shrink: 0;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      user-select: none;
+    }
+    /* Smaller variants for topbar / multi-card */
+    .agent-avatar-img.sm  { width: 22px; height: 22px; }
+    .agent-avatar-initial.sm { width: 22px; height: 22px; font-size: 10px; }
+
+    /* Color picker row */
+    .color-avatar-row {
+      display: flex; align-items: center; gap: 14px;
+    }
+    .avatar-upload-area {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+    }
+    .avatar-preview {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      border: 2px solid var(--b2);
+      cursor: pointer;
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 700; color: #fff;
+      transition: border-color .15s;
+      position: relative;
+    }
+    .avatar-preview:hover { border-color: var(--green); }
+    .avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .avatar-preview-label {
+      font-size: 10px; color: var(--textdim); font-family: var(--mono);
+      cursor: pointer;
+    }
+    .color-picker-wrap {
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .color-swatches {
+      display: flex; flex-wrap: wrap; gap: 5px; max-width: 200px;
+    }
+    .color-swatch {
+      width: 20px; height: 20px; border-radius: 50%;
+      cursor: pointer; border: 2px solid transparent;
+      transition: transform .1s, border-color .1s;
+    }
+    .color-swatch:hover { transform: scale(1.2); }
+    .color-swatch.selected { border-color: #fff; }
+    input.color-custom {
+      width: 32px; height: 20px; padding: 0; border: none;
+      border-radius: 4px; cursor: pointer; background: none;
+    }
+
     .agent-name {
       font-size: 13px;
       font-weight: 500;
@@ -1269,8 +1339,22 @@
     </div>
     <div class="modal-body">
       <div class="form-group">
+        <label class="form-label">Avatar &amp; Farbe</label>
+        <div class="color-avatar-row">
+          <div class="avatar-upload-area">
+            <div class="avatar-preview" id="newAvatarPreview" onclick="document.getElementById('newAvatarInput').click()" style="background:#4f46e5">N</div>
+            <span class="avatar-preview-label" onclick="document.getElementById('newAvatarInput').click()">Upload</span>
+            <input type="file" id="newAvatarInput" accept="image/*" style="display:none" onchange="handleAvatarUpload(this,'new')">
+          </div>
+          <div class="color-picker-wrap">
+            <div class="color-swatches" id="newColorSwatches"></div>
+            <input type="color" class="color-custom" id="newAgentColorCustom" value="#4f46e5" oninput="applyAgentColor('new',this.value)">
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
         <label class="form-label">Agent Name</label>
-        <input class="form-input" id="newAgentName" placeholder="e.g. Research Bot">
+        <input class="form-input" id="newAgentName" placeholder="e.g. Research Bot" oninput="updateAvatarInitial('new',this.value)">
       </div>
       <div class="form-group">
         <label class="form-label">Role / Focus</label>
@@ -1311,8 +1395,22 @@
     </div>
     <div class="modal-body">
       <div class="form-group">
+        <label class="form-label">Avatar &amp; Farbe</label>
+        <div class="color-avatar-row">
+          <div class="avatar-upload-area">
+            <div class="avatar-preview" id="editAvatarPreview" onclick="document.getElementById('editAvatarInput').click()" style="background:#4f46e5">A</div>
+            <span class="avatar-preview-label" onclick="document.getElementById('editAvatarInput').click()">Upload</span>
+            <input type="file" id="editAvatarInput" accept="image/*" style="display:none" onchange="handleAvatarUpload(this,'edit')">
+          </div>
+          <div class="color-picker-wrap">
+            <div class="color-swatches" id="editColorSwatches"></div>
+            <input type="color" class="color-custom" id="editAgentColorCustom" value="#4f46e5" oninput="applyAgentColor('edit',this.value)">
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
         <label class="form-label">Agent Name</label>
-        <input class="form-input" id="editAgentName">
+        <input class="form-input" id="editAgentName" oninput="updateAvatarInitial('edit',this.value)">
       </div>
       <div class="form-group">
         <label class="form-label">Role / Focus</label>
@@ -1747,7 +1845,7 @@ function renderChatSidePanel() {
       return s ? `<span title="${esc(s.name)}" style="font-size:12px;opacity:.7">${s.icon}</span>` : '';
     }).join('');
     return `<div class="agent-item ${active}${isFav ? ' fav-item' : ''}" onclick="selectAgent('${a.id}')">
-      <div class="agent-dot online"></div>
+      <div class="agent-avatar-wrap">${renderAgentAvatar(a,'sm')}</div>
       <div style="flex:1;min-width:0">
         <span class="agent-name">${esc(a.name)}</span>
         ${a.role ? `<div style="font-size:10px;color:var(--textdim);font-family:var(--mono);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.role)}</div>` : ''}
@@ -1775,7 +1873,7 @@ function renderMultiSidePanel() {
     const checked = selectedAgents.has(a.id) ? 'checked' : '';
     return `<label class="agent-item" style="cursor:pointer">
       <input type="checkbox" class="agent-cb" ${checked} onchange="toggleSelectAgent('${a.id}',this.checked)">
-      <div class="agent-dot online"></div>
+      <div class="agent-avatar-wrap">${renderAgentAvatar(a,'sm')}</div>
       <span class="agent-name">${esc(a.name)}</span>
     </label>`;
   }).join('');
@@ -1823,9 +1921,7 @@ function renderHome(ws) {
       : '';
     return `
     <div class="home-agent-row${isActive ? ' active' : ''}" onclick="selectAgent('${a.id}');setView('chat')">
-      <div style="padding-top:2px">
-        <div class="agent-dot online" style="width:9px;height:9px"></div>
-      </div>
+      <div class="agent-avatar-wrap" style="padding-top:1px">${renderAgentAvatar(a,'sm')}</div>
       <div class="home-agent-info">
         <div style="display:flex;align-items:center;gap:6px">
           <span class="home-agent-name">${esc(a.name)}</span>
@@ -1900,7 +1996,7 @@ function renderChatShell(ws) {
   ws.innerHTML = `
     <div class="chat-shell" id="chatShell">
       <div class="chat-topbar">
-        <div class="agent-dot online"></div>
+        <div class="agent-avatar-wrap">${renderAgentAvatar(currentAgent,'sm')}</div>
         <div>
           <div class="chat-topbar-name">${esc(currentAgent.name)}</div>
           ${currentAgent.role ? `<div style="font-size:10px;color:var(--textdim);font-family:var(--mono);margin-top:1px">${esc(currentAgent.role)}</div>` : ''}
@@ -2385,7 +2481,7 @@ function renderMultiCards() {
   grid.innerHTML = arr.map(a => `
     <div class="multi-card selected" id="mc_${a.id}" onclick="toggleMultiSelect('${a.id}')">
       <div class="multi-card-head">
-        <div class="agent-dot online"></div>
+        <div class="agent-avatar-wrap">${renderAgentAvatar(a,'sm')}</div>
         <span class="multi-card-name">${esc(a.name)}</span>
         <span class="multi-card-model">${esc((a.model||'').split('/').pop().slice(0,12))}</span>
       </div>
@@ -2669,6 +2765,12 @@ async function openNewAgentModal() {
   const provSel = document.getElementById('newAgentProvider');
   populateModelSelect('newAgentModel', provSel?.value, '');
   if (provSel) provSel.onchange = () => populateModelSelect('newAgentModel', provSel.value, '');
+  // Init color swatches
+  _newAvatarB64 = '';
+  const defaultColor = '#4f46e5';
+  initColorSwatches('new', defaultColor);
+  const preview = document.getElementById('newAvatarPreview');
+  if (preview) { preview.innerHTML = 'N'; preview.style.background = defaultColor; }
   openModal('newAgentModal');
 }
 
@@ -2745,12 +2847,14 @@ async function createAgent() {
   const provider = document.getElementById('newAgentProvider')?.value;
   const model = document.getElementById('newAgentModel')?.value.trim();
   const system = document.getElementById('newAgentSystem')?.value.trim();
-  const voice = document.getElementById('newAgentVoice')?.value;
-  const role  = document.getElementById('newAgentRole')?.value.trim();
+  const voice  = document.getElementById('newAgentVoice')?.value;
+  const role   = document.getElementById('newAgentRole')?.value.trim();
+  const color  = document.getElementById('newAgentColorCustom')?.value || '#4f46e5';
+  const avatar = _newAvatarB64 || '';
   if (!name) { alert('Name required'); return; }
 
   try {
-    const agent = await api('/api/agents', { method: 'POST', body: { name, role, provider, model, soul: system, voice } });
+    const agent = await api('/api/agents', { method: 'POST', body: { name, role, provider, model, soul: system, voice, color, avatar } });
     agents.push(agent);
     closeModal('newAgentModal');
     selectAgent(agent.id);
@@ -2758,6 +2862,10 @@ async function createAgent() {
     document.getElementById('newAgentName').value = '';
     document.getElementById('newAgentModel').value = '';
     document.getElementById('newAgentSystem').value = '';
+    _newAvatarB64 = '';
+    // Reset preview
+    const preview = document.getElementById('newAvatarPreview');
+    if (preview) { preview.innerHTML = 'N'; preview.style.background = '#4f46e5'; }
   } catch(e) {
     alert('Create failed: ' + e.message);
   }
@@ -2773,6 +2881,20 @@ async function openEditAgentModal(id) {
   document.getElementById('editAgentRole').value = a.role || '';
   document.getElementById('editAgentSystem').value = a.soul || '';
   document.getElementById('editAgentMaxTokens').value = a.max_tokens || '';
+
+  // Avatar & color
+  _editAvatarB64 = a.avatar || '';
+  const editColor = a.color || '#4f46e5';
+  initColorSwatches('edit', editColor);
+  const editPreview = document.getElementById('editAvatarPreview');
+  if (editPreview) {
+    if (_editAvatarB64) {
+      editPreview.innerHTML = `<img src="${_editAvatarB64}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:2px solid ${editColor}">`;
+    } else {
+      editPreview.textContent = (a.name || '?')[0].toUpperCase();
+      editPreview.style.background = editColor;
+    }
+  }
   await Promise.all([loadModels(), loadProviders()]);
   populateProviderSelects();
   const psel = document.getElementById('editAgentProvider');
@@ -2937,8 +3059,9 @@ function triggerAutoSave() {
     const role = document.getElementById('editAgentRole')?.value.trim();
     const maxTokens = parseInt(document.getElementById('editAgentMaxTokens')?.value) || null;
     
-    await saveField(`/api/agents/${editingAgentId}/settings`, 
-      { name, role, provider, model, soul: system, max_tokens: maxTokens },
+    const color = document.getElementById('editAgentColorCustom')?.value;
+    await saveField(`/api/agents/${editingAgentId}/settings`,
+      { name, role, provider, model, soul: system, max_tokens: maxTokens, color },
       'Einstellungen gespeichert'
     );
   }, 500);
@@ -2963,8 +3086,9 @@ async function saveEditAgent() {
 
   try {
     // Save settings first
-    await saveField(`/api/agents/${editingAgentId}/settings`, 
-      { name, role, provider, model, soul: system, max_tokens: maxTokens },
+    const color = document.getElementById('editAgentColorCustom')?.value;
+    await saveField(`/api/agents/${editingAgentId}/settings`,
+      { name, role, provider, model, soul: system, max_tokens: maxTokens, color },
       null
     );
     
@@ -3259,6 +3383,98 @@ let autoPlay = true;
 let ttsSpeed = 1;
 let currentAudio = null;
 let currentPlayingIndex = -1;
+
+// ═══════════════════════════════════════════════════
+// Avatar & Color helpers
+// ═══════════════════════════════════════════════════
+
+const AGENT_COLORS = [
+  '#4f46e5','#7c3aed','#db2777','#dc2626','#ea580c',
+  '#ca8a04','#16a34a','#0891b2','#0284c7','#475569'
+];
+
+function renderAgentAvatar(agent, sizeCls = '') {
+  const color = agent.color || '#4f46e5';
+  const initial = (agent.name || '?')[0].toUpperCase();
+  if (agent.avatar) {
+    return `<img class="agent-avatar-img ${sizeCls}" src="${agent.avatar}" style="border-color:${color}" alt="${esc(agent.name)}">`;
+  }
+  return `<div class="agent-avatar-initial ${sizeCls}" style="background:${color}">${initial}</div>`;
+}
+
+function initColorSwatches(prefix, currentColor) {
+  const wrap = document.getElementById(prefix + 'ColorSwatches');
+  if (!wrap) return;
+  wrap.innerHTML = AGENT_COLORS.map(c => `
+    <div class="color-swatch${c === currentColor ? ' selected' : ''}"
+         style="background:${c}"
+         onclick="applyAgentColor('${prefix}','${c}')"></div>
+  `).join('');
+  const custom = document.getElementById(prefix + 'AgentColorCustom');
+  if (custom) custom.value = currentColor || '#4f46e5';
+}
+
+function applyAgentColor(prefix, color) {
+  const preview = document.getElementById(prefix + 'AvatarPreview');
+  if (preview) {
+    const img = preview.querySelector('img');
+    if (img) img.style.borderColor = color;
+    else preview.style.background = color;
+  }
+  // update swatch selection
+  const wrap = document.getElementById(prefix + 'ColorSwatches');
+  if (wrap) wrap.querySelectorAll('.color-swatch').forEach(s => {
+    s.classList.toggle('selected', s.style.background === color || s.style.backgroundColor === color);
+  });
+  const custom = document.getElementById(prefix + 'AgentColorCustom');
+  if (custom) custom.value = color;
+  // auto-save for edit modal
+  if (prefix === 'edit' && editingAgentId) {
+    saveField(`/api/agents/${editingAgentId}/settings`, { color }, null);
+  }
+}
+
+function updateAvatarInitial(prefix, name) {
+  const preview = document.getElementById(prefix + 'AvatarPreview');
+  if (!preview || preview.querySelector('img')) return;
+  preview.textContent = (name || '?')[0].toUpperCase() || '?';
+}
+
+let _newAvatarB64 = '';
+let _editAvatarB64 = '';
+
+function handleAvatarUpload(input, prefix) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      // Resize to 80×80
+      const canvas = document.createElement('canvas');
+      canvas.width = 80; canvas.height = 80;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, 80, 80);
+      const b64 = canvas.toDataURL('image/jpeg', 0.85);
+      if (prefix === 'new') _newAvatarB64 = b64;
+      else _editAvatarB64 = b64;
+      // Show preview
+      const preview = document.getElementById(prefix + 'AvatarPreview');
+      if (preview) {
+        const color = document.getElementById(prefix + 'AgentColorCustom')?.value || '#4f46e5';
+        preview.innerHTML = `<img src="${b64}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:2px solid ${color}">`;
+      }
+      // Auto-save for edit modal
+      if (prefix === 'edit' && editingAgentId) {
+        saveField(`/api/agents/${editingAgentId}/settings`, { avatar: b64 }, 'Avatar gespeichert');
+        const idx = agents.findIndex(a => a.id === editingAgentId);
+        if (idx >= 0) { agents[idx].avatar = b64; renderAll(); }
+      }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
 
 function toggleTTSSpeed() {
   ttsSpeed = ttsSpeed === 1 ? 2 : 1;
