@@ -3608,17 +3608,18 @@ function setTTSPlaying(on) {
   const bar = document.getElementById('globalMuteBar');
   if (bar) bar.style.display = on ? 'flex' : 'none';
   
-  // Mute mic when TTS is playing
-  const voiceBtn = document.getElementById('voiceBtn');
-  if (voiceBtn) {
-    voiceBtn.disabled = on;
-    voiceBtn.style.opacity = on ? '0.4' : '1';
-    voiceBtn.title = on ? 'Mic disabled during speech playback' : 'Click: Conversation mode · Hold: Push-to-Talk';
-  }
-  
   // Stop voice recognition if it's running
   if (on && voiceActive) {
+    console.log('[setTTSPlaying] Stopping voice recognition');
     stopVoice();
+  }
+  
+  // Re-enable voice button
+  const voiceBtn = document.getElementById('voiceBtn');
+  if (voiceBtn) {
+    voiceBtn.disabled = false;
+    voiceBtn.style.opacity = '1';
+    voiceBtn.title = 'Click: Conversation mode · Hold: Push-to-Talk';
   }
 }
 
@@ -4112,9 +4113,11 @@ function startVoice(ptt = false) {
     if (!ptt) {
       clearTimeout(voicePauseTimer);
       if (voiceBuffer.trim()) {
+        console.log('[Voice] Scheduling auto-send:', voiceBuffer.trim().slice(0,30));
         voicePauseTimer = setTimeout(() => {
           if (voiceBuffer.trim()) {
             const text = voiceBuffer.trim();
+            console.log('[Voice] Auto-sending:', text.slice(0,30));
             voiceBuffer = '';
             if (input) input.value = '';
             sendMessage(text);

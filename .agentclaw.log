@@ -8,3 +8,110 @@ Starting on http://0.0.0.0:5050
  * Running on http://10.8.0.2:5050
 [33mPress CTRL+C to quit[0m
 [Telegram] Polling error: HTTPSConnectionPool(host='api.telegram.org', port=443): Read timed out. (read timeout=2)
+127.0.0.1 - - [01/Apr/2026 18:15:34] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:15:34] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:15:34] "GET /api/watchdogs HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:15:34] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:15:34] "GET /api/skills HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:15:34] "GET /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:15:34] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:15:42] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:15:42] "DELETE /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:15:43] "DELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:15:50] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:15:58] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:16:06] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:16:07] "POST /api/chat HTTP/1.1" 200 -
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [01/Apr/2026 18:16:09] "POST /api/tts HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:16:14] "GET /api/activity HTTP/1.1" 200 -
+[Telegram] Polling error: HTTPSConnectionPool(host='api.telegram.org', port=443): Read timed out. (read timeout=2)
+127.0.0.1 - - [01/Apr/2026 18:16:22] "GET /api/activity HTTP/1.1" 200 -
+[Memory] injected 232 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [01/Apr/2026 18:16:31] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:16:32] "POST /api/chat HTTP/1.1" 200 -
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [01/Apr/2026 18:16:35] "POST /api/tts HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:16:39] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:16:47] "GET /api/activity HTTP/1.1" 200 -
+[Memory] injected 411 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [01/Apr/2026 18:16:53] "POST /api/chat HTTP/1.1" 200 -
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [01/Apr/2026 18:16:55] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:16:56] "POST /api/tts HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:03] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:11] "GET /api/activity HTTP/1.1" 200 -
+[Memory] injected 587 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[Heartbeat] 💓 Agent 'Fotograf' — Choose a gritty cinematic urban scene — a rooftop, subway pl
+127.0.0.1 - - [01/Apr/2026 18:17:19] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:21] "GET /api/activity HTTP/1.1" 200 -
+[Telegram] Polling error: HTTPSConnectionPool(host='api.telegram.org', port=443): Read timed out. (read timeout=2)
+127.0.0.1 - - [01/Apr/2026 18:17:22] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 4ffe3520-8dba-480d-bbbd-edf1bdc5108c: MARTIN → Jan: recherchiere die Reaktionen auf diese These in den letzten 2
+127.0.0.1 - - [01/Apr/2026 18:17:22] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 4ffe3520-8dba-480d-bbbd-edf1bdc5108c: recherchiere die Reaktionen auf diese These in den letzten 2
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [01/Apr/2026 18:17:23] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:23] "GET /api/tasks/4ffe3520-8dba-480d-bbbd-edf1bdc5108c HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:23] "POST /api/tts HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:25] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:25] "GET /api/tasks/4ffe3520-8dba-480d-bbbd-edf1bdc5108c HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:27] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:27] "GET /api/tasks/4ffe3520-8dba-480d-bbbd-edf1bdc5108c HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:29] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:30] "GET /api/tasks/4ffe3520-8dba-480d-bbbd-edf1bdc5108c HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:31] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:33] "GET /api/activity HTTP/1.1" 200 -
+[Heartbeat] done 'Fotograf'
+127.0.0.1 - - [01/Apr/2026 18:17:34] "GET /api/tasks/4ffe3520-8dba-480d-bbbd-edf1bdc5108c HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:35] "GET /api/activity HTTP/1.1" 200 -
+[Task] done 4ffe3520-8dba-480d-bbbd-edf1bdc5108c via llm
+127.0.0.1 - - [01/Apr/2026 18:17:37] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:38] "GET /api/tasks/4ffe3520-8dba-480d-bbbd-edf1bdc5108c HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:39] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:47] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:17:55] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:18:03] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:18:11] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:18:19] "GET /api/activity HTTP/1.1" 200 -
+[Telegram] Polling error: HTTPSConnectionPool(host='api.telegram.org', port=443): Read timed out. (read timeout=2)
+127.0.0.1 - - [01/Apr/2026 18:18:27] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:18:29] "GET /api/history/852869d3-0ad7-4d30-a4c0-d9a8da6378e6 HTTP/1.1" 200 -
+[Agent] PUT received for 852869d3-0ad7-4d30-a4c0-d9a8da6378e6: ['skills']
+[Agent] Saved 8 agents successfully
+[Agent] Successfully saved agent Jan
+127.0.0.1 - - [01/Apr/2026 18:18:33] "PUT /api/agents/852869d3-0ad7-4d30-a4c0-d9a8da6378e6 HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:18:35] "GET /api/activity HTTP/1.1" 200 -
+[Agent] PUT received for 852869d3-0ad7-4d30-a4c0-d9a8da6378e6: ['skills']
+[Agent] Saved 8 agents successfully
+[Agent] Successfully saved agent Jan
+127.0.0.1 - - [01/Apr/2026 18:18:35] "PUT /api/agents/852869d3-0ad7-4d30-a4c0-d9a8da6378e6 HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:18:43] "GET /api/activity HTTP/1.1" 200 -
+[Agent] PUT received for 852869d3-0ad7-4d30-a4c0-d9a8da6378e6: ['skills']
+[Agent] Saved 8 agents successfully
+[Agent] Successfully saved agent Jan
+127.0.0.1 - - [01/Apr/2026 18:18:48] "PUT /api/agents/852869d3-0ad7-4d30-a4c0-d9a8da6378e6 HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:18:51] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:18:58] "GET /api/tagesschau?category=top&limit=10 HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:18:59] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:19:02] "POST /api/chat HTTP/1.1" 200 -
+[TTS] API Fehler 404: {'object': 'error', 'message': "Voice 'neutral_male' not found.", 'type': 'invalid_voice', 'param': None, 'code': '1902', 'raw_status_code': 404}
+127.0.0.1 - - [01/Apr/2026 18:19:02] "[33mPOST /api/tts HTTP/1.1[0m" 404 -
+127.0.0.1 - - [01/Apr/2026 18:19:07] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:19:15] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:19:23] "GET /api/activity HTTP/1.1" 200 -
+[Telegram] Polling error: HTTPSConnectionPool(host='api.telegram.org', port=443): Read timed out. (read timeout=2)
+127.0.0.1 - - [01/Apr/2026 18:19:31] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:19:39] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:19:47] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:19:55] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:20:03] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:20:11] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:20:19] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:20:27] "GET /api/activity HTTP/1.1" 200 -
+[Telegram] Polling error: HTTPSConnectionPool(host='api.telegram.org', port=443): Read timed out. (read timeout=2)
+127.0.0.1 - - [01/Apr/2026 18:20:35] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:20:43] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:20:51] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:20:59] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 18:21:07] "GET /api/activity HTTP/1.1" 200 -
