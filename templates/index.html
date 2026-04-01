@@ -2081,8 +2081,8 @@ function renderMsg(m, index) {
   const ts = m.ts ? `<span class="msg-meta">${new Date(m.ts).toLocaleTimeString()}</span>` : '';
   if (m.role === 'assistant') {
     const idx = index !== undefined ? index : (conversations[currentAgent?.id]?.length - 1);
-    const imgHtml = m.task_image
-      ? `<img src="${m.task_image}" style="max-width:100%;border-radius:8px;display:block;margin-top:8px">`
+    const imgHtml = m.task_image || m.image
+      ? `<img src="${m.task_image || m.image}" style="max-width:100%;border-radius:8px;display:block;margin-top:8px">`
       : '';
     const promptHtml = m.task_prompt
       ? `<div style="font-size:10px;color:var(--textdim);margin-top:4px;font-family:var(--mono)">🎨 ${esc(m.task_prompt)}</div>`
@@ -2104,11 +2104,12 @@ function renderMsg(m, index) {
   </div>`;
 }
 
-function appendMsg(role, content, stats) {
+function appendMsg(role, content, stats, image = null) {
   if (!currentAgent) return -1;
   if (!conversations[currentAgent.id]) conversations[currentAgent.id] = [];
   const msg = { role, content, ts: Date.now() };
   if (stats) msg.stats = stats;
+  if (image) msg.image = image;
   const index = conversations[currentAgent.id].length;
   conversations[currentAgent.id].push(msg);
   const el = document.getElementById('chatMessages');
@@ -2327,8 +2328,8 @@ async function sendMessage(overrideText) {
           const data = await api('/api/chat', { method: 'POST', body });
           removeThinkingIndicator();
           const reply = data.reply || data.response || data.message || '';
-          const idx = appendMsg('assistant', reply, data.stats);
-          if (autoPlay) togglePlay(idx, reply);
+          const msgIdx = appendMsg('assistant', reply, data.stats, data.image || null);
+          if (autoPlay) togglePlay(msgIdx, reply);
           dispatchReplyMentions(reply);
         } catch(e) {
           removeThinkingIndicator();
@@ -3727,7 +3728,7 @@ async function handleAgentMention(targetAgent, message, rawText) {
     await new Promise(r => setTimeout(r, delay));
     delay = Math.min(delay * 1.25, 4000);
     let result;
-    try { result = await api(`/api/a2a/tasks/${task.id}`); } catch(e) { continue; }
+    try { result = await api(`/api/tasks/${task.id}`); } catch(e) { continue; }
 
     // A2A terminal states
     if (result.status === 'completed') {

@@ -2356,6 +2356,45 @@ def chat():
         save_history(history)
         return jsonify({"reply": result})
 
+    # Image Generation: check if user wants to generate an image
+    IMG_TRIGGERS = re.compile(
+        r"\b(generier\w*|mal\w*|zeichn\w*|illustrier\w*|"
+        r"generate|draw|paint|illustrate|"
+        r"bild|foto|image|picture|photo|wallpaper|artwork|illustration|zeichnung|gemälde)\b",
+        re.IGNORECASE,
+    )
+    if "image_gen" in agent_skills and IMG_TRIGGERS.search(user_message):
+        print(f"[Chat] image_gen triggered: {user_message[:60]}...", flush=True)
+        try:
+            img_prompt = _extract_img_prompt(user_message) or user_message
+            result_image = _run_comfyui_sync(img_prompt)
+            history[agent_id].append(
+                {
+                    "role": "user",
+                    "content": user_message,
+                    "ts": datetime.now().isoformat(),
+                }
+            )
+            history[agent_id].append(
+                {
+                    "role": "assistant",
+                    "content": f"🎨 Bild erstellt: {img_prompt[:100]}",
+                    "image": result_image,
+                    "task_image": _make_thumbnail(result_image),
+                    "task_prompt": img_prompt,
+                    "ts": datetime.now().isoformat(),
+                }
+            )
+            save_history(history)
+            return jsonify(
+                {
+                    "reply": f"🎨 Bild erstellt: {img_prompt[:100]}",
+                    "image": result_image,
+                }
+            )
+        except Exception as e:
+            return jsonify({"error": f"Bildgenerierung fehlgeschlagen: {str(e)}"}), 500
+
     # Image Edit: check if user uploaded image + has edit skill + trigger words
     if (
         image_data
