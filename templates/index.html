@@ -3729,8 +3729,8 @@ async function playMacVoiceAsync(text, voiceName, btn) {
     utt.onstart = () => { if (btn) { btn.textContent = '⏹ Stop'; btn.classList.add('playing'); } };
     utt.onend = () => { if (btn) { btn.textContent = '▶ Play'; btn.classList.remove('playing'); } resolve(); };
     utt.onerror = (e) => { 
-      console.log('[Voice] Error:', e);
-      showToast('Fehler bei Sprachausgabe', 'error'); 
+      console.log('[Voice] Error:', e.error, e.message);
+      showToast('Fehler: ' + e.error, 'error'); 
       resolve(); 
     };
     window.speechSynthesis.speak(utt);
