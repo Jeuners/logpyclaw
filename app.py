@@ -57,10 +57,21 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
-    async_mode="eventlet",
+    async_mode="threading",
     ping_timeout=30,
     ping_interval=10,
 )
+
+
+# ─── Background Task Helper (threading-compatible) ─────────────────────
+def spawn_background(target, *args, **kwargs):
+    """Spawn a background task using threading."""
+    import threading
+
+    t = threading.Thread(target=target, args=args, kwargs=kwargs, daemon=True)
+    t.start()
+    return t
+
 
 # ─── WebSocket Event Handlers ────────────────────────────────────────
 _USERS = {}  # sid -> {agent_ids: []}
@@ -133,55 +144,71 @@ def ws_emit(event, data, room=None, broadcast=False):
 
 def emit_agent_activity(agent_id, atype, label, status):
     """Broadcast agent activity to all subscribers."""
-    data = {"agent_id": agent_id, "type": atype, "label": label, "status": status}
-    room = f"agent_{agent_id}"
-    emit("agent_activity", data, room=room, namespace="/ws")
-    socketio.emit(
-        "agent_activity", data, namespace="/ws", broadcast=True, include_self=True
-    )
+    try:
+        data = {"agent_id": agent_id, "type": atype, "label": label, "status": status}
+        room = f"agent_{agent_id}"
+        emit("agent_activity", data, room=room, namespace="/ws")
+        socketio.emit(
+            "agent_activity", data, namespace="/ws", broadcast=True, include_self=True
+        )
+    except Exception as e:
+        print(f"[WS] emit_agent_activity error: {e}", flush=True)
 
 
 def emit_task_result(task_id, agent_id, result_text, result_image, status, error=None):
     """Send task result to relevant room and broadcast."""
-    data = {
-        "task_id": task_id,
-        "agent_id": agent_id,
-        "result_text": result_text,
-        "result_image": result_image,
-        "status": status,
-        "error": error,
-    }
-    room = f"agent_{agent_id}"
-    emit("task_result", data, room=room, namespace="/ws")
-    socketio.emit(
-        "task_result", data, namespace="/ws", broadcast=True, include_self=True
-    )
+    try:
+        data = {
+            "task_id": task_id,
+            "agent_id": agent_id,
+            "result_text": result_text,
+            "result_image": result_image,
+            "status": status,
+            "error": error,
+        }
+        room = f"agent_{agent_id}"
+        emit("task_result", data, room=room, namespace="/ws")
+        socketio.emit(
+            "task_result", data, namespace="/ws", broadcast=True, include_self=True
+        )
+    except Exception as e:
+        print(f"[WS] emit_task_result error: {e}", flush=True)
 
 
 def emit_chat_message(agent_id, role, content, message_id=None):
     """Broadcast a new chat message."""
-    data = {
-        "agent_id": agent_id,
-        "role": role,
-        "content": content,
-        "message_id": message_id or str(uuid.uuid4()),
-        "ts": datetime.now().isoformat(),
-    }
-    room = f"agent_{agent_id}"
-    emit("chat_message", data, room=room, namespace="/ws")
-    socketio.emit(
-        "chat_message", data, namespace="/ws", broadcast=True, include_self=True
-    )
+    try:
+        data = {
+            "agent_id": agent_id,
+            "role": role,
+            "content": content,
+            "message_id": message_id or str(uuid.uuid4()),
+            "ts": datetime.now().isoformat(),
+        }
+        room = f"agent_{agent_id}"
+        emit("chat_message", data, room=room, namespace="/ws")
+        socketio.emit(
+            "chat_message", data, namespace="/ws", broadcast=True, include_self=True
+        )
+    except Exception as e:
+        print(f"[WS] emit_chat_message error: {e}", flush=True)
 
 
 def emit_heartbeat_result(agent_id, result):
     """Send heartbeat output to room and broadcast."""
-    data = {"agent_id": agent_id, "result": result, "ts": datetime.now().isoformat()}
-    room = f"agent_{agent_id}"
-    emit("heartbeat_result", data, room=room, namespace="/ws")
-    socketio.emit(
-        "heartbeat_result", data, namespace="/ws", broadcast=True, include_self=True
-    )
+    try:
+        data = {
+            "agent_id": agent_id,
+            "result": result,
+            "ts": datetime.now().isoformat(),
+        }
+        room = f"agent_{agent_id}"
+        emit("heartbeat_result", data, room=room, namespace="/ws")
+        socketio.emit(
+            "heartbeat_result", data, namespace="/ws", broadcast=True, include_self=True
+        )
+    except Exception as e:
+        print(f"[WS] emit_heartbeat_result error: {e}", flush=True)
 
 
 def emit_error(message, room=None):
@@ -1154,6 +1181,17 @@ def process_task(task_id: str):
         re.IGNORECASE,
     )
 
+    HACKER_TRIGGERS = re.compile(
+        r"hacker\s*news|"
+        r"hackernews|"
+        r"hn\s*(news|neu|neues)?|"
+        r"was\s*(gibt|is?)\s*(es)?\s*(neues|new|new?s)?\s*(bei)?\s*hacker|"
+        r"neues?\s*(bei)?\s*hacker\s*news|"
+        r"top\s*stories|"
+        r"newest\s*hacker",
+        re.IGNORECASE,
+    )
+
     try:
         # Image Edit skill: check if we have an image to edit + trigger words
         if (
@@ -1225,6 +1263,42 @@ def process_task(task_id: str):
                     "send", {"to": to_addr, "subject": subject, "body": body}
                 )
             task["skill_used"] = "gmail"
+        # Hacker News skill
+        elif "hackernews" in skills and HACKER_TRIGGERS.search(message):
+            print(f"[Task] hackernews trigger detected: {message[:60]}", flush=True)
+            try:
+                import urllib.request
+                import json
+
+                r = urllib.request.urlopen(
+                    "https://hacker-news.firebaseio.com/v0/topstories.json", timeout=10
+                )
+                story_ids = json.loads(r.read())[:15]
+                items = []
+                for sid in story_ids[:10]:
+                    sr = urllib.request.urlopen(
+                        f"https://hacker-news.firebaseio.com/v0/item/{sid}.json",
+                        timeout=5,
+                    )
+                    story = json.loads(sr.read())
+                    if story:
+                        items.append(
+                            {
+                                "title": story.get("title", ""),
+                                "url": story.get(
+                                    "url", f"https://news.ycombinator.com/item?id={sid}"
+                                ),
+                                "score": story.get("score", 0),
+                                "by": story.get("by", ""),
+                            }
+                        )
+                result = "🎩 **Hacker News Top Stories:**\n\n"
+                for i, item in enumerate(items, 1):
+                    result += f"{i}. [{item['title']}]({item['url']}) ({item['score']} pts by {item['by']})\n"
+                task["result_text"] = result
+            except Exception as e:
+                task["result_text"] = f"❌ Error fetching Hacker News: {str(e)}"
+            task["skill_used"] = "hackernews"
         elif "image_gen" in skills and (IMG_TRIGGERS.search(message) or only_image_gen):
             img_prompt = _extract_img_prompt(message)
             if not img_prompt:
@@ -2161,7 +2235,7 @@ def a2a_dispatch():
     )
 
     # Start processing in background
-    threading.Thread(target=process_task, args=(task_id,), daemon=True).start()
+    spawn_background(process_task, task_id)
 
     return jsonify(
         {
@@ -3084,11 +3158,7 @@ def chat():
 
     # Store in long-term memory (async, non-blocking)
     if "memory" in agent_skills:
-        threading.Thread(
-            target=memory_store,
-            args=(agent_id, user_message, assistant_reply),
-            daemon=True,
-        ).start()
+        spawn_background(memory_store, agent_id, user_message, assistant_reply)
 
     resp_data = {"reply": assistant_reply, "voice": agent["voice"]}
     if provider == "ollama" and "ollama_stats" in dir():
@@ -3738,7 +3808,7 @@ def tick_watchdogs():
             new_next = (now + timedelta(seconds=interval_sec)).isoformat()
             update_watchdog_field(wd["id"], next_run=new_next)
             wd["next_run"] = new_next  # lokale Kopie aktualisieren
-            threading.Thread(target=run_watchdog, args=(dict(wd),), daemon=True).start()
+            spawn_background(run_watchdog, dict(wd))
 
 
 _MENTION_RX = re.compile(r"@([\w\-äöüÄÖÜß]+)", re.UNICODE)
@@ -3777,7 +3847,7 @@ def _dispatch_mentions_from_prompt(sender_agent: dict, prompt: str, task_message
         with _tasks_lock:
             _TASKS[task["id"]] = task
         _save_tasks()
-        threading.Thread(target=process_task, args=(task["id"],), daemon=True).start()
+        spawn_background(process_task, task["id"])
         break  # one dispatch per heartbeat
 
 
@@ -3815,7 +3885,7 @@ def _dispatch_mentions_from_reply(sender_agent: dict, reply: str):
         with _tasks_lock:
             _TASKS[task["id"]] = task
         _save_tasks()
-        threading.Thread(target=process_task, args=(task["id"],), daemon=True).start()
+        spawn_background(process_task, task["id"])
         break  # one dispatch per heartbeat
 
 
@@ -3980,9 +4050,7 @@ def tick_heartbeats():
             new_next = (now + timedelta(minutes=interval_min)).isoformat()
             # Atomic patch — holds _agents_lock for the full read-modify-write
             patch_agent_heartbeat(agent["id"], next_run=new_next)
-            threading.Thread(
-                target=run_heartbeat, args=(agent["id"],), daemon=True
-            ).start()
+            spawn_background(run_heartbeat, agent["id"])
 
 
 # Telegram polling state - start from latest to avoid duplicates
@@ -4099,7 +4167,7 @@ def scheduler_loop():
         try:
             tick_watchdogs()
             tick_heartbeats()
-            tick_telegram()
+            # tick_telegram()  # DISABLED - uncomment to enable Telegram polling
             activity_cleanup()
         except Exception as e:
             print(f"[Scheduler] Fehler: {e}", flush=True)
@@ -4107,6 +4175,8 @@ def scheduler_loop():
 
 
 # Scheduler als Daemon-Thread starten (nicht blockierend)
+import threading
+
 threading.Thread(target=scheduler_loop, daemon=True).start()
 
 
@@ -4214,7 +4284,7 @@ def trigger_watchdog(wd_id):
     wd = next((w for w in watchdogs if w["id"] == wd_id), None)
     if not wd:
         return jsonify({"error": "Nicht gefunden"}), 404
-    threading.Thread(target=run_watchdog, args=(dict(wd),), daemon=True).start()
+    spawn_background(run_watchdog, dict(wd))
     return jsonify({"ok": True, "message": "Watchdog wird ausgeführt…"})
 
 
@@ -4276,7 +4346,7 @@ def run_heartbeat_now(agent_id):
     agent = next((a for a in agents if a["id"] == agent_id), None)
     if not agent:
         return jsonify({"error": "Agent nicht gefunden"}), 404
-    threading.Thread(target=run_heartbeat, args=(agent_id,), daemon=True).start()
+    spawn_background(run_heartbeat, agent_id)
     return jsonify({"ok": True})
 
 
@@ -4311,9 +4381,8 @@ def run_dream_now(agent_id):
     agent = next((a for a in agents if a["id"] == agent_id), None)
     if not agent:
         return jsonify({"error": "Agent nicht gefunden"}), 404
-    from .memory import run_dream_for_agent
 
-    threading.Thread(target=run_dream_for_agent, args=(agent_id,), daemon=True).start()
+    spawn_background(run_dream_for_agent, agent_id)
     return jsonify({"ok": True})
 
 
@@ -4617,8 +4686,7 @@ def create_task():
         _TASKS[task["id"]] = task
     _save_tasks()
 
-    t = threading.Thread(target=process_task, args=(task["id"],), daemon=True)
-    t.start()
+    spawn_background(process_task, task["id"])
     print(
         f"[Task] created {task['id']}: {sender_name} → {recipient['name']}: {message[:60]}",
         flush=True,
@@ -5142,4 +5210,11 @@ def comfyui_generate():
 if __name__ == "__main__":
     port = 5050
     print(f"Starting on http://0.0.0.0:{port} with WebSocket support", flush=True)
-    socketio.run(app, debug=True, host="0.0.0.0", port=port, use_reloader=False)
+    socketio.run(
+        app,
+        debug=True,
+        host="0.0.0.0",
+        port=port,
+        use_reloader=False,
+        allow_unsafe_werkzeug=True,
+    )

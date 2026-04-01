@@ -4012,7 +4012,36 @@ function dispatchReplyMentions(reply) {
 
 async function handleAgentMention(targetAgent, message, rawText) {
   appendMsg('user', rawText);
-  appendSystemMsg(`⏳ @${esc(targetAgent.name)} is working on it…`);
+  
+  // Check if this is likely an image generation task
+  const isImageTask = /^(generier\w*|mal\w*|zeichn\w*|zeichne|generate|draw|paint|bild|hund|portrait|foto|image|picture)/i.test(message);
+  
+  // Create placeholder with spinner for image tasks
+  let placeholderId = null;
+  if (isImageTask) {
+    const el = document.getElementById('chatMessages');
+    if (el) {
+      placeholderId = 'img-placeholder-' + Date.now();
+      el.insertAdjacentHTML('beforeend', `
+        <div class="msg assistant" id="${placeholderId}">
+          <span class="msg-meta">${new Date().toLocaleTimeString()}</span>
+          <div class="msg-bubble" style="display:flex;align-items:center;gap:12px">
+            <div style="display:flex;gap:3px;align-items:flex-end;height:32px">
+              <div class="eeg-bar" style="animation-delay:0s;height:8px"></div>
+              <div class="eeg-bar" style="animation-delay:0.15s;height:20px"></div>
+              <div class="eeg-bar" style="animation-delay:0.3s;height:14px"></div>
+              <div class="eeg-bar" style="animation-delay:0.45s;height:24px"></div>
+              <div class="eeg-bar" style="animation-delay:0.6s;height:10px"></div>
+            </div>
+            <span>🎨 @${esc(targetAgent.name)} erstellt Bild…</span>
+          </div>
+        </div>
+      `);
+      scrollToBottom(el);
+    }
+  } else {
+    appendSystemMsg(`⏳ @${esc(targetAgent.name)} is working on it…`);
+  }
 
   let task;
   try {
@@ -4026,7 +4055,13 @@ async function handleAgentMention(targetAgent, message, rawText) {
         message
       }
     });
+    // Store placeholderId on task object so renderTaskResult can access it
+    task._placeholderId = placeholderId;
   } catch(e) {
+    // Remove placeholder on error
+    if (placeholderId) {
+      document.getElementById(placeholderId)?.remove();
+    }
     appendSystemMsg(`Fehler: ${esc(e.message)}`);
     return;
   }
@@ -4042,21 +4077,39 @@ async function handleAgentMention(targetAgent, message, rawText) {
 
     // A2A terminal states
     if (result.status === 'completed') {
+      // Remove placeholder if it exists
+      if (placeholderId) {
+        document.getElementById(placeholderId)?.remove();
+      }
       renderTaskResult(result, targetAgent);
       return;
     }
     if (result.status === 'failed') {
+      // Remove placeholder on error
+      if (placeholderId) {
+        document.getElementById(placeholderId)?.remove();
+      }
       appendSystemMsg(`@${esc(targetAgent.name)} Error: ${esc(result.error || 'Unknown')}`);
       return;
     }
     if (result.status === 'canceled') {
+      if (placeholderId) {
+        document.getElementById(placeholderId)?.remove();
+      }
       appendSystemMsg(`@${esc(targetAgent.name)} Task was canceled`);
       return;
     }
     if (result.status === 'input-required') {
+      if (placeholderId) {
+        document.getElementById(placeholderId)?.remove();
+      }
       appendSystemMsg(`@${esc(targetAgent.name)} needs more input`);
       return;
     }
+  }
+  // Remove placeholder on timeout
+  if (placeholderId) {
+    document.getElementById(placeholderId)?.remove();
   }
   appendSystemMsg(`@${esc(targetAgent.name)} — Timeout after 3 minutes`);
 }
@@ -4066,6 +4119,10 @@ function renderTaskResult(task, fromAgent) {
   if (!conversations[currentAgent.id]) conversations[currentAgent.id] = [];
 
   const prefix = `📬 **@${fromAgent.name}**`;
+
+  // Check if we have a placeholder to replace
+  const placeholderId = task._placeholderId;
+  const placeholderEl = placeholderId ? document.getElementById(placeholderId) : null;
 
   if (task.skill_used === 'image_gen' && task.result_image) {
     const msg = {
@@ -4079,10 +4136,20 @@ function renderTaskResult(task, fromAgent) {
     conversations[currentAgent.id].push(msg);
     const el = document.getElementById('chatMessages');
     if (el) {
-      el.insertAdjacentHTML('beforeend', renderMsg(msg, idx));
+      if (placeholderEl) {
+        // Replace placeholder with actual image
+        placeholderEl.outerHTML = renderMsg(msg, idx);
+      } else {
+        // Fallback: append new message
+        el.insertAdjacentHTML('beforeend', renderMsg(msg, idx));
+      }
       scrollToBottom(el);
     }
   } else if (task.result_text) {
+    // For non-image results, remove placeholder and append
+    if (placeholderEl) {
+      placeholderEl.remove();
+    }
     const msg = {
       role: 'assistant',
       content: `${prefix}: ${task.result_text}`,
