@@ -3710,19 +3710,6 @@ async function playMacVoiceAsync(text, voiceName, btn) {
     );
     console.log('[Voice] Found:', found ? found.name : 'NONE');
     
-    // Only use fallback if nothing was found
-    if (!found) {
-      const fallbackVoices = ['Google Deutsch', 'Markus', 'Anna', 'Petra'];
-      for (const name of fallbackVoices) {
-        const v = voices.find(v => v.name === name);
-        if (v) {
-          console.log('[Voice] Using fallback:', name);
-          found = v;
-          break;
-        }
-      }
-    }
-    
     const utt = new SpeechSynthesisUtterance(text);
     
     // Set Mac-specific properties
