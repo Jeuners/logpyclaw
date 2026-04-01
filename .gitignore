@@ -20,3 +20,5 @@ AgentClaw_icon.png
 
 # Python venv
 venv/
+*.zip
+dump.rdb
