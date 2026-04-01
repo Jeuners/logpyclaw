@@ -2124,7 +2124,12 @@ Respond with this exact JSON:
     )
     resp.raise_for_status()
     data = resp.json()
-    result = json.loads(data["response"])
+    try:
+        result = json.loads(data["response"])
+    except json.JSONDecodeError as e:
+        print(f"[prompt/optimize] JSON parse error: {e}", flush=True)
+        print(f"[prompt/optimize] Raw response: {data['response'][:500]}", flush=True)
+        return input_prompt  # Fallback to original
 
     # Format as readable markdown
     refined = result.get("refinedPrompt", "")
@@ -2202,7 +2207,13 @@ Return ONLY this JSON:
             timeout=60,
         )
         resp.raise_for_status()
-        result = json.loads(resp.json()["response"])
+        try:
+            result = json.loads(resp.json()["response"])
+        except json.JSONDecodeError as e:
+            print(f"[prompt/optimize] JSON parse error: {e}", flush=True)
+            return jsonify(
+                {"refinedPrompt": input_prompt, "error": "Invalid JSON from model"}
+            )
         refined = result.get("refinedPrompt", input_prompt)
         return jsonify({"refinedPrompt": refined, "framework": framework_id})
     except Exception as e:

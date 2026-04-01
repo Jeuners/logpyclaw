@@ -2286,19 +2286,21 @@ async function sendMessage(overrideText) {
       appendMsg('user', text);
       // If prompt_optimize skill active and user asks to optimize, refine first
       const wantsOptimize = /\b(optimier\w*|optimize|verbessere|refine|verfeinere)\b/i.test(text);
-      if (activeSkills.has('prompt_optimize') && wantsOptimize) {
+          if (activeSkills.has('prompt_optimize') && wantsOptimize) {
         appendSystemMsg(`✨ Optimizing prompt…`);
         try {
           const optResult = await api('/api/prompt/optimize', {
             method: 'POST',
             body: { prompt: imgPrompt, framework: 'RTF', target_model: 'Image Generation' }
           });
-          if (optResult.refinedPrompt) {
+          if (optResult.error) {
+            appendSystemMsg('⚠️ Optimize error: ' + optResult.error);
+          } else if (optResult.refinedPrompt) {
             imgPrompt = optResult.refinedPrompt;
             appendSystemMsg(`✨ Optimized: "${imgPrompt.slice(0, 90)}${imgPrompt.length > 90 ? '…' : ''}"`);
           }
         } catch(e) {
-          appendSystemMsg('⚠️ Optimize failed, using original prompt.');
+          appendSystemMsg('⚠️ Optimize failed: ' + e.message);
         }
       }
       appendSystemMsg(`🎨 Generating: "${imgPrompt.slice(0, 80)}${imgPrompt.length > 80 ? '…' : ''}"…`);
