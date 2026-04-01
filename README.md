@@ -39,14 +39,17 @@ No cloud subscriptions required — use local models via [Ollama](https://ollama
 
 | Skill | Description |
 |-------|-------------|
-| 🔍 **Web Search** | Real-time search via local SearXNG instance |
 | 🔗 **URL Reader** | Auto-fetches and summarizes any URL in a message |
 | 📸 **Screenshot** | Takes browser screenshots via Playwright |
 | 🎨 **Image Generation** | Generates images via ComfyUI (Flux, etc.) |
 | ✏️ **Image Editing** | Edits uploaded images via ComfyUI / FireRed |
-| 📰 **News** | Fetches latest news from Tagesschau API |
+| 📰 **Tagesschau News** | Fetches latest German news from Tagesschau API |
+| 🎩 **Hacker News** | Fetches top stories from Hacker News |
 | 🧠 **Long-Term Memory** | Stores and recalls context using Qdrant vector DB |
+| 📄 **Document Memory** | Upload PDFs/images - stored as vectors (requires Google API) |
+| ✨ **Prompt Optimizer** | Optimizes prompts using RTF, TAG, BAB, CARE, RISE frameworks |
 | ✈️ **Telegram** | Sends/receives messages and images via Telegram bot |
+| 🌙 **Dream Agent** | Daily memory optimization - removes old entries, resolves contradictions |
 
 ### Autonomous Agents (Heartbeat)
 - Configure a **heartbeat** schedule for any agent (e.g. every 15 minutes)

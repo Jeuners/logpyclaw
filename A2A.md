@@ -32,6 +32,18 @@ submitted → working → input-required → completed/failed/canceled/rejected/
 | `/api/agents/capabilities` | GET | Filter agents by skill |
 | `/api/skills` | GET | Get all available skills |
 
+### Agent Settings
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/agents/<id>/settings` | PUT | Update agent name, role, model, etc. |
+| `/api/agents/<id>/voice` | PUT | Set agent TTS voice |
+| `/api/agents/<id>/skills` | PUT | Enable/disable skills |
+| `/api/agents/<id>/heartbeat` | PUT | Configure heartbeat (auto-task) |
+| `/api/agents/<id>/heartbeat/run` | POST | Trigger heartbeat manually |
+| `/api/agents/<id>/dream` | PUT | Configure dream (memory cleanup) |
+| `/api/agents/<id>/dream/run` | POST | Run dream cycle manually |
+
 ### Task Management
 
 | Endpoint | Method | Description |
@@ -49,6 +61,15 @@ submitted → working → input-required → completed/failed/canceled/rejected/
 | `/api/skills` | GET | List all skills with availability |
 | `/api/skills/<skill>/check` | GET | Check if skill is available |
 
+### Memory & Documents
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/memory/<agent_id>` | GET | Get agent memories from Qdrant |
+| `/api/memory/<agent_id>` | DELETE | Clear all memories |
+| `/api/memory/<agent_id>/document` | POST | Upload PDF/image to vector store |
+| `/api/history/<agent_id>` | GET/DELETE | Chat history |
+
 ### Other Endpoints
 
 | Endpoint | Method | Description |
@@ -56,7 +77,6 @@ submitted → working → input-required → completed/failed/canceled/rejected/
 | `/api/chat` | POST | Chat with an agent |
 | `/api/prompt/optimize` | POST | Optimize a prompt |
 | `/api/image/edit` | POST | Edit an image |
-| `/api/memory/<agent_id>` | GET/DELETE | Memory operations |
 | `/api/tagesschau` | GET | German news feed |
 | `/api/hackernews` | GET | Hacker News feed |
 | `/api/screenshot` | POST | Take website screenshot |
@@ -148,15 +168,21 @@ Agents can also delegate to other agents by mentioning them in their reply:
   "id": "uuid",
   "name": "string",
   "role": "string",
-  "provider": "ollama|mistral|openrouter",
+  "provider": "ollama|mistral|openrouter|google",
   "model": "string",
   "soul": "string (system prompt)",
   "skills": ["image_gen", "memory", "telegram", ...],
   "voice": "string|null",
+  "avatar": "base64|null",
+  "color": "hex|null",
   "heartbeat": {
     "active": "boolean",
     "interval_min": "number",
     "prompt": "string"
+  },
+  "dream": {
+    "active": "boolean",
+    "retention_days": "number"
   }
 }
 ```
@@ -168,6 +194,7 @@ Agents can also delegate to other agents by mentioning them in their reply:
 | `image_gen` | Image generation via ComfyUI | ComfyUI |
 | `image_edit` | Image editing | ComfyUI |
 | `memory` | Long-term memory via Qdrant | Qdrant |
+| `document_memory` | PDF/image upload to vector store | Qdrant + Google API |
 | `telegram` | Telegram bot | Telegram API |
 | `gmail` | Gmail integration | Gmail API |
 | `prompt_optimize` | Prompt optimization via Ollama | Ollama |
@@ -176,6 +203,22 @@ Agents can also delegate to other agents by mentioning them in their reply:
 | `tagesschau` | German news feed | None |
 | `hackernews` | Hacker News feed | None |
 | `telegram_incoming` | Receive Telegram messages | Telegram API |
+
+## Heartbeat
+
+Agents can run periodic tasks automatically:
+
+- **Interval**: 1-1440 minutes
+- **Trigger**: Backend scheduler checks every minute
+- **Use case**: Daily status updates, data fetching, delegation to other agents
+
+## Dream (Memory Cleanup)
+
+Agents with memory skill can auto-cleanup old memories:
+
+- **Retention**: 1-365 days
+- **Trigger**: Daily via `_run_dream_cycle()`
+- **Action**: Deletes vector entries older than retention period
 
 ## Error Handling
 
@@ -214,6 +257,10 @@ curl http://localhost:5050/api/tasks/<task_id>
 
 # Cancel task
 curl -X POST http://localhost:5050/api/tasks/<task_id>/cancel
+
+# Upload document to memory
+curl -X POST http://localhost:5050/api/memory/<agent_id>/document \
+  -F "file=@document.pdf"
 ```
 
 ## Memory Clear Trigger

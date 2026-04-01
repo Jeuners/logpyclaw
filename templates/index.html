@@ -252,6 +252,9 @@
     /* Smaller variants for topbar / multi-card */
     .agent-avatar-img.sm  { width: 32px; height: 32px; }
     .agent-avatar-initial.sm { width: 32px; height: 32px; font-size: 13px; }
+    /* Large variant for main chat header */
+    .agent-avatar-img.lg  { width: 50px; height: 50px; }
+    .agent-avatar-initial.lg { width: 50px; height: 50px; font-size: 22px; }
 
     /* Color picker row */
     .color-avatar-row {
@@ -1396,12 +1399,21 @@
 
 <!-- Modal: Edit Agent -->
 <div class="modal-overlay" id="editAgentModal">
-  <div class="modal">
+  <div class="modal" style="max-width:520px">
     <div class="modal-title">
       ✏️ Edit Agent
       <button class="close-btn" onclick="closeModal('editAgentModal')">✕</button>
     </div>
     <div class="modal-body">
+      <div class="form-group" style="background:var(--b2);border-radius:12px;padding:16px;margin:-8px -8px 16px -8px">
+        <div style="display:flex;align-items:center;gap:16px">
+          <div class="avatar-preview" id="editAvatarPreviewLarge" onclick="document.getElementById('editAvatarInput').click()" style="width:120px;height:120px;font-size:56px;background:#4f46e5;border-radius:50%">A</div>
+          <div style="flex:1">
+            <input class="form-input" id="editAgentNameLarge" style="font-size:20px;font-weight:bold" oninput="updateAvatarInitial('edit',this.value)">
+            <input class="form-input" id="editAgentRoleLarge" placeholder="Role / Focus" style="font-size:14px;color:var(--textdim);margin-top:4px">
+          </div>
+        </div>
+      </div>
       <div class="form-group">
         <label class="form-label">Avatar &amp; Farbe</label>
         <div class="color-avatar-row">
@@ -1416,15 +1428,6 @@
           </div>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Agent Name</label>
-        <input class="form-input" id="editAgentName" oninput="updateAvatarInitial('edit',this.value)">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Role / Focus</label>
-        <input class="form-input" id="editAgentRole" placeholder="e.g. Research Assistant">
-      </div>
-      <div class="form-group">
         <label class="form-label">Provider</label>
         <select class="form-select" id="editAgentProvider"></select>
       </div>
@@ -1464,6 +1467,22 @@
             <span style="font-size:12px;color:var(--textdim);font-family:var(--mono)">minutes</span>
             <button class="btn-secondary" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="runHeartbeatNow()">▶ Run now</button>
           </div>
+        </div>
+      </div>
+      <div class="form-group" style="border-top:1px solid var(--b2);padding-top:12px">
+        <label class="form-label" style="display:flex;align-items:center;gap:8px">
+          🌙 Dream
+          <div class="toggle-switch" id="editDreamToggle" onclick="toggleEditDream()"></div>
+          <span id="editDreamStatus" style="font-size:11px;color:var(--textdim);font-family:var(--mono)">inactive</span>
+        </label>
+        <div id="editDreamFields" style="display:none;flex-direction:column;gap:8px;margin-top:8px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;color:var(--textdim);font-family:var(--mono);white-space:nowrap">Retention</span>
+            <input class="form-input" id="editDreamRetention" type="number" min="1" max="365" value="30" style="width:70px">
+            <span style="font-size:12px;color:var(--textdim);font-family:var(--mono)">days</span>
+            <button class="btn-secondary" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="runDreamNow()">▶ Run now</button>
+          </div>
+          <small style="color:var(--textdim);font-size:11px">Löscht Memories älter als X Tage aus dem Vector Store</small>
         </div>
       </div>
     </div>
@@ -2016,10 +2035,10 @@ function renderChatShell(ws) {
   ws.innerHTML = `
     <div class="chat-shell" id="chatShell">
       <div class="chat-topbar">
-        <div class="agent-avatar-wrap">${renderAgentAvatar(currentAgent,'sm')}</div>
+        <div class="agent-avatar-wrap" style="width:50px;height:50px">${renderAgentAvatar(currentAgent,'lg')}</div>
         <div>
-          <div class="chat-topbar-name">${esc(currentAgent.name)}</div>
-          ${currentAgent.role ? `<div style="font-size:10px;color:var(--textdim);font-family:var(--mono);margin-top:1px">${esc(currentAgent.role)}</div>` : ''}
+          <div class="chat-topbar-name" style="font-size:18px">${esc(currentAgent.name)}</div>
+          ${currentAgent.role ? `<div style="font-size:12px;color:var(--textdim);font-family:var(--mono);margin-top:2px">${esc(currentAgent.role)}</div>` : ''}
         </div>
         <span class="topbar-badge">${esc(currentAgent.model||'')}</span>
         <span class="speaking-dot" id="speakingDot"></span>
@@ -2067,6 +2086,8 @@ function renderChatShell(ws) {
           <button class="tool-btn" onclick="document.getElementById('imageFileInput').click()" title="Upload image">🖼 Image</button>
           <button class="tool-btn" id="editModeBtn" onclick="toggleEditMode()" title="Edit image">✏️ Edit</button>
           <input type="file" id="imageFileInput" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
+          <button class="tool-btn" id="docUploadBtn" onclick="document.getElementById('docFileInput').click()" title="Upload document to memory">📄 Doc</button>
+          <input type="file" id="docFileInput" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp" style="display:none" onchange="handleDocumentUpload(event)">
           <div id="skillBtns" style="display:flex;flex-wrap:wrap;gap:4px;max-width:100%;overflow:hidden"></div>
         </div>
       </div>
@@ -2938,24 +2959,32 @@ async function openEditAgentModal(id) {
   editingAgentId = id;
   _hasUnsavedChanges = false;
   
+  // Large header fields
+  document.getElementById('editAgentNameLarge').value = a.name || '';
+  document.getElementById('editAgentRoleLarge').value = a.role || '';
+  
+  // Original fields (hidden/duplicate)
   document.getElementById('editAgentName').value = a.name || '';
   document.getElementById('editAgentRole').value = a.role || '';
   document.getElementById('editAgentSystem').value = a.soul || '';
   document.getElementById('editAgentMaxTokens').value = a.max_tokens || '';
 
-  // Avatar & color
+  // Avatar & color - update both previews
   _editAvatarB64 = a.avatar || '';
   const editColor = a.color || '#4f46e5';
   initColorSwatches('edit', editColor);
-  const editPreview = document.getElementById('editAvatarPreview');
-  if (editPreview) {
+  
+  const updatePreview = (el) => {
+    if (!el) return;
     if (_editAvatarB64) {
-      editPreview.innerHTML = `<img src="${_editAvatarB64}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:2px solid ${editColor}">`;
+      el.innerHTML = `<img src="${_editAvatarB64}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:2px solid ${editColor}">`;
     } else {
-      editPreview.textContent = (a.name || '?')[0].toUpperCase();
-      editPreview.style.background = editColor;
+      el.textContent = (a.name || '?')[0].toUpperCase();
+      el.style.background = editColor;
     }
-  }
+  };
+  updatePreview(document.getElementById('editAvatarPreview'));
+  updatePreview(document.getElementById('editAvatarPreviewLarge'));
   await Promise.all([loadModels(), loadProviders()]);
   populateProviderSelects();
   const psel = document.getElementById('editAgentProvider');
@@ -2976,6 +3005,9 @@ async function openEditAgentModal(id) {
   addAutoSave('editAgentMaxTokens', 'max_tokens', '/settings');
   addAutoSave('editAgentProvider', 'provider', '/settings');
   addAutoSave('editAgentModel', 'model', '/settings');
+  // Large header auto-save (sync with main fields)
+  addAutoSave('editAgentNameLarge', 'name', '/settings');
+  addAutoSave('editAgentRoleLarge', 'role', '/settings');
   
   if (psel) psel.onchange = () => {
     populateModelSelect('editAgentModel', psel.value, '');
@@ -3040,6 +3072,37 @@ async function openEditAgentModal(id) {
   document.getElementById('editHeartbeatPrompt').onkeyup = () => saveHeartbeat();
   document.getElementById('editHeartbeatInterval').onchange = () => saveHeartbeat();
   
+  // Dream
+  const dream = a.dream || {};
+  const dreamActive = !!dream.active;
+  document.getElementById('editDreamToggle').classList.toggle('on', dreamActive);
+  document.getElementById('editDreamStatus').textContent = dreamActive ? 'active' : 'inactive';
+  document.getElementById('editDreamFields').style.display = dreamActive ? 'flex' : 'none';
+  document.getElementById('editDreamRetention').value = dream.retention_days || 30;
+  
+  const saveDream = async () => {
+    const dreamActive = document.getElementById('editDreamToggle').classList.contains('on');
+    const retention = parseInt(document.getElementById('editDreamRetention')?.value) || 30;
+    console.log('[Dream] Saving for agent:', editingAgentId, {active: dreamActive, retention});
+    try {
+      await api(`/api/agents/${editingAgentId}/dream`, {
+        method: 'PUT',
+        body: { active: dreamActive, retention_days: retention }
+      });
+      showToast('Dream gespeichert!', 'success');
+    } catch(e) {
+      console.error('[Dream] Error:', e);
+      showToast('Fehler: ' + e.message, 'error');
+    }
+  };
+  document.getElementById('editDreamToggle').onclick = () => {
+    const on = document.getElementById('editDreamToggle').classList.toggle('on');
+    document.getElementById('editDreamStatus').textContent = on ? 'active' : 'inactive';
+    document.getElementById('editDreamFields').style.display = on ? 'flex' : 'none';
+    saveDream();
+  };
+  document.getElementById('editDreamRetention').onchange = () => saveDream();
+  
   openModal('editAgentModal');
 }
 
@@ -3086,6 +3149,14 @@ async function runHeartbeatNow() {
   } catch(e) { alert('Error: ' + e.message); }
 }
 
+async function runDreamNow() {
+  if (!editingAgentId) return;
+  try {
+    await api(`/api/agents/${editingAgentId}/dream/run`, { method: 'POST' });
+    appendSystemMsg('🌙 Dream cycle started — old memories will be cleaned up');
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
 // Auto-save debounce timer
 let _autoSaveTimer = null;
 let _hasUnsavedChanges = false;
@@ -3116,13 +3187,17 @@ function triggerAutoSave() {
     if (!_hasUnsavedChanges || !editingAgentId) return;
     _hasUnsavedChanges = false;
     
-    // Save all fields
+    // Save all fields - also sync large header fields
     const name = document.getElementById('editAgentName')?.value.trim();
     const provider = document.getElementById('editAgentProvider')?.value;
     const model = document.getElementById('editAgentModel')?.value.trim();
     const system = document.getElementById('editAgentSystem')?.value.trim();
     const role = document.getElementById('editAgentRole')?.value.trim();
     const maxTokens = parseInt(document.getElementById('editAgentMaxTokens')?.value) || null;
+    
+    // Sync large header fields
+    document.getElementById('editAgentNameLarge').value = name;
+    document.getElementById('editAgentRoleLarge').value = role;
     
     const color = document.getElementById('editAgentColorCustom')?.value;
     await saveField(`/api/agents/${editingAgentId}/settings`,
@@ -3433,6 +3508,41 @@ function handleImageUpload(e) {
   e.target.value = ''; // reset so same file can be picked again
 }
 
+async function handleDocumentUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  if (!currentAgent || !currentAgent.skills?.includes('document_memory')) {
+    alert('Document Memory skill nicht aktiv. Bitte zuerst aktivieren.');
+    e.target.value = '';
+    return;
+  }
+  
+  appendSystemMsg(`📄 Lade ${file.name} hoch…`);
+  
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const resp = await fetch(`/api/memory/${currentAgent.id}/document`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (resp.ok) {
+      const data = await resp.json();
+      appendSystemMsg(`✅ ${data.filename} im Memory gespeichert`);
+    } else {
+      const err = await resp.json();
+      appendSystemMsg(`❌ Fehler: ${err.error}`);
+    }
+  } catch(err) {
+    appendSystemMsg(`❌ Upload fehlgeschlagen: ${err.message}`);
+  }
+  
+  e.target.value = '';
+}
+
 function clearImageAttachment() {
   pendingImageData = null;
   const wrap = document.getElementById('imagePreviewWrap');
@@ -3500,9 +3610,11 @@ function applyAgentColor(prefix, color) {
 }
 
 function updateAvatarInitial(prefix, name) {
-  const preview = document.getElementById(prefix + 'AvatarPreview');
-  if (!preview || preview.querySelector('img')) return;
-  preview.textContent = (name || '?')[0].toUpperCase() || '?';
+  const initials = (name || '?')[0].toUpperCase() || '?';
+  [prefix + 'AvatarPreview', prefix + 'AvatarPreviewLarge'].forEach(id => {
+    const preview = document.getElementById(id);
+    if (preview && !preview.querySelector('img')) preview.textContent = initials;
+  });
 }
 
 let _newAvatarB64 = '';
@@ -3523,12 +3635,14 @@ function handleAvatarUpload(input, prefix) {
       const b64 = canvas.toDataURL('image/jpeg', 0.85);
       if (prefix === 'new') _newAvatarB64 = b64;
       else _editAvatarB64 = b64;
-      // Show preview
-      const preview = document.getElementById(prefix + 'AvatarPreview');
-      if (preview) {
-        const color = document.getElementById(prefix + 'AgentColorCustom')?.value || '#4f46e5';
-        preview.innerHTML = `<img src="${b64}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:2px solid ${color}">`;
-      }
+      // Show preview - both small and large
+      const color = document.getElementById(prefix + 'AgentColorCustom')?.value || '#4f46e5';
+      [prefix + 'AvatarPreview', prefix + 'AvatarPreviewLarge'].forEach(id => {
+        const preview = document.getElementById(id);
+        if (preview) {
+          preview.innerHTML = `<img src="${b64}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:2px solid ${color}">`;
+        }
+      });
       // Auto-save for edit modal
       if (prefix === 'edit' && editingAgentId) {
         saveField(`/api/agents/${editingAgentId}/settings`, { avatar: b64 }, 'Avatar gespeichert');

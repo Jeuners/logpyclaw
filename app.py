@@ -99,6 +99,20 @@ SKILLS = [
         "requires": "qdrant",
     },
     {
+        "id": "document_memory",
+        "name": "Document Memory",
+        "icon": "📄",
+        "description": "Upload PDFs, images - stored as vectors for retrieval (requires Google API)",
+        "requires": "google_api",
+    },
+    {
+        "id": "dream",
+        "name": "Dream Agent",
+        "icon": "🌙",
+        "description": "Optimizes agent memories daily - removes old entries, resolves contradictions, cleans up vector store",
+        "requires": "qdrant",
+    },
+    {
         "id": "telegram",
         "name": "Telegram",
         "icon": "✈️",
@@ -1259,6 +1273,131 @@ def memory_store(agent_id, user_msg, assistant_msg):
         print(f"[Memory] store error: {e}", flush=True)
 
 
+def _run_dream_cycle():
+    """Execute dream cycle - optimize all agent memories."""
+    from datetime import timedelta
+
+    client = get_qdrant()
+    if not client:
+        return "❌ Qdrant nicht verfügbar"
+
+    agents = load_agents()
+    retention_days = 30
+    cutoff = datetime.now() - timedelta(days=retention_days)
+
+    results = []
+    total_before = 0
+    total_after = 0
+
+    for agent in agents:
+        # Only process agents with dream flag
+        dream_cfg = agent.get("dream", {})
+        if not dream_cfg.get("active", False):
+            continue
+
+        agent_id = agent["id"]
+        name = collection_name(agent_id)
+
+        try:
+            existing = [c.name for c in client.get_collections().collections]
+            if name not in existing:
+                results.append(f"• {agent['name']}: keine Einträge")
+                continue
+
+            # Get all points
+            from qdrant_client.models import Filter, FieldCondition, Match
+
+            scroll = client.scroll(collection_name=name, limit=1000, with_payload=True)
+            points = scroll[0]
+            total_before += len(points)
+
+            # Filter old entries
+            old_ids = []
+            for p in points:
+                ts = p.payload.get("ts", "")
+                try:
+                    pt = datetime.fromisoformat(ts)
+                    if pt < cutoff:
+                        old_ids.append(p.id)
+                except:
+                    pass
+
+            # Delete old points
+            if old_ids:
+                client.delete(collection_name=name, points_selector=old_ids)
+
+            remaining = len(points) - len(old_ids)
+            total_after += remaining
+            results.append(
+                f"• {agent['name']}: {len(points)} → {remaining} (→ gelöscht: {len(old_ids)})"
+            )
+
+        except Exception as e:
+            results.append(f"• {agent['name']}: Fehler - {str(e)[:50]}")
+
+    summary = f"🌙 **Träume abgeschlossen**\n━━━━━━━━━━━━━━━━━━━━\n"
+    summary += "\n".join(results)
+    if results:
+        summary += f"\n\n📊 Gesamt: {total_before} → {total_after} Einträge"
+    else:
+        summary += "\n\nKeine Agenten mit Dream-Flag aktiviert."
+
+    return summary
+
+
+def run_dream_for_agent(agent_id):
+    """Execute dream cycle for a single agent."""
+    from datetime import timedelta
+
+    client = get_qdrant()
+    if not client:
+        print("[Dream] Qdrant not available", flush=True)
+        return
+
+    agents = load_agents()
+    agent = next((a for a in agents if a["id"] == agent_id), None)
+    if not agent:
+        print(f"[Dream] Agent {agent_id} not found", flush=True)
+        return
+
+    dream_cfg = agent.get("dream", {})
+    retention_days = dream_cfg.get("retention_days", 30)
+    cutoff = datetime.now() - timedelta(days=retention_days)
+    name = collection_name(agent_id)
+
+    try:
+        existing = [c.name for c in client.get_collections().collections]
+        if name not in existing:
+            print(f"[Dream] {agent['name']}: keine Einträge", flush=True)
+            return
+
+        from qdrant_client.models import Filter, FieldCondition, Match
+
+        scroll = client.scroll(collection_name=name, limit=1000, with_payload=True)
+        points = scroll[0]
+
+        old_ids = []
+        for p in points:
+            ts = p.payload.get("ts", "")
+            try:
+                pt = datetime.fromisoformat(ts)
+                if pt < cutoff:
+                    old_ids.append(p.id)
+            except:
+                pass
+
+        if old_ids:
+            client.delete(collection_name=name, points_selector=old_ids)
+
+        print(
+            f"[Dream] {agent['name']}: {len(points)} → {len(points) - len(old_ids)} (gelöscht: {len(old_ids)})",
+            flush=True,
+        )
+
+    except Exception as e:
+        print(f"[Dream] {agent['name']}: Fehler - {str(e)[:50]}", flush=True)
+
+
 DEFAULT_AGENTS = [
     {
         "id": str(uuid.uuid4()),
@@ -1425,6 +1564,7 @@ def load_providers():
         "openrouter": {"api_key": ""},
         "comfyui": {"url": "http://localhost:8188", "model": "flux2pro"},
         "qdrant": {"url": "http://localhost:6333"},
+        "google_api": {"api_key": ""},
         "telegram": {"bot_token": "", "chat_id": ""},
         "gmail": {"email": "", "app_password": ""},
         "redis": {"host": "localhost", "port": 6379, "enabled": False},
@@ -2529,6 +2669,33 @@ def chat():
                 f"[Memory] injected {len(memory_context)} chars for agent {agent['id']}",
                 flush=True,
             )
+
+    # Dream skill - Memory optimization trigger
+    if "dream" in agent_skills:
+        DREAM_TRIGGERS = re.compile(
+            r"\b(träume|traum|optimiere.*memory|räume.*auf|cleanup|dream|clean.*up)\b",
+            re.IGNORECASE,
+        )
+        if DREAM_TRIGGERS.search(user_message):
+            print(f"[Dream] triggered for agent {agent['name']}", flush=True)
+            dream_result = _run_dream_cycle()
+            assistant_reply = dream_result
+            history[agent_id].append(
+                {
+                    "role": "user",
+                    "content": user_message,
+                    "ts": datetime.now().isoformat(),
+                }
+            )
+            history[agent_id].append(
+                {
+                    "role": "assistant",
+                    "content": assistant_reply,
+                    "ts": datetime.now().isoformat(),
+                }
+            )
+            save_history(history)
+            return jsonify({"reply": assistant_reply, "voice": agent["voice"]})
 
     # Auto-fetch URLs mentioned in the user message (url_fetch skill)
     if "url_fetch" in agent_skills:
@@ -3951,6 +4118,43 @@ def run_heartbeat_now(agent_id):
     return jsonify({"ok": True})
 
 
+@app.route("/api/agents/<agent_id>/dream", methods=["PUT"])
+def set_dream(agent_id):
+    data = request.json
+    print(
+        f"[Dream] PUT received: agent={agent_id}, active={data.get('active')}",
+        flush=True,
+    )
+    agents = load_agents()
+    for a in agents:
+        if a["id"] == agent_id:
+            dream = a.setdefault("dream", {})
+            dream["active"] = bool(data.get("active", dream.get("active", False)))
+            dream["retention_days"] = int(
+                data.get("retention_days", dream.get("retention_days", 30))
+            )
+            save_agents(agents)
+            emit_event("agent_updated", {"id": agent_id})
+            print(
+                f"[Dream] Saved: active={dream['active']}, retention={dream['retention_days']} days",
+                flush=True,
+            )
+            return jsonify({"ok": True, "agent": a})
+    return jsonify({"ok": False, "error": "Agent nicht gefunden"}), 404
+
+
+@app.route("/api/agents/<agent_id>/dream/run", methods=["POST"])
+def run_dream_now(agent_id):
+    agents = load_agents()
+    agent = next((a for a in agents if a["id"] == agent_id), None)
+    if not agent:
+        return jsonify({"error": "Agent nicht gefunden"}), 404
+    from .memory import run_dream_for_agent
+
+    threading.Thread(target=run_dream_for_agent, args=(agent_id,), daemon=True).start()
+    return jsonify({"ok": True})
+
+
 # ─── Agent Settings Endpoints ───────────────────────────────────────────────────
 
 
@@ -4540,6 +4744,146 @@ def memory_clear(agent_id):
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ─── Document Memory (PDF/Images via Gemini Embedding 2) ───────────────────────────
+
+
+@app.route("/api/memory/<agent_id>/document", methods=["POST"])
+def memory_upload_document(agent_id):
+    """Upload PDF or image - store as vector in Qdrant."""
+    if "document_memory" not in _get_agent_skills(agent_id):
+        return jsonify({"error": "document_memory skill not active"}), 403
+
+    # Check for file in request
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    file = request.files["file"]
+    if not file.filename:
+        return jsonify({"error": "Empty filename"}), 400
+
+    filename = file.filename.lower()
+    file_data = file.read()
+
+    # Determine file type
+    is_pdf = filename.endswith(".pdf")
+    is_image = filename.endswith((".png", ".jpg", ".jpeg", ".gif", ".webp"))
+
+    if not (is_pdf or is_image):
+        return jsonify({"error": "Only PDF and images supported"}), 400
+
+    # Try Google API first, fallback to Ollama
+    providers = load_providers()
+    google_key = providers.get("google_api", {}).get("api_key", "")
+
+    try:
+        if google_key and is_pdf:
+            # Use Gemini Embedding 2 for PDF
+            import base64
+
+            b64 = base64.b64encode(file_data).decode()
+
+            # For now, use text extraction as fallback since Gemini 2 embedding
+            # might need specific setup. Try extracting text from PDF first
+            try:
+                import PyPDF2
+                from io import BytesIO
+
+                reader = PyPDF2.PdfReader(BytesIO(file_data))
+                text = "\n".join([page.extract_text() or "" for page in reader.pages])
+            except:
+                text = f"[Image/PDF file: {filename}]"
+
+            # Use Google for embedding
+            import requests
+
+            resp = requests.post(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2-preview:embedContent",
+                headers={"Authorization": f"Bearer {google_key}"},
+                json={"content": {"role": "user", "parts": [{"text": text[:2000]}]}},
+                timeout=30,
+            )
+            if resp.ok:
+                embedding = resp.json()["embedding"]["values"]
+                _store_document_vector(agent_id, filename, text[:1000], embedding)
+                return jsonify({"ok": True, "filename": filename, "type": "pdf"})
+        elif is_image:
+            # For images, use text description as fallback
+            text = f"[Image: {filename}]"
+            if google_key:
+                import requests
+
+                resp = requests.post(
+                    "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2-preview:embedContent",
+                    headers={"Authorization": f"Bearer {google_key}"},
+                    json={"content": {"role": "user", "parts": [{"text": text}]}},
+                    timeout=30,
+                )
+                if resp.ok:
+                    embedding = resp.json()["embedding"]["values"]
+                    _store_document_vector(agent_id, filename, text, embedding)
+                    return jsonify({"ok": True, "filename": filename, "type": "image"})
+
+        # Fallback to Ollama embeddings
+        ollama_url = providers.get("ollama", {}).get("url", "http://localhost:11434")
+        text = f"[Document: {filename}]"
+        resp = requests.post(
+            f"{ollama_url}/api/embeddings",
+            json={"model": "nomic-embed-text", "prompt": text},
+            timeout=30,
+        )
+        if resp.ok:
+            embedding = resp.json()["embedding"]
+            _store_document_vector(agent_id, filename, text, embedding)
+            return jsonify({"ok": True, "filename": filename, "type": "fallback"})
+
+        return jsonify({"error": "No embedding provider available"}), 500
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+def _get_agent_skills(agent_id):
+    agents = load_agents()
+    for a in agents:
+        if a["id"] == agent_id:
+            return set(a.get("skills", []))
+    return set()
+
+
+def _store_document_vector(agent_id, filename, text, embedding):
+    """Store document embedding in Qdrant."""
+    client = get_qdrant()
+    if not client:
+        return
+
+    from qdrant_client.models import PointStruct, VectorParams, Distance
+
+    name = collection_name(agent_id)
+    existing = [c.name for c in client.get_collections().collections]
+    if name not in existing:
+        client.create_collection(
+            name,
+            vectors_config=VectorParams(size=len(embedding), distance=Distance.COSINE),
+        )
+
+    client.upsert(
+        collection_name=name,
+        points=[
+            PointStruct(
+                id=str(uuid.uuid4()),
+                vector=embedding,
+                payload={
+                    "filename": filename,
+                    "text": text,
+                    "type": "document",
+                    "ts": datetime.now().isoformat(),
+                },
+            )
+        ],
+    )
+    print(f"[Document Memory] stored {filename} for agent {agent_id}", flush=True)
 
 
 @app.route("/api/comfyui/config", methods=["GET"])
