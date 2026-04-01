@@ -57,13 +57,6 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 SKILLS = [
     {
-        "id": "web_search",
-        "name": "Web Search",
-        "icon": "🔍",
-        "description": "Searches the web via SearXNG for current information when search queries are detected",
-        "requires": "searxng",
-    },
-    {
         "id": "url_fetch",
         "name": "Read URL",
         "icon": "🔗",
@@ -1423,7 +1416,6 @@ def load_providers():
         "ollama": {"url": "http://localhost:11434"},
         "mistral": {"api_key": os.getenv("MISTRAL_API_KEY", "")},
         "openrouter": {"api_key": ""},
-        "searxng": {"url": "http://localhost:8888"},
         "comfyui": {"url": "http://localhost:8188", "model": "flux2pro"},
         "qdrant": {"url": "http://localhost:6333"},
         "telegram": {"bot_token": "", "chat_id": ""},
@@ -1701,13 +1693,10 @@ def build_agent_card(agent: dict) -> dict:
             "max_tokens": agent.get("max_tokens"),
             "features": {
                 "voice": bool(agent.get("voice")),
-                "web_search": agent.get("web_search", False),
-                "heartbeat": bool(agent.get("heartbeat", {}).get("active")),
-                "memory": "memory" in agent.get("skills", []),
-                "image_gen": "image_gen" in agent.get("skills", []),
                 "telegram": "telegram" in agent.get("skills", []),
                 "gmail": "gmail" in agent.get("skills", []),
             },
+        },
         },
         "endpoints": {"chat": f"/api/chat/{agent.get('id')}", "task": f"/api/tasks"},
     }
@@ -1726,7 +1715,7 @@ def get_agent_capabilities():
     """Filtert Agenten nach Fähigkeiten.
 
     Query params:
-    - skill: z.B. "image_gen", "telegram", "web_search"
+    - skill: z.B. "image_gen", "telegram"
     - feature: z.B. "voice", "memory"
     """
     skill_filter = request.args.get("skill")
@@ -1774,7 +1763,7 @@ def a2a_dispatch():
     Body:
     {
         "source_agent_id": "uuid",
-        "task_type": "image_gen|web_search|telegram|gmail|memory|tagesschau",
+        "task_type": "image_gen|telegram|gmail|memory|tagesschau",
         "message": "prompt",
         "target_agent_name": "optional - wenn nicht, auto-match"
     }
@@ -1799,7 +1788,6 @@ def a2a_dispatch():
         # Auto-match based on task_type
         skill_map = {
             "image_gen": "image_gen",
-            "web_search": "web_search",
             "telegram": "telegram",
             "gmail": "gmail",
             "memory": "memory",
@@ -2245,24 +2233,10 @@ def chat():
     agent_directory = _build_agent_directory(agent_id)
     system_content = f"[Current time: {now}]\n\n{agent['soul']}\n\n{A2A_COMMUNICATION_PROMPT}\n\n{agent_directory}"
 
-    # Determine active skills (with backwards compat for old web_search field)
+    # Determine active skills
     agent_skills = set(agent.get("skills", []))
-    if agent.get("web_search") and "web_search" not in agent_skills:
-        agent_skills.add("web_search")
     if "skills" not in agent:  # old agent without skills field: keep url_fetch on
         agent_skills.add("url_fetch")
-
-    # Web search via SearXNG if skill active and query needs it
-    _SEARCH_RX = re.compile(
-        r"\b(news|aktuell\w*|heute|gerade|neueste\w*|neu(es?|em|en)?\b|"
-        r"letzt\w+|gibt es|was gibt|such\w*|find\w*|recherchier\w*|"
-        r"was ist|wer ist|wo ist|wie viel|wann|warum|"
-        r"preis|wetter|kurs|aktie|sport|ergebnis|"
-        r"twitter|x\.com|instagram|reddit|youtube|"
-        r"wie geht|was passiert|was läuft)\b",
-        re.IGNORECASE,
-    )
-    needs_search = bool(_SEARCH_RX.search(user_message))
 
     # Telegram: check if user wants to send to Telegram
     TG_TRIGGERS = re.compile(
@@ -2482,36 +2456,6 @@ def chat():
             print(f"[Chat] prompt_optimize error: {e}", flush=True)
             # Fall through to normal LLM if optimizer fails
 
-    search_context = ""
-    if "web_search" in agent_skills and needs_search:
-        try:
-            sx_url = providers.get("searxng", {}).get("url", "http://localhost:8888")
-            sx_resp = requests.get(
-                f"{sx_url}/search",
-                params={"q": user_message, "format": "json", "language": "auto"},
-                timeout=8,
-            )
-            results = sx_resp.json().get("results", [])[:5]
-            if results:
-                lines = [
-                    "⚠️ IMPORTANT: You have access to live web search results (fetched just now).",
-                    "Use ONLY these results to answer the question. Do NOT say you lack current information. If results are unclear or conflicting, say so.",
-                    f"[Web search for: {user_message}]",
-                ]
-                for r in results:
-                    lines.append(
-                        f"- {r.get('title', '')} — {r.get('url', '')}\n  {r.get('content', '')[:300]}"
-                    )
-                lines.append(
-                    "Answer based on these search results and cite your sources."
-                )
-                search_context = "\n".join(lines)
-        except Exception as e:
-            print(f"[SearXNG] Fehler: {e}", flush=True)
-
-    if search_context:
-        system_content += f"\n\n{search_context}"
-
     # Extra context injected by frontend skills (e.g. tagesschau news)
     if system_extra:
         system_content += f"\n\n{system_extra}"
@@ -2593,10 +2537,8 @@ def chat():
             }
             if agent.get("max_tokens"):
                 payload["max_tokens"] = agent["max_tokens"]
-            if agent.get("web_search"):
-                payload["plugins"] = [{"id": "web", "max_results": 5}]
             print(
-                f"[OpenRouter] key={or_key[:12]}… model={agent['model']} web={agent.get('web_search', False)}",
+                f"[OpenRouter] key={or_key[:12]}… model={agent['model']}",
                 flush=True,
             )
             resp = requests.post(
@@ -2952,19 +2894,6 @@ def providers_status():
             status["mistral"] = {"ok": False, "info": "Nicht erreichbar"}
     else:
         status["mistral"] = {"ok": False, "info": "Kein API Key"}
-
-    # SearXNG
-    try:
-        sx_url = providers.get("searxng", {}).get("url", "http://localhost:8888")
-        r = requests.get(
-            f"{sx_url}/search", params={"q": "test", "format": "json"}, timeout=3
-        )
-        status["searxng"] = {
-            "ok": r.ok,
-            "info": "Läuft lokal ✓" if r.ok else f"Fehler {r.status_code}",
-        }
-    except Exception:
-        status["searxng"] = {"ok": False, "info": "Nicht erreichbar"}
 
     # OpenRouter
     ok = providers.get("openrouter", {}).get("api_key", "")
@@ -3813,22 +3742,6 @@ def get_skills():
                 s["available"] = False
                 s["install_hint"] = (
                     "venv/bin/pip install playwright && venv/bin/playwright install chromium"
-                )
-        elif req == "searxng":
-            try:
-                sx_url = providers.get("searxng", {}).get(
-                    "url", "http://localhost:8888"
-                )
-                r = requests.get(
-                    f"{sx_url}/search",
-                    params={"q": "test", "format": "json"},
-                    timeout=2,
-                )
-                s["available"] = r.ok
-            except Exception:
-                s["available"] = False
-                s["install_hint"] = (
-                    "SearXNG starten: docker run -d -p 8888:8080 searxng/searxng"
                 )
         result.append(s)
     return jsonify(result)
