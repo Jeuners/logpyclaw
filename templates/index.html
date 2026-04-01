@@ -1620,7 +1620,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal('imageEditModal')">Cancel</button>
-      <button class="btn-primary" onclick="runImageEdit()">Bearbeiten</button>
+      <button class="btn-primary" id="editSubmitBtn" onclick="runImageEdit()">Bearbeiten</button>
     </div>
   </div>
 </div>
@@ -2043,7 +2043,7 @@ function renderChatShell(ws) {
             <div class="voice-dot"></div> Listening…
           </div>
           <button class="tool-btn" onclick="document.getElementById('imageFileInput').click()" title="Upload image">🖼 Image</button>
-          <button class="tool-btn" onclick="openImageEditModal()" title="Edit image">✏️ Edit</button>
+          <button class="tool-btn" id="editModeBtn" onclick="toggleEditMode()" title="Edit image">✏️ Edit</button>
           <input type="file" id="imageFileInput" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
           <div id="skillBtns" style="display:contents"></div>
         </div>
@@ -2377,6 +2377,39 @@ async function sendMessage(overrideText) {
         removeThinkingIndicator();
         appendSystemMsg('Error: ' + e.message);
       }
+      return;
+    }
+  }
+
+  // Hacker News skill
+  if (activeSkills.has('hackernews')) {
+    const HN_TRIGGERS = /\b(hacker\s*news|hn|tech\s*news|programming|silicon\s*valley|startup\s*news)\b/i;
+    if (HN_TRIGGERS.test(text)) {
+      appendMsg('user', text);
+      appendSystemMsg(`🎩 Loading Hacker News…`);
+      let newsContext = '';
+      try {
+        const nd = await api(`/api/hackernews?limit=15`);
+        if (nd.items && nd.items.length) {
+          newsContext = `Current Hacker News top stories:\n` +
+            nd.items.map((it, i) => `${i+1}. **${it.title}** (${it.score} points by ${it.by}) — ${it.url}`).join('\n');
+        }
+      } catch(e) { newsContext = ''; }
+      showThinkingIndicator();
+      try {
+        const body = { agent_id: currentAgent.id, message: text, system_extra: newsContext };
+        const data = await api('/api/chat', { method: 'POST', body });
+        removeThinkingIndicator();
+        const reply = data.reply || data.response || data.message || '';
+        const idx = appendMsg('assistant', reply, data.stats);
+        if (autoPlay) togglePlay(idx, reply);
+      } catch(e) {
+        removeThinkingIndicator();
+        appendSystemMsg('Error: ' + e.message);
+      }
+      return;
+    }
+  }
       _release();
       return;
     }
@@ -2572,6 +2605,8 @@ function openImageEditModal() {
   document.getElementById('editImageInput').value = '';
   document.getElementById('editPromptInput').value = '';
   document.getElementById('editImagePreview').style.display = 'none';
+  document.getElementById('editResultContainer').style.display = 'none';
+  document.getElementById('editSubmitBtn').textContent = '✨ Bearbeiten';
   openModal('imageEditModal');
 }
 
@@ -2598,7 +2633,7 @@ async function runImageEdit() {
     return;
   }
   
-  const btn = document.querySelector('#imageEditModal .btn-primary');
+  const btn = document.getElementById('editSubmitBtn');
   btn.disabled = true;
   btn.textContent = 'Bearbeite...';
   
@@ -3912,6 +3947,19 @@ async function toggleSkill(skillId) {
     });
   } catch(e) {}
   renderSkillBtns();
+}
+
+
+function toggleEditMode() {
+  const btn = document.getElementById('editModeBtn');
+  const isOn = btn.classList.contains('active');
+  btn.classList.toggle('active', !isOn);
+  
+  if (!isOn) {
+    // Turn on edit mode - open modal
+    openImageEditModal();
+    btn.classList.remove('active'); // Reset after opening
+  }
 }
 
 

@@ -85,6 +85,13 @@ SKILLS = [
         "requires": None,
     },
     {
+        "id": "hackernews",
+        "name": "Hacker News",
+        "icon": "🎩",
+        "description": "Fetches current top stories from Hacker News",
+        "requires": None,
+    },
+    {
         "id": "memory",
         "name": "Long-Term Memory",
         "icon": "🧠",
@@ -1697,7 +1704,6 @@ def build_agent_card(agent: dict) -> dict:
                 "gmail": "gmail" in agent.get("skills", []),
             },
         },
-        },
         "endpoints": {"chat": f"/api/chat/{agent.get('id')}", "task": f"/api/tasks"},
     }
 
@@ -1792,6 +1798,7 @@ def a2a_dispatch():
             "gmail": "gmail",
             "memory": "memory",
             "tagesschau": "tagesschau",
+            "hackernews": "hackernews",
         }
         required_skill = skill_map.get(task_type)
 
@@ -4100,6 +4107,44 @@ def tagesschau_feed():
     try:
         items = fetch_tagesschau(category, limit)
         return jsonify({"category": category, "items": items})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ─── Hacker News ───────────────────────────────────────────────────────────────
+
+
+@app.route("/api/hackernews", methods=["GET"])
+def hackernews_feed():
+    limit = min(int(request.args.get("limit", 15)), 30)
+    try:
+        # Get top story IDs
+        r = requests.get(
+            "https://hacker-news.firebaseio.com/v0/topstories.json", timeout=10
+        )
+        story_ids = r.json()[:limit]
+
+        items = []
+        for sid in story_ids:
+            sr = requests.get(
+                f"https://hacker-news.firebaseio.com/v0/item/{sid}.json", timeout=5
+            )
+            story = sr.json()
+            if story:
+                items.append(
+                    {
+                        "title": story.get("title", ""),
+                        "url": story.get(
+                            "url", f"https://news.ycombinator.com/item?id={sid}"
+                        ),
+                        "score": story.get("score", 0),
+                        "by": story.get("by", ""),
+                        "time": story.get("time", 0),
+                        "descendants": story.get("descendants", 0),
+                        "id": sid,
+                    }
+                )
+        return jsonify({"items": items})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
