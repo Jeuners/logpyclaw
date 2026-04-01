@@ -2172,7 +2172,7 @@ async function sendMessage(overrideText) {
 
   // Image generation skill
   if (activeSkills.has('image_gen')) {
-    const IMG_TRIGGERS = /\b(generier\w*|erstell\w*|zeig\w*|mal\w*|zeichn\w*|mach\w*|bild\w*|generate|draw|create|make|paint|image|picture|photo)\b/i;
+    const IMG_TRIGGERS = /\b(generier\w*|mal\w*|zeichn\w*|illustrier\w*|generate|draw|paint|illustrate|bild|foto|image|picture|photo|wallpaper|artwork|illustration|zeichnung)\b/i;
     const isImgRequest = IMG_TRIGGERS.test(text);
     // Extract subject: everything after stripping known trigger words and filler
     let imgPrompt = null;

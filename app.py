@@ -873,8 +873,9 @@ def process_task(task_id: str):
     message = task["message"]
 
     IMG_TRIGGERS = re.compile(
-        r"\b(bild|generier\w*|erstell\w*|zeig\w*|mal\w*|zeichn\w*|mach\w*|"
-        r"generate|draw|create|make|paint|image|picture|photo|foto|zeichnung|gemälde|illustration)\b",
+        r"\b(generier\w*|mal\w*|zeichn\w*|illustrier\w*|"
+        r"generate|draw|paint|illustrate|"
+        r"bild|foto|image|picture|photo|wallpaper|artwork|illustration|zeichnung|gemälde)\b",
         re.IGNORECASE,
     )
     # If agent only has image_gen skill, treat every task as an image prompt
