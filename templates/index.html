@@ -3606,6 +3606,19 @@ function setTTSPlaying(on) {
   document.getElementById('ttsStopBtn')?.classList.toggle('active', on);
   const bar = document.getElementById('globalMuteBar');
   if (bar) bar.style.display = on ? 'flex' : 'none';
+  
+  // Mute mic when TTS is playing
+  const voiceBtn = document.getElementById('voiceBtn');
+  if (voiceBtn) {
+    voiceBtn.disabled = on;
+    voiceBtn.style.opacity = on ? '0.4' : '1';
+    voiceBtn.title = on ? 'Mic disabled during speech playback' : 'Click: Conversation mode · Hold: Push-to-Talk';
+  }
+  
+  // Stop voice recognition if it's running
+  if (on && voiceActive) {
+    stopVoice();
+  }
 }
 
 async function fetchAudioBlob(text, voice) {
