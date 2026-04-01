@@ -740,17 +740,21 @@
     }
 
     .tool-btn {
-      height: 26px;
-      padding: 0 10px;
+      height: 24px;
+      padding: 0 6px;
       border-radius: 4px;
       border: 1px solid var(--b2);
       background: transparent;
       color: var(--textdim);
-      font-size: 11px;
+      font-size: 10px;
       cursor: pointer;
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 3px;
+      white-space: nowrap;
+      max-width: 100px;
+      overflow: hidden;
+      text-overflow: ellipsis;
       transition: background .12s, color .12s;
     }
 
@@ -2063,7 +2067,7 @@ function renderChatShell(ws) {
           <button class="tool-btn" onclick="document.getElementById('imageFileInput').click()" title="Upload image">🖼 Image</button>
           <button class="tool-btn" id="editModeBtn" onclick="toggleEditMode()" title="Edit image">✏️ Edit</button>
           <input type="file" id="imageFileInput" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
-          <div id="skillBtns" style="display:contents"></div>
+          <div id="skillBtns" style="display:flex;flex-wrap:wrap;gap:4px;max-width:100%;overflow:hidden"></div>
         </div>
       </div>
     </div>`;
