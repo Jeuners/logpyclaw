@@ -3450,11 +3450,11 @@ function handleAvatarUpload(input, prefix) {
   reader.onload = e => {
     const img = new Image();
     img.onload = () => {
-      // Resize to 80×80
+      // Resize to 300×300
       const canvas = document.createElement('canvas');
-      canvas.width = 80; canvas.height = 80;
+      canvas.width = 300; canvas.height = 300;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, 80, 80);
+      ctx.drawImage(img, 0, 0, 300, 300);
       const b64 = canvas.toDataURL('image/jpeg', 0.85);
       if (prefix === 'new') _newAvatarB64 = b64;
       else _editAvatarB64 = b64;
