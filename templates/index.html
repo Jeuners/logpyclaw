@@ -3727,14 +3727,23 @@ async function handleAgentMention(targetAgent, message, rawText) {
     await new Promise(r => setTimeout(r, delay));
     delay = Math.min(delay * 1.25, 4000);
     let result;
-    try { result = await api(`/api/tasks/${task.id}`); } catch(e) { continue; }
+    try { result = await api(`/api/a2a/tasks/${task.id}`); } catch(e) { continue; }
 
-    if (result.status === 'done') {
+    // A2A terminal states
+    if (result.status === 'completed') {
       renderTaskResult(result, targetAgent);
       return;
     }
-    if (result.status === 'error') {
+    if (result.status === 'failed') {
       appendSystemMsg(`@${esc(targetAgent.name)} Error: ${esc(result.error || 'Unknown')}`);
+      return;
+    }
+    if (result.status === 'canceled') {
+      appendSystemMsg(`@${esc(targetAgent.name)} Task was canceled`);
+      return;
+    }
+    if (result.status === 'input-required') {
+      appendSystemMsg(`@${esc(targetAgent.name)} needs more input`);
       return;
     }
   }

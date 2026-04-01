@@ -135,6 +135,97 @@ SKILLS = [
     },
 ]
 
+# ─── Agent Directory ──────────────────────────────────────────────────────────
+
+_SKILL_MAP = {s["id"]: s for s in SKILLS}
+
+# ─── A2A Protocol Constants ───────────────────────────────────────────────────
+A2A_TASK_STATES = {
+    "submitted": "Task received, waiting for processing",
+    "working": "Task is actively being processed",
+    "input-required": "Agent needs additional input from client",
+    "completed": "Task completed successfully",
+    "failed": "Task failed with error",
+    "canceled": "Task was canceled by client",
+    "rejected": "Task rejected (e.g., unsupported)",
+    "auth-required": "Authentication required to continue",
+}
+
+A2A_TASK_CANCELABLE_STATES = {"submitted", "working", "input-required"}
+
+TERMINAL_STATES = {"completed", "failed", "canceled", "rejected"}
+
+
+# ─── A2A Communication Prompt ─────────────────────────────────────────────────
+
+A2A_COMMUNICATION_PROMPT = """
+--- A2A KOMMUNIKATION ---
+Du bist Teil des AgentClaw Multi-Agent-Systems. Agents kommunizieren über das A2A-Protokoll.
+
+VERHALTENSREGELN:
+1. Antworte NUR wenn du direkt angesprochen wirst oder eigenständig handeln musst.
+2. Wenn ein Task nicht zu deinen Skills passt, delegiere an den passenden Agenten.
+3. Antworte präzise und minimal — keine langen Erklärungen.
+
+DELEGIERUNG (@Mention):
+  • Schreibe @AgentName gefolgt von deiner Anfrage
+  • Beispiel: "@Fotograf generiere ein Bild von einer Katze"
+  • Der目标是 Agent übernimmt und liefert das Ergebnis zurück
+
+API-ENDPOINTS FÜR DIREKTE KOMMUNIKATION:
+  • /api/a2a/tasks → Task erstellen
+  • /api/a2a/tasks/<id> → Task Status abfragen
+  • /api/a2a/tasks/<id>/cancel → Task abbrechen
+  • /api/a2a/agents → Alle Agents mit Skills abrufen
+
+TASK STATES (wissen musst du):
+  • submitted → working → completed/failed
+  • input-required: Wenn du mehr Infos vom Sender brauchst
+  • canceled: Wenn Task abgebrochen wurde
+
+Wenn du Hilfe brauchst oder nicht weiterkommst, sage das klar.
+--- ENDE A2A ---
+""".strip()
+
+
+def _build_agent_directory(current_agent_id: str = None) -> str:
+    """
+    Baut ein kompaktes Agent-Verzeichnis für den System-Prompt.
+    Jeder Agent kennt so alle anderen Agents und deren Skills.
+    """
+    agents = load_agents()
+    if not agents:
+        return ""
+
+    def _skill_label(sid: str) -> str:
+        s = _SKILL_MAP.get(sid)
+        return f"{s['icon']} {s['name']}" if s else sid
+
+    lines = [
+        "--- AGENT NETWORK ---",
+        "Du bist Teil eines Multi-Agent-Systems. Du kannst Tasks jederzeit an andere Agents delegieren.",
+        "Delegations-Syntax: @AgentName <Aufgabe>",
+        'Beispiel: "@Fotograf generiere ein Bild von einem Sonnenuntergang über Bergen"',
+        "",
+        "VERFÜGBARE AGENTS:",
+    ]
+
+    for a in agents:
+        is_self = a["id"] == current_agent_id
+        skills = a.get("skills", [])
+        skill_str = ", ".join(_skill_label(s) for s in skills) if skills else "—"
+        role_str = f" · {a['role']}" if a.get("role") else ""
+        self_tag = " (DU)" if is_self else ""
+        lines.append(f"  • {a['name']}{self_tag}{role_str} — Skills: {skill_str}")
+
+    lines += [
+        "",
+        "Delegiere nur wenn der Task wirklich zum Skill des anderen Agents passt.",
+        "--- ENDE AGENT NETWORK ---",
+    ]
+    return "\n".join(lines)
+
+
 # Im py2app-Bundle zeigt __file__ auf die .zip — deshalb CWD nutzen (gesetzt durch chdir in main_app.py)
 BASE_DIR = (
     os.getcwd()
@@ -827,9 +918,7 @@ def _run_gmail(action: str, params: dict) -> str:
                 from_addr = msg.get("from", "Unbekannt")
                 date = msg.get("date", "")
 
-                results.append(
-                    f"Von: {from_addr}\nBetreff: {subject}\nDatum: {date}"
-                )
+                results.append(f"Von: {from_addr}\nBetreff: {subject}\nDatum: {date}")
 
             mail.close()
             mail.logout()
@@ -852,7 +941,7 @@ def process_task(task_id: str):
     if not task:
         return
 
-    task["status"] = "processing"
+    task["status"] = "working"
     _save_tasks()
     print(f"[Task] processing {task_id}: {task['message'][:60]}", flush=True)
     activity_start(
@@ -864,7 +953,7 @@ def process_task(task_id: str):
     agents = load_agents()
     recipient = next((a for a in agents if a["id"] == task["recipient_agent_id"]), None)
     if not recipient:
-        task["status"] = "error"
+        task["status"] = "failed"
         task["error"] = f"Agent '{task['recipient_agent_name']}' nicht gefunden"
         _save_tasks()
         return
@@ -995,7 +1084,7 @@ def process_task(task_id: str):
             task["result_text"] = call_agent_text(recipient, system_suffix, message)
             task["skill_used"] = "llm"
 
-        task["status"] = "done"
+        task["status"] = "completed"
         task["completed_at"] = datetime.now().isoformat()
         print(f"[Task] done {task_id} via {task['skill_used']}", flush=True)
 
@@ -1061,7 +1150,7 @@ def process_task(task_id: str):
         import traceback
 
         print(f"[Task] error {task_id}: {traceback.format_exc()}", flush=True)
-        task["status"] = "error"
+        task["status"] = "failed"
         task["error"] = str(e)
     finally:
         activity_end(task["recipient_agent_id"])
@@ -1299,7 +1388,6 @@ def patch_agent_heartbeat(agent_id: str, **fields):
         os.replace(temp_path, AGENTS_FILE)
 
 
-
 def load_history():
     global _history_cache
     with _history_cache_lock:
@@ -1393,7 +1481,7 @@ def log_a2a_event(
     from_agent: str,
     to_agent: str,
     payload: dict,
-    status: str = "pending",
+    status: str = "submitted",
 ):
     """Loggt einen A2A Event nach Redis."""
     client = get_redis_client()
@@ -1566,6 +1654,29 @@ def get_agents_list():
     )
 
 
+@app.route("/api/a2a/agents", methods=["GET"])
+def a2a_get_agents():
+    """A2A konformer Agent-Directory Endpoint."""
+    agents = load_agents()
+    return jsonify(
+        {
+            "agents": [
+                {
+                    "agentId": a["id"],
+                    "name": a["name"],
+                    "description": a.get("role", ""),
+                    "skills": a.get("skills", []),
+                    "capabilities": {
+                        "streaming": True,
+                        "pushNotifications": False,
+                    },
+                }
+                for a in agents
+            ]
+        }
+    )
+
+
 @app.route("/api/events", methods=["GET"])
 def get_events():
     """Server-Send-Events endpoint for push updates."""
@@ -1735,7 +1846,7 @@ def a2a_dispatch():
         "recipient_agent_name": target_agent["name"],
         "message": message,
         "skill_used": task_type or "auto_dispatch",
-        "status": "pending",
+        "status": "submitted",
         "created_at": now.isoformat(),
         "a2a": True,  # Mark as A2A dispatch
     }
@@ -1751,7 +1862,7 @@ def a2a_dispatch():
         from_agent=source_name,
         to_agent=target_agent["name"],
         payload={"task_id": task_id, "message": message, "skill": task_type},
-        status="pending",
+        status="submitted",
     )
 
     # Start processing in background
@@ -2129,9 +2240,10 @@ def chat():
     history = load_history()
     agent_history = history.get(agent_id, [])
 
-    # Inject current datetime into system prompt
+    # Inject current datetime + agent directory into system prompt
     now = datetime.now().strftime("%A, %B %d %Y, %H:%M")
-    system_content = f"[Current time: {now}]\n\n{agent['soul']}"
+    agent_directory = _build_agent_directory(agent_id)
+    system_content = f"[Current time: {now}]\n\n{agent['soul']}\n\n{A2A_COMMUNICATION_PROMPT}\n\n{agent_directory}"
 
     # Determine active skills (with backwards compat for old web_search field)
     agent_skills = set(agent.get("skills", []))
@@ -3057,7 +3169,8 @@ def call_agent_text(agent, system_suffix, user_prompt):
     providers = load_providers()
     provider = agent.get("provider", "ollama")
     now = datetime.now().strftime("%A, %d. %B %Y, %H:%M Uhr")
-    system_content = f"[Aktuelle Zeit: {now}]\n\n{agent['soul']}\n\n{system_suffix}"
+    agent_directory = _build_agent_directory(agent.get("id"))
+    system_content = f"[Aktuelle Zeit: {now}]\n\n{agent['soul']}\n\n{agent_directory}\n\n{system_suffix}"
     messages = [
         {"role": "system", "content": system_content},
         {"role": "user", "content": user_prompt},
@@ -3297,7 +3410,7 @@ def _dispatch_mentions_from_prompt(sender_agent: dict, prompt: str, task_message
             "recipient_agent_id": target["id"],
             "recipient_agent_name": target["name"],
             "message": task_message,
-            "status": "pending",
+            "status": "submitted",
             "skill_used": None,
             "result_text": None,
             "result_image": None,
@@ -3335,7 +3448,7 @@ def _dispatch_mentions_from_reply(sender_agent: dict, reply: str):
             "recipient_agent_id": target["id"],
             "recipient_agent_name": target["name"],
             "message": task_msg,
-            "status": "pending",
+            "status": "submitted",
             "skill_used": None,
             "result_text": None,
             "result_image": None,
@@ -4071,14 +4184,18 @@ def create_task():
         "recipient_agent_id": recipient["id"],
         "recipient_agent_name": recipient["name"],
         "message": message,
-        "status": "pending",
+        "status": "submitted",  # A2A state
+        "contextId": str(uuid.uuid4()),
         "skill_used": None,
         "result_text": None,
         "result_image": None,
+        "result_data": None,
         "error": None,
         "created_at": now.isoformat(),
         "completed_at": None,
         "timeout_at": (now + timedelta(seconds=180)).isoformat(),
+        "history": [],
+        "artifacts": [],
     }
     with _tasks_lock:
         _TASKS[task["id"]] = task
@@ -4105,16 +4222,170 @@ def get_task(task_id):
         return jsonify({"error": "Task nicht gefunden"}), 404
 
     # Auto-timeout stuck tasks
-    if task["status"] in ("pending", "processing"):
+    if task["status"] in ("submitted", "working"):
         try:
             if datetime.now().isoformat() > task["timeout_at"]:
-                task["status"] = "error"
+                task["status"] = "failed"
                 task["error"] = "Timeout"
                 _save_tasks()
         except Exception:
             pass
 
     return jsonify(task)
+
+
+# ─── A2A Protocol Endpoints ───────────────────────────────────────────────────
+
+
+@app.route("/api/a2a/tasks/<task_id>/cancel", methods=["POST"])
+def cancel_task(task_id):
+    """Cancel a task - A2A operation."""
+    with _tasks_lock:
+        task = _TASKS.get(task_id)
+    if not task:
+        return jsonify({"error": "Task nicht gefunden"}), 404
+
+    if task["status"] not in A2A_TASK_CANCELABLE_STATES:
+        return jsonify(
+            {"error": f"Task cannot be canceled - status is {task['status']}"}
+        ), 400
+
+    task["status"] = "canceled"
+    task["completed_at"] = datetime.now().isoformat()
+    _save_tasks()
+    print(f"[A2A] Task {task_id} canceled", flush=True)
+    return jsonify(task)
+
+
+@app.route("/api/a2a/tasks/<task_id>/subscribe", methods=["GET"])
+def subscribe_to_task(task_id):
+    """SSE streaming for task updates - A2A operation."""
+    with _tasks_lock:
+        task = _TASKS.get(task_id)
+    if not task:
+        return jsonify({"error": "Task nicht gefunden"}), 404
+
+    def generate():
+        import flask
+
+        last_status = task.get("status")
+        yield f"data: {json.dumps({'task': task})}\n\n"
+
+        while task["status"] not in TERMINAL_STATES:
+            time.sleep(1)
+            with _tasks_lock:
+                current = _TASKS.get(task_id)
+            if current and current.get("status") != last_status:
+                last_status = current["status"]
+                yield f"data: {json.dumps({'statusUpdate': {'state': last_status}})}\n\n"
+
+        if task["status"] in TERMINAL_STATES:
+            with _tasks_lock:
+                final = _TASKS.get(task_id)
+            yield f"data: {json.dumps({'task': final})}\n\n"
+
+    from flask import Response
+
+    return Response(generate(), mimetype="text/event-stream")
+
+
+@app.route("/api/a2a/tasks", methods=["GET"])
+def list_tasks():
+    """List tasks with pagination - A2A operation."""
+    page_token = request.args.get("pageToken", "")
+    max_tasks = request.args.get("maxTasks", 20, type=int)
+    include_artifacts = request.args.get("includeArtifacts", "false").lower() == "true"
+
+    all_tasks = list(_TASKS.values())
+    all_tasks.sort(key=lambda t: t.get("created_at", ""), reverse=True)
+
+    start = 0
+    if page_token:
+        try:
+            start = int(base64.b64decode(page_token).decode())
+        except Exception:
+            start = 0
+
+    end = start + max_tasks
+    page_tasks = all_tasks[start:end]
+
+    for t in page_tasks:
+        if not include_artifacts and "artifacts" in t:
+            t.pop("artifacts", None)
+
+    next_token = ""
+    if end < len(all_tasks):
+        next_token = base64.b64encode(str(end).encode()).decode()
+
+    return jsonify(
+        {
+            "tasks": page_tasks,
+            "nextPageToken": next_token,
+        }
+    )
+
+
+@app.route("/api/a2a/tasks/<task_id>/pushConfig", methods=["POST"])
+def create_push_config(task_id):
+    """Create push notification config for task - A2A operation."""
+    data = request.json or {}
+    webhook_url = data.get("webhookUrl")
+    if not webhook_url:
+        return jsonify({"error": "webhookUrl required"}), 400
+
+    with _tasks_lock:
+        task = _TASKS.get(task_id)
+    if not task:
+        return jsonify({"error": "Task nicht gefunden"}), 404
+
+    config = {
+        "id": str(uuid.uuid4()),
+        "taskId": task_id,
+        "webhookUrl": webhook_url,
+        "authentication": data.get("authentication"),
+    }
+    if "pushConfigs" not in task:
+        task["pushConfigs"] = []
+    task["pushConfigs"].append(config)
+    _save_tasks()
+    return jsonify(config)
+
+
+@app.route("/api/a2a/tasks/<task_id>/input", methods=["POST"])
+def task_input_required(task_id):
+    """Set task to input-required state - agent requests more input."""
+    data = request.json or {}
+    message = data.get("message", "")
+
+    with _tasks_lock:
+        task = _TASKS.get(task_id)
+    if not task:
+        return jsonify({"error": "Task nicht gefunden"}), 404
+
+    task["status"] = "input-required"
+    task["history"].append(
+        {
+            "role": "agent",
+            "parts": [{"type": "text", "text": message}],
+        }
+    )
+    _save_tasks()
+    return jsonify(task)
+
+
+@app.route("/api/a2a/agents/<agent_id>/card", methods=["GET"])
+def get_extended_agent_card(agent_id):
+    """Get extended agent card - A2A operation."""
+    agents = load_agents()
+    agent = next((a for a in agents if a["id"] == agent_id), None)
+    if not agent:
+        return jsonify({"error": "Agent nicht gefunden"}), 404
+
+    card = build_agent_card(agent)
+    card["extended"] = True
+    card["securitySchemes"] = {}
+    card["security"] = []
+    return jsonify(card)
 
 
 @app.route("/api/activity", methods=["GET"])
