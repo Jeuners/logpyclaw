@@ -1676,6 +1676,18 @@ document.addEventListener('click', e => {
 // Init
 // ═══════════════════════════════════════════════════
 async function init() {
+  // Load saved voice language or detect from browser
+  const savedLang = localStorage.getItem('voiceLang');
+  if (savedLang) {
+    voiceLang = savedLang;
+  } else {
+    const browserLang = navigator.language || navigator.userLanguage;
+    if (browserLang.startsWith('en')) voiceLang = 'en-US';
+    else if (browserLang.startsWith('es')) voiceLang = 'es-ES';
+    else if (browserLang.startsWith('fr')) voiceLang = 'fr-FR';
+    else voiceLang = 'de-DE';
+  }
+
   await Promise.all([loadAgents(), loadProviders(), loadSkills(), loadWatchdogs()]);
 
   // Restore last selected agent
@@ -2036,6 +2048,12 @@ function renderChatShell(ws) {
           <button class="send-btn" id="voiceBtn" title="Click: Conversation mode · Hold: Push-to-Talk"
             onmousedown="voiceBtnDown(event)" onmouseup="voiceBtnUp(event)" onmouseleave="voiceBtnUp(event)"
             ontouchstart="voiceBtnDown(event)" ontouchend="voiceBtnUp(event)">🎤</button>
+          <select id="voiceLangSelect" class="tool-btn" style="font-size:11px;padding:4px 6px;min-width:50px" title="Sprache für Spracherkennung" onchange="setVoiceLang(this.value)">
+            <option value="de-DE" ${voiceLang === 'de-DE' ? 'selected' : ''}>DE</option>
+            <option value="en-US" ${voiceLang === 'en-US' ? 'selected' : ''}>EN</option>
+            <option value="es-ES" ${voiceLang === 'es-ES' ? 'selected' : ''}>ES</option>
+            <option value="fr-FR" ${voiceLang === 'fr-FR' ? 'selected' : ''}>FR</option>
+          </select>
           <button class="send-btn" id="sendBtn" onclick="sendMessage()">↑</button>
         </div>
         <div class="input-toolbar">
@@ -3966,6 +3984,14 @@ function toggleEditMode() {
 // ═══════════════════════════════════════════════════
 let voicePressTimer = null;
 let voicePttActive = false;
+let voiceLang = 'de-DE';
+
+function setVoiceLang(lang) {
+  voiceLang = lang;
+  localStorage.setItem('voiceLang', lang);
+  const btn = document.getElementById('voiceBtn');
+  if (btn) btn.title = `Sprache: ${lang} · Click: Conversation mode · Hold: Push-to-Talk`;
+}
 
 function voiceBtnDown(e) {
   e.preventDefault();
@@ -4003,7 +4029,7 @@ function startVoice(ptt = false) {
   speechRecognition = new SpeechRecognition();
   speechRecognition.continuous = true;
   speechRecognition.interimResults = true;
-  speechRecognition.lang = 'de-DE';
+  speechRecognition.lang = voiceLang;
 
   voiceBuffer = '';
 
