@@ -2207,10 +2207,11 @@ function _releaseSend() {
 }
 
 async function sendMessage(overrideText) {
-  if (isSending) return;
+  if (isSending) { console.log('[sendMessage] blocked - isSending'); return; }
   const input = document.getElementById('mainInput');
   const text = overrideText || (input ? input.value.trim() : '');
-  if (!text || !currentAgent) return;
+  console.log('[sendMessage] text:', text, 'currentAgent:', currentAgent?.id);
+  if (!text || !currentAgent) { console.log('[sendMessage] blocked - no text or no agent'); return; }
 
   if (input && !overrideText) { input.value = ''; autoResizeTextarea(input); }
   isSending = true;
