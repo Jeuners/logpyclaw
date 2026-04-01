@@ -51,6 +51,148 @@ if getattr(sys, "frozen", False):
 else:
     app = Flask(__name__)
 
+# Flask-SocketIO for real-time WebSocket communication
+from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
+
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode="eventlet",
+    ping_timeout=30,
+    ping_interval=10,
+)
+
+# ─── WebSocket Event Handlers ────────────────────────────────────────
+_USERS = {}  # sid -> {agent_ids: []}
+
+
+@socketio.on("connect", namespace="/ws")
+def ws_connect():
+    sid = request.sid
+    _USERS[sid] = {"agent_ids": []}
+    print(f"[WS] Client connected: {sid}", flush=True)
+    emit("connected", {"sid": sid, "type": "connected"})
+
+
+@socketio.on("disconnect", namespace="/ws")
+def ws_disconnect():
+    sid = request.sid
+    _USERS.pop(sid, None)
+    print(f"[WS] Client disconnected: {sid}", flush=True)
+
+
+@socketio.on("join_agent", namespace="/ws")
+def ws_join_agent(data):
+    sid = request.sid
+    agent_id = data.get("agent_id")
+    room = f"agent_{agent_id}"
+    join_room(room)
+    if sid in _USERS and agent_id not in _USERS[sid]["agent_ids"]:
+        _USERS[sid]["agent_ids"].append(agent_id)
+    print(f"[WS] {sid} joined room {room}", flush=True)
+    emit("joined", {"agent_id": agent_id, "room": room, "type": "joined"})
+
+
+@socketio.on("leave_agent", namespace="/ws")
+def ws_leave_agent(data):
+    sid = request.sid
+    agent_id = data.get("agent_id")
+    room = f"agent_{agent_id}"
+    leave_room(room)
+    if sid in _USERS and agent_id in _USERS[sid]["agent_ids"]:
+        _USERS[sid]["agent_ids"].remove(agent_id)
+    print(f"[WS] {sid} left room {room}", flush=True)
+    emit("left", {"agent_id": agent_id, "type": "left"})
+
+
+@socketio.on("join_all", namespace="/ws")
+def ws_join_all(data):
+    """Join all agent rooms at once."""
+    sid = request.sid
+    for a in load_agents():
+        room = f"agent_{a['id']}"
+        join_room(room)
+    _USERS[sid] = {"agent_ids": [a["id"] for a in load_agents()]}
+    print(f"[WS] {sid} joined all agent rooms", flush=True)
+    emit(
+        "joined_all", {"agents": [a["id"] for a in load_agents()], "type": "joined_all"}
+    )
+
+
+# ─── WebSocket Emit Helper Functions ─────────────────────────────────
+def ws_emit(event, data, room=None, broadcast=False):
+    """Emit event to specific room, or broadcast to all."""
+    kwargs = {"event": event, "data": data, "namespace": "/ws"}
+    if room:
+        emit(event, data, room=room, namespace="/ws")
+    elif broadcast:
+        socketio.emit(event, data, namespace="/ws", broadcast=True)
+    else:
+        emit(event, data, namespace="/ws")
+
+
+def emit_agent_activity(agent_id, atype, label, status):
+    """Broadcast agent activity to all subscribers."""
+    data = {"agent_id": agent_id, "type": atype, "label": label, "status": status}
+    room = f"agent_{agent_id}"
+    emit("agent_activity", data, room=room, namespace="/ws")
+    socketio.emit(
+        "agent_activity", data, namespace="/ws", broadcast=True, include_self=True
+    )
+
+
+def emit_task_result(task_id, agent_id, result_text, result_image, status, error=None):
+    """Send task result to relevant room and broadcast."""
+    data = {
+        "task_id": task_id,
+        "agent_id": agent_id,
+        "result_text": result_text,
+        "result_image": result_image,
+        "status": status,
+        "error": error,
+    }
+    room = f"agent_{agent_id}"
+    emit("task_result", data, room=room, namespace="/ws")
+    socketio.emit(
+        "task_result", data, namespace="/ws", broadcast=True, include_self=True
+    )
+
+
+def emit_chat_message(agent_id, role, content, message_id=None):
+    """Broadcast a new chat message."""
+    data = {
+        "agent_id": agent_id,
+        "role": role,
+        "content": content,
+        "message_id": message_id or str(uuid.uuid4()),
+        "ts": datetime.now().isoformat(),
+    }
+    room = f"agent_{agent_id}"
+    emit("chat_message", data, room=room, namespace="/ws")
+    socketio.emit(
+        "chat_message", data, namespace="/ws", broadcast=True, include_self=True
+    )
+
+
+def emit_heartbeat_result(agent_id, result):
+    """Send heartbeat output to room and broadcast."""
+    data = {"agent_id": agent_id, "result": result, "ts": datetime.now().isoformat()}
+    room = f"agent_{agent_id}"
+    emit("heartbeat_result", data, room=room, namespace="/ws")
+    socketio.emit(
+        "heartbeat_result", data, namespace="/ws", broadcast=True, include_self=True
+    )
+
+
+def emit_error(message, room=None):
+    """Send error to client(s)."""
+    data = {"error": message, "ts": datetime.now().isoformat()}
+    if room:
+        emit("error", data, room=room, namespace="/ws")
+    else:
+        emit("error", data, namespace="/ws", broadcast=True)
+
+
 MISTRAL_TTS_URL = "https://api.mistral.ai/v1/audio/speech"
 MISTRAL_VOICES_URL = "https://api.mistral.ai/v1/audio/voices"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
@@ -299,11 +441,13 @@ def activity_start(agent_id: str, atype: str, label: str):
             "label": label,
             "since": datetime.now().isoformat(),
         }
+    emit_agent_activity(agent_id, atype, label, "started")
 
 
 def activity_end(agent_id: str):
     with _activity_lock:
         _ACTIVITY.pop(agent_id, None)
+    emit_agent_activity(agent_id, "", "", "ended")
 
 
 def activity_cleanup():
@@ -1159,6 +1303,14 @@ def process_task(task_id: str):
                     }
                 )
         save_history(history)
+        emit_task_result(
+            task["id"],
+            task["recipient_agent_id"],
+            task.get("result_text"),
+            task.get("result_image"),
+            task["status"],
+            task.get("error"),
+        )
 
     except Exception as e:
         import traceback
@@ -1166,6 +1318,14 @@ def process_task(task_id: str):
         print(f"[Task] error {task_id}: {traceback.format_exc()}", flush=True)
         task["status"] = "failed"
         task["error"] = str(e)
+        emit_task_result(
+            task["id"],
+            task["recipient_agent_id"],
+            None,
+            None,
+            "failed",
+            str(e),
+        )
     finally:
         activity_end(task["recipient_agent_id"])
 
@@ -3771,6 +3931,8 @@ def run_heartbeat(agent_or_id):
         save_history(history)
         # Atomic patch — no race with concurrent save_agents() calls
         patch_agent_heartbeat(agent_id, last_run=ts, last_result=short[:300])
+        # Emit heartbeat result via WebSocket
+        emit_heartbeat_result(agent_id, reply or short)
         # macOS Notification
         try:
             subprocess.run(
@@ -4979,5 +5141,5 @@ def comfyui_generate():
 
 if __name__ == "__main__":
     port = 5050
-    print(f"Starting on http://0.0.0.0:{port}", flush=True)
-    app.run(debug=True, host="0.0.0.0", port=port, use_reloader=False)
+    print(f"Starting on http://0.0.0.0:{port} with WebSocket support", flush=True)
+    socketio.run(app, debug=True, host="0.0.0.0", port=port, use_reloader=False)
