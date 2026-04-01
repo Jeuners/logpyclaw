@@ -3732,11 +3732,26 @@ async function playMacVoiceAsync(text, voiceName, btn) {
     utt.onstart = () => { if (btn) { btn.textContent = '⏹ Stop'; btn.classList.add('playing'); } };
     utt.onend = () => { if (btn) { btn.textContent = '▶ Play'; btn.classList.remove('playing'); } resolve(); };
     utt.onerror = (e) => { 
-      console.log('[Voice] Error:', e.error, e.message);
+      console.log('[Voice] Error:', e.error, e.message || '');
+      // Ignore "interrupted" - it's usually harmless
+      if (e.error === 'interrupted' || e.error === 'canceled') {
+        resolve();
+        return;
+      }
       showToast('Fehler: ' + e.error, 'error'); 
       resolve(); 
     };
-    window.speechSynthesis.speak(utt);
+    
+    // Small delay to ensure voices are ready
+    setTimeout(() => {
+      try {
+        window.speechSynthesis.speak(utt);
+      } catch(err) {
+        console.log('[Voice] Speak error:', err);
+        showToast('Fehler: ' + err.message, 'error');
+        resolve();
+      }
+    }, 100);
   });
 }
 

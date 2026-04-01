@@ -6857,3 +6857,117 @@ requests.exceptions.ConnectTimeout: HTTPConnectionPool(host='192.168.3.26', port
 127.0.0.1 - - [01/Apr/2026 13:03:12] "GET /api/activity HTTP/1.1" 200 -
 127.0.0.1 - - [01/Apr/2026 13:03:12] "GET /api/activity HTTP/1.1" 200 -
 127.0.0.1 - - [01/Apr/2026 13:03:20] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:03:21] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:03:28] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:03:30] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:03:36] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:03:39] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:03:44] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:03:48] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:03:49] "DELETE /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:03:49] "[35m[1mDELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1[0m" 500 -
+127.0.0.1 - - [01/Apr/2026 13:03:52] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:03:52] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:03:52] "[33mGET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1[0m" 404 -
+127.0.0.1 - - [01/Apr/2026 13:03:54] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:03:54] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:03:54] "GET /api/watchdogs HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:03:54] "GET /api/skills HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:03:54] "GET /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:03:54] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:03:57] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:02] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:06] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:10] "GET /api/activity HTTP/1.1" 200 -
+[Telegram] Polling error: HTTPSConnectionPool(host='api.telegram.org', port=443): Read timed out. (read timeout=2)
+[Memory] search error: [Errno 61] Connection refused
+127.0.0.1 - - [01/Apr/2026 13:04:15] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:16] "POST /api/chat HTTP/1.1" 200 -
+[Memory] store error: [Errno 61] Connection refused
+[Task] created 2ac12ded-c079-47d8-9e76-95e484b8f100: MARTIN → Fotograf: generiere ein Bild von einem Haifisch, der Fußball in Barcel
+127.0.0.1 - - [01/Apr/2026 13:04:17] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 2ac12ded-c079-47d8-9e76-95e484b8f100: generiere ein Bild von einem Haifisch, der Fußball in Barcel
+[Task] image_gen prompt: Haifisch, der Fußball in Barcelona spielt.
+[ComfyUI] original: Haifisch, der Fußball in Barcelona spielt....
+[ComfyUI] optimized: haifisch, der fussball in barcelona spielt., no text, no let...
+127.0.0.1 - - [01/Apr/2026 13:04:18] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:18] "GET /api/tasks/2ac12ded-c079-47d8-9e76-95e484b8f100 HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:20] "GET /api/tasks/2ac12ded-c079-47d8-9e76-95e484b8f100 HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:20] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:22] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:22] "GET /api/tasks/2ac12ded-c079-47d8-9e76-95e484b8f100 HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:24] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:24] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:25] "GET /api/tasks/2ac12ded-c079-47d8-9e76-95e484b8f100 HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:26] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:27] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:28] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:29] "GET /api/tasks/2ac12ded-c079-47d8-9e76-95e484b8f100 HTTP/1.1" 200 -
+[Task] done 2ac12ded-c079-47d8-9e76-95e484b8f100 via image_gen
+127.0.0.1 - - [01/Apr/2026 13:04:30] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:30] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:32] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:33] "GET /api/tasks/2ac12ded-c079-47d8-9e76-95e484b8f100 HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:33] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:40] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:42] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:46] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:47] "GET /api/models HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:47] "GET /api/voices/mistral HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:47] "GET /api/voices/mistral HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:48] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:51] "GET /api/activity HTTP/1.1" 200 -
+[Agent] Saved 8 agents successfully
+[Agent] Voice saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027: mac:Anna
+127.0.0.1 - - [01/Apr/2026 13:04:52] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/voice HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:52] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 8 agents successfully
+[Agent] Settings saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [01/Apr/2026 13:04:53] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/settings HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:53] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 8 agents successfully
+[Agent] Voice saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027: mac:Anna
+127.0.0.1 - - [01/Apr/2026 13:04:53] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/voice HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:53] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 8 agents successfully
+[Agent] Skills saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027: ['memory', 'prompt_optimize']
+127.0.0.1 - - [01/Apr/2026 13:04:53] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/skills HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:53] "GET /api/agents HTTP/1.1" 200 -
+[Heartbeat] PUT received: agent=4d6fc07f-6d2c-4442-bf64-a2b129041027, prompt=...
+[Agent] Saved 8 agents successfully
+[Heartbeat] Saved: prompt=...
+127.0.0.1 - - [01/Apr/2026 13:04:53] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/heartbeat HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:53] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:04:56] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:05:00] "GET /api/activity HTTP/1.1" 200 -
+[Memory] search error: [Errno 61] Connection refused
+127.0.0.1 - - [01/Apr/2026 13:05:04] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:05:04] "POST /api/chat HTTP/1.1" 200 -
+[Memory] store error: [Errno 61] Connection refused
+127.0.0.1 - - [01/Apr/2026 13:05:09] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:05:12] "GET /api/activity HTTP/1.1" 200 -
+[Telegram] Polling error: HTTPSConnectionPool(host='api.telegram.org', port=443): Read timed out. (read timeout=2)
+127.0.0.1 - - [01/Apr/2026 13:05:18] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:05:20] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:05:27] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:05:28] "GET /api/activity HTTP/1.1" 200 -
+[Memory] search error: [Errno 61] Connection refused
+127.0.0.1 - - [01/Apr/2026 13:05:35] "POST /api/chat HTTP/1.1" 200 -
+[Memory] store error: [Errno 61] Connection refused
+127.0.0.1 - - [01/Apr/2026 13:05:36] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:05:36] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:05:44] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:05:45] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:05:52] "GET /api/activity HTTP/1.1" 200 -
+[Memory] search error: [Errno 61] Connection refused
+127.0.0.1 - - [01/Apr/2026 13:05:54] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:05:56] "POST /api/chat HTTP/1.1" 200 -
+[Memory] store error: [Errno 61] Connection refused
+127.0.0.1 - - [01/Apr/2026 13:06:00] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:06:03] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:06:08] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:06:12] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:06:16] "GET /api/activity HTTP/1.1" 200 -
+[Telegram] Polling error: HTTPSConnectionPool(host='api.telegram.org', port=443): Read timed out. (read timeout=2)
+127.0.0.1 - - [01/Apr/2026 13:06:21] "GET /api/activity HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2026 13:06:24] "GET /api/activity HTTP/1.1" 200 -
