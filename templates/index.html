@@ -3699,7 +3699,7 @@ async function playMacVoiceAsync(text, voiceName, btn) {
       });
     }
     
-    console.log('[Voice] Available voices:', voices.map(v => v.name));
+    console.log('[Voice] Available voices:', JSON.stringify(voices.map(v => ({name: v.name, lang: v.lang}))));
     console.log('[Voice] Looking for:', voiceName);
     
     const utt = new SpeechSynthesisUtterance(text);
