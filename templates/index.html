@@ -1303,6 +1303,10 @@
 <div class="side-panel" id="sidePanel">
   <!-- rendered by JS -->
 </div>
+<!-- Global TTS Kill-Switch — always visible -->
+<div id="globalMuteBar" style="display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9999;background:var(--red);color:#fff;padding:8px 20px;border-radius:24px;font-size:13px;font-weight:600;font-family:var(--mono);cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.5);gap:8px;align-items:center" onclick="globalStopAudio()">
+  ⏹ Sprachausgabe stoppen
+</div>
 
 <!-- ═══════════════════════════════════════════════════
      Workspace
@@ -3512,25 +3516,39 @@ function splitSentences(text) {
   return merged.filter(s => s.length > 0);
 }
 
+function _cancelSpeechSynthesis() {
+  if (!window.speechSynthesis) return;
+  // cancel() is unreliable — hammer it
+  for (let i = 0; i < 3; i++) {
+    try { window.speechSynthesis.cancel(); } catch(e) {}
+  }
+  setTimeout(() => { try { window.speechSynthesis.cancel(); } catch(e) {} }, 50);
+  setTimeout(() => { try { window.speechSynthesis.cancel(); } catch(e) {} }, 150);
+}
+
 function stopCurrentAudio() {
   if (currentAudio) { try { currentAudio.pause(); currentAudio.currentTime = 0; } catch(e) {} currentAudio = null; }
-  // speechSynthesis.cancel() is unreliable — call twice with a tiny delay
-  if (window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-    setTimeout(() => { try { window.speechSynthesis.cancel(); } catch(e) {} }, 80);
-  }
+  _cancelSpeechSynthesis();
   if (currentPlayingIndex >= 0) {
     const btn = document.getElementById(`playBtn-${currentPlayingIndex}`);
     if (btn) { btn.textContent = '▶ Play'; btn.classList.remove('playing'); }
     currentPlayingIndex = -1;
   }
-  document.getElementById('speakingDot')?.classList.remove('active');
-  document.getElementById('ttsStopBtn')?.classList.remove('active');
+  setTTSPlaying(false);
+}
+
+function globalStopAudio() {
+  stopCurrentAudio();
+  // Belt-and-suspenders: also nuke any dangling audio elements
+  document.querySelectorAll('audio').forEach(a => { try { a.pause(); a.src = ''; } catch(e) {} });
+  _cancelSpeechSynthesis();
 }
 
 function setTTSPlaying(on) {
   document.getElementById('speakingDot')?.classList.toggle('active', on);
   document.getElementById('ttsStopBtn')?.classList.toggle('active', on);
+  const bar = document.getElementById('globalMuteBar');
+  if (bar) bar.style.display = on ? 'flex' : 'none';
 }
 
 async function fetchAudioBlob(text, voice) {
@@ -4022,8 +4040,8 @@ window.addEventListener('load', () => {
 });
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && currentPlayingIndex >= 0) {
-    stopCurrentAudio();
+  if (e.key === 'Escape') {
+    globalStopAudio();
   }
 });
 
