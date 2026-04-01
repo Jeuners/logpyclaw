@@ -2481,6 +2481,45 @@ def chat():
     if system_extra:
         system_content += f"\n\n{system_extra}"
 
+    # Memory clear trigger
+    if "memory" in agent_skills:
+        MEMORY_CLEAR_RX = re.compile(
+            r"\b(vergiss|vergesse|vergiss das|lösche|löschen|clear|delete|entfern\w*)\b.*\b(memory|speicher|erinnerung)\b|"
+            r"\b(memory|speicher|erinnerung)\b.*\b(vergiss|vergesse|löschen|clear|delete|entfern\w*)\b|"
+            r"\b(vergiss alles|vergiss was|lösche alles|clear all)\b",
+            re.IGNORECASE,
+        )
+        if MEMORY_CLEAR_RX.search(user_message):
+            client = get_qdrant()
+            if client:
+                name = collection_name(agent_id)
+                try:
+                    existing = [c.name for c in client.get_collections().collections]
+                    if name in existing:
+                        client.delete_collection(name)
+                        print(f"[Memory] cleared for agent {agent_id}", flush=True)
+                except Exception as e:
+                    print(f"[Memory] clear error: {e}", flush=True)
+            assistant_reply = (
+                "Ich habe mein Gedächtnis gelöscht. Was möchtest du besprechen?"
+            )
+            history[agent_id].append(
+                {
+                    "role": "user",
+                    "content": user_message,
+                    "ts": datetime.now().isoformat(),
+                }
+            )
+            history[agent_id].append(
+                {
+                    "role": "assistant",
+                    "content": assistant_reply,
+                    "ts": datetime.now().isoformat(),
+                }
+            )
+            save_history(history)
+            return jsonify({"reply": assistant_reply, "voice": agent["voice"]})
+
     # Long-term memory recall (memory skill)
     if "memory" in agent_skills:
         memory_context = memory_search(agent["id"], user_message)
