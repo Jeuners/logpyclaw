@@ -3710,14 +3710,16 @@ async function playMacVoiceAsync(text, voiceName, btn) {
     );
     console.log('[Voice] Found:', found ? found.name : 'NONE');
     
-    // Use a simpler German voice as fallback if the named one doesn't work
-    const fallbackVoices = ['Google Deutsch', 'Markus', 'Anna', 'Petra'];
-    for (const name of fallbackVoices) {
-      const v = voices.find(v => v.name === name);
-      if (v && (!found || v.lang === 'de-DE')) {
-        console.log('[Voice] Using fallback:', name);
-        found = v;
-        break;
+    // Only use fallback if nothing was found
+    if (!found) {
+      const fallbackVoices = ['Google Deutsch', 'Markus', 'Anna', 'Petra'];
+      for (const name of fallbackVoices) {
+        const v = voices.find(v => v.name === name);
+        if (v) {
+          console.log('[Voice] Using fallback:', name);
+          found = v;
+          break;
+        }
       }
     }
     
