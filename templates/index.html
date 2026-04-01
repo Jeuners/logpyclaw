@@ -3685,8 +3685,7 @@ async function playMacVoiceAsync(text, voiceName, btn) {
       resolve(); 
       return; 
     }
-    window.speechSynthesis.cancel();
-    
+    // Don't cancel here - causes "interrupted" errors. Let browser handle queue.
     // Wait for voices if not loaded
     let voices = window.speechSynthesis.getVoices();
     if (!voices.length) {
@@ -3733,8 +3732,9 @@ async function playMacVoiceAsync(text, voiceName, btn) {
     utt.onend = () => { if (btn) { btn.textContent = '▶ Play'; btn.classList.remove('playing'); } resolve(); };
     utt.onerror = (e) => { 
       console.log('[Voice] Error:', e.error, e.message || '');
-      // Ignore "interrupted" - it's usually harmless
+      // "interrupted" happens when we cancel previous speech - this is OK
       if (e.error === 'interrupted' || e.error === 'canceled') {
+        console.log('[Voice] Interrupted - this is normal when stopping previous speech');
         resolve();
         return;
       }
