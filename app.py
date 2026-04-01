@@ -2032,7 +2032,10 @@ PROMPT_OPTIMIZE_TRIGGERS = re.compile(
     r"\b(prompt|anweisung|text)\b.{0,50}\b(optimieren|verbessern|verfeinern)\b|"
     r"\bprompt.{0,20}(RTF|TAG|BAB|CARE|RISE)\b|"
     r"\b(RTF|TAG|BAB|CARE|RISE).{0,20}(framework|prompt)\b|"
-    r"\b(optimize this|improve this|refine this|make this (better|clearer|sharper))\b",
+    r"\b(optimize this|improve this|refine this|make this (better|clearer|sharper))\b|"
+    r"\b(erstelle|erzeug|generiere|schreibe)\b.{0,30}\b(optimiert\w*|verbessert\w*|bess\w*)\b.{0,30}\b(prompt|anweisung)\b|"
+    r"\b(prompt|anweisung)\b.{0,30}\b(erstellen|erzeugen|generieren|schreiben)\b|"
+    r"\b(erstelle|generate|create)\b.{0,30}\b(prompt|optimierte)\b",
     re.IGNORECASE,
 )
 

@@ -2291,7 +2291,8 @@ async function sendMessage(overrideText) {
 
   // Image generation skill
   if (activeSkills.has('image_gen')) {
-    const IMG_TRIGGERS = /\b(generier\w*|mal\w*|zeichn\w*|illustrier\w*|generate|draw|paint|illustrate|bild|foto|image|picture|photo|wallpaper|artwork|illustration|zeichnung)\b/i;
+    const IMG_TRIGGERS = /\b(mal\w*|zeichn\w*|illustr\w*|draw|paint|illustrate|bild|foto|image|picture|photo|wallpaper|artwork|illustration|zeichnung)\b/i;
+    // Exclude "generier" and "erstelle" which should trigger prompt_optimize instead
     const isImgRequest = IMG_TRIGGERS.test(text);
     // Extract subject: everything after stripping known trigger words and filler
     let imgPrompt = null;
@@ -2303,8 +2304,8 @@ async function sendMessage(overrideText) {
     if (imgPrompt && imgPrompt.length > 2) {
       appendMsg('user', text);
       // If prompt_optimize skill active and user asks to optimize, refine first
-      const wantsOptimize = /\b(optimier\w*|optimize|verbessere|refine|verfeinere)\b/i.test(text);
-          if (activeSkills.has('prompt_optimize') && wantsOptimize) {
+      const wantsOptimize = /\b(optimier\w*|optimize|verbessere|refine|verfeinere|erstelle.*prompt|generiere.*prompt)\b/i.test(text);
+      if (activeSkills.has('prompt_optimize') && wantsOptimize) {
         appendSystemMsg(`✨ Optimizing prompt…`);
         try {
           const optResult = await api('/api/prompt/optimize', {
