@@ -3739,8 +3739,14 @@ async function playMacVoiceAsync(text, voiceName, btn) {
       utt.voice = found;
     }
     
-    utt.onstart = () => { if (btn) { btn.textContent = '⏹ Stop'; btn.classList.add('playing'); } };
-    utt.onend = () => { if (btn) { btn.textContent = '▶ Play'; btn.classList.remove('playing'); } resolve(); };
+    utt.onstart = () => { 
+      console.log('[Voice] Started!');
+      if (btn) { btn.textContent = '⏹ Stop'; btn.classList.add('playing'); } 
+    };
+    utt.onend = () => { 
+      console.log('[Voice] Ended!');
+      if (btn) { btn.textContent = '▶ Play'; btn.classList.remove('playing'); } resolve(); 
+    };
     utt.onerror = (e) => { 
       console.log('[Voice] Error:', e.error, e.message || '');
       // "interrupted" happens when we cancel previous speech - this is OK
