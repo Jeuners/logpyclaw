@@ -1,0 +1,4 @@
+altgraph>=0.17.5
+macholib>=1.16.4
+modulegraph>=0.19.7
+packaging
