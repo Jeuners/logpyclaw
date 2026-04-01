@@ -3723,12 +3723,27 @@ async function playMacVoiceAsync(text, voiceName, btn) {
     
     const utt = new SpeechSynthesisUtterance(text);
     
+    // Set Mac-specific properties
+    utt.rate = 1.0;
+    utt.pitch = 1.0;
+    utt.volume = 1.0;
+    
+    // Force language if voice is set
+    if (found) {
+      utt.lang = found.lang;
+      console.log('[Voice] Setting lang to:', found.lang);
+    }
+    
+    // Add a small delay before speaking to ensure browser is ready
+    await new Promise(r => setTimeout(r, 200));
+    
     if (!found) {
       console.log('[Voice] Not found, trying default');
       // Try German or English voices, or just use first available
       const fallback = voices.find(v => v.lang.startsWith('de') || v.lang.startsWith('en')) || voices[0];
       if (fallback) {
         utt.voice = fallback;
+        utt.lang = fallback.lang;
         showToast('Verwende: ' + fallback.name, 'info');
       } else {
         showToast('Keine Stimme verfügbar', 'error');
