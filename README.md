@@ -7,6 +7,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-3.1-000000?style=flat-square&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
+[![Flask-SocketIO](https://img.shields.io/badge/SocketIO-5.x-000000?style=flat-square&logo=socket.io&logoColor=white)](https://socket.io)
 [![macOS](https://img.shields.io/badge/macOS-12%2B-000000?style=flat-square&logo=apple&logoColor=white)](https://www.apple.com/macos)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
@@ -16,7 +17,7 @@
 
 ## What is AgentClaw?
 
-AgentClaw is a **self-hosted, privacy-first multi-agent AI platform** that runs entirely on your Mac. Create multiple AI agents with distinct personalities, voices, and skill sets. They can chat, search the web, take screenshots, generate images, remember past conversations, and even delegate tasks to each other.
+AgentClaw is a **self-hosted, privacy-first multi-agent AI platform** that runs entirely on your Mac. Create multiple AI agents with distinct personalities, voices, and skill sets. They can chat, search the web, take screenshots, generate images, remember past conversations, delegate tasks to each other, and run on schedules.
 
 No cloud subscriptions required — use local models via [Ollama](https://ollama.com) or connect to OpenRouter / Mistral for more power.
 
@@ -28,6 +29,7 @@ No cloud subscriptions required — use local models via [Ollama](https://ollama
 - Create unlimited AI agents with unique personalities (system prompts), colors, and voices
 - Each agent has its own conversation history and long-term memory
 - Agents can delegate tasks to each other via `@mentions`
+- **Real-time WebSocket updates** — see agent activity instantly
 
 ### Voice I/O
 - **Text-to-Speech**: Mistral Voxtral API or native macOS system voices
@@ -42,14 +44,14 @@ No cloud subscriptions required — use local models via [Ollama](https://ollama
 | 🔗 **URL Reader** | Auto-fetches and summarizes any URL in a message |
 | 📸 **Screenshot** | Takes browser screenshots via Playwright |
 | 🎨 **Image Generation** | Generates images via ComfyUI (Flux, etc.) |
-| ✏️ **Image Editing** | Edits uploaded images via ComfyUI / FireRed |
-| 📰 **Tagesschau News** | Fetches latest German news from Tagesschau API |
-| 🎩 **Hacker News** | Fetches top stories from Hacker News |
+| ✏️ **Image Editing** | Edits uploaded images via ComfyUI |
+| 📰 **Tagesschau News** | Fetches latest German news from Tagesschau RSS |
+| 🎩 **Hacker News** | Fetches top stories from Hacker News API |
 | 🧠 **Long-Term Memory** | Stores and recalls context using Qdrant vector DB |
-| 📄 **Document Memory** | Upload PDFs/images - stored as vectors (requires Google API) |
+| 📄 **Document Memory** | Upload PDFs/images — stored as vectors (requires Google API) |
 | ✨ **Prompt Optimizer** | Optimizes prompts using RTF, TAG, BAB, CARE, RISE frameworks |
 | ✈️ **Telegram** | Sends/receives messages and images via Telegram bot |
-| 🌙 **Dream Agent** | Daily memory optimization - removes old entries, resolves contradictions |
+| 🌙 **Dream Agent** | Daily memory cleanup — removes old entries, keeps memory fresh |
 
 ### Autonomous Agents (Heartbeat)
 - Configure a **heartbeat** schedule for any agent (e.g. every 15 minutes)
@@ -172,19 +174,14 @@ Configure your AI providers and external services (also editable via the UI unde
   "ollama":     { "url": "http://localhost:11434" },
   "openrouter": { "api_key": "sk-or-v1-..." },
   "mistral":    { "api_key": "sk-..." },
-  "searxng":    { "url": "http://localhost:8888" },
+  "google":     { "api_key": "..." },
   "qdrant":     { "url": "http://localhost:6333" },
-  "comfyui":    { "url": "http://localhost:8000" },
+  "comfyui":    { "url": "http://localhost:8188" },
   "telegram":   { "bot_token": "...", "chat_id": "..." }
 }
 ```
 
 ### Optional Services via Docker
-
-**Web Search (SearXNG)**
-```bash
-docker run -d --name searxng -p 8888:8080 searxng/searxng
-```
 
 **Vector Memory (Qdrant)**
 ```bash
@@ -193,6 +190,7 @@ docker run -d --name qdrant -p 6333:6333 qdrant/qdrant
 
 **Screenshots (Playwright)**
 ```bash
+pip install playwright
 playwright install chromium
 ```
 
@@ -202,12 +200,12 @@ playwright install chromium
 
 ```
 agentclaw/
-├── app.py              # Flask backend (~3000 lines) — all API routes & logic
+├── app.py              # Flask backend (~5000 lines) — all API routes & logic
 ├── main_app.py         # macOS app entry point (pywebview window)
 ├── setup.py            # py2app build configuration
 ├── make_icon.py        # App icon generator
 ├── templates/
-│   └── index.html      # Full frontend (~3000 lines, vanilla JS/HTML/CSS)
+│   └── index.html      # Full frontend (~4500 lines, vanilla JS/HTML/CSS)
 ├── static/             # CSS & JS assets
 ├── agents.json         # Agent definitions (auto-created, gitignored)
 ├── history.json        # Chat history (auto-created, gitignored)
@@ -232,8 +230,22 @@ agentclaw/
 | `GET` | `/api/skills` | List skills + availability status |
 | `GET` | `/api/watchdogs` | URL monitoring list |
 | `GET` | `/api/activity` | Live agent activity feed |
+| `GET` | `/api/hackernews` | Hacker News top stories |
+| `GET` | `/api/tagesschau` | Tagesschau news feed |
+| `PUT` | `/api/agents/<id>/heartbeat` | Configure heartbeat |
+| `PUT` | `/api/agents/<id>/dream` | Configure Dream (memory cleanup) |
 
-> **TTS note:** `/api/tts` returns raw `audio/mpeg` bytes via `send_file()`. Always consume with `fetch().blob()` — never `.json()`.
+### Real-Time WebSocket
+
+Socket.IO for live updates:
+
+```javascript
+socket = io('/ws');
+socket.on('agent_activity', (data) => { /* Agent started/stopped */ });
+socket.on('task_result', (data) => { /* A2A task completed */ });
+socket.on('heartbeat_result', (data) => { /* Heartbeat output */ });
+socket.on('chat_message', (data) => { /* New chat message */ });
+```
 
 ### LLM Provider Support
 
@@ -242,6 +254,7 @@ agentclaw/
 | **Ollama** | Local | Fully private, no API key needed |
 | **OpenRouter** | Cloud | 100+ models, free tier available |
 | **Mistral** | Cloud | Required for Voxtral TTS voices |
+| **Google** | Cloud | Gemini for embeddings |
 
 ---
 
@@ -258,11 +271,15 @@ Agents are configured via the UI or directly in `agents.json`:
   "provider": "ollama",
   "voice": "en_paul_neutral",
   "color": "#00e676",
-  "skills": ["web_search", "screenshot", "memory"],
+  "skills": ["screenshot", "image_gen"],
   "heartbeat": {
     "active": false,
     "interval_min": 60,
-    "prompt": "Summarize the latest AI news and save key findings."
+    "prompt": "Summarize the latest AI news."
+  },
+  "dream": {
+    "active": false,
+    "retention_days": 30
   }
 }
 ```
@@ -297,7 +314,7 @@ AgentClaw is **GDPR-ready by design** — not as an afterthought.
 - API keys stored in `.env` — never committed to git
 - `agents.json`, `history.json`, `providers.json` are in `.gitignore`
 - No telemetry, no tracking, no external calls unless you explicitly configure them
-- Cloud providers (OpenRouter, Mistral) are **opt-in only**
+- Cloud providers (OpenRouter, Mistral, Google) are **opt-in only**
 
 > Built for use cases where data privacy isn't optional — agencies, freelancers, and businesses operating under GDPR.
 
@@ -310,7 +327,7 @@ AgentClaw is **GDPR-ready by design** — not as an afterthought.
 - [ ] Agent import/export
 - [ ] Voice wake word detection
 - [ ] Plugin system for custom skills
-- [ ] Windows / Linux support
+- [ ] Multi-user support via WebSocket rooms
 
 ---
 
