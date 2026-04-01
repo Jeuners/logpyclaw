@@ -9,12 +9,14 @@ import random
 import threading
 import time
 import subprocess
+import io
 from datetime import datetime, timedelta
 from html.parser import HTMLParser
 from flask import Flask, render_template, request, jsonify, send_file
 from dotenv import load_dotenv
+from PIL import Image
 import requests
-import io
+import redis
 
 try:
     from qdrant_client import QdrantClient
@@ -117,6 +119,20 @@ SKILLS = [
         "description": "Edits uploaded images via FireRed Image Edit on a local ComfyUI server",
         "requires": "comfyui",
     },
+    {
+        "id": "prompt_optimize",
+        "name": "Prompt Optimizer",
+        "icon": "✨",
+        "description": "Optimizes prompts using proven frameworks (RTF, TAG, BAB, CARE, RISE) — ideal for SEO, copywriting, strategy and image generation prompts",
+        "requires": None,
+    },
+    {
+        "id": "gmail",
+        "name": "Gmail",
+        "icon": "📧",
+        "description": "Liest und sendet E-Mails über Gmail (IMAP/SMTP). Konfiguration in Providers erforderlich.",
+        "requires": None,
+    },
 ]
 
 # Im py2app-Bundle zeigt __file__ auf die .zip — deshalb CWD nutzen (gesetzt durch chdir in main_app.py)
@@ -134,6 +150,36 @@ TASKS_FILE = os.path.join(BASE_DIR, "tasks.json")
 # ── Agent-Tasks in-memory store ──────────────────────────────────────────────
 _TASKS: dict = {}
 _tasks_lock = threading.Lock()
+
+# ── Event system for push updates ───────────────────────────────────────────
+_EVENTS: list = []
+_events_lock = threading.Lock()
+_EVENT_VERSION = 0
+
+
+def emit_event(event_type: str, data: dict = None):
+    """Emit an event that clients can subscribe to."""
+    global _EVENT_VERSION
+    with _events_lock:
+        _EVENT_VERSION += 1
+        _EVENTS.append(
+            {
+                "type": event_type,
+                "data": data or {},
+                "v": _EVENT_VERSION,
+                "ts": datetime.now().isoformat(),
+            }
+        )
+        # Keep only last 100 events
+        if len(_EVENTS) > 100:
+            _EVENTS[:] = _EVENTS[-100:]
+
+
+def get_events_since(version: int) -> list:
+    """Get events after a given version."""
+    with _events_lock:
+        return [e for e in _EVENTS if e["v"] > version]
+
 
 # ── Live activity tracker ─────────────────────────────────────────────────────
 # { agent_id: { "type": "heartbeat"|"task", "label": str, "since": iso } }
@@ -166,6 +212,7 @@ def activity_cleanup():
 
 import ipaddress
 
+
 def _is_safe_url(url: str) -> bool:
     """
     SSRF protection: block requests to private/internal networks.
@@ -173,6 +220,7 @@ def _is_safe_url(url: str) -> bool:
     """
     from urllib.parse import urlparse
     import socket
+
     try:
         parsed = urlparse(url)
         if parsed.scheme not in ("http", "https"):
@@ -186,8 +234,14 @@ def _is_safe_url(url: str) -> bool:
             return False
         # Resolve to IP and check if private/loopback/link-local
         ip = ipaddress.ip_address(socket.gethostbyname(hostname))
-        if (ip.is_private or ip.is_loopback or ip.is_link_local
-                or ip.is_multicast or ip.is_reserved or ip.is_unspecified):
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
             return False
         return True
     except Exception:
@@ -541,6 +595,36 @@ def _run_comfyui_sync(prompt: str) -> str:
     return f"data:{mime};base64,{b64}"
 
 
+def _make_thumbnail(b64_data_url: str, max_size: int = 200) -> str:
+    """Erstellt eine verkleinerte Version des Bildes für die History-Anzeige.
+
+    Args:
+        b64_data_url: Base64 Data URL (data:image/png;base64,...)
+        max_size: Maximale Kantenlänge in Pixel
+
+    Returns:
+        Base64 Data URL der verkleinerten Version
+    """
+    try:
+        if not b64_data_url or not b64_data_url.startswith("data:"):
+            return None
+
+        header, b64_str = b64_data_url.split(",", 1)
+        img_data = base64.b64decode(b64_str)
+
+        img = Image.open(io.BytesIO(img_data))
+        img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+
+        output = io.BytesIO()
+        img.save(output, format="JPEG", quality=70, optimize=True)
+        thumb_b64 = base64.b64encode(output.getvalue()).decode()
+
+        return f"data:image/jpeg;base64,{thumb_b64}"
+    except Exception as e:
+        print(f"[Thumbnail] Error: {e}", flush=True)
+        return None
+
+
 def _run_comfyui_edit(image_b64: str, prompt: str, use_lightning: bool = True) -> str:
     """Run FireRed Image Edit via ComfyUI. Returns base64 data URL."""
     providers = load_providers()
@@ -668,6 +752,99 @@ def _run_telegram(message: str, image_base64: str = None) -> str:
             return f"❌ Telegram-Fehler: {str(e)[:100]}"
 
 
+def _run_gmail(action: str, params: dict) -> str:
+    """E-Mails abrufen oder senden via Gmail IMAP/SMTP.
+
+    Args:
+        action: 'fetch' oder 'send'
+        params: {
+            'subject': ...,
+            'to': ...,
+            'body': ...,
+            'max_results': 10  # für fetch
+        }
+    """
+    try:
+        import imaplib
+        import email
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+    except ImportError:
+        return "❌ IMAP-Bibliothek nicht verfügbar"
+
+    providers = load_providers()
+    gm = providers.get("gmail", {})
+
+    email_addr = gm.get("email", "")
+    app_password = gm.get("app_password", "")
+
+    if not email_addr or not app_password:
+        return "❌ Gmail nicht konfiguriert. Bitte E-Mail und App-Password in den Provider-Einstellungen eintragen."
+
+    if action == "send":
+        subject = params.get("subject", "Nachricht von AgentClaw")
+        to = params.get("to", "")
+        body = params.get("body", "")
+
+        if not to:
+            return "❌ Kein Empfänger angegeben (to)"
+
+        try:
+            import smtplib
+
+            msg = MIMEMultipart()
+            msg["From"] = email_addr
+            msg["To"] = to
+            msg["Subject"] = subject
+            msg.attach(MIMEText(body, "plain", "utf-8"))
+
+            server = smtplib.SMTP("smtp.gmail.com", 587)
+            server.starttls()
+            server.login(email_addr, app_password)
+            server.send_message(msg)
+            server.quit()
+
+            return f"✅ E-Mail gesendet an {to}: {subject}"
+        except Exception as e:
+            return f"❌ SMTP-Fehler: {str(e)[:100]}"
+
+    elif action == "fetch":
+        max_results = params.get("max_results", 10)
+
+        try:
+            mail = imaplib.IMAP4_SSL("imap.gmail.com")
+            mail.login(email_addr, app_password)
+            mail.select("inbox")
+
+            _, data = mail.search(None, "ALL")
+            email_ids = data[0].split()[-max_results:][::-1]
+
+            results = []
+            for eid in email_ids:
+                _, data = mail.fetch(eid, "(RFC822)")
+                msg = email.message_from_bytes(data[0][1])
+                subject = msg.get("subject", "(Kein Betreff)")
+                from_addr = msg.get("from", "Unbekannt")
+                date = msg.get("date", "")
+
+                results.append(
+                    f"Von: {from_addr}\nBetreff: {subject}\nDatum: {date}"
+                )
+
+            mail.close()
+            mail.logout()
+
+            if not results:
+                return "📭 Keine E-Mails gefunden"
+
+            return "📧 Letzte E-Mails:\n\n" + "\n\n".join(results[:5])
+
+        except Exception as e:
+            return f"❌ IMAP-Fehler: {str(e)[:100]}"
+
+    return "❌ Unbekannte Aktion"
+
+
 def process_task(task_id: str):
     """Background worker: process an agent task."""
     with _tasks_lock:
@@ -713,6 +890,22 @@ def process_task(task_id: str):
         re.IGNORECASE,
     )
 
+    GMAIL_TRIGGERS = re.compile(
+        r"schick.*mail|"
+        r"sende.*e-?mail|"
+        r"e-?mail.*an|"
+        r"send.*mail|"
+        r"send.*email|"
+        r"email.*to|"
+        r"check.*(my\s*)?mail|"
+        r"check.*e-?mails|"
+        r"letzte.*mail|"
+        r"letzte.*e-?mail|"
+        r"neue.*mail|"
+        r"neue.*e-?mail|",
+        re.IGNORECASE,
+    )
+
     try:
         # Image Edit skill: check if we have an image to edit + trigger words
         if (
@@ -746,10 +939,49 @@ def process_task(task_id: str):
                 task["result_image"] = image_b64
             task["result_text"] = _run_telegram(message, image_b64)
             task["skill_used"] = "telegram"
+        # Gmail skill
+        elif "gmail" in skills and GMAIL_TRIGGERS.search(message):
+            print(f"[Task] gmail trigger detected: {message[:60]}", flush=True)
+            # Parse email details from message
+            import re as re_module
+
+            # Extract recipient
+            to_match = re_module.search(
+                r"(?:an|to)\s+([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)",
+                message,
+                re_module.IGNORECASE,
+            )
+            to_addr = to_match.group(1) if to_match else ""
+            # Extract subject
+            subject_match = re_module.search(
+                r"(?:betreff|subject)[:\s]+([^\n]+)", message, re_module.IGNORECASE
+            )
+            subject = (
+                subject_match.group(1).strip()
+                if subject_match
+                else "Nachricht von AgentClaw"
+            )
+            # Check if we should fetch or send
+            is_fetch = re_module.search(
+                r"(check|letzte|neue|show).*(mail|email)", message, re_module.IGNORECASE
+            )
+            if is_fetch:
+                task["result_text"] = _run_gmail("fetch", {"max_results": 5})
+            else:
+                # Extract body - everything after the recipient or after "mit" / "with"
+                body_match = re_module.search(
+                    r"(?:mit|with|body)[:\s]*(.+)", message, re_module.IGNORECASE
+                )
+                body = body_match.group(1).strip() if body_match else message
+                task["result_text"] = _run_gmail(
+                    "send", {"to": to_addr, "subject": subject, "body": body}
+                )
+            task["skill_used"] = "gmail"
         elif "image_gen" in skills and (IMG_TRIGGERS.search(message) or only_image_gen):
             img_prompt = _extract_img_prompt(message)
             if not img_prompt:
                 img_prompt = message
+            task["prompt_used"] = img_prompt
             print(f"[Task] image_gen prompt: {img_prompt}", flush=True)
             task["result_image"] = _run_comfyui_sync(img_prompt)
             task["skill_used"] = "image_gen"
@@ -776,16 +1008,19 @@ def process_task(task_id: str):
 
         if task["skill_used"] == "image_gen" and task.get("result_image"):
             content = f"[Task from {task['sender_agent_name']}]: {task['message']}"
+            thumb = _make_thumbnail(task["result_image"])
+            task_prompt = task.get("prompt_used", "")
             history[recipient_id].append(
                 {
                     "role": "assistant",
                     "content": content,
-                    "task_image": task["result_image"],
+                    "task_image": thumb,  # Thumbnail statt vollem Bild
+                    "task_prompt": task_prompt,
                     "task_id": task_id,
                     "ts": ts,
                 }
             )
-            # Also notify sender agent's history (without the heavy base64 — ref only)
+            # Also notify sender agent's history (with thumbnail)
             if sender_id and sender_id != "system":
                 if sender_id not in history:
                     history[sender_id] = []
@@ -793,7 +1028,8 @@ def process_task(task_id: str):
                     {
                         "role": "assistant",
                         "content": f"📬 **@{task['recipient_agent_name']}** finished the image: _{task['message'][:80]}_",
-                        "task_image": task["result_image"],
+                        "task_image": thumb,  # Thumbnail
+                        "task_prompt": task_prompt,
                         "task_id": task_id,
                         "ts": ts,
                     }
@@ -961,13 +1197,15 @@ DEFAULT_AGENTS = [
 ]
 
 
-# ─── In-memory cache + file locks ────────────────────────────────────────────
-_cache: dict = {}  # { "agents"|"history"|"providers"|"watchdogs": data }
-_cache_lock = threading.Lock()
+# ─── File locks (no in-memory cache — local app, files are small) ────────────
 _agents_lock = threading.Lock()
 _history_lock = threading.Lock()
 _providers_lock = threading.Lock()
 _watchdogs_lock = threading.Lock()
+
+# History-only cache (can grow large, only modified through the app)
+_history_cache: dict | None = None
+_history_cache_lock = threading.Lock()
 
 
 def _read_json(path, default):
@@ -981,33 +1219,92 @@ def _read_json(path, default):
 
 
 def _write_json(path, data):
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[Error] Failed to write {path}: {e}", flush=True)
+        raise
 
 
 def load_agents():
-    with _cache_lock:
-        if "agents" not in _cache:
-            data = _read_json(AGENTS_FILE, None)
-            if data is None:
-                data = DEFAULT_AGENTS
-                _write_json(AGENTS_FILE, data)
-            _cache["agents"] = data
-        return _cache["agents"]
-
-
-def save_agents(agents):
     with _agents_lock:
-        _write_json(AGENTS_FILE, agents)
-    with _cache_lock:
-        _cache["agents"] = agents
+        data = _read_json(AGENTS_FILE, None)
+        if data is None:
+            data = DEFAULT_AGENTS
+            _write_json(AGENTS_FILE, data)
+        return data
+
+
+def save_agents(agents, create_backup=True):
+    import shutil
+
+    with _agents_lock:
+        # Create backup before saving
+        if create_backup and os.path.exists(AGENTS_FILE):
+            backup_path = AGENTS_FILE + ".backup"
+            shutil.copy2(AGENTS_FILE, backup_path)
+
+        # Write atomically: write to temp file first
+        temp_path = AGENTS_FILE + ".tmp"
+        _write_json(temp_path, agents)
+
+        # Verify write was successful
+        try:
+            verified = _read_json(temp_path, None)
+            if verified is None:
+                raise Exception("Verification failed - file is empty")
+        except Exception as e:
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except:
+                    pass
+            raise Exception(f"Save validation failed: {e}")
+
+        # Atomic rename
+        try:
+            os.replace(temp_path, AGENTS_FILE)
+        except Exception as e:
+            raise Exception(f"Failed to replace file: {e}")
+
+        # Remove backup on success
+        try:
+            if create_backup and os.path.exists(AGENTS_FILE + ".backup"):
+                os.remove(AGENTS_FILE + ".backup")
+        except:
+            pass  # Best effort - don't fail on backup removal
+
+        print(f"[Agent] Saved {len(agents)} agents successfully", flush=True)
+
+
+def patch_agent_heartbeat(agent_id: str, **fields):
+    """Atomically update heartbeat fields on one agent without a race.
+
+    Holds _agents_lock across the entire read-modify-write cycle so no
+    concurrent save_agents() call can overwrite changes made in between.
+    """
+    with _agents_lock:
+        data = _read_json(AGENTS_FILE, None)
+        if data is None:
+            return
+        for a in data:
+            if a["id"] == agent_id:
+                hb = a.setdefault("heartbeat", {})
+                hb.update(fields)
+                break
+        temp_path = AGENTS_FILE + ".tmp"
+        _write_json(temp_path, data)
+        os.replace(temp_path, AGENTS_FILE)
+
 
 
 def load_history():
-    with _cache_lock:
-        if "history" not in _cache:
-            _cache["history"] = _read_json(HISTORY_FILE, {})
-        return _cache["history"]
+    global _history_cache
+    with _history_cache_lock:
+        if _history_cache is None:
+            _history_cache = _read_json(HISTORY_FILE, {})
+        return _history_cache
 
 
 MAX_HISTORY_PER_AGENT = 500
@@ -1015,6 +1312,7 @@ MAX_CONTENT_LENGTH = 8000
 
 
 def save_history(history):
+    global _history_cache
     with _history_lock:
         for agent_id in history:
             msgs = history[agent_id]
@@ -1027,8 +1325,8 @@ def save_history(history):
                 ):
                     msg["content"] = msg["content"][:MAX_CONTENT_LENGTH] + " […]"
         _write_json(HISTORY_FILE, history)
-    with _cache_lock:
-        _cache["history"] = history
+    with _history_cache_lock:
+        _history_cache = history
 
 
 def load_providers():
@@ -1040,39 +1338,187 @@ def load_providers():
         "comfyui": {"url": "http://localhost:8188", "model": "flux2pro"},
         "qdrant": {"url": "http://localhost:6333"},
         "telegram": {"bot_token": "", "chat_id": ""},
+        "gmail": {"email": "", "app_password": ""},
+        "redis": {"host": "localhost", "port": 6379, "enabled": False},
     }
-    with _cache_lock:
-        if "providers" not in _cache:
-            stored = _read_json(PROVIDERS_FILE, {})
-            for k, v in defaults.items():
-                if k not in stored:
-                    stored[k] = v
-            _cache["providers"] = stored
-        return _cache["providers"]
+    with _providers_lock:
+        stored = _read_json(PROVIDERS_FILE, {})
+        for k, v in defaults.items():
+            if k not in stored:
+                stored[k] = v
+        return stored
 
 
 def save_providers(providers):
     with _providers_lock:
         _write_json(PROVIDERS_FILE, providers)
-    with _cache_lock:
-        _cache["providers"] = providers
+
+
+# ─── Redis Watchdog Logger (A2A Events) ───────────────────────────────────────
+
+_redis_client = None
+
+
+def get_redis_client():
+    """Get or create Redis client."""
+    global _redis_client
+    if _redis_client is not None:
+        return _redis_client
+
+    providers = load_providers()
+    redis_config = providers.get("redis", {})
+
+    if not redis_config.get("enabled", False):
+        print("[Watchdog] Redis disabled in config", flush=True)
+        return None
+
+    try:
+        _redis_client = redis.Redis(
+            host=redis_config.get("host", "localhost"),
+            port=redis_config.get("port", 6379),
+            decode_responses=True,
+            socket_connect_timeout=2,
+        )
+        _redis_client.ping()
+        print("[Watchdog] Redis connected", flush=True)
+        return _redis_client
+    except Exception as e:
+        print(f"[Watchdog] Redis connection failed: {e}", flush=True)
+        return None
+
+
+def log_a2a_event(
+    event_type: str,
+    from_agent: str,
+    to_agent: str,
+    payload: dict,
+    status: str = "pending",
+):
+    """Loggt einen A2A Event nach Redis."""
+    client = get_redis_client()
+    if not client:
+        return
+
+    event = {
+        "event_id": str(uuid.uuid4()),
+        "timestamp": datetime.now().isoformat(),
+        "type": event_type,
+        "from_agent": from_agent,
+        "to_agent": to_agent,
+        "payload": payload,
+        "status": status,
+    }
+
+    try:
+        # Key für heute: a2a:events:2026-03-31
+        date_key = datetime.now().strftime("%Y-%m-%d")
+        event_key = f"a2a:event:{event['event_id']}"
+
+        # Speichere Event mit TTL von 7 Tagen
+        client.setex(event_key, 604800, json.dumps(event))
+
+        # Füge zu Tages-Liste hinzu
+        client.lpush(f"a2a:events:{date_key}", event["event_id"])
+        client.expire(f"a2a:events:{date_key}", 604800)
+
+        print(f"[Watchdog] Logged: {event_type} {from_agent} → {to_agent}", flush=True)
+    except Exception as e:
+        print(f"[Watchdog] Error logging event: {e}", flush=True)
+
+
+def get_a2a_events(limit: int = 50, agent_filter: str = None):
+    """Holt A2A Events aus Redis."""
+    client = get_redis_client()
+    if not client:
+        return []
+
+    events = []
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # Check today's events
+    event_ids = client.lrange(f"a2a:events:{today}", 0, limit - 1)
+
+    for eid in event_ids:
+        event_data = client.get(f"a2a:event:{eid}")
+        if event_data:
+            event = json.loads(event_data)
+            if agent_filter and agent_filter not in [
+                event.get("from_agent", ""),
+                event.get("to_agent", ""),
+            ]:
+                continue
+            events.append(event)
+
+    return events[:limit]
+
+
+# ─── Watchdog API Endpoints ───────────────────────────────────────────────────
+
+
+@app.route("/api/watchdog/events", methods=["GET"])
+def get_watchdog_events():
+    """Holt A2A Events aus Redis Watchdog.
+
+    Query params:
+    - limit: max events (default 50)
+    - agent: filter by agent name
+    """
+    limit = int(request.args.get("limit", 50))
+    agent = request.args.get("agent")
+    events = get_a2a_events(limit=limit, agent_filter=agent)
+    return jsonify(events)
+
+
+@app.route("/api/watchdog/status", methods=["GET"])
+def get_watchdog_status():
+    """Gibt Watchdog/Redis Status zurück."""
+    client = get_redis_client()
+    if not client:
+        return jsonify({"status": "disabled", "redis_connected": False})
+
+    try:
+        info = client.info("memory")
+        return jsonify(
+            {
+                "status": "active",
+                "redis_connected": True,
+                "memory_used_mb": round(info.get("used_memory", 0) / 1024 / 1024, 2),
+            }
+        )
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)})
+
+
+def cleanup_redis_watchdog(max_memory_mb: int = 2048):
+    """Bereinigt alte Events basierend auf TTL und Speicher."""
+    client = get_redis_client()
+    if not client:
+        return
+
+    # Redis hat eingebautes maxmemory und eviction - wir verlassen uns darauf
+    # Zusätzlich: alte Keys bereinigen die durch TTL nicht gelöscht wurden
+    try:
+        # Lösche Events älter als 7 Tage (basierend auf Key-Pattern)
+        for key in client.scan_iter("a2a:event:*"):
+            if not client.ttl(key) or client.ttl(key) < 0:
+                # Kein TTL gesetzt - neu setzen
+                client.expire(key, 604800)
+        print("[Watchdog] Cleanup completed", flush=True)
+    except Exception as e:
+        print(f"[Watchdog] Cleanup error: {e}", flush=True)
 
 
 # ─── Watchdogs ────────────────────────────────────────────────────────────────
 
 
 def load_watchdogs():
-    with _cache_lock:
-        if "watchdogs" not in _cache:
-            _cache["watchdogs"] = _read_json(WATCHDOGS_FILE, [])
-        return _cache["watchdogs"]
+    with _watchdogs_lock:
+        return _read_json(WATCHDOGS_FILE, [])
 
 
 def save_watchdogs(watchdogs):
     with _watchdogs_lock:
         _write_json(WATCHDOGS_FILE, watchdogs)
-    with _cache_lock:
-        _cache["watchdogs"] = watchdogs
 
 
 def update_watchdog_field(wd_id, **kwargs):
@@ -1100,13 +1546,237 @@ def get_agents():
     return jsonify(load_agents())
 
 
+@app.route("/api/agents/list", methods=["GET"])
+def get_agents_list():
+    """Simple agent list for other agents (like Martin) to query."""
+    agents = load_agents()
+    return jsonify(
+        [
+            {
+                "id": a["id"],
+                "name": a["name"],
+                "role": a.get("role", ""),
+                "skills": a.get("skills", []),
+                "provider": a.get("provider", "ollama"),
+                "model": a.get("model", ""),
+            }
+            for a in agents
+        ]
+    )
+
+
+@app.route("/api/events", methods=["GET"])
+def get_events():
+    """Server-Send-Events endpoint for push updates."""
+    v = request.args.get("v", 0, type=int)
+    return jsonify(get_events_since(v))
+
+
+# ─── A2A Agent Cards & Capability Discovery ─────────────────────────────────
+
+
+def build_agent_card(agent: dict) -> dict:
+    """Erstellt eine Agent Card für A2A Discovery."""
+    return {
+        "agent_id": agent.get("id"),
+        "name": agent.get("name"),
+        "description": agent.get("role", ""),
+        "version": "1.0",
+        "capabilities": {
+            "skills": agent.get("skills", []),
+            "providers": [agent.get("provider", "ollama")],
+            "model": agent.get("model", ""),
+            "max_tokens": agent.get("max_tokens"),
+            "features": {
+                "voice": bool(agent.get("voice")),
+                "web_search": agent.get("web_search", False),
+                "heartbeat": bool(agent.get("heartbeat", {}).get("active")),
+                "memory": "memory" in agent.get("skills", []),
+                "image_gen": "image_gen" in agent.get("skills", []),
+                "telegram": "telegram" in agent.get("skills", []),
+                "gmail": "gmail" in agent.get("skills", []),
+            },
+        },
+        "endpoints": {"chat": f"/api/chat/{agent.get('id')}", "task": f"/api/tasks"},
+    }
+
+
+@app.route("/api/agents/cards", methods=["GET"])
+def get_all_agent_cards():
+    """Gibt alle Agent Cards zurück."""
+    agents = load_agents()
+    cards = [build_agent_card(a) for a in agents]
+    return jsonify(cards)
+
+
+@app.route("/api/agents/capabilities", methods=["GET"])
+def get_agent_capabilities():
+    """Filtert Agenten nach Fähigkeiten.
+
+    Query params:
+    - skill: z.B. "image_gen", "telegram", "web_search"
+    - feature: z.B. "voice", "memory"
+    """
+    skill_filter = request.args.get("skill")
+    feature_filter = request.args.get("feature")
+
+    agents = load_agents()
+    matching = []
+
+    for a in agents:
+        card = build_agent_card(a)
+        caps = card.get("capabilities", {})
+
+        # Check skill filter
+        if skill_filter and skill_filter not in caps.get("skills", []):
+            continue
+
+        # Check feature filter
+        if feature_filter and not caps.get("features", {}).get(feature_filter):
+            continue
+
+        matching.append(card)
+
+    return jsonify(matching)
+
+
+@app.route("/api/agents/<agent_id>/card", methods=["GET"])
+def get_agent_card(agent_id):
+    """Gibt die Agent Card für einen spezifischen Agenten zurück."""
+    agents = load_agents()
+    agent = next((a for a in agents if a["id"] == agent_id), None)
+
+    if not agent:
+        return jsonify({"error": "Agent nicht gefunden"}), 404
+
+    return jsonify(build_agent_card(agent))
+
+
+# ─── A2A Task Dispatch ────────────────────────────────────────────────────────
+
+
+@app.route("/api/a2a/dispatch", methods=["POST"])
+def a2a_dispatch():
+    """Dispatcht einen Task an einen Agent basierend auf Capability.
+
+    Body:
+    {
+        "source_agent_id": "uuid",
+        "task_type": "image_gen|web_search|telegram|gmail|memory|tagesschau",
+        "message": "prompt",
+        "target_agent_name": "optional - wenn nicht, auto-match"
+    }
+    """
+    data = request.json
+    source_id = data.get("source_agent_id", "")
+    task_type = data.get("task_type", "")
+    message = data.get("message", "")
+    target_name = data.get("target_agent_name", "")
+
+    agents = load_agents()
+
+    # Find target agent
+    target_agent = None
+
+    if target_name:
+        # Explicit target
+        target_agent = next(
+            (a for a in agents if a["name"].lower() == target_name.lower()), None
+        )
+    else:
+        # Auto-match based on task_type
+        skill_map = {
+            "image_gen": "image_gen",
+            "web_search": "web_search",
+            "telegram": "telegram",
+            "gmail": "gmail",
+            "memory": "memory",
+            "tagesschau": "tagesschau",
+        }
+        required_skill = skill_map.get(task_type)
+
+        if required_skill:
+            # Find agent with this skill (excluding source)
+            candidates = [
+                a
+                for a in agents
+                if a.get("skills", [])
+                and required_skill in a["skills"]
+                and a["id"] != source_id
+            ]
+            if candidates:
+                target_agent = candidates[0]
+
+    if not target_agent:
+        return jsonify(
+            {
+                "ok": False,
+                "error": f"Kein Agent für Task '{task_type}' gefunden",
+                "available_agents": [
+                    {"name": a["name"], "skills": a.get("skills", [])} for a in agents
+                ],
+            }
+        ), 404
+
+    # Get source agent name
+    source_agent = next((a for a in agents if a["id"] == source_id), None)
+    source_name = source_agent["name"] if source_agent else "System"
+
+    # Create and process task
+    task_id = str(uuid.uuid4())
+    now = datetime.now()
+
+    new_task = {
+        "id": task_id,
+        "sender_agent_id": source_id,
+        "sender_agent_name": source_name,
+        "recipient_agent_id": target_agent["id"],
+        "recipient_agent_name": target_agent["name"],
+        "message": message,
+        "skill_used": task_type or "auto_dispatch",
+        "status": "pending",
+        "created_at": now.isoformat(),
+        "a2a": True,  # Mark as A2A dispatch
+    }
+
+    # Save to tasks
+    tasks = _read_json(TASKS_FILE, [])
+    tasks.append(new_task)
+    _write_json(TASKS_FILE, tasks)
+
+    # Log A2A event to Redis Watchdog
+    log_a2a_event(
+        event_type="task_dispatch",
+        from_agent=source_name,
+        to_agent=target_agent["name"],
+        payload={"task_id": task_id, "message": message, "skill": task_type},
+        status="pending",
+    )
+
+    # Start processing in background
+    threading.Thread(target=process_task, args=(task_id,), daemon=True).start()
+
+    return jsonify(
+        {
+            "ok": True,
+            "task_id": task_id,
+            "target_agent": target_agent["name"],
+            "target_agent_id": target_agent["id"],
+            "status": "dispatched",
+        }
+    )
+
+
 @app.route("/api/agents", methods=["POST"])
 def create_agent():
     data = request.json
     agent = {
         "id": str(uuid.uuid4()),
         "name": data.get("name", "New Agent"),
-        "soul": data.get("soul", "You are a capable AI assistant. You are clear, concise and honest. You help the user with any task, ask clarifying questions when the request is ambiguous, and always aim to deliver practical, actionable answers. You adapt your tone to the context — friendly in casual conversation, precise in technical discussions."),
+        "soul": data.get(
+            "soul",
+            "You are a capable AI assistant. You are clear, concise and honest. You help the user with any task, ask clarifying questions when the request is ambiguous, and always aim to deliver practical, actionable answers. You adapt your tone to the context — friendly in casual conversation, precise in technical discussions.",
+        ),
         "voice": data.get("voice", "en_paul_neutral"),
         "model": data.get("model", "StarCoder2:latest"),
         "provider": data.get("provider", "ollama"),
@@ -1117,43 +1787,71 @@ def create_agent():
     agents = load_agents()
     agents.append(agent)
     save_agents(agents)
+    emit_event("new_agent", {"id": agent["id"], "name": agent["name"]})
     return jsonify(agent), 201
 
 
 @app.route("/api/agents/<agent_id>", methods=["PUT"])
 def update_agent(agent_id):
     data = request.json
+    print(f"[Agent] PUT received for {agent_id}: {list(data.keys())}", flush=True)
+
     agents = load_agents()
+    found = False
     for i, a in enumerate(agents):
         if a["id"] == agent_id:
-            agents[i].update(
-                {
-                    "name": data.get("name", a["name"]),
-                    "role": data.get("role", a.get("role", "")),
-                    "soul": data.get("soul", a["soul"]),
-                    "voice": data.get("voice", a["voice"]),
-                    "model": data.get("model", a["model"]),
-                    "provider": data.get("provider", a.get("provider", "ollama")),
-                    "skills": data.get("skills", a.get("skills", [])),
-                    "max_tokens": int(data["max_tokens"])
-                    if data.get("max_tokens")
-                    else a.get("max_tokens", None),
-                    "color": data.get("color", a["color"]),
-                }
-            )
+            found = True
+            # Update only provided fields
+            if "name" in data:
+                agents[i]["name"] = data["name"]
+            if "role" in data:
+                agents[i]["role"] = data["role"]
+            if "soul" in data:
+                agents[i]["soul"] = data["soul"]
+            if "voice" in data:
+                agents[i]["voice"] = data["voice"]
+            if "model" in data:
+                agents[i]["model"] = data["model"]
+            if "provider" in data:
+                agents[i]["provider"] = data["provider"]
+            if "skills" in data:
+                agents[i]["skills"] = data["skills"]
+            if "max_tokens" in data:
+                agents[i]["max_tokens"] = data["max_tokens"]
+            if "color" in data:
+                agents[i]["color"] = data["color"]
+
             # Heartbeat — save atomically together with the agent
             if "heartbeat" in data:
                 hb_data = data["heartbeat"]
                 hb = agents[i].setdefault("heartbeat", {})
                 hb["active"] = bool(hb_data.get("active", False))
                 hb["prompt"] = hb_data.get("prompt", hb.get("prompt", ""))
-                hb["interval_min"] = int(hb_data.get("interval_min", hb.get("interval_min", 30)))
+                hb["interval_min"] = int(
+                    hb_data.get("interval_min", hb.get("interval_min", 30))
+                )
                 if hb["active"]:
                     hb["next_run"] = None  # trigger on next tick
-                print(f"[Agent] heartbeat saved: active={hb['active']} for {agents[i]['name']}", flush=True)
-            save_agents(agents)
-            return jsonify(agents[i])
-    return jsonify({"error": "Agent not found"}), 404
+                print(
+                    f"[Agent] heartbeat saved: active={hb['active']} for {agents[i]['name']}",
+                    flush=True,
+                )
+
+            try:
+                save_agents(agents)
+                print(
+                    f"[Agent] Successfully saved agent {agents[i]['name']}", flush=True
+                )
+                emit_event(
+                    "agent_updated", {"id": agents[i]["id"], "name": agents[i]["name"]}
+                )
+                return jsonify({"ok": True, "agent": agents[i]})
+            except Exception as e:
+                print(f"[Agent] ERROR saving: {e}", flush=True)
+                return jsonify({"ok": False, "error": str(e)}), 500
+
+    if not found:
+        return jsonify({"ok": False, "error": "Agent not found"}), 404
 
 
 @app.route("/api/agents/<agent_id>", methods=["DELETE"])
@@ -1165,6 +1863,7 @@ def delete_agent(agent_id):
     history = load_history()
     history.pop(agent_id, None)
     save_history(history)
+    emit_event("agent_deleted", {"id": agent_id})
     return jsonify({"ok": True})
 
 
@@ -1188,13 +1887,217 @@ def clear_history(agent_id):
 # ─── Chat ─────────────────────────────────────────────────────────────────────
 
 IMAGE_EDIT_TRIGGERS = re.compile(
-    r"\b(bearbeite|ändere|editier|modifiziere|verändere|verwandle|transformiere|konvertiere)\b|"
-    r"\b(edit|modify|change|transform|convert)\b.*\b(bild|image|photo|picture)\b|"
-    r"(bild|image|photo|picture).*\b(edit|modify|change|transform|convert)\b|"
+    # explicit edit verbs (DE)
+    r"\b(bearbeit|änder|editier|modifizier|verände|verwandl|transformier|konvertier|anpass|korrigier)\w*\b|"
+    # common short DE verbs
+    r"\b(mach|mache|machen|färb|farb|setz|setze|wechsel|tausch|entfern|füg|passe)\w*\b|"
+    # compound DE words containing edit intent
+    r"\b(bildbearbeitung|bildkorrektur|farbkorrektur|retusche|retouch)\w*\b|"
+    # explicit edit verbs (EN)
+    r"\b(edit|modify|change|transform|convert|adjust|recolor|recolour|replace|remove|add|make|turn|swap|set)\b|"
+    # image + verb combinations
+    r"\b(bild|image|photo|picture)\b.{0,30}\b(edit|modify|change|transform)\b|"
+    r"\b(edit|modify|change|transform)\b.{0,30}\b(bild|image|photo|picture)\b|"
+    # body parts / visual elements (strong edit signal when image is present)
+    r"\b(augen|auge|eyes?|eye|haare?|haar|hair|haut|skin|lippen|lips?|gesicht|face|"
+    r"hintergrund|background|kleidung|clothes?|shirt|jacke|jacket|himmel|sky|"
+    r"bart|beard|brille|glasses?|mund|mouth)\b|"
+    # color instructions
+    r"\b(farbe|colour|color|rot|red|blau|blue|grün|green|grau|grey|gray|gelb|yellow|"
+    r"schwarz|black|weiß|white|braun|brown|lila|purple|pink|orange|türkis|teal|golden?)\b.*"
+    r"\b(augen|eyes?|haar|hair|haut|skin|hintergrund|background|lippen|lips?|gesicht|face)\b|"
+    r"\b(augen|eyes?|haar|hair|haut|skin|hintergrund|background|lippen|lips?|gesicht|face)\b.*"
+    r"\b(farbe|colour|color|rot|red|blau|blue|grün|green|grau|grey|gray|gelb|yellow|"
+    r"schwarz|black|weiß|white|braun|brown|lila|purple|pink|orange|türkis|teal|golden?)\b|"
     r"@.*edit\b|"
-    r"ersetz\w*|replace\w*",
+    r"\b(ersetz|replace)\w*\b",
     re.IGNORECASE,
 )
+
+
+PROMPT_OPTIMIZE_TRIGGERS = re.compile(
+    r"\b(optimize|improve|refine|enhance|rewrite|restructure|upgrade)\b.{0,50}\b(prompt|instruction|system prompt|soul|query|text)\b|"
+    r"\b(prompt|instruction|soul|text|query)\b.{0,50}\b(optimize|improve|refine|enhance|rewrite|better|fix)\b|"
+    r"\b(optimiere|verbessere|verfeinere|schreibe um|überarbeite)\b.{0,50}\b(prompt|anweisung|text)\b|"
+    r"\b(prompt|anweisung|text)\b.{0,50}\b(optimieren|verbessern|verfeinern)\b|"
+    r"\bprompt.{0,20}(RTF|TAG|BAB|CARE|RISE)\b|"
+    r"\b(RTF|TAG|BAB|CARE|RISE).{0,20}(framework|prompt)\b|"
+    r"\b(optimize this|improve this|refine this|make this (better|clearer|sharper))\b",
+    re.IGNORECASE,
+)
+
+PROMPT_FRAMEWORKS = {
+    "RTF": {
+        "name": "Role-Task-Format",
+        "steps": ["Role", "Task", "Format"],
+        "best_for": "Creative, marketing, structured outputs",
+    },
+    "TAG": {
+        "name": "Task-Action-Goal",
+        "steps": ["Task", "Action", "Goal"],
+        "best_for": "Management, KPIs, performance analysis",
+    },
+    "BAB": {
+        "name": "Before-After-Bridge",
+        "steps": ["Before", "After", "Bridge"],
+        "best_for": "SEO, persuasion, transformation, change",
+    },
+    "CARE": {
+        "name": "Context-Action-Result-Example",
+        "steps": ["Context", "Action", "Result", "Example"],
+        "best_for": "Storytelling, strategy, new products",
+    },
+    "RISE": {
+        "name": "Role-Input-Steps-Expectation",
+        "steps": ["Role", "Input", "Steps", "Expectation"],
+        "best_for": "Complex strategy, roadmaps, knowledge work",
+    },
+}
+
+
+def _optimize_prompt(
+    input_prompt: str, framework_id: str = "RTF", target_model: str = "General LLM"
+) -> str:
+    """Optimize a prompt using the specified framework via Ollama."""
+    fw = PROMPT_FRAMEWORKS.get(framework_id.upper(), PROMPT_FRAMEWORKS["RTF"])
+    providers = load_providers()
+    ollama_url = (
+        providers.get("ollama", {}).get("url", "http://localhost:11434").rstrip("/")
+    )
+
+    system_prompt = "You are an elite Prompt Engineering Expert. Respond ONLY with valid JSON, no markdown."
+    user_prompt = f"""Optimize this prompt using the {framework_id} framework ({"-".join(fw["steps"])}).
+
+TARGET MODEL: {target_model}
+BEST FOR: {fw["best_for"]}
+USER DRAFT: "{input_prompt}"
+
+Deconstruct, refine each step, explain why each change helps, then build the final prompt.
+
+Respond with this exact JSON:
+{{
+  "refinedPrompt": "the final optimized prompt",
+  "breakdown": [
+    {{"step": "step name", "content": "content for this step", "explanation": "why this works"}}
+  ],
+  "generalAdvice": "overall advice in 1-2 sentences"
+}}"""
+
+    # Try to find a capable model
+    ollama_model = "gemma3:latest"
+    try:
+        models_resp = requests.get(f"{ollama_url}/api/tags", timeout=5)
+        if models_resp.ok:
+            names = [m["name"] for m in models_resp.json().get("models", [])]
+            for preferred in [
+                "gemma3:latest",
+                "mistral-nemo:12b",
+                "llama3.1:8b",
+                "gemma3:12b",
+            ]:
+                if preferred in names:
+                    ollama_model = preferred
+                    break
+    except Exception:
+        pass
+
+    resp = requests.post(
+        f"{ollama_url}/api/generate",
+        json={
+            "model": ollama_model,
+            "system": system_prompt,
+            "prompt": user_prompt,
+            "stream": False,
+            "format": "json",
+        },
+        timeout=90,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    result = json.loads(data["response"])
+
+    # Format as readable markdown
+    refined = result.get("refinedPrompt", "")
+    breakdown = result.get("breakdown", [])
+    advice = result.get("generalAdvice", "")
+
+    lines = [
+        f"✨ **Optimized Prompt** ({framework_id} — {fw['name']})",
+        "",
+        f"```",
+        refined,
+        f"```",
+        "",
+        f"**Breakdown:**",
+    ]
+    for step in breakdown:
+        lines.append(f"- **{step.get('step', '')}**: {step.get('content', '')}  ")
+        lines.append(f"  _{step.get('explanation', '')}_")
+    if advice:
+        lines += ["", f"💡 {advice}"]
+    return "\n".join(lines)
+
+
+@app.route("/api/prompt/optimize", methods=["POST"])
+def api_prompt_optimize():
+    """Lightweight endpoint returning just refinedPrompt for frontend chaining (e.g. image gen)."""
+    data = request.json or {}
+    input_prompt = data.get("prompt", "").strip()
+    framework_id = data.get("framework", "RTF").upper()
+    target_model = data.get("target_model", "Image Generation")
+    if not input_prompt:
+        return jsonify({"error": "No prompt provided"}), 400
+    try:
+        fw = PROMPT_FRAMEWORKS.get(framework_id, PROMPT_FRAMEWORKS["RTF"])
+        providers = load_providers()
+        ollama_url = (
+            providers.get("ollama", {}).get("url", "http://localhost:11434").rstrip("/")
+        )
+        system_prompt = "You are an elite Prompt Engineering Expert. Respond ONLY with valid JSON, no markdown."
+        user_prompt = f"""Optimize this prompt using the {framework_id} framework ({"-".join(fw["steps"])}).
+
+TARGET MODEL: {target_model}
+BEST FOR: {fw["best_for"]}
+USER DRAFT: "{input_prompt}"
+
+Return ONLY this JSON:
+{{
+  "refinedPrompt": "the final optimized prompt — in English, vivid, concise, ready to use"
+}}"""
+        ollama_model = "gemma3:latest"
+        try:
+            models_resp = requests.get(f"{ollama_url}/api/tags", timeout=5)
+            if models_resp.ok:
+                names = [m["name"] for m in models_resp.json().get("models", [])]
+                for preferred in [
+                    "gemma3:latest",
+                    "mistral-nemo:12b",
+                    "llama3.1:8b",
+                    "gemma3:12b",
+                ]:
+                    if preferred in names:
+                        ollama_model = preferred
+                        break
+        except Exception:
+            pass
+        resp = requests.post(
+            f"{ollama_url}/api/generate",
+            json={
+                "model": ollama_model,
+                "system": system_prompt,
+                "prompt": user_prompt,
+                "stream": False,
+                "format": "json",
+            },
+            timeout=60,
+        )
+        resp.raise_for_status()
+        result = json.loads(resp.json()["response"])
+        refined = result.get("refinedPrompt", input_prompt)
+        return jsonify({"refinedPrompt": refined, "framework": framework_id})
+    except Exception as e:
+        print(f"[prompt/optimize] Error: {e}", flush=True)
+        return jsonify({"refinedPrompt": input_prompt, "error": str(e)})
 
 
 @app.route("/api/chat", methods=["POST"])
@@ -1210,7 +2113,7 @@ def chat():
     if not user_message and not image_data:
         return jsonify({"error": "Keine Nachricht"}), 400
     if not user_message:
-        user_message = "Was siehst du auf diesem Bild?"
+        user_message = "Describe what you see in this image."
 
     # Load agent
     agents = load_agents()
@@ -1275,6 +2178,68 @@ def chat():
         save_history(history)
         return jsonify({"reply": result, "image": image_data})
 
+    # Gmail: check if user wants to send or check email
+    GMAIL_TRIGGERS = re.compile(
+        r"schick.*mail|"
+        r"sende.*e-?mail|"
+        r"e-?mail.*an|"
+        r"send.*mail|"
+        r"send.*email|"
+        r"email.*to|"
+        r"check.*(my\s*)?mail|"
+        r"check.*e-?mails|"
+        r"letzte.*mail|"
+        r"letzte.*e-?mail|"
+        r"neue.*mail|"
+        r"neue.*e-?mail|",
+        re.IGNORECASE,
+    )
+    if "gmail" in agent_skills and GMAIL_TRIGGERS.search(user_message):
+        print(f"[Chat] gmail trigger: {user_message[:60]}...", flush=True)
+        import re as re_module
+
+        # Check if fetch or send
+        is_fetch = re_module.search(
+            r"(check|letzte|neue|show).*(mail|email)",
+            user_message,
+            re_module.IGNORECASE,
+        )
+        if is_fetch:
+            result = _run_gmail("fetch", {"max_results": 5})
+        else:
+            # Extract recipient
+            to_match = re_module.search(
+                r"(?:an|to)\s+([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)",
+                user_message,
+                re_module.IGNORECASE,
+            )
+            to_addr = to_match.group(1) if to_match else ""
+            # Extract subject
+            subject_match = re_module.search(
+                r"(?:betreff|subject)[:\s]+([^\n]+)", user_message, re_module.IGNORECASE
+            )
+            subject = (
+                subject_match.group(1).strip()
+                if subject_match
+                else "Nachricht von AgentClaw"
+            )
+            # Extract body
+            body_match = re_module.search(
+                r"(?:mit|with|body|text)[:\s]*(.+)", user_message, re_module.IGNORECASE
+            )
+            body = body_match.group(1).strip() if body_match else user_message
+            result = _run_gmail(
+                "send", {"to": to_addr, "subject": subject, "body": body}
+            )
+        history[agent_id].append(
+            {"role": "user", "content": user_message, "ts": datetime.now().isoformat()}
+        )
+        history[agent_id].append(
+            {"role": "assistant", "content": result, "ts": datetime.now().isoformat()}
+        )
+        save_history(history)
+        return jsonify({"reply": result})
+
     # Image Edit: check if user uploaded image + has edit skill + trigger words
     if (
         image_data
@@ -1313,6 +2278,54 @@ def chat():
             )
         except Exception as e:
             return jsonify({"error": f"Bildbearbeitung fehlgeschlagen: {str(e)}"}), 500
+
+    # Prompt Optimize skill
+    if "prompt_optimize" in agent_skills and PROMPT_OPTIMIZE_TRIGGERS.search(
+        user_message
+    ):
+        print(f"[Chat] prompt_optimize triggered: {user_message[:60]}...", flush=True)
+        try:
+            # Auto-detect framework from message, default RTF
+            fw_id = "RTF"
+            for fid in PROMPT_FRAMEWORKS:
+                if fid in user_message.upper():
+                    fw_id = fid
+                    break
+            # Auto-detect SEO → BAB, strategy → RISE
+            if re.search(r"\bseo\b", user_message, re.IGNORECASE):
+                fw_id = "BAB"
+            elif re.search(r"\bstrateg\w+\b", user_message, re.IGNORECASE):
+                fw_id = "RISE"
+            # Extract the raw prompt to optimize (everything after colon or quote if present)
+            raw = (
+                re.sub(
+                    r"^.{0,80}?(?:optimize|improve|refine|enhance|rewrite|optimiere|verbessere)[^:\"]*[:\"]\s*",
+                    "",
+                    user_message,
+                    flags=re.IGNORECASE,
+                ).strip()
+                or user_message
+            )
+            result = _optimize_prompt(raw, fw_id)
+            history[agent_id].append(
+                {
+                    "role": "user",
+                    "content": user_message,
+                    "ts": datetime.now().isoformat(),
+                }
+            )
+            history[agent_id].append(
+                {
+                    "role": "assistant",
+                    "content": result,
+                    "ts": datetime.now().isoformat(),
+                }
+            )
+            save_history(history)
+            return jsonify({"reply": result})
+        except Exception as e:
+            print(f"[Chat] prompt_optimize error: {e}", flush=True)
+            # Fall through to normal LLM if optimizer fails
 
     search_context = ""
     if "web_search" in agent_skills and needs_search:
@@ -1366,7 +2379,9 @@ def chat():
             for url in urls[:3]:  # max 3 URLs per message
                 print(f"[URL-Fetch] {url}", flush=True)
                 content = fetch_url_text(url)
-                url_parts.append(f"[Content from {url}]\n{content}\nUse the content above to answer the user's question.")
+                url_parts.append(
+                    f"[Content from {url}]\n{content}\nUse the content above to answer the user's question."
+                )
             system_content += "\n\n" + "\n\n".join(url_parts)
 
     # Build messages
@@ -1649,8 +2664,9 @@ def tts():
             err_body = response.json()
         except Exception:
             err_body = response.text
+        print(f"[TTS] API Fehler {response.status_code}: {err_body}", flush=True)
         return jsonify(
-            {"error": f"API Fehler {response.status_code}", "details": err_body}
+            {"error": f"TTS API Fehler {response.status_code}"}
         ), response.status_code
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1867,6 +2883,139 @@ def get_all_models():
     return jsonify(result)
 
 
+# ─── Backup & Restore ──────────────────────────────────────────────────────────
+
+BACKUP_DIR = os.path.join(BASE_DIR, "backups")
+os.makedirs(BACKUP_DIR, exist_ok=True)
+
+
+@app.route("/api/backup", methods=["POST"])
+def create_backup():
+    """Erstellt einen vollständigen Backup des aktuellen States.
+
+    Hinweis: history.json und tasks.json werden wegen Größe nicht eingeschlossen.
+    """
+    import shutil
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_name = f"agentclaw_backup_{timestamp}"
+    backup_path = os.path.join(BACKUP_DIR, backup_name)
+    os.makedirs(backup_path, exist_ok=True)
+
+    # Backup core state files (ohne history/tasks wegen Größe)
+    files_to_backup = [
+        ("agents.json", AGENTS_FILE),
+        ("providers.json", PROVIDERS_FILE),
+        ("watchdogs.json", WATCHDOGS_FILE),
+    ]
+
+    for name, src_path in files_to_backup:
+        dst = os.path.join(backup_path, name)
+        if os.path.exists(src_path):
+            shutil.copy2(src_path, dst)
+
+    # Create manifest with metadata
+    manifest = {
+        "version": "1.0",
+        "created": datetime.now().isoformat(),
+        "includes_history": False,
+        "includes_tasks": False,
+        "note": "Agenten, Provider und Watchdogs. History/Tasks ausgeschlossen wegen Größe.",
+    }
+    with open(os.path.join(backup_path, "manifest.json"), "w") as f:
+        json.dump(manifest, f, ensure_ascii=False, indent=2)
+
+    # Create ZIP archive
+    zip_path = os.path.join(BACKUP_DIR, f"{backup_name}.zip")
+    shutil.make_archive(backup_path, "zip", backup_path)
+
+    # Cleanup temp folder
+    shutil.rmtree(backup_path)
+
+    return jsonify({"ok": True, "backup_file": f"{backup_name}.zip", "path": zip_path})
+
+
+@app.route("/api/backup/list", methods=["GET"])
+def list_backups():
+    """Liste alle verfügbaren Backups auf."""
+    backups = []
+    for f in os.listdir(BACKUP_DIR):
+        if f.endswith(".zip"):
+            fpath = os.path.join(BACKUP_DIR, f)
+            backups.append(
+                {
+                    "name": f,
+                    "size": os.path.getsize(fpath),
+                    "modified": datetime.fromtimestamp(
+                        os.path.getmtime(fpath)
+                    ).isoformat(),
+                }
+            )
+    return jsonify(sorted(backups, key=lambda x: x["modified"], reverse=True))
+
+
+@app.route("/api/backup/restore", methods=["POST"])
+def restore_backup():
+    """Stellt einen Backup aus einer ZIP-Datei wieder her."""
+    data = request.json
+    backup_name = data.get("backup_name")
+
+    if not backup_name:
+        return jsonify({"error": "backup_name required"}), 400
+
+    zip_path = os.path.join(BACKUP_DIR, backup_name)
+    if not os.path.exists(zip_path):
+        return jsonify({"error": "Backup nicht gefunden"}), 404
+
+    import zipfile
+    import shutil
+
+    # Extract to temp
+    extract_path = os.path.join(BACKUP_DIR, "restore_temp")
+    if os.path.exists(extract_path):
+        shutil.rmtree(extract_path)
+
+    with zipfile.ZipFile(zip_path, "r") as z:
+        z.extractall(extract_path)
+
+    # Restore files
+    files_to_restore = [
+        "agents.json",
+        "history.json",
+        "providers.json",
+        "tasks.json",
+        "watchdogs.json",
+    ]
+
+    for fname in files_to_restore:
+        src = os.path.join(extract_path, fname)
+        if os.path.exists(src):
+            if fname == "agents.json":
+                shutil.copy2(src, AGENTS_FILE)
+            elif fname == "history.json":
+                shutil.copy2(src, HISTORY_FILE)
+            elif fname == "providers.json":
+                shutil.copy2(src, PROVIDERS_FILE)
+            elif fname == "tasks.json":
+                shutil.copy2(src, TASKS_FILE)
+            elif fname == "watchdogs.json":
+                shutil.copy2(src, WATCHDOGS_FILE)
+
+    # Cleanup
+    shutil.rmtree(extract_path)
+
+    return jsonify({"ok": True, "message": "Backup restored. Bitte Server neustarten."})
+
+
+@app.route("/api/backup/download/<name>", methods=["GET"])
+def download_backup(name):
+    """Download eines Backups."""
+    path = os.path.join(BACKUP_DIR, name)
+    if not os.path.exists(path):
+        return jsonify({"error": "Nicht gefunden"}), 404
+    return send_file(path, as_attachment=True)
+
+
 # ─── Ollama models (legacy) ────────────────────────────────────────────────────
 
 
@@ -2045,7 +3194,10 @@ def run_watchdog(wd):
         )
         return
 
-    prompt = wd.get("prompt", "Has anything relevant changed on this page? Answer with YES or NO, followed by a one-sentence summary of what changed.")
+    prompt = wd.get(
+        "prompt",
+        "Has anything relevant changed on this page? Answer with YES or NO, followed by a one-sentence summary of what changed.",
+    )
     system_suffix = f"[Watchdog — page content from {url}]\n\n{page_text[:6000]}"
 
     try:
@@ -2194,9 +3346,29 @@ def _dispatch_mentions_from_reply(sender_agent: dict, reply: str):
         break  # one dispatch per heartbeat
 
 
-def run_heartbeat(agent):
-    """Führt den Heartbeat-Task eines Agenten aus."""
-    agent_id = agent["id"]
+def run_heartbeat(agent_or_id):
+    """Führt den Heartbeat-Task eines Agenten aus.
+
+    Args:
+        agent_or_id: Entweder eine agent_id (str) oder ein agent dict (für Rückwärtskompatibilität).
+                     Bei str wird der Agent frisch aus der DB geladen.
+    """
+    if isinstance(agent_or_id, str):
+        agent_id = agent_or_id
+        agents = load_agents()
+        agent = next((a for a in agents if a["id"] == agent_id), None)
+        if not agent:
+            print(f"[Heartbeat] Agent {agent_id} nicht gefunden", flush=True)
+            return
+    else:
+        agent = agent_or_id
+        agent_id = agent["id"]
+        agents = load_agents()
+        agent = next((a for a in agents if a["id"] == agent_id), None)
+        if not agent:
+            print(f"[Heartbeat] Agent {agent_id} nicht gefunden", flush=True)
+            return
+
     hb = agent.get("heartbeat", {})
     prompt = (
         hb.get("prompt", "").strip()
@@ -2213,63 +3385,47 @@ def run_heartbeat(agent):
         result_image = None
 
         if "image_gen" in skills:
-            # Use prompt directly — no LLM call to avoid model-switch delays.
-            # Append random lighting/mood/location modifiers for variety.
-            _locations = [
-                "Maldives",
-                "Bali",
-                "Seychelles",
-                "Amalfi Coast",
-                "Big Sur California",
-                "Patagonia",
-                "Santorini",
-                "New Zealand",
-                "Iceland",
-                "Thailand",
-                "Brazil",
-                "Norwegian fjord",
-                "Caribbean",
-                "Mozambique",
-                "Sri Lanka",
-                "Okinawa",
-            ]
+            # Use the agent's heartbeat prompt directly as image prompt.
+            # Append random mood/style modifiers for visual variety.
             _moods = [
                 "golden hour",
                 "blue hour",
                 "dramatic stormy sky",
                 "misty morning fog",
                 "blazing sunset",
-                "starry night",
                 "overcast moody",
-                "crystal clear midday",
+                "neon night light",
+                "harsh midday sun",
             ]
             _styles = [
-                "aerial drone photography",
-                "long exposure",
                 "35mm film grain",
-                "hyper-realistic",
                 "cinematic wide angle",
-                "macro detail",
+                "hyper-realistic",
+                "long exposure",
+                "shallow depth of field",
+                "high contrast black and white",
             ]
             rnd = random.Random()
             img_prompt = (
-                f"{prompt.rstrip('.')} — {rnd.choice(_locations)}, "
+                f"{prompt.rstrip('.')} — "
                 f"{rnd.choice(_moods)}, {rnd.choice(_styles)}, "
-                f"photorealistic, 4k"
+                f"photorealistic, 4k, no text, no words, no typography"
             )
             print(f"[Heartbeat] image prompt: {img_prompt[:80]}", flush=True)
             # Generate image via ComfyUI (no LLM involved)
             result_image = _run_comfyui_sync(img_prompt)
+            thumb = _make_thumbnail(result_image)
+            # Keine Text-Antwort bei Bildgenerierung - nur Bild speichern
             history[agent_id].append(
                 {
                     "role": "assistant",
-                    "content": f"💓 **Heartbeat** — 🎨 _{img_prompt}_",
-                    "task_image": result_image,
+                    "content": "💓 **Heartbeat** — Bild generiert",
+                    "task_image": thumb,
                     "ts": ts,
                     "heartbeat": True,
                 }
             )
-            short = img_prompt[:120].replace('"', "'")
+            short = f"Bild: {img_prompt[:60]}..."
         else:
             # Strip @mentions from the prompt before sending to LLM so it
             # focuses on generating content, not on routing.
@@ -2286,8 +3442,8 @@ def run_heartbeat(agent):
             )
             short = reply[:120].replace('"', "'").replace("\n", " ")
 
-            # Dispatch tasks to @AgentNames mentioned in the PROMPT (not reply)
-            # — strip the heartbeat preamble, use the core reply as task message
+            # NUR @mentions aus der REPLY dispatchen, nicht aus dem Prompt
+            # Das verhindert, dass der gleiche Task wiederholt wird
             clean_reply = re.sub(r"^\s*\(.*?\)\s*", "", reply, flags=re.DOTALL).strip()
             clean_reply = re.sub(
                 r"^\s*(Guten\s+\w+|Hallo|Hi|Hey|Good\s+\w+|Hello|Greetings)[^.!?\n]*[.!?\n]",
@@ -2295,17 +3451,13 @@ def run_heartbeat(agent):
                 clean_reply,
                 flags=re.IGNORECASE,
             ).strip()
-            _dispatch_mentions_from_prompt(agent, prompt, clean_reply or reply)
+            # Hier nur die reply dispatchen, nicht den prompt
+            if _MENTION_RX.search(clean_reply or reply):
+                _dispatch_mentions_from_reply(agent, clean_reply or reply)
 
         save_history(history)
-        # last_result im Agent speichern
-        agents_list = load_agents()
-        for a in agents_list:
-            if a["id"] == agent_id:
-                a.setdefault("heartbeat", {})["last_run"] = ts
-                a["heartbeat"]["last_result"] = short[:300]
-                break
-        save_agents(agents_list)
+        # Atomic patch — no race with concurrent save_agents() calls
+        patch_agent_heartbeat(agent_id, last_run=ts, last_result=short[:300])
         # macOS Notification
         try:
             subprocess.run(
@@ -2342,23 +3494,19 @@ def tick_heartbeats():
         interval_min = int(hb.get("interval_min", 30))
         next_run_str = hb.get("next_run")
         if not next_run_str:
-            next_run = now
+            overdue = True
         else:
             try:
-                next_run = datetime.fromisoformat(next_run_str)
+                overdue = now >= datetime.fromisoformat(next_run_str)
             except Exception:
-                next_run = now
-        if now >= next_run:
-            # Nächsten Run planen
+                overdue = True
+
+        if overdue:
             new_next = (now + timedelta(minutes=interval_min)).isoformat()
-            agents2 = load_agents()
-            for a in agents2:
-                if a["id"] == agent["id"]:
-                    a.setdefault("heartbeat", {})["next_run"] = new_next
-                    break
-            save_agents(agents2)
+            # Atomic patch — holds _agents_lock for the full read-modify-write
+            patch_agent_heartbeat(agent["id"], next_run=new_next)
             threading.Thread(
-                target=run_heartbeat, args=(dict(agent),), daemon=True
+                target=run_heartbeat, args=(agent["id"],), daemon=True
             ).start()
 
 
@@ -2480,7 +3628,7 @@ def scheduler_loop():
             activity_cleanup()
         except Exception as e:
             print(f"[Scheduler] Fehler: {e}", flush=True)
-        time.sleep(3600)  # Telegram polling every hour
+        time.sleep(60)  # tick every minute
 
 
 # Scheduler als Daemon-Thread starten (nicht blockierend)
@@ -2547,7 +3695,10 @@ def create_watchdog():
         "url": data.get("url", ""),
         "interval_min": int(data.get("interval_min", 30)),
         "agent_id": data.get("agent_id", ""),
-        "prompt": data.get("prompt", "Has anything relevant changed on this page? Answer with YES or NO, followed by a one-sentence summary of what changed."),
+        "prompt": data.get(
+            "prompt",
+            "Has anything relevant changed on this page? Answer with YES or NO, followed by a one-sentence summary of what changed.",
+        ),
         "alert_keyword": data.get("alert_keyword", "YES"),
         "active": data.get("active", True),
         "created_at": now,
@@ -2632,19 +3783,32 @@ def set_heartbeat(agent_id):
     for a in agents:
         if a["id"] == agent_id:
             hb = a.setdefault("heartbeat", {})
-            hb["active"] = bool(data.get("active", hb.get("active", False)))
-            hb["prompt"] = data.get("prompt", hb.get("prompt", ""))
+            new_active = bool(data.get("active", hb.get("active", False)))
+            new_prompt = data.get("prompt", hb.get("prompt", "")).strip()
+
+            if new_active and not new_prompt:
+                new_prompt = (
+                    "What are your current thoughts? Give a brief status update."
+                )
+                print(
+                    "[Heartbeat] Warning: Kein Prompt angegeben, Default wird verwendet",
+                    flush=True,
+                )
+
+            hb["active"] = new_active
+            hb["prompt"] = new_prompt
             hb["interval_min"] = int(
                 data.get("interval_min", hb.get("interval_min", 30))
             )
             if hb["active"]:
                 hb["next_run"] = None  # sofort beim nächsten Tick
             save_agents(agents)
+            emit_event("agent_updated", {"id": agent_id})
             print(
                 f"[Heartbeat] Saved: prompt={hb.get('prompt', '')[:50]}...", flush=True
             )
-            return jsonify(a)
-    return jsonify({"error": "Agent nicht gefunden"}), 404
+            return jsonify({"ok": True, "agent": a})
+    return jsonify({"ok": False, "error": "Agent nicht gefunden"}), 404
 
 
 @app.route("/api/agents/<agent_id>/heartbeat/run", methods=["POST"])
@@ -2653,8 +3817,91 @@ def run_heartbeat_now(agent_id):
     agent = next((a for a in agents if a["id"] == agent_id), None)
     if not agent:
         return jsonify({"error": "Agent nicht gefunden"}), 404
-    threading.Thread(target=run_heartbeat, args=(dict(agent),), daemon=True).start()
+    threading.Thread(target=run_heartbeat, args=(agent_id,), daemon=True).start()
     return jsonify({"ok": True})
+
+
+# ─── Agent Settings Endpoints ───────────────────────────────────────────────────
+
+
+@app.route("/api/agents/<agent_id>/settings", methods=["PUT"])
+def update_agent_settings(agent_id):
+    """Aktualisiert die Grundeinstellungen eines Agenten."""
+    data = request.json
+    agents = load_agents()
+
+    for i, a in enumerate(agents):
+        if a["id"] == agent_id:
+            # Update basic fields
+            if "name" in data:
+                agents[i]["name"] = data["name"]
+            if "role" in data:
+                agents[i]["role"] = data["role"]
+            if "soul" in data:
+                agents[i]["soul"] = data["soul"]
+            if "model" in data:
+                agents[i]["model"] = data["model"]
+            if "provider" in data:
+                agents[i]["provider"] = data["provider"]
+            if "max_tokens" in data:
+                agents[i]["max_tokens"] = data["max_tokens"]
+            if "color" in data:
+                agents[i]["color"] = data["color"]
+
+            try:
+                save_agents(agents)
+                print(f"[Agent] Settings saved for {agent_id}", flush=True)
+                emit_event("agent_updated", {"id": agent_id})
+                return jsonify({"ok": True, "agent": agents[i]})
+            except Exception as e:
+                print(f"[Agent] Error saving settings: {e}", flush=True)
+                return jsonify({"ok": False, "error": str(e)}), 500
+
+    return jsonify({"ok": False, "error": "Agent nicht gefunden"}), 404
+
+
+@app.route("/api/agents/<agent_id>/skills", methods=["PUT"])
+def update_agent_skills(agent_id):
+    """Aktualisiert die Skills eines Agenten."""
+    data = request.json
+    skills = data.get("skills", [])
+    agents = load_agents()
+
+    for i, a in enumerate(agents):
+        if a["id"] == agent_id:
+            agents[i]["skills"] = skills
+            try:
+                save_agents(agents)
+                print(f"[Agent] Skills saved for {agent_id}: {skills}", flush=True)
+                emit_event("agent_updated", {"id": agent_id})
+                return jsonify({"ok": True, "skills": skills})
+            except Exception as e:
+                print(f"[Agent] Error saving skills: {e}", flush=True)
+                return jsonify({"ok": False, "error": str(e)}), 500
+
+    return jsonify({"ok": False, "error": "Agent nicht gefunden"}), 404
+
+
+@app.route("/api/agents/<agent_id>/voice", methods=["PUT"])
+def update_agent_voice(agent_id):
+    """Aktualisiert die Stimme eines Agenten."""
+    data = request.json
+    voice = data.get("voice", "")
+    agents = load_agents()
+
+    for i, a in enumerate(agents):
+        if a["id"] == agent_id:
+            agents[i]["voice"] = voice
+            try:
+                save_agents(agents)
+                print(f"[Agent] Voice saved for {agent_id}: {voice}", flush=True)
+                emit_event("agent_updated", {"id": agent_id})
+                return jsonify({"ok": True, "voice": voice})
+            except Exception as e:
+                print(f"[Agent] Error saving voice: {e}", flush=True)
+                return jsonify({"ok": False, "error": str(e)}), 500
+
+    return jsonify({"ok": False, "error": "Agent nicht gefunden"}), 404
 
 
 # ─── Screenshot ───────────────────────────────────────────────────────────────
@@ -2670,7 +3917,9 @@ def take_screenshot():
         url = "https://" + url
 
     if not _is_safe_url(url):
-        return jsonify({"error": f"Blocked: '{url}' targets a private or internal network address"}), 403
+        return jsonify(
+            {"error": f"Blocked: '{url}' targets a private or internal network address"}
+        ), 403
 
     try:
         from playwright.sync_api import sync_playwright
@@ -2681,6 +3930,7 @@ def take_screenshot():
             }
         ), 501
 
+    browser = None
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(
@@ -2694,12 +3944,40 @@ def take_screenshot():
             page.goto(url, wait_until="domcontentloaded", timeout=20000)
             page.wait_for_timeout(1500)
             img_bytes = page.screenshot(type="jpeg", quality=80, full_page=False)
+            context.close()
             browser.close()
+            browser = None
         b64 = base64.b64encode(img_bytes).decode()
         print(f"[Screenshot] {url} — {len(img_bytes) // 1024}KB", flush=True)
         return jsonify({"image": f"data:image/jpeg;base64,{b64}", "url": url})
     except Exception as e:
+        print(f"[Screenshot] Error: {e}", flush=True)
+        if browser:
+            try:
+                browser.close()
+            except:
+                pass
         return jsonify({"error": f"Screenshot fehlgeschlagen: {e}"}), 500
+
+
+@app.route("/api/image/edit", methods=["POST"])
+def edit_image():
+    """Edit an image with a prompt. Expects: { image_data: base64, prompt: str }"""
+    data = request.json
+    image_data = data.get("image_data", "")
+    prompt = data.get("prompt", "").strip()
+
+    if not image_data:
+        return jsonify({"error": "Kein Bild angegeben"}), 400
+    if not prompt:
+        return jsonify({"error": "Kein Prompt angegeben"}), 400
+
+    try:
+        result = _run_comfyui_edit(image_data, prompt, use_lightning=True)
+        return jsonify({"image": result})
+    except Exception as e:
+        print(f"[Image Edit] Error: {e}", flush=True)
+        return jsonify({"error": f"Bearbeitung fehlgeschlagen: {e}"}), 500
 
 
 # ─── Tagesschau RSS ───────────────────────────────────────────────────────────

@@ -4,6 +4,10 @@ __pycache__/
 providers.json
 agents.json
 history.json
+tasks.json
+watchdogs.json
+*.json.backup
+*.json.tmp
 .DS_Store
 
 # py2app Build-Artefakte

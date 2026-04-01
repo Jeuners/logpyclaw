@@ -2,11 +2,39 @@
 AgentClaw — macOS App Entry Point
 Startet Flask intern und öffnet ein natives macOS WebView-Fenster.
 """
+
 import threading
 import socket
 import time
 import sys
 import os
+import signal
+
+PID_FILE = os.path.expanduser("~/.agentclaw.pid")
+
+
+def cleanup_old_process():
+    """Prüft und beendet ggf. alte Processe."""
+    if os.path.exists(PID_FILE):
+        try:
+            with open(PID_FILE) as f:
+                old_pid = int(f.read().strip())
+            # Prüfen ob Prozess noch läuft
+            try:
+                os.kill(old_pid, 0)
+                # Prozess läuft noch - beenden
+                print(f"[AgentClaw] Beende alter Prozess {old_pid}...")
+                os.kill(old_pid, signal.SIGTERM)
+                time.sleep(1)
+            except OSError:
+                pass  # Prozess läuft nicht mehr
+        except:
+            pass
+
+    # Eigene PID schreiben
+    with open(PID_FILE, "w") as f:
+        f.write(str(os.getpid()))
+
 
 # Sicherstellen dass das Verzeichnis korrekt ist (wichtig für py2app)
 # Contents/MacOS/AgentClaw → Contents/Resources/ (wo templates, static, agents.json liegen)
@@ -32,6 +60,7 @@ def find_free_port(start=5050, end=5099):
 
 def start_flask(port):
     from app import app
+
     app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False)
 
 
@@ -48,6 +77,7 @@ def wait_for_server(port, timeout=10):
 
 
 def main():
+    cleanup_old_process()  # Beende alte Instanzen vor dem Start
     port = find_free_port()
 
     # Flask in Background-Thread starten

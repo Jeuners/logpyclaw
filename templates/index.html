@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AgentClaw</title>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23050a06'/><circle cx='50' cy='50' r='14' fill='%2300e676'/><circle cx='50' cy='50' r='24' fill='none' stroke='%2300e676' stroke-width='3' opacity='0.5'/><circle cx='50' cy='50' r='36' fill='none' stroke='%2300e676' stroke-width='2' opacity='0.25'/></svg>">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -442,6 +443,28 @@
       font-family: var(--mono);
     }
 
+    /* Toast Notifications */
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: var(--bg2);
+      border-radius: 8px;
+      border-left: 4px solid var(--green);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      font-size: 13px;
+      opacity: 0;
+      transform: translateX(100px);
+      transition: all 0.3s ease;
+    }
+    .toast.show { opacity: 1; transform: translateX(0); }
+    .toast-success { border-left-color: var(--green); }
+    .toast-error { border-left-color: #ff4444; }
+    .toast-info { border-left-color: #4488ff; }
+    .toast-icon { font-size: 16px; }
+    .toast-message { flex: 1; }
+
     /* Markdown in messages */
     .msg-bubble p { margin-bottom: 8px; }
     .msg-bubble p:last-child { margin-bottom: 0; }
@@ -784,6 +807,16 @@
       flex-direction: column;
       overflow: hidden;
       min-height: 160px;
+      cursor: pointer;
+      transition: border-color .12s, transform .1s, box-shadow .2s;
+    }
+
+    .multi-card:hover { border-color: var(--b2); }
+    .multi-card:active { transform: scale(0.98); }
+    .multi-card.selected {
+      border-color: var(--green);
+      box-shadow: 0 0 12px rgba(0,230,118,.25);
+      animation: glitter 2s ease-in-out infinite;
     }
 
     .multi-card-head {
@@ -882,10 +915,22 @@
       border: 1px solid var(--b1);
       border-radius: 8px;
       cursor: pointer;
-      transition: border-color .12s, background .12s;
+      transition: border-color .12s, background .12s, transform .1s;
     }
 
     .home-agent-row:hover { background: var(--bghov); border-color: var(--b2); }
+    .home-agent-row:active { transform: scale(0.98); }
+
+    .home-agent-row.active {
+      border-color: var(--green);
+      box-shadow: 0 0 12px rgba(0,230,118,.25);
+      animation: glitter 2s ease-in-out infinite;
+    }
+
+    @keyframes glitter {
+      0%, 100% { box-shadow: 0 0 8px rgba(0,230,118,.15); }
+      50% { box-shadow: 0 0 16px rgba(0,230,118,.35), 0 0 4px rgba(0,230,118,.5); }
+    }
 
     .home-agent-info { flex: 1; }
     .home-agent-name { font-size: 13px; font-weight: 600; color: var(--textbr); }
@@ -1178,6 +1223,7 @@
     <button class="nav-btn" title="Skills"    onclick="openSkillsModal()"><span class="icon">🧩</span><span class="label">Skills</span></button>
     <button class="nav-btn" title="Memory"    onclick="openMemoryModal()"><span class="icon">🧠</span><span class="label">Memory</span></button>
     <button class="nav-btn" title="Providers" onclick="openProviderModal()"><span class="icon">⚙️</span><span class="label">Setup</span></button>
+    <button class="nav-btn" title="Backup"    onclick="openBackupModal()"><span class="icon">💾</span><span class="label">Backup</span></button>
   </div>
 </div>
 
@@ -1448,6 +1494,32 @@
       <button class="btn-secondary" onclick="closeModal('autoDialogModal')">Cancel</button>
       <button class="btn-primary" onclick="startAutoDialog()">Start</button>
     </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="imageEditModal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-title">
+      ✏️ Bild bearbeiten
+      <button class="close-btn" onclick="closeModal('imageEditModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Bild auswählen</label>
+        <input type="file" id="editImageInput" accept="image/*" style="display:block;margin-top:4px" onchange="handleEditImageUpload(event)">
+      </div>
+      <div id="editImagePreview" style="display:none;margin:12px 0;text-align:center">
+        <img id="editPreviewImg" style="max-width:200px;max-height:150px;border-radius:8px">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Bearbeitungs-Prompt</label>
+        <textarea class="form-textarea" id="editPromptInput" placeholder="z.B. Make it brighter, add sunset background, change to oil painting style..."></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('imageEditModal')">Cancel</button>
+      <button class="btn-primary" onclick="runImageEdit()">Bearbeiten</button>
+    </div>
   </div>
 </div>
 
@@ -1473,6 +1545,30 @@ let voicePauseTimer = null;
 let voiceBuffer = '';
 let autoDialogActive = false;
 let autoDialogAbort = false;
+let _clickSound = null;
+
+function playClickSound() {
+  if (!_clickSound) {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 800;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.05);
+  }
+}
+
+document.addEventListener('click', e => {
+  const t = e.target;
+  if (t.tagName === 'BUTTON' || t.closest('button') || t.closest('.home-agent-row') || t.closest('.multi-card')) {
+    playClickSound();
+  }
+}, true);
 
 // ═══════════════════════════════════════════════════
 // Init
@@ -1480,9 +1576,15 @@ let autoDialogAbort = false;
 async function init() {
   await Promise.all([loadAgents(), loadProviders(), loadSkills(), loadWatchdogs()]);
 
+  // Restore last selected agent
+  const lastAgentId = localStorage.getItem('lastAgentId');
+  if (lastAgentId && agents.find(a => a.id === lastAgentId)) {
+    await selectAgent(lastAgentId);
+  }
+
   setInterval(pollWatchdogs, 60000);
   pollActivity();
-  setView('home');
+  setView(lastAgentId ? 'chat' : 'home');
 }
 
 // ═══════════════════════════════════════════════════
@@ -1494,8 +1596,12 @@ async function api(path, opts = {}) {
     ...opts,
     body: opts.body ? JSON.stringify(opts.body) : undefined
   });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+  const txt = await r.text();
+  if (!r.ok) {
+    try { throw new Error(JSON.parse(txt).error || txt); }
+    catch { throw new Error(txt.substring(0, 200)); }
+  }
+  return JSON.parse(txt);
 }
 
 async function loadAgents() {
@@ -1706,6 +1812,7 @@ function renderHome(ws) {
     const favs = getFavs();
     const act = agentActivity[a.id];
     const msgCount = (conversations[a.id] || []).length;
+    const isActive = currentAgent?.id === a.id;
     const agentSkills = (a.skills || []).map(sid => {
       const s = skills.find(x => x.id === sid);
       return s ? `<span title="${esc(s.name)}" style="font-size:12px">${s.icon}</span>` : '';
@@ -1715,7 +1822,7 @@ function renderHome(ws) {
       ? `<span style="font-size:10px;color:var(--green);font-family:var(--mono);animation:blink .6s infinite">${act.type === 'heartbeat' ? '💓' : '⚙️'} ${esc(act.label)}</span>`
       : '';
     return `
-    <div class="home-agent-row" onclick="selectAgent('${a.id}');setView('chat')">
+    <div class="home-agent-row${isActive ? ' active' : ''}" onclick="selectAgent('${a.id}');setView('chat')">
       <div style="padding-top:2px">
         <div class="agent-dot online" style="width:9px;height:9px"></div>
       </div>
@@ -1770,6 +1877,9 @@ function renderHome(ws) {
 // ═══════════════════════════════════════════════════
 async function selectAgent(id) {
   currentAgent = agents.find(a => a.id === id) || null;
+  if (currentAgent) {
+    localStorage.setItem('lastAgentId', id);
+  }
   if (!conversations[id]) {
     try {
       const hist = await api(`/api/history/${id}`);
@@ -1801,6 +1911,7 @@ function renderChatShell(ws) {
         <label class="autoplay-toggle" title="Auto-Play TTS">
           🔊 <div class="toggle-switch ${autoPlay ? 'on' : ''}" id="autoplayToggle" onclick="toggleAutoPlay()"></div>
         </label>
+        <button class="topbar-btn" id="ttsSpeedBtn" onclick="toggleTTSSpeed()" title="TTS Geschwindigkeit">${ttsSpeed === 2 ? '2×' : '1×'}</button>
         <button class="topbar-btn" onclick="openEditAgentModal('${currentAgent.id}')">✏️ Edit</button>
         <button class="topbar-btn" onclick="openAutoDialogModal()">🤖 Auto</button>
         <button class="topbar-btn" onclick="openExportModal()">📤</button>
@@ -1832,6 +1943,7 @@ function renderChatShell(ws) {
             <div class="voice-dot"></div> Listening…
           </div>
           <button class="tool-btn" onclick="document.getElementById('imageFileInput').click()" title="Upload image">🖼 Image</button>
+          <button class="tool-btn" onclick="openImageEditModal()" title="Edit image">✏️ Edit</button>
           <input type="file" id="imageFileInput" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
           <div id="skillBtns" style="display:contents"></div>
         </div>
@@ -1862,7 +1974,7 @@ function renderMessages() {
 function renderMsg(m, index) {
   let content = m.content;
   if (m.role === 'assistant') {
-    try { content = marked.parse(content); } catch(e) {}
+    try { content = DOMPurify.sanitize(marked.parse(content)); } catch(e) {}
   } else {
     content = `<p>${esc(content).replace(/\n/g,'<br>')}</p>`;
   }
@@ -1872,9 +1984,12 @@ function renderMsg(m, index) {
     const imgHtml = m.task_image
       ? `<img src="${m.task_image}" style="max-width:100%;border-radius:8px;display:block;margin-top:8px">`
       : '';
+    const promptHtml = m.task_prompt
+      ? `<div style="font-size:10px;color:var(--textdim);margin-top:4px;font-family:var(--mono)">🎨 ${esc(m.task_prompt)}</div>`
+      : '';
     return `<div class="msg assistant" data-idx="${idx}">
       ${ts}
-      <div class="msg-bubble">${content}${imgHtml}</div>
+      <div class="msg-bubble">${content}${imgHtml}${promptHtml}</div>
       ${m.stats ? `<div style="font-size:10px;color:var(--textdim);font-family:var(--mono);padding:2px 4px">⚡${m.stats.tok_s} tok/s · ${m.stats.tokens} tkn · ${m.stats.total_s}s</div>` : ''}
       <div class="msg-actions">
         <button class="btn-play" id="playBtn-${idx}" onclick="togglePlayByIndex(${idx})">▶ Play</button>
@@ -1914,6 +2029,31 @@ function appendSystemMsg(content) {
   div.innerHTML = `<div class="msg-bubble">${esc(content)}</div>`;
   el.appendChild(div);
   scrollToBottom(el);
+}
+
+// Toast Notifications
+function showToast(message, type = 'info', duration = 3000) {
+  const container = document.getElementById('toastContainer') || createToastContainer();
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    <span class="toast-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+    <span class="toast-message">${esc(message)}</span>
+  `;
+  container.appendChild(toast);
+  setTimeout(() => toast.classList.add('show'), 10);
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+function createToastContainer() {
+  const div = document.createElement('div');
+  div.id = 'toastContainer';
+  div.style.cssText = 'position:fixed;top:60px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px';
+  document.body.appendChild(div);
+  return div;
 }
 
 function showThinkingIndicator() {
@@ -2043,7 +2183,24 @@ async function sendMessage(overrideText) {
     }
     if (imgPrompt && imgPrompt.length > 2) {
       appendMsg('user', text);
-      appendSystemMsg(`🎨 Generating: "${imgPrompt}"…`);
+      // If prompt_optimize skill active and user asks to optimize, refine first
+      const wantsOptimize = /\b(optimier\w*|optimize|verbessere|refine|verfeinere)\b/i.test(text);
+      if (activeSkills.has('prompt_optimize') && wantsOptimize) {
+        appendSystemMsg(`✨ Optimizing prompt…`);
+        try {
+          const optResult = await api('/api/prompt/optimize', {
+            method: 'POST',
+            body: { prompt: imgPrompt, framework: 'RTF', target_model: 'Image Generation' }
+          });
+          if (optResult.refinedPrompt) {
+            imgPrompt = optResult.refinedPrompt;
+            appendSystemMsg(`✨ Optimized: "${imgPrompt.slice(0, 90)}${imgPrompt.length > 90 ? '…' : ''}"`);
+          }
+        } catch(e) {
+          appendSystemMsg('⚠️ Optimize failed, using original prompt.');
+        }
+      }
+      appendSystemMsg(`🎨 Generating: "${imgPrompt.slice(0, 80)}${imgPrompt.length > 80 ? '…' : ''}"…`);
       try {
         const imgDataUrl = await comfyuiGenerate(imgPrompt);
         if (imgDataUrl) {
@@ -2175,10 +2332,17 @@ function autoResizeTextarea(el) {
 
 async function clearChat() {
   if (!currentAgent) return;
+  if (!confirm('🗑️ Chat komplett löschen?\n\nKurzzeit-Speicher (Chat) UND Langzeit-Speicher (Vector Memory) werden gelöscht!')) return;
+  
   conversations[currentAgent.id] = [];
-  try { await api(`/api/history/${currentAgent.id}`, { method: 'DELETE' }); } catch(e) {}
+  try { 
+    await api(`/api/history/${currentAgent.id}`, { method: 'DELETE' }); 
+    await api(`/api/memory/${currentAgent.id}`, { method: 'DELETE' });
+    showToast('Chat & Memory gelöscht!', 'success');
+  } catch(e) {
+    showToast('Fehler: ' + e.message, 'error');
+  }
   renderMessages();
-  appendSystemMsg('Conversation cleared.');
 }
 
 // ═══════════════════════════════════════════════════
@@ -2219,7 +2383,7 @@ function renderMultiCards() {
 
   const arr = agents.filter(a => selectedAgents.has(a.id));
   grid.innerHTML = arr.map(a => `
-    <div class="multi-card" id="mc_${a.id}">
+    <div class="multi-card selected" id="mc_${a.id}" onclick="toggleMultiSelect('${a.id}')">
       <div class="multi-card-head">
         <div class="agent-dot online"></div>
         <span class="multi-card-name">${esc(a.name)}</span>
@@ -2265,7 +2429,7 @@ async function sendBroadcast() {
       const body = document.querySelector(`#mc_${agent.id} .multi-card-body`);
       if (body) {
         let html = '';
-        try { html = marked.parse(reply); } catch(e) { html = esc(reply).replace(/\n/g,'<br>'); }
+        try { html = DOMPurify.sanitize(marked.parse(reply)); } catch(e) { html = esc(reply).replace(/\n/g,'<br>'); }
         body.innerHTML = `<div style="font-size:13px;line-height:1.6">${html}</div>`;
       }
       // Save to conversation
@@ -2298,6 +2462,71 @@ document.addEventListener('click', e => {
     e.target.classList.remove('open');
   }
 });
+
+// Image Edit Modal functions
+let editImageData = null;
+
+function openImageEditModal() {
+  editImageData = null;
+  document.getElementById('editImageInput').value = '';
+  document.getElementById('editPromptInput').value = '';
+  document.getElementById('editImagePreview').style.display = 'none';
+  openModal('imageEditModal');
+}
+
+function handleEditImageUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    editImageData = ev.target.result;
+    document.getElementById('editPreviewImg').src = editImageData;
+    document.getElementById('editImagePreview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function runImageEdit() {
+  if (!editImageData) {
+    alert('Bitte ein Bild auswählen');
+    return;
+  }
+  const prompt = document.getElementById('editPromptInput').value.trim();
+  if (!prompt) {
+    alert('Bitte einen Prompt eingeben');
+    return;
+  }
+  
+  const btn = document.querySelector('#imageEditModal .btn-primary');
+  btn.disabled = true;
+  btn.textContent = 'Bearbeite...';
+  
+  try {
+    const result = await api('/api/image/edit', {
+      method: 'POST',
+      body: { image_data: editImageData, prompt: prompt }
+    });
+    
+    // Add to current conversation
+    if (currentAgent && result.image) {
+      if (!conversations[currentAgent.id]) conversations[currentAgent.id] = [];
+      conversations[currentAgent.id].push({
+        role: 'assistant',
+        content: `✏️ Bild bearbeitet: "${prompt}"`,
+        task_image: result.image,
+        ts: Date.now()
+      });
+      renderMessages();
+    }
+    
+    closeModal('imageEditModal');
+  } catch (err) {
+    alert('Fehler: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Bearbeiten';
+  }
+}
 
 // ─── Provider Modal ───────────────────────────────
 async function openProviderModal() {
@@ -2444,16 +2673,45 @@ async function openNewAgentModal() {
 }
 
 async function populateVoiceSelects() {
-  const browserVoices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+  let browserVoices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+  
+  // Fallback: Stimmen neu laden wenn leer
+  if (!browserVoices.length) {
+    await new Promise(resolve => {
+      window.speechSynthesis.onvoiceschanged = () => {
+        browserVoices = window.speechSynthesis.getVoices();
+        resolve();
+      };
+      setTimeout(resolve, 1000);
+    });
+  }
+  
+  console.log('[Voices] All available:', browserVoices.map(v => `${v.name} (${v.lang})`));
+  
+  // Filter: Nur deutsche und englische Stimmen
   const deEnVoices = browserVoices.filter(v => v.lang.startsWith('de') || v.lang.startsWith('en'));
-  const macGroup = deEnVoices.length ? `<optgroup label="Mac (Browser)">${
-    deEnVoices.map(v => `<option value="mac:${esc(v.name)}">${esc(v.name)} (${v.lang})</option>`).join('')
-  }</optgroup>` : '';
+  
+  console.log('[Voices] DE/EN filtered:', deEnVoices.map(v => v.name));
+  
+  // Gruppieren nach Sprache
+  const deVoices = deEnVoices.filter(v => v.lang.startsWith('de'));
+  const enVoices = deEnVoices.filter(v => v.lang.startsWith('en'));
+  
+  let macGroup = '';
+  if (deVoices.length || enVoices.length) {
+    const renderOpts = (vos, lang) => vos.map(v => 
+      `<option value="mac:${esc(v.name)}">${esc(v.name)}</option>`
+    ).join('');
+    
+    macGroup = '<optgroup label="Mac DE">' + renderOpts(deVoices, 'de') + '</optgroup>';
+    macGroup += '<optgroup label="Mac EN">' + renderOpts(enVoices, 'en') + '</optgroup>';
+  }
 
   // set placeholders first
+  const voiceOptions = macGroup || '<option value="" disabled>Keine Mac-Stimmen gefunden</option>';
   ['newAgentVoice', 'editAgentVoice'].forEach(selId => {
     const sel = document.getElementById(selId);
-    if (sel) sel.innerHTML = '<option value="">Off</option><option value="" disabled>Mistral wird geladen…</option>' + macGroup;
+    if (sel) sel.innerHTML = '<option value="">Off</option>' + voiceOptions;
   });
 
   let mistralGroup = '';
@@ -2509,26 +2767,57 @@ async function openEditAgentModal(id) {
   const a = agents.find(x => x.id === id);
   if (!a) return;
   editingAgentId = id;
+  _hasUnsavedChanges = false;
+  
   document.getElementById('editAgentName').value = a.name || '';
   document.getElementById('editAgentRole').value = a.role || '';
   document.getElementById('editAgentSystem').value = a.soul || '';
   document.getElementById('editAgentMaxTokens').value = a.max_tokens || '';
   await Promise.all([loadModels(), loadProviders()]);
-  populateProviderSelects(); // starts populateVoiceSelects() async internally
+  populateProviderSelects();
   const psel = document.getElementById('editAgentProvider');
   if (psel) { psel.value = a.provider || 'ollama'; }
   populateModelSelect('editAgentModel', a.provider || 'ollama', a.model || '');
-  if (psel) psel.onchange = () => populateModelSelect('editAgentModel', psel.value, '');
-  // set voice after voices are loaded
+  
+  // Auto-save on field changes
+  const addAutoSave = (elId, field, endpoint, transform) => {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.onchange = () => triggerAutoSave();
+    el.onkeyup = () => triggerAutoSave();
+  };
+  
+  addAutoSave('editAgentName', 'name', '/settings');
+  addAutoSave('editAgentRole', 'role', '/settings');
+  addAutoSave('editAgentSystem', 'soul', '/settings');
+  addAutoSave('editAgentMaxTokens', 'max_tokens', '/settings');
+  addAutoSave('editAgentProvider', 'provider', '/settings');
+  addAutoSave('editAgentModel', 'model', '/settings');
+  
+  if (psel) psel.onchange = () => {
+    populateModelSelect('editAgentModel', psel.value, '');
+    triggerAutoSave();
+  };
+  
+  // Voice auto-save
   const savedVoice = a.voice || '';
   populateVoiceSelects().then(() => {
     const vsel = document.getElementById('editAgentVoice');
     if (!vsel) return;
     vsel.value = savedVoice;
     if (savedVoice && !vsel.value && savedVoice !== 'voxtral') vsel.value = 'mac:' + savedVoice;
+    vsel.onchange = async () => {
+      const newVoice = vsel.value;
+      await saveField(`/api/agents/${editingAgentId}/voice`, { voice: newVoice }, 'Stimme gespeichert');
+      _hasUnsavedChanges = false;
+    };
   });
-  document.getElementById('editAgentDeleteBtn').onclick = () => deleteAgent(id);
-  renderEditAgentSkills(a.skills || []);
+  
+  document.getElementById('editAgentDeleteBtn').onclick = () => deleteAgent(editingAgentId);
+  
+  // Skills with auto-save
+  renderEditAgentSkills(a.skills || [], true);
+  
   // Heartbeat
   const hb = a.heartbeat || {};
   const hbActive = !!hb.active;
@@ -2537,21 +2826,59 @@ async function openEditAgentModal(id) {
   document.getElementById('editHeartbeatFields').style.display = hbActive ? 'flex' : 'none';
   document.getElementById('editHeartbeatPrompt').value = hb.prompt || '';
   document.getElementById('editHeartbeatInterval').value = hb.interval_min || 30;
+  
+  // Heartbeat auto-save
+  const saveHeartbeat = async () => {
+    const hbActive = document.getElementById('editHeartbeatToggle').classList.contains('on');
+    const hbPrompt = document.getElementById('editHeartbeatPrompt')?.value.trim();
+    const hbInterval = parseInt(document.getElementById('editHeartbeatInterval')?.value) || 30;
+    console.log('[Heartbeat] Saving for agent:', editingAgentId, {active: hbActive, prompt: hbPrompt});
+    try {
+      await api(`/api/agents/${editingAgentId}/heartbeat`, {
+        method: 'PUT',
+        body: { active: hbActive, prompt: hbPrompt, interval_min: hbInterval }
+      });
+      showToast('Heartbeat gespeichert!', 'success');
+    } catch(e) {
+      console.error('[Heartbeat] Error:', e);
+      showToast('Fehler: ' + e.message, 'error');
+    }
+  };
+  document.getElementById('editHeartbeatToggle').onclick = () => {
+    const on = document.getElementById('editHeartbeatToggle').classList.toggle('on');
+    document.getElementById('editHeartbeatStatus').textContent = on ? 'active' : 'inactive';
+    document.getElementById('editHeartbeatFields').style.display = on ? 'flex' : 'none';
+    saveHeartbeat();
+  };
+  document.getElementById('editHeartbeatPrompt').onkeyup = () => saveHeartbeat();
+  document.getElementById('editHeartbeatInterval').onchange = () => saveHeartbeat();
+  
   openModal('editAgentModal');
 }
 
-function renderEditAgentSkills(activeList) {
+function renderEditAgentSkills(activeList, autoSave = false) {
   const el = document.getElementById('editAgentSkills');
   if (!el) return;
   const active = new Set(activeList);
   el.innerHTML = skills.map(s => {
     const on = active.has(s.id);
     const unavail = s.available === false ? ';opacity:.45' : '';
+    const clickHandler = autoSave 
+      ? `this.classList.toggle('active');saveSkillsOnChange();`
+      : `this.classList.toggle('active')`;
     return `<button type="button" class="tool-btn${on ? ' active' : ''}" style="font-size:12px${unavail}"
       title="${esc(s.description)}"
-      onclick="this.classList.toggle('active')"
+      onclick="${clickHandler}"
       data-skill-id="${s.id}">${s.icon} ${esc(s.name)}</button>`;
   }).join('');
+}
+
+// Auto-save skills when changed
+async function saveSkillsOnChange() {
+  if (!editingAgentId) return;
+  const skillEls = document.querySelectorAll('#editAgentSkills [data-skill-id]');
+  const activeSkills = [...skillEls].filter(b => b.classList.contains('active')).map(b => b.dataset.skillId);
+  await saveField(`/api/agents/${editingAgentId}/skills`, { skills: activeSkills }, 'Skills gespeichert');
 }
 
 function toggleEditHeartbeat() {
@@ -2572,14 +2899,62 @@ async function runHeartbeatNow() {
   } catch(e) { alert('Error: ' + e.message); }
 }
 
+// Auto-save debounce timer
+let _autoSaveTimer = null;
+let _hasUnsavedChanges = false;
+
+// Save functions for each field type
+async function saveField(endpoint, data, successMsg) {
+  try {
+    const res = await api(endpoint, { method: 'PUT', body: data });
+    if (res.ok) {
+      await loadAgents();
+      if (currentAgent?.id === editingAgentId) {
+        currentAgent = agents.find(a => a.id === editingAgentId);
+      }
+      if (successMsg) showToast(successMsg, 'success');
+      renderSidePanel();
+    } else {
+      showToast(res.error || 'Fehler beim Speichern', 'error');
+    }
+  } catch(e) {
+    showToast('Fehler: ' + e.message, 'error');
+  }
+}
+
+function triggerAutoSave() {
+  _hasUnsavedChanges = true;
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(async () => {
+    if (!_hasUnsavedChanges || !editingAgentId) return;
+    _hasUnsavedChanges = false;
+    
+    // Save all fields
+    const name = document.getElementById('editAgentName')?.value.trim();
+    const provider = document.getElementById('editAgentProvider')?.value;
+    const model = document.getElementById('editAgentModel')?.value.trim();
+    const system = document.getElementById('editAgentSystem')?.value.trim();
+    const role = document.getElementById('editAgentRole')?.value.trim();
+    const maxTokens = parseInt(document.getElementById('editAgentMaxTokens')?.value) || null;
+    
+    await saveField(`/api/agents/${editingAgentId}/settings`, 
+      { name, role, provider, model, soul: system, max_tokens: maxTokens },
+      'Einstellungen gespeichert'
+    );
+  }, 500);
+}
+
 async function saveEditAgent() {
   if (!editingAgentId) return;
+  
+  // Final save - save everything including skills and heartbeat
   const name = document.getElementById('editAgentName')?.value.trim();
   const provider = document.getElementById('editAgentProvider')?.value;
   const model = document.getElementById('editAgentModel')?.value.trim();
   const system = document.getElementById('editAgentSystem')?.value.trim();
+  const role = document.getElementById('editAgentRole')?.value.trim();
+  const maxTokens = parseInt(document.getElementById('editAgentMaxTokens')?.value) || null;
   const voice = document.getElementById('editAgentVoice')?.value;
-  const role  = document.getElementById('editAgentRole')?.value.trim();
   const skillEls = document.querySelectorAll('#editAgentSkills [data-skill-id]');
   const activeSkills = [...skillEls].filter(b => b.classList.contains('active')).map(b => b.dataset.skillId);
   const hbActive = document.getElementById('editHeartbeatToggle')?.classList.contains('on');
@@ -2587,25 +2962,41 @@ async function saveEditAgent() {
   const hbInterval = parseInt(document.getElementById('editHeartbeatInterval')?.value) || 30;
 
   try {
-    // Save agent + heartbeat in a single call to avoid race conditions
-    await api(`/api/agents/${editingAgentId}`, {
+    // Save settings first
+    await saveField(`/api/agents/${editingAgentId}/settings`, 
+      { name, role, provider, model, soul: system, max_tokens: maxTokens },
+      null
+    );
+    
+    // Save voice
+    await saveField(`/api/agents/${editingAgentId}/voice`,
+      { voice },
+      null
+    );
+    
+    // Save skills
+    await saveField(`/api/agents/${editingAgentId}/skills`,
+      { skills: activeSkills },
+      null
+    );
+    
+    // Save heartbeat
+    await api(`/api/agents/${editingAgentId}/heartbeat`, {
       method: 'PUT',
-      body: {
-        name, role, provider, model, soul: system, voice, skills: activeSkills,
-        max_tokens: parseInt(document.getElementById('editAgentMaxTokens')?.value) || null,
-        heartbeat: { active: hbActive, prompt: hbPrompt, interval_min: hbInterval }
-      }
+      body: { active: hbActive, prompt: hbPrompt, interval_min: hbInterval }
     });
-    // Reload agents from server to get fresh data
+    
     await loadAgents();
     if (currentAgent?.id === editingAgentId) {
       currentAgent = agents.find(a => a.id === editingAgentId);
     }
+    
+    showToast('Alle Änderungen gespeichert!', 'success');
     closeModal('editAgentModal');
     renderSidePanel();
     if (currentView === 'chat') renderChatShell(document.getElementById('workspace'));
   } catch(e) {
-    alert('Save failed: ' + e.message);
+    showToast('Fehler: ' + e.message, 'error');
   }
 }
 
@@ -2865,8 +3256,16 @@ function clearImageAttachment() {
 // TTS — sentence-chunked, per-message play buttons
 // ═══════════════════════════════════════════════════
 let autoPlay = true;
+let ttsSpeed = 1;
 let currentAudio = null;
 let currentPlayingIndex = -1;
+
+function toggleTTSSpeed() {
+  ttsSpeed = ttsSpeed === 1 ? 2 : 1;
+  if (currentAudio) currentAudio.playbackRate = ttsSpeed;
+  const btn = document.getElementById('ttsSpeedBtn');
+  if (btn) btn.textContent = ttsSpeed === 2 ? '2×' : '1×';
+}
 
 function toggleAutoPlay() {
   autoPlay = !autoPlay;
@@ -2961,6 +3360,7 @@ async function togglePlay(index, text) {
       if (currentPlayingIndex !== index) break;
       const url = URL.createObjectURL(blob);
       audioEl.src = url;
+      audioEl.playbackRate = ttsSpeed;
       currentAudio = audioEl;
       if (btn) { btn.textContent = '⏹ Stop'; btn.classList.add('playing'); }
       await new Promise(resolve => { audioEl.onended = resolve; audioEl.onerror = resolve; audioEl.play().catch(resolve); });
@@ -2987,16 +3387,56 @@ async function downloadAudioByIndex(index) {
   } catch(e) { alert('Download failed: ' + e.message); }
 }
 
-function playMacVoiceAsync(text, voiceName, btn) {
-  return new Promise(resolve => {
-    if (!window.speechSynthesis) { resolve(); return; }
+async function playMacVoiceAsync(text, voiceName, btn) {
+  return new Promise(async resolve => {
+    if (!window.speechSynthesis) { 
+      showToast('Speech Synthesis nicht verfügbar', 'error');
+      resolve(); 
+      return; 
+    }
     window.speechSynthesis.cancel();
+    
+    // Wait for voices if not loaded
+    let voices = window.speechSynthesis.getVoices();
+    if (!voices.length) {
+      await new Promise(r => {
+        window.speechSynthesis.onvoiceschanged = () => {
+          voices = window.speechSynthesis.getVoices();
+          r();
+        };
+        setTimeout(r, 1000);
+      });
+    }
+    
+    console.log('[Voice] Available voices:', voices.map(v => v.name));
+    console.log('[Voice] Looking for:', voiceName);
+    
     const utt = new SpeechSynthesisUtterance(text);
-    const voices = window.speechSynthesis.getVoices();
     const found = voices.find(v => v.name === voiceName || v.name.startsWith(voiceName));
-    if (found) utt.voice = found;
+    
+    if (!found) {
+      console.log('[Voice] Not found, trying default');
+      // Try to find any German or English voice as fallback
+      const fallback = voices.find(v => v.lang.startsWith('de') || v.lang.startsWith('en'));
+      if (fallback) {
+        utt.voice = fallback;
+        showToast('Stimme nicht gefunden, verwende: ' + fallback.name, 'info');
+      } else {
+        showToast('Keine Stimme verfügbar', 'error');
+        resolve();
+        return;
+      }
+    } else {
+      utt.voice = found;
+    }
+    
     utt.onstart = () => { if (btn) { btn.textContent = '⏹ Stop'; btn.classList.add('playing'); } };
-    utt.onend = resolve; utt.onerror = resolve;
+    utt.onend = () => { if (btn) { btn.textContent = '▶ Play'; btn.classList.remove('playing'); } resolve(); };
+    utt.onerror = (e) => { 
+      console.log('[Voice] Error:', e);
+      showToast('Fehler bei Sprachausgabe', 'error'); 
+      resolve(); 
+    };
     window.speechSynthesis.speak(utt);
   });
 }
@@ -3074,6 +3514,7 @@ function renderTaskResult(task, fromAgent) {
       role: 'assistant',
       content: `${prefix}: ${task.message}`,
       task_image: task.result_image,
+      task_prompt: task.prompt_used || '',
       ts: Date.now()
     };
     const idx = conversations[currentAgent.id].length;
@@ -3365,6 +3806,115 @@ document.addEventListener('keydown', e => {
     stopCurrentAudio();
   }
 });
+
+
+// ═══════════════════════════════════════════════════
+// Backup Modal
+// ═══════════════════════════════════════════════════
+async function openBackupModal() {
+  const modal = document.getElementById('backupModal') || createBackupModal();
+  document.getElementById('backupModalBody').innerHTML = '<p>Laden...</p>';
+  openModal('backupModal');
+  loadBackupList();
+}
+
+function createBackupModal() {
+  const div = document.createElement('div');
+  div.id = 'backupModal';
+  div.className = 'modal-overlay';
+  div.innerHTML = `
+    <div class="modal" style="max-width:500px">
+      <div class="modal-title">
+        💾 Backup & Restore
+        <button class="close-btn" onclick="closeModal('backupModal')">✕</button>
+      </div>
+      <div class="modal-body" id="backupModalBody"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal('backupModal')">Close</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(div);
+  return div;
+}
+
+async function loadBackupList() {
+  const body = document.getElementById('backupModalBody');
+  try {
+    const res = await fetch('/api/backup/list');
+    const backups = await res.json();
+    
+    if (!backups.length) {
+      body.innerHTML = `
+        <p style="color:var(--textdim)">Keine Backups vorhanden.</p>
+        <button class="btn-primary" style="margin-top:12px" onclick="createBackup()">💾 Jetzt Backup erstellen</button>
+      `;
+      return;
+    }
+    
+    let html = '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">';
+    for (const b of backups) {
+      const sizeMB = (b.size / 1024 / 1024).toFixed(1);
+      const date = new Date(b.modified).toLocaleString();
+      html += `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:var(--bg2);border-radius:6px">
+          <div>
+            <div style="font-family:var(--mono);font-size:12px">${b.name}</div>
+            <div style="font-size:10px;color:var(--textdim)">${date} · ${sizeMB}MB</div>
+          </div>
+          <div style="display:flex;gap:4px">
+            <button class="btn-secondary" style="font-size:11px;padding:4px 8px" onclick="restoreBackup('${b.name}')">♻️ Restore</button>
+            <button class="btn-secondary" style="font-size:11px;padding:4px 8px" onclick="downloadBackup('${b.name}')">⬇</button>
+          </div>
+        </div>
+      `;
+    }
+    html += '</div>';
+    
+    body.innerHTML = html + '<button class="btn-primary" style="width:100%" onclick="createBackup()">💾 Neues Backup erstellen</button>';
+  } catch(e) {
+    body.innerHTML = '<p style="color:red">Fehler beim Laden der Backups</p>';
+  }
+}
+
+async function createBackup() {
+  try {
+    const res = await fetch('/api/backup', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      appendSystemMsg('✅ Backup erstellt: ' + data.backup_file);
+      loadBackupList();
+    } else {
+      alert('Fehler: ' + data.error);
+    }
+  } catch(e) {
+    alert('Fehler: ' + e.message);
+  }
+}
+
+async function restoreBackup(name) {
+  if (!confirm('⚠️ Warnung: Dies überschreibt alle aktuellen Daten! Fortfahren?')) return;
+  try {
+    const res = await fetch('/api/backup/restore', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ backup_name: name })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      alert('✅ Backup restored! Bitte Server neustarten.');
+      closeModal('backupModal');
+    } else {
+      alert('Fehler: ' + data.error);
+    }
+  } catch(e) {
+    alert('Fehler: ' + e.message);
+  }
+}
+
+function downloadBackup(name) {
+  window.open('/api/backup/download/' + name, '_blank');
+}
 </script>
 </body>
 </html>
