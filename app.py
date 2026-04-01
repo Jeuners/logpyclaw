@@ -146,11 +146,7 @@ def emit_agent_activity(agent_id, atype, label, status):
     """Broadcast agent activity to all subscribers."""
     try:
         data = {"agent_id": agent_id, "type": atype, "label": label, "status": status}
-        room = f"agent_{agent_id}"
-        emit("agent_activity", data, room=room, namespace="/ws")
-        socketio.emit(
-            "agent_activity", data, namespace="/ws", broadcast=True, include_self=True
-        )
+        socketio.emit("agent_activity", data, broadcast=True)
     except Exception as e:
         print(f"[WS] emit_agent_activity error: {e}", flush=True)
 
@@ -166,11 +162,7 @@ def emit_task_result(task_id, agent_id, result_text, result_image, status, error
             "status": status,
             "error": error,
         }
-        room = f"agent_{agent_id}"
-        emit("task_result", data, room=room, namespace="/ws")
-        socketio.emit(
-            "task_result", data, namespace="/ws", broadcast=True, include_self=True
-        )
+        socketio.emit("task_result", data, broadcast=True)
     except Exception as e:
         print(f"[WS] emit_task_result error: {e}", flush=True)
 
@@ -185,11 +177,7 @@ def emit_chat_message(agent_id, role, content, message_id=None):
             "message_id": message_id or str(uuid.uuid4()),
             "ts": datetime.now().isoformat(),
         }
-        room = f"agent_{agent_id}"
-        emit("chat_message", data, room=room, namespace="/ws")
-        socketio.emit(
-            "chat_message", data, namespace="/ws", broadcast=True, include_self=True
-        )
+        socketio.emit("chat_message", data, broadcast=True)
     except Exception as e:
         print(f"[WS] emit_chat_message error: {e}", flush=True)
 
@@ -202,11 +190,9 @@ def emit_heartbeat_result(agent_id, result):
             "result": result,
             "ts": datetime.now().isoformat(),
         }
-        room = f"agent_{agent_id}"
-        emit("heartbeat_result", data, room=room, namespace="/ws")
-        socketio.emit(
-            "heartbeat_result", data, namespace="/ws", broadcast=True, include_self=True
-        )
+        socketio.emit("heartbeat_result", data, broadcast=True)
+    except Exception as e:
+        print(f"[WS] emit_heartbeat_result error: {e}", flush=True)
     except Exception as e:
         print(f"[WS] emit_heartbeat_result error: {e}", flush=True)
 
@@ -1181,14 +1167,16 @@ def process_task(task_id: str):
         re.IGNORECASE,
     )
 
-    HACKER_TRIGGERS = re.compile(
-        r"hacker\s*news|"
-        r"hackernews|"
-        r"hn\s*(news|neu|neues)?|"
-        r"was\s*(gibt|is?)\s*(es)?\s*(neues|new|new?s)?\s*(bei)?\s*hacker|"
-        r"neues?\s*(bei)?\s*hacker\s*news|"
-        r"top\s*stories|"
-        r"newest\s*hacker",
+    SCREENSHOT_TRIGGERS = re.compile(
+        r"screenshot|"
+        r"screenshot\s+von|"
+        r"screenshot\s+of|"
+        r"seite\s+screenshot|"
+        r"webseite\s+screenshot|"
+        r"seite\s+knipsen|"
+        r"bild\s+von\s+.*seite|"
+        r"capture\s+screen|"
+        r"take\s+a\s+screenshot",
         re.IGNORECASE,
     )
 
@@ -1299,6 +1287,45 @@ def process_task(task_id: str):
             except Exception as e:
                 task["result_text"] = f"❌ Error fetching Hacker News: {str(e)}"
             task["skill_used"] = "hackernews"
+        # Screenshot skill
+        elif "screenshot" in skills and SCREENSHOT_TRIGGERS.search(message):
+            print(f"[Task] screenshot trigger detected: {message[:60]}", flush=True)
+            # Extract URL from message
+            import re as re_module
+
+            url_match = re_module.search(
+                r"(https?://[^\s]+)|([a-zA-Z0-9][a-zA-Z0-9-]+\.[a-zA-Z]{2,}[^\s]*)",
+                message,
+                re_module.IGNORECASE,
+            )
+            if url_match:
+                url = url_match.group(1) or url_match.group(2)
+                if not url.startswith("http"):
+                    url = "https://" + url
+                print(f"[Task] screenshot URL: {url}", flush=True)
+                try:
+                    r = requests.post(
+                        "http://localhost:5050/api/screenshot",
+                        json={"url": url},
+                        timeout=30,
+                    )
+                    if r.ok:
+                        data = r.json()
+                        if data.get("image"):
+                            task["result_image"] = data["image"]
+                            task["skill_used"] = "screenshot"
+                        else:
+                            task["result_text"] = (
+                                "❌ Screenshot fehlgeschlagen: kein Bild zurück"
+                            )
+                    else:
+                        task["result_text"] = f"❌ Screenshot Fehler: {r.status_code}"
+                except Exception as e:
+                    task["result_text"] = f"❌ Screenshot Fehler: {str(e)}"
+            else:
+                task["result_text"] = "❌ Keine URL im Prompt gefunden"
+            if not task.get("result_image"):
+                task["skill_used"] = task.get("skill_used", "screenshot")
         elif "image_gen" in skills and (IMG_TRIGGERS.search(message) or only_image_gen):
             img_prompt = _extract_img_prompt(message)
             if not img_prompt:
