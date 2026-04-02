@@ -133,20 +133,19 @@ def ws_join_all(data):
 # ─── WebSocket Emit Helper Functions ─────────────────────────────────
 def ws_emit(event, data, room=None, broadcast=False):
     """Emit event to specific room, or broadcast to all."""
-    kwargs = {"event": event, "data": data, "namespace": "/ws"}
     if room:
-        emit(event, data, room=room, namespace="/ws")
+        socketio.emit(event, data, room=room, namespace="/ws")
     elif broadcast:
-        socketio.emit(event, data, namespace="/ws", broadcast=True)
+        socketio.emit(event, data, namespace="/ws")
     else:
-        emit(event, data, namespace="/ws")
+        socketio.emit(event, data, namespace="/ws")
 
 
 def emit_agent_activity(agent_id, atype, label, status):
     """Broadcast agent activity to all subscribers."""
     try:
         data = {"agent_id": agent_id, "type": atype, "label": label, "status": status}
-        socketio.emit("agent_activity", data, broadcast=True)
+        socketio.emit("agent_activity", data, namespace="/ws")
     except Exception as e:
         print(f"[WS] emit_agent_activity error: {e}", flush=True)
 
@@ -154,6 +153,12 @@ def emit_agent_activity(agent_id, atype, label, status):
 def emit_task_result(task_id, agent_id, result_text, result_image, status, error=None):
     """Send task result to relevant room and broadcast."""
     try:
+        has_image = bool(result_image)
+        img_size = len(result_image) // 1024 if result_image else 0
+        print(
+            f"[WS] emit_task_result: task={task_id}, agent={agent_id}, has_image={has_image} ({img_size}KB), status={status}",
+            flush=True,
+        )
         data = {
             "task_id": task_id,
             "agent_id": agent_id,
@@ -162,7 +167,8 @@ def emit_task_result(task_id, agent_id, result_text, result_image, status, error
             "status": status,
             "error": error,
         }
-        socketio.emit("task_result", data, broadcast=True)
+        socketio.emit("task_result", data, namespace="/ws")
+        print(f"[WS] emit_task_result SUCCESS", flush=True)
     except Exception as e:
         print(f"[WS] emit_task_result error: {e}", flush=True)
 
@@ -177,7 +183,7 @@ def emit_chat_message(agent_id, role, content, message_id=None):
             "message_id": message_id or str(uuid.uuid4()),
             "ts": datetime.now().isoformat(),
         }
-        socketio.emit("chat_message", data, broadcast=True)
+        socketio.emit("chat_message", data, namespace="/ws")
     except Exception as e:
         print(f"[WS] emit_chat_message error: {e}", flush=True)
 
@@ -190,20 +196,18 @@ def emit_heartbeat_result(agent_id, result):
             "result": result,
             "ts": datetime.now().isoformat(),
         }
-        socketio.emit("heartbeat_result", data, broadcast=True)
-    except Exception as e:
-        print(f"[WS] emit_heartbeat_result error: {e}", flush=True)
+        socketio.emit("heartbeat_result", data, namespace="/ws")
     except Exception as e:
         print(f"[WS] emit_heartbeat_result error: {e}", flush=True)
 
 
 def emit_error(message, room=None):
     """Send error to client(s)."""
-    data = {"error": message, "ts": datetime.now().isoformat()}
-    if room:
-        emit("error", data, room=room, namespace="/ws")
-    else:
-        emit("error", data, namespace="/ws", broadcast=True)
+    try:
+        data = {"error": message, "ts": datetime.now().isoformat()}
+        socketio.emit("error", data, namespace="/ws")
+    except Exception as e:
+        print(f"[WS] emit_error error: {e}", flush=True)
 
 
 MISTRAL_TTS_URL = "https://api.mistral.ai/v1/audio/speech"
@@ -1177,6 +1181,17 @@ def process_task(task_id: str):
         r"bild\s+von\s+.*seite|"
         r"capture\s+screen|"
         r"take\s+a\s+screenshot",
+        re.IGNORECASE,
+    )
+
+    HACKER_TRIGGERS = re.compile(
+        r"hacker\s*news|"
+        r"hackernews|"
+        r"hn\s*(news|neu|neues)?|"
+        r"was\s*(gibt|is?)\s*(es)?\s*(neues|new|new?s)?\s*(bei)?\s*hacker|"
+        r"neues?\s*(bei)?\s*hacker\s*news|"
+        r"top\s*stories|"
+        r"newest\s*hacker",
         re.IGNORECASE,
     )
 

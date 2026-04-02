@@ -1678,6 +1678,7 @@ let _clickSound = null;
 // ═══════════════════════════════════════════════════
 let socket = null;
 let wsConnected = false;
+const _wsHandledTasks = new Set(); // Track tasks already handled by WebSocket
 
 function initWebSocket() {
   const wsHost = window.location.host;
@@ -1710,6 +1711,14 @@ function initWebSocket() {
       delete agentActivity[data.agent_id];
     } else {
       agentActivity[data.agent_id] = data;
+      // Update any placeholder message with the actual activity label
+      const label = data.label || `${data.type} task`;
+      document.querySelectorAll('.msg-assistant').forEach(el => {
+        const span = el.querySelector('[id$="-label"]');
+        if (span && span.textContent.includes('@')) {
+          span.textContent = `⏳ ${label}`;
+        }
+      });
     }
     renderSidePanel();
   });
@@ -1737,10 +1746,44 @@ function initWebSocket() {
 
 // WebSocket event handlers (to be implemented based on needs)
 function handleWsTaskResult(data) {
+  console.log('[WS] handleWsTaskResult received:', JSON.stringify(data));
   const { task_id, agent_id, result_text, result_image, status, error } = data;
-  if (status === 'completed' && result_text) {
-    appendSystemMsg(result_text);
+  
+  console.log('[WS] currentAgent:', currentAgent?.id, '| agent_id from msg:', agent_id, '| currentView:', currentView);
+  
+  // Mark task as handled by WebSocket so polling doesn't duplicate
+  if (task_id) _wsHandledTasks.add(task_id);
+  
+  if (status === 'completed') {
+    console.log('[WS] status=completed, result_image:', !!result_image, 'result_text:', result_text ? result_text.substring(0, 50) : null);
+    
+    if (result_image) {
+      // Screenshot or generated image - replace placeholder or add new
+      if (!conversations[currentAgent.id]) conversations[currentAgent.id] = [];
+      const msg = {
+        role: 'assistant',
+        content: result_text || '📸 Screenshot',
+        task_image: result_image,
+        ts: Date.now()
+      };
+      conversations[currentAgent.id].push(msg);
+      const el = document.getElementById('chatMessages');
+      console.log('[WS] chatMessages element:', !!el, 'currentAgent.id:', currentAgent.id);
+      if (el) {
+        el.insertAdjacentHTML('beforeend', renderMsg(msg, conversations[currentAgent.id].length - 1));
+        scrollToBottom(el);
+        console.log('[WS] Message rendered and scrolled');
+      }
+      // Remove placeholder if exists
+      document.querySelectorAll('[id^="task-placeholder-"], [id^="img-placeholder-"]').forEach(el => el.remove());
+    } else if (result_text) {
+      // Remove placeholder first
+      document.querySelectorAll('[id^="task-placeholder-"], [id^="img-placeholder-"]').forEach(el => el.remove());
+      appendSystemMsg(result_text);
+    }
   } else if (status === 'failed') {
+    // Remove placeholder and show error
+    document.querySelectorAll('[id^="task-placeholder-"], [id^="img-placeholder-"]').forEach(el => el.remove());
     appendSystemMsg('❌ Task failed: ' + (error || 'Unknown error'));
   }
 }
@@ -4040,7 +4083,27 @@ async function handleAgentMention(targetAgent, message, rawText) {
       scrollToBottom(el);
     }
   } else {
-    appendSystemMsg(`⏳ @${esc(targetAgent.name)} is working on it…`);
+    // Create placeholder div for non-image tasks too
+    const el = document.getElementById('chatMessages');
+    if (el) {
+      placeholderId = 'task-placeholder-' + Date.now();
+      el.insertAdjacentHTML('beforeend', `
+        <div class="msg assistant" id="${placeholderId}">
+          <span class="msg-meta">${new Date().toLocaleTimeString()}</span>
+          <div class="msg-bubble" style="display:flex;align-items:center;gap:12px">
+            <div style="display:flex;gap:3px;align-items:flex-end;height:32px">
+              <div class="eeg-bar" style="animation-delay:0s;height:8px"></div>
+              <div class="eeg-bar" style="animation-delay:0.15s;height:20px"></div>
+              <div class="eeg-bar" style="animation-delay:0.3s;height:14px"></div>
+              <div class="eeg-bar" style="animation-delay:0.45s;height:24px"></div>
+              <div class="eeg-bar" style="animation-delay:0.6s;height:10px"></div>
+            </div>
+            <span id="${placeholderId}-label">⏳ @${esc(targetAgent.name)} wartet…</span>
+          </div>
+        </div>
+      `);
+      scrollToBottom(el);
+    }
   }
 
   let task;
@@ -4057,6 +4120,7 @@ async function handleAgentMention(targetAgent, message, rawText) {
     });
     // Store placeholderId on task object so renderTaskResult can access it
     task._placeholderId = placeholderId;
+    task._targetAgent = targetAgent;
   } catch(e) {
     // Remove placeholder on error
     if (placeholderId) {
@@ -4074,6 +4138,12 @@ async function handleAgentMention(targetAgent, message, rawText) {
     delay = Math.min(delay * 1.25, 4000);
     let result;
     try { result = await api(`/api/tasks/${task.id}`); } catch(e) { continue; }
+
+    // Skip if WebSocket already handled this task
+    if (_wsHandledTasks.has(task.id)) {
+      console.log('[Polling] Task already handled by WebSocket, skipping:', task.id);
+      return;
+    }
 
     // A2A terminal states
     if (result.status === 'completed') {
