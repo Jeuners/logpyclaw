@@ -1,0 +1,970 @@
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Serving Flask app 'app'
+ * Debug mode: on
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5050
+ * Running on http://192.168.3.17:5050
+[33mPress CTRL+C to quit[0m
+ * Restarting with stat
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 139-789-296
+[WS] Client connected: YUroaKFxXr0w3PWHAAAB
+[WS] YUroaKFxXr0w3PWHAAAB joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 13:51:40] "GET / HTTP/1.1" 200 -
+[WS] Client disconnected: YUroaKFxXr0w3PWHAAAB
+127.0.0.1 - - [02/Apr/2026 13:51:40] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:51:40] "GET /api/watchdogs HTTP/1.1" 200 -
+[WS] Client connected: _6apD_kGl6c-CU05AAAD
+127.0.0.1 - - [02/Apr/2026 13:51:40] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:51:40] "GET /api/skills HTTP/1.1" 200 -
+[WS] _6apD_kGl6c-CU05AAAD joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 13:51:40] "GET /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+[Memory] injected 326 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:51:48] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 3fb81e1a-eaa0-4f45-854b-b4cff278e4ad: MARTIN → ARIA: Screenshot des letzten Bildes
+127.0.0.1 - - [02/Apr/2026 13:51:48] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 3fb81e1a-eaa0-4f45-854b-b4cff278e4ad: Screenshot des letzten Bildes
+[Task] screenshot trigger detected: Screenshot des letzten Bildes
+[Task] done 3fb81e1a-eaa0-4f45-854b-b4cff278e4ad via None
+[WS] emit_task_result: task=3fb81e1a-eaa0-4f45-854b-b4cff278e4ad, agent=aria-seo-prompt-agent-001, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:51:49] "GET /api/tasks/3fb81e1a-eaa0-4f45-854b-b4cff278e4ad HTTP/1.1" 200 -
+[Memory] injected 457 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:52:12] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 4ed5241e-cfcf-48de-b8a9-7f1d7ffcb29e: MARTIN → LISA: Memory / Erinnerungen – zeig mir das Bild
+127.0.0.1 - - [02/Apr/2026 13:52:12] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 4ed5241e-cfcf-48de-b8a9-7f1d7ffcb29e: Memory / Erinnerungen – zeig mir das Bild
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:52:13] "GET /api/tasks/4ed5241e-cfcf-48de-b8a9-7f1d7ffcb29e HTTP/1.1" 200 -
+[Task] done 4ed5241e-cfcf-48de-b8a9-7f1d7ffcb29e via llm
+[WS] emit_task_result: task=4ed5241e-cfcf-48de-b8a9-7f1d7ffcb29e, agent=d95d2862-fd99-4d35-a84f-b589bcc23248, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 13:52:15] "GET /api/tasks/4ed5241e-cfcf-48de-b8a9-7f1d7ffcb29e HTTP/1.1" 200 -
+ * Detected change in '/Users/jeuner/Desktop/agentclaw/app.py', reloading
+ * Restarting with stat
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 139-789-296
+[WS] Client connected: fwAf9h9ov_8ztbgeAAAB
+[WS] fwAf9h9ov_8ztbgeAAAB joined all agent rooms
+ * Detected change in '/Users/jeuner/Desktop/agentclaw/app.py', reloading
+ * Restarting with stat
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 139-789-296
+[WS] Client connected: thjGm_Ntz_dt9KeFAAAB
+[WS] thjGm_Ntz_dt9KeFAAAB joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 13:56:58] "GET / HTTP/1.1" 200 -
+[WS] Client disconnected: thjGm_Ntz_dt9KeFAAAB
+127.0.0.1 - - [02/Apr/2026 13:56:58] "GET /api/agents HTTP/1.1" 200 -
+[WS] Client connected: iO5F14fk0iCI4iVEAAAD
+127.0.0.1 - - [02/Apr/2026 13:56:58] "GET /api/watchdogs HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:56:58] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:56:58] "GET /api/skills HTTP/1.1" 200 -
+[WS] iO5F14fk0iCI4iVEAAAD joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 13:56:58] "GET /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:57:02] "DELETE /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:57:03] "DELETE /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:57:03] "DELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:57:03] "DELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:57:14] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 27c4139d-07e2-4a5e-8c12-d51417656331: MARTIN → LISA: bitte erinnere mich an Neuigkeiten bezüglich Martinus (Dille
+127.0.0.1 - - [02/Apr/2026 13:57:14] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 27c4139d-07e2-4a5e-8c12-d51417656331: bitte erinnere mich an Neuigkeiten bezüglich Martinus (Dille
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:57:16] "GET /api/tasks/27c4139d-07e2-4a5e-8c12-d51417656331 HTTP/1.1" 200 -
+[Task] done 27c4139d-07e2-4a5e-8c12-d51417656331 via llm
+[WS] emit_task_result: task=27c4139d-07e2-4a5e-8c12-d51417656331, agent=d95d2862-fd99-4d35-a84f-b589bcc23248, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 13:57:17] "GET /api/tasks/27c4139d-07e2-4a5e-8c12-d51417656331 HTTP/1.1" 200 -
+[Memory] injected 123 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:57:41] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 6972f49b-819a-4c3c-b7bd-5cb06db26074: MARTIN → Jan: bitte gib mir die Tagesschau/Hacker News Nachrichten bezügli
+127.0.0.1 - - [02/Apr/2026 13:57:41] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 6972f49b-819a-4c3c-b7bd-5cb06db26074: bitte gib mir die Tagesschau/Hacker News Nachrichten bezügli
+[Task] hackernews trigger detected: bitte gib mir die Tagesschau/Hacker News Nachrichten bezügli
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:57:42] "GET /api/tasks/6972f49b-819a-4c3c-b7bd-5cb06db26074 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:57:44] "GET /api/tasks/6972f49b-819a-4c3c-b7bd-5cb06db26074 HTTP/1.1" 200 -
+[Task] done 6972f49b-819a-4c3c-b7bd-5cb06db26074 via hackernews
+[WS] emit_task_result: task=6972f49b-819a-4c3c-b7bd-5cb06db26074, agent=852869d3-0ad7-4d30-a4c0-d9a8da6378e6, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 13:57:47] "GET /api/tasks/6972f49b-819a-4c3c-b7bd-5cb06db26074 HTTP/1.1" 200 -
+[Memory] injected 261 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:58:02] "POST /api/chat HTTP/1.1" 200 -
+[Task] created aefac81d-fafd-4136-b09f-94ae6093f312: MARTIN → ARIA: bitte optimiere den Prompt für die Bildgenerierung, basieren
+127.0.0.1 - - [02/Apr/2026 13:58:02] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing aefac81d-fafd-4136-b09f-94ae6093f312: bitte optimiere den Prompt für die Bildgenerierung, basieren
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[Task] done aefac81d-fafd-4136-b09f-94ae6093f312 via llm
+[WS] emit_task_result: task=aefac81d-fafd-4136-b09f-94ae6093f312, agent=aria-seo-prompt-agent-001, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 13:58:04] "GET /api/tasks/aefac81d-fafd-4136-b09f-94ae6093f312 HTTP/1.1" 200 -
+ * Detected change in '/Users/jeuner/Desktop/agentclaw/app.py', reloading
+ * Restarting with stat
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 139-789-296
+[WS] Client connected: iEVEynVoyJd37SdlAAAB
+[WS] iEVEynVoyJd37SdlAAAB joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 14:13:06] "DELETE /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:13:06] "DELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:13:22] "POST /api/chat HTTP/1.1" 200 -
+[Task] created ddee814a-4430-416a-bcd4-346f67d4316c: MARTIN → LISA: was war das letzte Bild, das hochgeladen wurde?
+127.0.0.1 - - [02/Apr/2026 14:13:22] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing ddee814a-4430-416a-bcd4-346f67d4316c: was war das letzte Bild, das hochgeladen wurde?
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:13:24] "GET /api/tasks/ddee814a-4430-416a-bcd4-346f67d4316c HTTP/1.1" 200 -
+[Task] done ddee814a-4430-416a-bcd4-346f67d4316c via llm
+[WS] emit_task_result: task=ddee814a-4430-416a-bcd4-346f67d4316c, agent=d95d2862-fd99-4d35-a84f-b589bcc23248, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 14:13:26] "GET /api/tasks/ddee814a-4430-416a-bcd4-346f67d4316c HTTP/1.1" 200 -
+ * Detected change in '/Users/jeuner/Desktop/agentclaw/app.py', reloading
+ * Restarting with stat
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 139-789-296
+[WS] Client connected: DNQDtxAcgJofS3lIAAAB
+[WS] DNQDtxAcgJofS3lIAAAB joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 14:15:42] "DELETE /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:15:43] "DELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:15:57] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 1b621c17-bbc1-45f8-8e0f-f13a0790a7e2: MARTIN → ARIA: screenshot
+127.0.0.1 - - [02/Apr/2026 14:15:57] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 1b621c17-bbc1-45f8-8e0f-f13a0790a7e2: screenshot
+[Task] screenshot trigger detected: screenshot
+[Task] done 1b621c17-bbc1-45f8-8e0f-f13a0790a7e2 via None
+[WS] emit_task_result: task=1b621c17-bbc1-45f8-8e0f-f13a0790a7e2, agent=aria-seo-prompt-agent-001, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:15:58] "GET /api/tasks/1b621c17-bbc1-45f8-8e0f-f13a0790a7e2 HTTP/1.1" 200 -
+[Memory] injected 137 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:16:16] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 2cf344bd-16b3-4e64-bf82-a9534095784d: MARTIN → LISA: memory
+127.0.0.1 - - [02/Apr/2026 14:16:16] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 2cf344bd-16b3-4e64-bf82-a9534095784d: memory
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:16:18] "GET /api/tasks/2cf344bd-16b3-4e64-bf82-a9534095784d HTTP/1.1" 200 -
+[Task] done 2cf344bd-16b3-4e64-bf82-a9534095784d via llm
+[WS] emit_task_result: task=2cf344bd-16b3-4e64-bf82-a9534095784d, agent=d95d2862-fd99-4d35-a84f-b589bcc23248, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 14:16:20] "GET /api/tasks/2cf344bd-16b3-4e64-bf82-a9534095784d HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:16:34] "DELETE /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:16:34] "DELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:16:48] "POST /api/chat HTTP/1.1" 200 -
+[Task] created f2cf9470-94b8-4e4e-9cc1-c44d638f96e4: MARTIN → LISA: was gibt's Neues im Memory?
+127.0.0.1 - - [02/Apr/2026 14:16:48] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing f2cf9470-94b8-4e4e-9cc1-c44d638f96e4: was gibt's Neues im Memory?
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:16:50] "GET /api/tasks/f2cf9470-94b8-4e4e-9cc1-c44d638f96e4 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:16:51] "GET /api/tasks/f2cf9470-94b8-4e4e-9cc1-c44d638f96e4 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:16:54] "GET /api/tasks/f2cf9470-94b8-4e4e-9cc1-c44d638f96e4 HTTP/1.1" 200 -
+[Task] done f2cf9470-94b8-4e4e-9cc1-c44d638f96e4 via llm
+[WS] emit_task_result: task=f2cf9470-94b8-4e4e-9cc1-c44d638f96e4, agent=d95d2862-fd99-4d35-a84f-b589bcc23248, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 14:16:57] "GET /api/tasks/f2cf9470-94b8-4e4e-9cc1-c44d638f96e4 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:17:03] "GET /api/history/d95d2862-fd99-4d35-a84f-b589bcc23248 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:17:06] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:17:06] "GET /api/models HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:17:07] "GET /api/voices/mistral HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:17:07] "GET /api/voices/mistral HTTP/1.1" 200 -
+[Memory] injected 117 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:17:55] "POST /api/chat HTTP/1.1" 200 -
+[Task] created bba09925-9e87-48ce-a01d-89e0d8ffe30e: MARTIN → ARIA: Screenshot des letzten hochgeladenen Bildes.
+127.0.0.1 - - [02/Apr/2026 14:17:55] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing bba09925-9e87-48ce-a01d-89e0d8ffe30e: Screenshot des letzten hochgeladenen Bildes.
+[Task] screenshot trigger detected: Screenshot des letzten hochgeladenen Bildes.
+[Task] done bba09925-9e87-48ce-a01d-89e0d8ffe30e via None
+[WS] emit_task_result: task=bba09925-9e87-48ce-a01d-89e0d8ffe30e, agent=aria-seo-prompt-agent-001, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:17:56] "GET /api/tasks/bba09925-9e87-48ce-a01d-89e0d8ffe30e HTTP/1.1" 200 -
+[Memory] injected 227 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:18:18] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 98ad2bba-6c01-4caa-974c-725b5168e78e: MARTIN → Fotograf: generiere ein Bild von einem Apfel.
+127.0.0.1 - - [02/Apr/2026 14:18:18] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 98ad2bba-6c01-4caa-974c-725b5168e78e: generiere ein Bild von einem Apfel.
+[Task] image_gen prompt: Apfel.
+[ComfyUI] original: Apfel....
+[ComfyUI] optimized: apfel., no text, no letters, no words, no watermark, no sign...
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:18:19] "GET /api/tasks/98ad2bba-6c01-4caa-974c-725b5168e78e HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:18:21] "GET /api/tasks/98ad2bba-6c01-4caa-974c-725b5168e78e HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:18:24] "GET /api/tasks/98ad2bba-6c01-4caa-974c-725b5168e78e HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:18:26] "GET /api/tasks/98ad2bba-6c01-4caa-974c-725b5168e78e HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:18:30] "GET /api/tasks/98ad2bba-6c01-4caa-974c-725b5168e78e HTTP/1.1" 200 -
+[Task] done 98ad2bba-6c01-4caa-974c-725b5168e78e via image_gen
+[WS] emit_task_result: task=98ad2bba-6c01-4caa-974c-725b5168e78e, agent=547225e8-ada2-42a0-bc3c-e3859bf9d8ce, has_image=True (1170KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 14:18:34] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:18:34] "GET /api/tasks/98ad2bba-6c01-4caa-974c-725b5168e78e HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:18:34] "GET /api/models HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:18:35] "GET /api/voices/mistral HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:18:35] "GET /api/voices/mistral HTTP/1.1" 200 -
+[Agent] Saved 9 agents successfully
+[Agent] Settings saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:18:51] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/settings HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:18:51] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:24:28] "GET / HTTP/1.1" 200 -
+[WS] Client disconnected: DNQDtxAcgJofS3lIAAAB
+127.0.0.1 - - [02/Apr/2026 14:24:28] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:24:28] "GET /api/watchdogs HTTP/1.1" 200 -
+[WS] Client connected: z8HsBtOYX-eAXQuwAAAD
+127.0.0.1 - - [02/Apr/2026 14:24:28] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:24:28] "GET /api/skills HTTP/1.1" 200 -
+[WS] z8HsBtOYX-eAXQuwAAAD joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 14:24:28] "GET /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:24:32] "DELETE /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:24:32] "DELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:24:46] "POST /api/chat HTTP/1.1" 200 -
+[Task] created aec8d034-8dfa-4b7c-af31-13e63634f8b3: MARTIN → LISA: bitte präsentiere mir den Inhalt des Langzeitspeichers bezüg
+127.0.0.1 - - [02/Apr/2026 14:24:46] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing aec8d034-8dfa-4b7c-af31-13e63634f8b3: bitte präsentiere mir den Inhalt des Langzeitspeichers bezüg
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:24:48] "GET /api/tasks/aec8d034-8dfa-4b7c-af31-13e63634f8b3 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:24:50] "GET /api/tasks/aec8d034-8dfa-4b7c-af31-13e63634f8b3 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:24:52] "GET /api/tasks/aec8d034-8dfa-4b7c-af31-13e63634f8b3 HTTP/1.1" 200 -
+[Task] done aec8d034-8dfa-4b7c-af31-13e63634f8b3 via llm
+[WS] emit_task_result: task=aec8d034-8dfa-4b7c-af31-13e63634f8b3, agent=d95d2862-fd99-4d35-a84f-b589bcc23248, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 14:24:55] "GET /api/tasks/aec8d034-8dfa-4b7c-af31-13e63634f8b3 HTTP/1.1" 200 -
+[Memory] injected 195 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:25:38] "POST /api/chat HTTP/1.1" 200 -
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[Memory] injected 857 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:26:40] "POST /api/chat HTTP/1.1" 200 -
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:27:04] "DELETE /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:27:04] "DELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:27:25] "POST /api/chat HTTP/1.1" 200 -
+[Task] created a3e899a8-3d57-4260-a23e-63b767b84cfa: MARTIN → Picasso: mach einen Screenshot davon.
+127.0.0.1 - - [02/Apr/2026 14:27:25] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing a3e899a8-3d57-4260-a23e-63b767b84cfa: mach einen Screenshot davon.
+[Task] screenshot trigger detected: mach einen Screenshot davon.
+[Task] done a3e899a8-3d57-4260-a23e-63b767b84cfa via None
+[WS] emit_task_result: task=a3e899a8-3d57-4260-a23e-63b767b84cfa, agent=bed74b21-9963-4d12-8651-a6dacafe09cc, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:27:27] "GET /api/tasks/a3e899a8-3d57-4260-a23e-63b767b84cfa HTTP/1.1" 200 -
+[Memory] injected 143 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:27:52] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 6472869d-a2eb-4457-8c93-8375c9416c08: MARTIN → Picasso: Screenshot von google.com
+127.0.0.1 - - [02/Apr/2026 14:27:52] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 6472869d-a2eb-4457-8c93-8375c9416c08: Screenshot von google.com
+[Task] screenshot trigger detected: Screenshot von google.com
+[Task] screenshot URL: https://google.com
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:27:54] "GET /api/tasks/6472869d-a2eb-4457-8c93-8375c9416c08 HTTP/1.1" 200 -
+[Screenshot] https://google.com — 121KB
+127.0.0.1 - - [02/Apr/2026 14:27:55] "POST /api/screenshot HTTP/1.1" 200 -
+[Task] done 6472869d-a2eb-4457-8c93-8375c9416c08 via screenshot
+[WS] emit_task_result: task=6472869d-a2eb-4457-8c93-8375c9416c08, agent=bed74b21-9963-4d12-8651-a6dacafe09cc, has_image=True (161KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 14:27:55] "GET /api/tasks/6472869d-a2eb-4457-8c93-8375c9416c08 HTTP/1.1" 200 -
+[Memory] injected 228 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:28:01] "POST /api/chat HTTP/1.1" 200 -
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[Memory] injected 402 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:28:16] "POST /api/chat HTTP/1.1" 200 -
+[Task] created b74f0af1-c7c1-439d-9d84-94802a72bf1a: MARTIN → Picasso: Screenshot von google.com
+127.0.0.1 - - [02/Apr/2026 14:28:16] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing b74f0af1-c7c1-439d-9d84-94802a72bf1a: Screenshot von google.com
+[Task] screenshot trigger detected: Screenshot von google.com
+[Task] screenshot URL: https://google.com
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:28:18] "GET /api/tasks/b74f0af1-c7c1-439d-9d84-94802a72bf1a HTTP/1.1" 200 -
+[Screenshot] https://google.com — 121KB
+127.0.0.1 - - [02/Apr/2026 14:28:19] "POST /api/screenshot HTTP/1.1" 200 -
+[Task] done b74f0af1-c7c1-439d-9d84-94802a72bf1a via screenshot
+[WS] emit_task_result: task=b74f0af1-c7c1-439d-9d84-94802a72bf1a, agent=bed74b21-9963-4d12-8651-a6dacafe09cc, has_image=True (161KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 14:28:20] "GET /api/tasks/b74f0af1-c7c1-439d-9d84-94802a72bf1a HTTP/1.1" 200 -
+[Memory] injected 490 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:28:31] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 5cf11d5a-a0b0-4698-bb05-451402ec8932: MARTIN → ARIA: optimiere den Prompt für die Bildgenerierung.
+127.0.0.1 - - [02/Apr/2026 14:28:31] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 5cf11d5a-a0b0-4698-bb05-451402ec8932: optimiere den Prompt für die Bildgenerierung.
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[Task] done 5cf11d5a-a0b0-4698-bb05-451402ec8932 via llm
+[WS] emit_task_result: task=5cf11d5a-a0b0-4698-bb05-451402ec8932, agent=aria-seo-prompt-agent-001, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 14:28:33] "GET /api/tasks/5cf11d5a-a0b0-4698-bb05-451402ec8932 HTTP/1.1" 200 -
+[Memory] injected 508 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:28:59] "POST /api/chat HTTP/1.1" 200 -
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[Memory] injected 692 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:29:25] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 5167d5ea-4acc-4825-9dad-fb5b47ba1d8c: MARTIN → Fotograf: Gut. Dann generiere ein Bild von einem Hund. @Fotograf
+127.0.0.1 - - [02/Apr/2026 14:29:25] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 5167d5ea-4acc-4825-9dad-fb5b47ba1d8c: Gut. Dann generiere ein Bild von einem Hund. @Fotograf
+[Task] image_gen prompt: Gut. Dann Hund. @Fotograf
+[ComfyUI] original: Gut. Dann Hund. @Fotograf...
+[ComfyUI] optimized: gut. dann hund. @fotograf, no text, no letters, no words, no...
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:29:26] "GET /api/tasks/5167d5ea-4acc-4825-9dad-fb5b47ba1d8c HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:29:28] "GET /api/tasks/5167d5ea-4acc-4825-9dad-fb5b47ba1d8c HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:29:31] "GET /api/tasks/5167d5ea-4acc-4825-9dad-fb5b47ba1d8c HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:29:34] "GET /api/tasks/5167d5ea-4acc-4825-9dad-fb5b47ba1d8c HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:29:37] "GET /api/tasks/5167d5ea-4acc-4825-9dad-fb5b47ba1d8c HTTP/1.1" 200 -
+[Task] done 5167d5ea-4acc-4825-9dad-fb5b47ba1d8c via image_gen
+[WS] emit_task_result: task=5167d5ea-4acc-4825-9dad-fb5b47ba1d8c, agent=547225e8-ada2-42a0-bc3c-e3859bf9d8ce, has_image=True (1357KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 14:29:41] "GET /api/tasks/5167d5ea-4acc-4825-9dad-fb5b47ba1d8c HTTP/1.1" 200 -
+[Memory] injected 757 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:29:54] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 3cf6e425-0d04-4eb7-80e8-b15163f3945f: MARTIN → Fotograf: generiere ein Bild von einem Sonnenuntergang über Bergen.
+127.0.0.1 - - [02/Apr/2026 14:29:54] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 3cf6e425-0d04-4eb7-80e8-b15163f3945f: generiere ein Bild von einem Sonnenuntergang über Bergen.
+[Task] image_gen prompt: Sonnenuntergang über Bergen.
+[ComfyUI] original: Sonnenuntergang über Bergen....
+[ComfyUI] optimized: sonnenuntergang ueber bergen., no text, no letters, no words...
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:29:55] "GET /api/tasks/3cf6e425-0d04-4eb7-80e8-b15163f3945f HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:29:57] "GET /api/tasks/3cf6e425-0d04-4eb7-80e8-b15163f3945f HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:30:00] "GET /api/tasks/3cf6e425-0d04-4eb7-80e8-b15163f3945f HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:30:03] "GET /api/tasks/3cf6e425-0d04-4eb7-80e8-b15163f3945f HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:30:06] "GET /api/tasks/3cf6e425-0d04-4eb7-80e8-b15163f3945f HTTP/1.1" 200 -
+[Task] done 3cf6e425-0d04-4eb7-80e8-b15163f3945f via image_gen
+[WS] emit_task_result: task=3cf6e425-0d04-4eb7-80e8-b15163f3945f, agent=547225e8-ada2-42a0-bc3c-e3859bf9d8ce, has_image=True (1094KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 14:30:07] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:30:07] "GET /api/models HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:30:08] "GET /api/voices/mistral HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:30:08] "GET /api/voices/mistral HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:30:10] "GET /api/tasks/3cf6e425-0d04-4eb7-80e8-b15163f3945f HTTP/1.1" 200 -
+[Agent] Saved 9 agents successfully
+[Agent] Settings saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:30:32] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/settings HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:30:32] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 9 agents successfully
+[Agent] Settings saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:30:34] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/settings HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:30:34] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 9 agents successfully
+[Agent] Settings saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:30:35] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/settings HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:30:35] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 9 agents successfully
+[Agent] Settings saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:30:35] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/settings HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:30:35] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 9 agents successfully
+[Agent] Settings saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:30:37] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/settings HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:30:37] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 9 agents successfully
+[Agent] Settings saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:30:38] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/settings HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:30:38] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 9 agents successfully
+[Agent] Settings saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:30:39] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/settings HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:30:39] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 9 agents successfully
+[Agent] Settings saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:30:40] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/settings HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:30:40] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 9 agents successfully
+[Agent] Settings saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:30:40] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/settings HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:30:40] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 9 agents successfully
+[Agent] Settings saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:30:41] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/settings HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:30:41] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:00] "GET /api/memory/547225e8-ada2-42a0-bc3c-e3859bf9d8ce HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:00] "GET /api/memory/d95d2862-fd99-4d35-a84f-b589bcc23248 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:00] "GET /api/memory/bed74b21-9963-4d12-8651-a6dacafe09cc HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:00] "GET /api/memory/852869d3-0ad7-4d30-a4c0-d9a8da6378e6 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:00] "GET /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:00] "GET /api/memory/1e074f7a-b365-4d60-b820-9fe3599bcdb7 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:00] "GET /api/memory/dream-agent-001 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:00] "GET /api/memory/aria-seo-prompt-agent-001 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:00] "GET /api/memory/c8711667-2e9c-41e9-b8ec-07b3c5d9f8b4 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:09] "DELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:09] "GET /api/memory/bed74b21-9963-4d12-8651-a6dacafe09cc HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:09] "GET /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:09] "GET /api/memory/852869d3-0ad7-4d30-a4c0-d9a8da6378e6 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:09] "GET /api/memory/1e074f7a-b365-4d60-b820-9fe3599bcdb7 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:09] "GET /api/memory/547225e8-ada2-42a0-bc3c-e3859bf9d8ce HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:09] "GET /api/memory/d95d2862-fd99-4d35-a84f-b589bcc23248 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:09] "GET /api/memory/dream-agent-001 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:09] "GET /api/memory/c8711667-2e9c-41e9-b8ec-07b3c5d9f8b4 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:09] "GET /api/memory/aria-seo-prompt-agent-001 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:13] "DELETE /api/memory/d95d2862-fd99-4d35-a84f-b589bcc23248 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:13] "GET /api/memory/1e074f7a-b365-4d60-b820-9fe3599bcdb7 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:13] "GET /api/memory/d95d2862-fd99-4d35-a84f-b589bcc23248 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:13] "GET /api/memory/bed74b21-9963-4d12-8651-a6dacafe09cc HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:13] "GET /api/memory/852869d3-0ad7-4d30-a4c0-d9a8da6378e6 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:13] "GET /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:13] "GET /api/memory/547225e8-ada2-42a0-bc3c-e3859bf9d8ce HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:13] "GET /api/memory/aria-seo-prompt-agent-001 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:13] "GET /api/memory/c8711667-2e9c-41e9-b8ec-07b3c5d9f8b4 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:13] "GET /api/memory/dream-agent-001 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:20] "DELETE /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:32:20] "DELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+ * Detected change in '/Users/jeuner/Desktop/agentclaw/app.py', reloading
+ * Restarting with stat
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 139-789-296
+[WS] Client connected: 36ihuHXAOr3tEE5DAAAB
+[WS] 36ihuHXAOr3tEE5DAAAB joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 14:38:24] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:38:24] "GET /api/models HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:38:25] "GET /api/voices/mistral HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:38:31] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:38:31] "GET /api/models HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:38:32] "GET /api/voices/mistral HTTP/1.1" 200 -
+[Agent] Saved 10 agents successfully
+127.0.0.1 - - [02/Apr/2026 14:39:12] "[35m[1mPOST /api/agents HTTP/1.1[0m" 201 -
+127.0.0.1 - - [02/Apr/2026 14:39:12] "GET /api/history/aba413f6-6b50-446f-82a8-8e004e5f5089 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:39:17] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:39:17] "GET /api/models HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:39:17] "GET /api/voices/mistral HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:39:18] "GET /api/voices/mistral HTTP/1.1" 200 -
+[Agent] Saved 10 agents successfully
+[Agent] Skills saved for aba413f6-6b50-446f-82a8-8e004e5f5089: ['telegram_incoming']
+127.0.0.1 - - [02/Apr/2026 14:39:25] "PUT /api/agents/aba413f6-6b50-446f-82a8-8e004e5f5089/skills HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:39:25] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 10 agents successfully
+[Agent] Settings saved for aba413f6-6b50-446f-82a8-8e004e5f5089
+127.0.0.1 - - [02/Apr/2026 14:39:26] "PUT /api/agents/aba413f6-6b50-446f-82a8-8e004e5f5089/settings HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:39:26] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 10 agents successfully
+[Agent] Voice saved for aba413f6-6b50-446f-82a8-8e004e5f5089: gb_jane_sarcasm
+127.0.0.1 - - [02/Apr/2026 14:39:26] "PUT /api/agents/aba413f6-6b50-446f-82a8-8e004e5f5089/voice HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:39:26] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 10 agents successfully
+[Agent] Skills saved for aba413f6-6b50-446f-82a8-8e004e5f5089: ['telegram_incoming']
+127.0.0.1 - - [02/Apr/2026 14:39:26] "PUT /api/agents/aba413f6-6b50-446f-82a8-8e004e5f5089/skills HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:39:26] "GET /api/agents HTTP/1.1" 200 -
+[Heartbeat] PUT received: agent=aba413f6-6b50-446f-82a8-8e004e5f5089, prompt=...
+[Agent] Saved 10 agents successfully
+[Heartbeat] Saved: prompt=...
+127.0.0.1 - - [02/Apr/2026 14:39:26] "PUT /api/agents/aba413f6-6b50-446f-82a8-8e004e5f5089/heartbeat HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:39:26] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:39:40] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 6dc44d06-70c4-4346-b567-ab8576453bd2: Newtest1 → Jan: hallo Welt an den Telegram Kanal
+127.0.0.1 - - [02/Apr/2026 14:39:40] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 6dc44d06-70c4-4346-b567-ab8576453bd2: hallo Welt an den Telegram Kanal
+127.0.0.1 - - [02/Apr/2026 14:39:41] "POST /api/tts HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:39:41] "GET /api/tasks/6dc44d06-70c4-4346-b567-ab8576453bd2 HTTP/1.1" 200 -
+[Task] done 6dc44d06-70c4-4346-b567-ab8576453bd2 via llm
+[WS] emit_task_result: task=6dc44d06-70c4-4346-b567-ab8576453bd2, agent=852869d3-0ad7-4d30-a4c0-d9a8da6378e6, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 14:39:43] "GET /api/tasks/6dc44d06-70c4-4346-b567-ab8576453bd2 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:40:02] "POST /api/chat HTTP/1.1" 200 -
+[TTS] API Fehler 500: {'object': 'error', 'message': 'Service unavailable.', 'type': 'internal_server_error', 'param': None, 'code': '1000', 'raw_status_code': 500}
+127.0.0.1 - - [02/Apr/2026 14:40:02] "[35m[1mPOST /api/tts HTTP/1.1[0m" 500 -
+127.0.0.1 - - [02/Apr/2026 14:40:20] "POST /api/chat HTTP/1.1" 200 -
+[Task] created e0af5c27-9672-4143-88d2-82ff7b823213: Newtest1 → MARTIN: Telegram Nachrichten: Hallo Welt an den Telegram Kanal direk
+127.0.0.1 - - [02/Apr/2026 14:40:20] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing e0af5c27-9672-4143-88d2-82ff7b823213: Telegram Nachrichten: Hallo Welt an den Telegram Kanal direk
+127.0.0.1 - - [02/Apr/2026 14:40:22] "GET /api/tasks/e0af5c27-9672-4143-88d2-82ff7b823213 HTTP/1.1" 200 -
+[Task] done e0af5c27-9672-4143-88d2-82ff7b823213 via llm
+[WS] emit_task_result: task=e0af5c27-9672-4143-88d2-82ff7b823213, agent=4d6fc07f-6d2c-4442-bf64-a2b129041027, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 14:40:23] "GET /api/tasks/e0af5c27-9672-4143-88d2-82ff7b823213 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:40:24] "POST /api/tts HTTP/1.1" 200 -
+[Heartbeat] 💓 Agent 'Jan' — Schaue in den Tagesschau und in Hacker News nach wichtigen N
+[Heartbeat] image prompt: Schaue in den Tagesschau und in Hacker News nach wichtigen Neuigkeiten. Informie
+[ComfyUI] original: Schaue in den Tagesschau und in Hacker News nach wichtigen N...
+[ComfyUI] optimized: schaue in den tagesschau und in hacker news nach wichtigen n...
+127.0.0.1 - - [02/Apr/2026 14:40:49] "POST /api/chat HTTP/1.1" 200 -
+[Task] created a13ec2fa-bdbc-4fd9-a34e-8c3dc53f6879: Newtest1 → MARTIN: Telegram Nachrichten: Hallo Welt an den Telegram Kanal direk
+127.0.0.1 - - [02/Apr/2026 14:40:49] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing a13ec2fa-bdbc-4fd9-a34e-8c3dc53f6879: Telegram Nachrichten: Hallo Welt an den Telegram Kanal direk
+127.0.0.1 - - [02/Apr/2026 14:40:51] "GET /api/tasks/a13ec2fa-bdbc-4fd9-a34e-8c3dc53f6879 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:40:51] "POST /api/tts HTTP/1.1" 200 -
+[Task] done a13ec2fa-bdbc-4fd9-a34e-8c3dc53f6879 via llm
+[WS] emit_task_result: task=a13ec2fa-bdbc-4fd9-a34e-8c3dc53f6879, agent=4d6fc07f-6d2c-4442-bf64-a2b129041027, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 14:40:53] "GET /api/tasks/a13ec2fa-bdbc-4fd9-a34e-8c3dc53f6879 HTTP/1.1" 200 -
+[Heartbeat] done 'Jan'
+127.0.0.1 - - [02/Apr/2026 14:41:09] "POST /api/chat HTTP/1.1" 200 -
+[Task] created d377bbcd-594a-468e-8598-067503b2715e: Newtest1 → Jan: dafür beauftragen.
+
+@Jan sende mal einen Hallo Welt an den T
+127.0.0.1 - - [02/Apr/2026 14:41:09] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing d377bbcd-594a-468e-8598-067503b2715e: dafür beauftragen.
+
+@Jan sende mal einen Hallo Welt an den T
+[Task] image_gen prompt: dafür beauftragen. @Jan sende Hallo Welt den Telegram Kanal.
+[ComfyUI] original: dafür beauftragen. @Jan sende Hallo Welt den Telegram Kanal....
+[ComfyUI] optimized: dafuer beauftragen. @jan sende hallo welt den telegram kanal...
+127.0.0.1 - - [02/Apr/2026 14:41:11] "GET /api/tasks/d377bbcd-594a-468e-8598-067503b2715e HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:41:12] "POST /api/tts HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:41:13] "GET /api/tasks/d377bbcd-594a-468e-8598-067503b2715e HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:41:15] "GET /api/tasks/d377bbcd-594a-468e-8598-067503b2715e HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:41:18] "GET /api/tasks/d377bbcd-594a-468e-8598-067503b2715e HTTP/1.1" 200 -
+[Task] done d377bbcd-594a-468e-8598-067503b2715e via image_gen
+[WS] emit_task_result: task=d377bbcd-594a-468e-8598-067503b2715e, agent=852869d3-0ad7-4d30-a4c0-d9a8da6378e6, has_image=True (617KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 14:41:22] "GET /api/tasks/d377bbcd-594a-468e-8598-067503b2715e HTTP/1.1" 200 -
+ * Detected change in '/Users/jeuner/Desktop/agentclaw/app.py', reloading
+ * Restarting with stat
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 139-789-296
+[WS] Client connected: 4XYXumd-2Fn_6VPdAAAB
+[WS] 4XYXumd-2Fn_6VPdAAAB joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 14:45:17] "DELETE /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:45:17] "DELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:45:20] "GET / HTTP/1.1" 200 -
+[WS] Client disconnected: 4XYXumd-2Fn_6VPdAAAB
+127.0.0.1 - - [02/Apr/2026 14:45:20] "GET /api/agents HTTP/1.1" 200 -
+[WS] Client connected: 5JSzEkhXXCDV0_vlAAAD
+127.0.0.1 - - [02/Apr/2026 14:45:20] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:45:20] "GET /api/watchdogs HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:45:20] "GET /api/skills HTTP/1.1" 200 -
+[WS] 5JSzEkhXXCDV0_vlAAAD joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 14:45:20] "GET /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:45:33] "POST /api/chat HTTP/1.1" 200 -
+[Task] created b3be62fa-2d56-4d0f-a1f4-5e3fe3ffbafe: MARTIN → LISA: speichere bitte alles, was relevant ist, aus dem Langzeitspe
+127.0.0.1 - - [02/Apr/2026 14:45:33] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing b3be62fa-2d56-4d0f-a1f4-5e3fe3ffbafe: speichere bitte alles, was relevant ist, aus dem Langzeitspe
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 14:45:34] "GET /api/tasks/b3be62fa-2d56-4d0f-a1f4-5e3fe3ffbafe HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 14:45:36] "GET /api/tasks/b3be62fa-2d56-4d0f-a1f4-5e3fe3ffbafe HTTP/1.1" 200 -
+[Task] done b3be62fa-2d56-4d0f-a1f4-5e3fe3ffbafe via llm
+[WS] emit_task_result: task=b3be62fa-2d56-4d0f-a1f4-5e3fe3ffbafe, agent=d95d2862-fd99-4d35-a84f-b589bcc23248, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 14:45:39] "GET /api/tasks/b3be62fa-2d56-4d0f-a1f4-5e3fe3ffbafe HTTP/1.1" 200 -
+ * Detected change in '/Users/jeuner/Desktop/agentclaw/app.py', reloading
+ * Restarting with stat
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 139-789-296
+[WS] Client connected: kkiZIPY824zsI7RyAAAB
+[WS] kkiZIPY824zsI7RyAAAB joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 15:03:23] "DELETE /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 15:03:23] "DELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 15:03:38] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 9c84eee9-b062-412f-a138-c99344fbf1ae: MARTIN → Jan: Hacker News schauen.
+127.0.0.1 - - [02/Apr/2026 15:03:38] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 9c84eee9-b062-412f-a138-c99344fbf1ae: Hacker News schauen.
+[Task] hackernews trigger detected: Hacker News schauen.
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 15:03:39] "GET /api/tasks/9c84eee9-b062-412f-a138-c99344fbf1ae HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 15:03:41] "GET /api/tasks/9c84eee9-b062-412f-a138-c99344fbf1ae HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 15:03:44] "GET /api/tasks/9c84eee9-b062-412f-a138-c99344fbf1ae HTTP/1.1" 200 -
+[Task] done 9c84eee9-b062-412f-a138-c99344fbf1ae via hackernews
+[WS] emit_task_result: task=9c84eee9-b062-412f-a138-c99344fbf1ae, agent=852869d3-0ad7-4d30-a4c0-d9a8da6378e6, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 15:03:46] "GET /api/tasks/9c84eee9-b062-412f-a138-c99344fbf1ae HTTP/1.1" 200 -
+[Memory] injected 87 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 15:05:04] "POST /api/chat HTTP/1.1" 200 -
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[WS] Client disconnected: kkiZIPY824zsI7RyAAAB
+127.0.0.1 - - [02/Apr/2026 15:11:30] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 15:11:30] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 15:11:30] "GET /api/watchdogs HTTP/1.1" 200 -
+[WS] Client connected: FjsuR54-WxHJxLOAAAAD
+127.0.0.1 - - [02/Apr/2026 15:11:30] "GET /api/providers HTTP/1.1" 200 -
+[WS] FjsuR54-WxHJxLOAAAAD joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 15:11:30] "GET /api/skills HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 15:11:30] "GET /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 15:11:37] "GET /api/history/aria-seo-prompt-agent-001 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 15:12:27] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 3a9cdc25-6b67-4436-a0f9-de6f099b9021: ARIA → Picasso: . Here’s the optimized version:
+
+“A young child meticulously
+127.0.0.1 - - [02/Apr/2026 15:12:27] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 3a9cdc25-6b67-4436-a0f9-de6f099b9021: . Here’s the optimized version:
+
+“A young child meticulously
+[Task] image_gen prompt: . Here’s the optimized version: “ young child meticulously places book on the floor amidst towering stack books in server room. Dark, gritty cyberpunk lighting casts dramatic shadows. Highly detailed, cinematic, photorealistic – 8k resolution.” **Reasoning:** * **Specificity:** Added “meticulously places” to guide the composition.
+* **Descriptive Adjectives:** “Towering,” “gritty,” “dramatic” enhance the visual impact.
+* **Technical Details:** “8k resolution” ensures high-quality .
+* **Artistic Direction:** “Cinematic, photorealistic” helps guide Picasso’s style choice. Let's get this rendered. @Picasso
+[ComfyUI] original: . Here’s the optimized version: “ young child meticulously p...
+[ComfyUI] optimized: . here’s the optimized version: “ young child meticulously p...
+127.0.0.1 - - [02/Apr/2026 15:12:29] "GET /api/tasks/3a9cdc25-6b67-4436-a0f9-de6f099b9021 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 15:12:31] "GET /api/tasks/3a9cdc25-6b67-4436-a0f9-de6f099b9021 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 15:12:33] "GET /api/tasks/3a9cdc25-6b67-4436-a0f9-de6f099b9021 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 15:12:36] "GET /api/tasks/3a9cdc25-6b67-4436-a0f9-de6f099b9021 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 15:12:40] "GET /api/tasks/3a9cdc25-6b67-4436-a0f9-de6f099b9021 HTTP/1.1" 200 -
+[Task] done 3a9cdc25-6b67-4436-a0f9-de6f099b9021 via image_gen
+[WS] emit_task_result: task=3a9cdc25-6b67-4436-a0f9-de6f099b9021, agent=bed74b21-9963-4d12-8651-a6dacafe09cc, has_image=True (1633KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 15:12:44] "GET /api/tasks/3a9cdc25-6b67-4436-a0f9-de6f099b9021 HTTP/1.1" 200 -
+[Heartbeat] 💓 Agent 'Jan' — Schaue in den Tagesschau und in Hacker News nach wichtigen N
+[Heartbeat] image prompt: Schaue in den Tagesschau und in Hacker News nach wichtigen Neuigkeiten. Informie
+[ComfyUI] original: Schaue in den Tagesschau und in Hacker News nach wichtigen N...
+[ComfyUI] optimized: schaue in den tagesschau und in hacker news nach wichtigen n...
+[Heartbeat] done 'Jan'
+ * Detected change in '/Users/jeuner/Desktop/agentclaw/app.py', reloading
+ * Restarting with stat
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 139-789-296
+[WS] Client connected: wDU3DSrvaQpnhKhgAAAB
+[WS] wDU3DSrvaQpnhKhgAAAB joined all agent rooms
+ * Detected change in '/Users/jeuner/Desktop/agentclaw/app.py', reloading
+ * Restarting with stat
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 139-789-296
+[WS] Client connected: KMJxJn7UWdh5vzsZAAAB
+[WS] KMJxJn7UWdh5vzsZAAAB joined all agent rooms
+[Memory] injected 1208 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 16:32:53] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 90569c1f-0da8-4793-bc51-f4f8a4519fc6: MARTIN → LISA: memory / Erinnerungen
+
+🔎 **@LISA**: Erinnerungen abrufen...
+
+127.0.0.1 - - [02/Apr/2026 16:32:53] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 90569c1f-0da8-4793-bc51-f4f8a4519fc6: memory / Erinnerungen
+
+🔎 **@LISA**: Erinnerungen abrufen...
+
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 16:32:55] "GET /api/tasks/90569c1f-0da8-4793-bc51-f4f8a4519fc6 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 16:32:57] "GET /api/tasks/90569c1f-0da8-4793-bc51-f4f8a4519fc6 HTTP/1.1" 200 -
+[Task] done 90569c1f-0da8-4793-bc51-f4f8a4519fc6 via llm
+[WS] emit_task_result: task=90569c1f-0da8-4793-bc51-f4f8a4519fc6, agent=d95d2862-fd99-4d35-a84f-b589bcc23248, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 16:32:59] "GET /api/tasks/90569c1f-0da8-4793-bc51-f4f8a4519fc6 HTTP/1.1" 200 -
+[Agent] PUT received for 4d6fc07f-6d2c-4442-bf64-a2b129041027: ['skills']
+[Agent] Saved 10 agents successfully
+[Agent] Successfully saved agent MARTIN
+127.0.0.1 - - [02/Apr/2026 16:33:19] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+[Memory] Uploading document for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[Memory] Received file: z-image-turbo_00170_.png (1280589 bytes)
+[Memory] Using google_key: False
+[Memory] Processing Image
+[Memory] Falling back to Ollama embeddings
+[Document Memory] stored z-image-turbo_00170_.png (path: /static/uploads/57207783_z-image-turbo_00170_.png) for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 16:33:39] "POST /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027/document HTTP/1.1" 200 -
+[Memory] injected 2409 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 16:34:10] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 6f1b2bb8-a635-4959-a5a3-af1fb110d5d0: MARTIN → Picasso: screenshot z-image-turbo_00170_.png
+
+Screenshot generiert.
+127.0.0.1 - - [02/Apr/2026 16:34:10] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 6f1b2bb8-a635-4959-a5a3-af1fb110d5d0: screenshot z-image-turbo_00170_.png
+
+Screenshot generiert.
+[Task] screenshot trigger detected: screenshot z-image-turbo_00170_.png
+
+Screenshot generiert.
+[Task] done 6f1b2bb8-a635-4959-a5a3-af1fb110d5d0 via None
+[WS] emit_task_result: task=6f1b2bb8-a635-4959-a5a3-af1fb110d5d0, agent=bed74b21-9963-4d12-8651-a6dacafe09cc, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 16:34:11] "GET /api/tasks/6f1b2bb8-a635-4959-a5a3-af1fb110d5d0 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 16:40:36] "GET /api/history/bed74b21-9963-4d12-8651-a6dacafe09cc HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 16:40:40] "GET / HTTP/1.1" 200 -
+[WS] Client disconnected: KMJxJn7UWdh5vzsZAAAB
+127.0.0.1 - - [02/Apr/2026 16:40:40] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 16:40:40] "GET /api/watchdogs HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 16:40:40] "GET /api/providers HTTP/1.1" 200 -
+[WS] Client connected: n5nj-7dDsKfrY6feAAAD
+[WS] n5nj-7dDsKfrY6feAAAD joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 16:40:40] "GET /api/skills HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 16:40:40] "GET /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 16:40:42] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 16:40:42] "GET /api/models HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 16:40:43] "GET /api/voices/mistral HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 16:40:43] "GET /api/voices/mistral HTTP/1.1" 200 -
+[Heartbeat] 💓 Agent 'Jan' — Schaue in den Tagesschau und in Hacker News nach wichtigen N
+[Heartbeat] image prompt: Schaue in den Tagesschau und in Hacker News nach wichtigen Neuigkeiten. Informie
+[ComfyUI] original: Schaue in den Tagesschau und in Hacker News nach wichtigen N...
+[ComfyUI] optimized: schaue in den tagesschau und in hacker news nach wichtigen n...
+[Agent] Saved 10 agents successfully
+[Agent] Settings saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 16:41:03] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/settings HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 16:41:03] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 10 agents successfully
+[Agent] Settings saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 16:41:04] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/settings HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 16:41:04] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 10 agents successfully
+[Agent] Voice saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027: mac:Google Deutsch
+127.0.0.1 - - [02/Apr/2026 16:41:04] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/voice HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 16:41:04] "GET /api/agents HTTP/1.1" 200 -
+[Agent] Saved 10 agents successfully
+[Agent] Skills saved for 4d6fc07f-6d2c-4442-bf64-a2b129041027: ['url_fetch', 'memory', 'document_memory']
+127.0.0.1 - - [02/Apr/2026 16:41:04] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/skills HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 16:41:04] "GET /api/agents HTTP/1.1" 200 -
+[Heartbeat] PUT received: agent=4d6fc07f-6d2c-4442-bf64-a2b129041027, prompt=...
+[Agent] Saved 10 agents successfully
+[Heartbeat] Saved: prompt=...
+127.0.0.1 - - [02/Apr/2026 16:41:04] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027/heartbeat HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 16:41:04] "GET /api/agents HTTP/1.1" 200 -
+[Heartbeat] done 'Jan'
+[Memory] injected 2396 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[OpenRouter] key=sk-or-v1-cf5… model=qwen/qwen3.6-plus-preview:free
+127.0.0.1 - - [02/Apr/2026 16:41:13] "[35m[1mPOST /api/chat HTTP/1.1[0m" 500 -
+[Heartbeat] 💓 Agent 'Jan' — Schaue in den Tagesschau und in Hacker News nach wichtigen N
+[Heartbeat] image prompt: Schaue in den Tagesschau und in Hacker News nach wichtigen Neuigkeiten. Informie
+[ComfyUI] original: Schaue in den Tagesschau und in Hacker News nach wichtigen N...
+[ComfyUI] optimized: schaue in den tagesschau und in hacker news nach wichtigen n...
+[Heartbeat] done 'Jan'
+127.0.0.1 - - [02/Apr/2026 17:52:51] "DELETE /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 17:52:51] "DELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+[OpenRouter] key=sk-or-v1-895… model=qwen/qwen3.6-plus:free
+127.0.0.1 - - [02/Apr/2026 17:53:16] "POST /api/chat HTTP/1.1" 200 -
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[Memory] injected 430 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[OpenRouter] key=sk-or-v1-895… model=qwen/qwen3.6-plus:free
+127.0.0.1 - - [02/Apr/2026 17:54:03] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 910929a5-0b03-4ebc-8f78-2fee408d5bf6: MARTIN → Picasso: mach bitte ein Screenshot von timocom.de und liefere das Erg
+127.0.0.1 - - [02/Apr/2026 17:54:03] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 910929a5-0b03-4ebc-8f78-2fee408d5bf6: mach bitte ein Screenshot von timocom.de und liefere das Erg
+[Task] screenshot trigger detected: mach bitte ein Screenshot von timocom.de und liefere das Erg
+[Task] screenshot URL: https://timocom.de
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 17:54:04] "GET /api/tasks/910929a5-0b03-4ebc-8f78-2fee408d5bf6 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 17:54:06] "GET /api/tasks/910929a5-0b03-4ebc-8f78-2fee408d5bf6 HTTP/1.1" 200 -
+[Screenshot] https://timocom.de — 142KB
+127.0.0.1 - - [02/Apr/2026 17:54:07] "POST /api/screenshot HTTP/1.1" 200 -
+[Task] done 910929a5-0b03-4ebc-8f78-2fee408d5bf6 via screenshot
+[WS] emit_task_result: task=910929a5-0b03-4ebc-8f78-2fee408d5bf6, agent=bed74b21-9963-4d12-8651-a6dacafe09cc, has_image=True (190KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 17:54:08] "GET /api/tasks/910929a5-0b03-4ebc-8f78-2fee408d5bf6 HTTP/1.1" 200 -
+[Memory] injected 671 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[OpenRouter] key=sk-or-v1-895… model=qwen/qwen3.6-plus:free
+127.0.0.1 - - [02/Apr/2026 17:54:54] "POST /api/chat HTTP/1.1" 200 -
+[Task] created de90d6fc-8cd9-449f-b0a2-9b0c665c6213: MARTIN → Fotograf: hat beide Skills und kann Prompt-Optimierung plus Generierun
+127.0.0.1 - - [02/Apr/2026 17:54:54] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing de90d6fc-8cd9-449f-b0a2-9b0c665c6213: hat beide Skills und kann Prompt-Optimierung plus Generierun
+[Task] image_gen prompt: hat beide Skills und kann Prompt-Optimierung plus ohne Rückfragen erledigen. @Fotograf optimiere den Prompt „Affe im Zoo“ für hochwertige KI-Bildgenerierung (Fokus auf Komposition, Licht, Detailtreue und Stilangabe). Nutze im Anschluss den optimierten Prompt, um das zu erzeugen, und liefere sowohl den optimierten Text als auch das fertige direkt zurück. Ich reiche dir beides sofort durch, sobald das Ergebnis vorliegt. Falls du noch Stilrichtung (z. B. dokumentarisch, künstlerisch, hyperrealistisch) oder bestimmtes Seitenverhältnis willst, sag es kurz – ich passe die Instruktion sofort .
+[ComfyUI] original: hat beide Skills und kann Prompt-Optimierung plus ohne Rückf...
+[ComfyUI] optimized: hat beide skills und kann prompt-optimierung plus ohne rueck...
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 17:54:55] "GET /api/tasks/de90d6fc-8cd9-449f-b0a2-9b0c665c6213 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 17:54:57] "GET /api/tasks/de90d6fc-8cd9-449f-b0a2-9b0c665c6213 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 17:54:59] "GET /api/tasks/de90d6fc-8cd9-449f-b0a2-9b0c665c6213 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 17:55:02] "GET /api/tasks/de90d6fc-8cd9-449f-b0a2-9b0c665c6213 HTTP/1.1" 200 -
+[Task] done de90d6fc-8cd9-449f-b0a2-9b0c665c6213 via image_gen
+[WS] emit_task_result: task=de90d6fc-8cd9-449f-b0a2-9b0c665c6213, agent=547225e8-ada2-42a0-bc3c-e3859bf9d8ce, has_image=True (1858KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 17:55:06] "GET /api/tasks/de90d6fc-8cd9-449f-b0a2-9b0c665c6213 HTTP/1.1" 200 -
+[Memory] injected 1474 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[OpenRouter] key=sk-or-v1-895… model=qwen/qwen3.6-plus:free
+127.0.0.1 - - [02/Apr/2026 17:55:57] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 9543255d-f780-49db-b2d0-d7f59d23be30: MARTIN → Fotograf: generiere bitte das Bild zum Thema „Affe im Zoo“ mit dem zuv
+127.0.0.1 - - [02/Apr/2026 17:55:57] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 9543255d-f780-49db-b2d0-d7f59d23be30: generiere bitte das Bild zum Thema „Affe im Zoo“ mit dem zuv
+[Task] screenshot trigger detected: generiere bitte das Bild zum Thema „Affe im Zoo“ mit dem zuv
+[Task] done 9543255d-f780-49db-b2d0-d7f59d23be30 via None
+[WS] emit_task_result: task=9543255d-f780-49db-b2d0-d7f59d23be30, agent=547225e8-ada2-42a0-bc3c-e3859bf9d8ce, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 17:55:58] "GET /api/tasks/9543255d-f780-49db-b2d0-d7f59d23be30 HTTP/1.1" 200 -
+[Memory] injected 1988 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[OpenRouter] key=sk-or-v1-895… model=qwen/qwen3.6-plus:free
+127.0.0.1 - - [02/Apr/2026 17:56:27] "POST /api/chat HTTP/1.1" 200 -
+[Task] created e63c711c-b996-4f17-a782-23ee2f9476ac: MARTIN → Jan: .
+
+@Jan hole bitte aktuelle Tech-News (Hacker News) und rele
+127.0.0.1 - - [02/Apr/2026 17:56:27] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing e63c711c-b996-4f17-a782-23ee2f9476ac: .
+
+@Jan hole bitte aktuelle Tech-News (Hacker News) und rele
+[Task] hackernews trigger detected: .
+
+@Jan hole bitte aktuelle Tech-News (Hacker News) und rele
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 17:56:28] "GET /api/tasks/e63c711c-b996-4f17-a782-23ee2f9476ac HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 17:56:30] "GET /api/tasks/e63c711c-b996-4f17-a782-23ee2f9476ac HTTP/1.1" 200 -
+[Task] done e63c711c-b996-4f17-a782-23ee2f9476ac via hackernews
+[WS] emit_task_result: task=e63c711c-b996-4f17-a782-23ee2f9476ac, agent=852869d3-0ad7-4d30-a4c0-d9a8da6378e6, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 17:56:33] "GET /api/tasks/e63c711c-b996-4f17-a782-23ee2f9476ac HTTP/1.1" 200 -
+[Memory] injected 1693 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[OpenRouter] key=sk-or-v1-895… model=qwen/qwen3.6-plus:free
+127.0.0.1 - - [02/Apr/2026 17:57:05] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 8eb31ad4-cdd0-49f1-a3f4-8f90dc72d46e: MARTIN → Jan: .
+
+@Jan hole bitte die 5 aktuellsten Meldungen der Tagesscha
+127.0.0.1 - - [02/Apr/2026 17:57:05] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 8eb31ad4-cdd0-49f1-a3f4-8f90dc72d46e: .
+
+@Jan hole bitte die 5 aktuellsten Meldungen der Tagesscha
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 17:57:06] "GET /api/tasks/8eb31ad4-cdd0-49f1-a3f4-8f90dc72d46e HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 17:57:08] "GET /api/tasks/8eb31ad4-cdd0-49f1-a3f4-8f90dc72d46e HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 17:57:10] "GET /api/tasks/8eb31ad4-cdd0-49f1-a3f4-8f90dc72d46e HTTP/1.1" 200 -
+[Task] done 8eb31ad4-cdd0-49f1-a3f4-8f90dc72d46e via llm
+[WS] emit_task_result: task=8eb31ad4-cdd0-49f1-a3f4-8f90dc72d46e, agent=852869d3-0ad7-4d30-a4c0-d9a8da6378e6, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 17:57:13] "GET /api/tasks/8eb31ad4-cdd0-49f1-a3f4-8f90dc72d46e HTTP/1.1" 200 -
+[Live-Reload] Change detected, emitting reload event
+127.0.0.1 - - [02/Apr/2026 18:19:10] "GET / HTTP/1.1" 200 -
+[Live-Reload] Change detected, emitting reload event
+[WS] Client disconnected: n5nj-7dDsKfrY6feAAAD
+127.0.0.1 - - [02/Apr/2026 18:19:10] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 18:19:10] "GET /api/agents HTTP/1.1" 200 -
+[WS] Client connected: x-nkkJ21HSeGZr2sAAAF
+127.0.0.1 - - [02/Apr/2026 18:19:10] "GET /api/watchdogs HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 18:19:10] "GET /api/skills HTTP/1.1" 200 -
+[WS] x-nkkJ21HSeGZr2sAAAF joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 18:19:10] "GET /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+[Live-Reload] Change detected, emitting reload event
+[Live-Reload] Change detected, emitting reload event
+127.0.0.1 - - [02/Apr/2026 18:20:33] "GET / HTTP/1.1" 200 -
+[WS] Client disconnected: x-nkkJ21HSeGZr2sAAAF
+[WS] Client connected: erZ_S-wkXIHVMYTcAAAH
+127.0.0.1 - - [02/Apr/2026 18:20:33] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 18:20:33] "GET /api/watchdogs HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 18:20:33] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 18:20:33] "GET /api/skills HTTP/1.1" 200 -
+[WS] erZ_S-wkXIHVMYTcAAAH joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 18:20:33] "GET /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 18:23:42] "DELETE /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 18:23:43] "DELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+[OpenRouter] key=sk-or-v1-895… model=qwen/qwen3.6-plus:free
+127.0.0.1 - - [02/Apr/2026 18:24:07] "POST /api/chat HTTP/1.1" 200 -
+[Task] created bf6c3ef2-f22d-493b-abf7-88c29fe2e738: MARTIN → Jan: weiter. Der zieht die aktuellen Tagesschau Nachrichten für d
+127.0.0.1 - - [02/Apr/2026 18:24:07] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing bf6c3ef2-f22d-493b-abf7-88c29fe2e738: weiter. Der zieht die aktuellen Tagesschau Nachrichten für d
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 18:24:08] "GET /api/tasks/bf6c3ef2-f22d-493b-abf7-88c29fe2e738 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 18:24:10] "GET /api/tasks/bf6c3ef2-f22d-493b-abf7-88c29fe2e738 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 18:24:13] "GET /api/tasks/bf6c3ef2-f22d-493b-abf7-88c29fe2e738 HTTP/1.1" 200 -
+[Task] done bf6c3ef2-f22d-493b-abf7-88c29fe2e738 via llm
+[WS] emit_task_result: task=bf6c3ef2-f22d-493b-abf7-88c29fe2e738, agent=852869d3-0ad7-4d30-a4c0-d9a8da6378e6, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 18:24:16] "GET /api/tasks/bf6c3ef2-f22d-493b-abf7-88c29fe2e738 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 18:24:20] "GET / HTTP/1.1" 200 -
+[WS] Client disconnected: erZ_S-wkXIHVMYTcAAAH
+127.0.0.1 - - [02/Apr/2026 18:24:20] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 18:24:20] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 18:24:20] "GET /api/watchdogs HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 18:24:20] "GET /api/skills HTTP/1.1" 200 -
+[WS] Client connected: 43T6cDYpk6GSf62bAAAJ
+[WS] 43T6cDYpk6GSf62bAAAJ joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 18:24:20] "GET /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+[Memory] injected 270 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[OpenRouter] key=sk-or-v1-895… model=qwen/qwen3.6-plus:free
+127.0.0.1 - - [02/Apr/2026 18:24:44] "POST /api/chat HTTP/1.1" 200 -
+[Task] created e6315500-0b42-4ef0-a03a-4b7953be08d6: MARTIN → Picasso: generieren.
+
+@Picasso generiere ein Bild von einem Kamel
+127.0.0.1 - - [02/Apr/2026 18:24:44] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing e6315500-0b42-4ef0-a03a-4b7953be08d6: generieren.
+
+@Picasso generiere ein Bild von einem Kamel
+[Task] image_gen prompt: . @Picasso Kamel
+[ComfyUI] original: . @Picasso Kamel...
+[ComfyUI] optimized: . @picasso kamel, no text, no letters, no words, no watermar...
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 18:24:46] "GET /api/tasks/e6315500-0b42-4ef0-a03a-4b7953be08d6 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 18:24:47] "GET /api/tasks/e6315500-0b42-4ef0-a03a-4b7953be08d6 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 18:24:50] "GET /api/tasks/e6315500-0b42-4ef0-a03a-4b7953be08d6 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 18:24:53] "GET /api/tasks/e6315500-0b42-4ef0-a03a-4b7953be08d6 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 18:24:56] "GET /api/tasks/e6315500-0b42-4ef0-a03a-4b7953be08d6 HTTP/1.1" 200 -
+[Task] done e6315500-0b42-4ef0-a03a-4b7953be08d6 via image_gen
+[WS] emit_task_result: task=e6315500-0b42-4ef0-a03a-4b7953be08d6, agent=bed74b21-9963-4d12-8651-a6dacafe09cc, has_image=True (1506KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 18:25:00] "GET /api/tasks/e6315500-0b42-4ef0-a03a-4b7953be08d6 HTTP/1.1" 200 -
+[Heartbeat] 💓 Agent 'Jan' — Schaue in den Tagesschau und in Hacker News nach wichtigen N
+[Heartbeat] image prompt: Schaue in den Tagesschau und in Hacker News nach wichtigen Neuigkeiten. Informie
+[ComfyUI] original: Schaue in den Tagesschau und in Hacker News nach wichtigen N...
+[ComfyUI] optimized: schaue in den tagesschau und in hacker news nach wichtigen n...
+[Heartbeat] done 'Jan'
+127.0.0.1 - - [02/Apr/2026 19:29:21] "GET / HTTP/1.1" 200 -
+[WS] Client disconnected: 43T6cDYpk6GSf62bAAAJ
+127.0.0.1 - - [02/Apr/2026 19:29:21] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 19:29:21] "GET /api/watchdogs HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 19:29:21] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 19:29:21] "GET /api/skills HTTP/1.1" 200 -
+[WS] Client connected: BmLSPLmL2XgOMD_ZAAAL
+127.0.0.1 - - [02/Apr/2026 19:29:21] "GET /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+[WS] BmLSPLmL2XgOMD_ZAAAL joined all agent rooms
+[Memory] injected 450 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[OpenRouter] key=sk-or-v1-895… model=qwen/qwen3.6-plus:free
+127.0.0.1 - - [02/Apr/2026 19:30:34] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 0d5d7bf0-f55a-4fb3-9149-4d7dec86a97f: MARTIN → Picasso: oder @Fotograf.
+
+**Meine eigenen Fähigkeiten:**
+- **Read URL
+127.0.0.1 - - [02/Apr/2026 19:30:34] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 0d5d7bf0-f55a-4fb3-9149-4d7dec86a97f: oder @Fotograf.
+
+**Meine eigenen Fähigkeiten:**
+- **Read URL
+[Task] screenshot trigger detected: oder @Fotograf.
+
+**Meine eigenen Fähigkeiten:**
+- **Read URL
+[Task] done 0d5d7bf0-f55a-4fb3-9149-4d7dec86a97f via None
+[WS] emit_task_result: task=0d5d7bf0-f55a-4fb3-9149-4d7dec86a97f, agent=bed74b21-9963-4d12-8651-a6dacafe09cc, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 19:30:36] "GET /api/tasks/0d5d7bf0-f55a-4fb3-9149-4d7dec86a97f HTTP/1.1" 200 -
+[Memory] injected 1402 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[OpenRouter] key=sk-or-v1-895… model=qwen/qwen3.6-plus:free
+127.0.0.1 - - [02/Apr/2026 19:31:44] "POST /api/chat HTTP/1.1" 200 -
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[Memory] injected 2173 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[OpenRouter] key=sk-or-v1-895… model=qwen/qwen3.6-plus:free
+127.0.0.1 - - [02/Apr/2026 19:32:39] "POST /api/chat HTTP/1.1" 200 -
+[Task] created d6711f4e-6aec-4ec4-888f-30e3e465b7f7: MARTIN → Picasso: generiere ein atmosphärisches Nachtbild einer europäischen G
+127.0.0.1 - - [02/Apr/2026 19:32:39] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing d6711f4e-6aec-4ec4-888f-30e3e465b7f7: generiere ein atmosphärisches Nachtbild einer europäischen G
+[Task] image_gen prompt: atmosphärisches Nachtbild europäischen Großstadt im Tech-Noir-Stil, feiner Asphalt-Regen, gedämpftes Neonlicht, subtile holographische Netzwerk-Linien in der Luft, digitale im Stil Syd Mead meets Simon Stålenhag, Stimmung: ruhig, fokussiert, 16:9 Sag kurz, falls du ganz anderes Genre, Format oder bestimmte Stimmung brauchst. Ich passe es sofort .
+[ComfyUI] original: atmosphärisches Nachtbild europäischen Großstadt im Tech-Noi...
+[ComfyUI] optimized: atmosphaerisches nachtbild europaeischen grossstadt im tech-...
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 19:32:41] "GET /api/tasks/d6711f4e-6aec-4ec4-888f-30e3e465b7f7 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 19:32:42] "GET /api/tasks/d6711f4e-6aec-4ec4-888f-30e3e465b7f7 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 19:32:45] "GET /api/tasks/d6711f4e-6aec-4ec4-888f-30e3e465b7f7 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 19:32:48] "GET /api/tasks/d6711f4e-6aec-4ec4-888f-30e3e465b7f7 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 19:32:51] "GET /api/tasks/d6711f4e-6aec-4ec4-888f-30e3e465b7f7 HTTP/1.1" 200 -
+[Task] done d6711f4e-6aec-4ec4-888f-30e3e465b7f7 via image_gen
+[WS] emit_task_result: task=d6711f4e-6aec-4ec4-888f-30e3e465b7f7, agent=bed74b21-9963-4d12-8651-a6dacafe09cc, has_image=True (2183KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 19:32:55] "GET /api/tasks/d6711f4e-6aec-4ec4-888f-30e3e465b7f7 HTTP/1.1" 200 -
+[Memory] injected 2115 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[OpenRouter] key=sk-or-v1-895… model=qwen/qwen3.6-plus:free
+127.0.0.1 - - [02/Apr/2026 19:33:43] "POST /api/chat HTTP/1.1" 200 -
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 19:33:48] "GET / HTTP/1.1" 200 -
+[WS] Client disconnected: BmLSPLmL2XgOMD_ZAAAL
+127.0.0.1 - - [02/Apr/2026 19:33:48] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 19:33:48] "GET /api/skills HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 19:33:48] "GET /api/watchdogs HTTP/1.1" 200 -
+[WS] Client connected: j54yAviLy4R213XPAAAN
+127.0.0.1 - - [02/Apr/2026 19:33:48] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 19:33:48] "GET /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+[WS] j54yAviLy4R213XPAAAN joined all agent rooms

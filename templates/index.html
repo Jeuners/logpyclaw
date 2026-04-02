@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <meta name="generator" content="HTML Tidy for HTML5 for Apple macOS version 5.8.0">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AgentClaw</title>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23050a06'/><circle cx='50' cy='50' r='14' fill='%2300e676'/><circle cx='50' cy='50' r='24' fill='none' stroke='%2300e676' stroke-width='3' opacity='0.5'/><circle cx='50' cy='50' r='36' fill='none' stroke='%2300e676' stroke-width='2' opacity='0.25'/></svg>">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'&gt;&lt;rect width='100' height='100' rx='22' fill='%23050a06'/&gt;&lt;circle cx='50' cy='50' r='14' fill='%2300e676'/&gt;&lt;circle cx='50' cy='50' r='24' fill='none' stroke='%2300e676' stroke-width='3' opacity='0.5'/&gt;&lt;circle cx='50' cy='50' r='36' fill='none' stroke='%2300e676' stroke-width='2' opacity='0.25'/&gt;&lt;/svg&gt;">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -442,20 +443,34 @@
     }
 
     .topbar-btn {
-      height: 28px;
-      padding: 0 10px;
-      border-radius: 5px;
+      height: 32px;
+      padding: 0 14px;
+      border-radius: 16px;
       border: 1px solid var(--b2);
-      background: transparent;
+      background: var(--bg3);
       color: var(--textdim);
       font-size: 11px;
+      font-weight: 500;
       cursor: pointer;
-      transition: background .12s, color .12s;
+      transition: all .2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    .topbar-btn:hover { background: var(--gg); color: var(--text); }
+    .topbar-btn:hover { 
+      background: var(--b1); 
+      color: var(--textbr);
+      border-color: var(--green);
+      transform: translateY(-1px);
+    }
 
-    .topbar-btn.active { background: var(--gg); color: var(--green); border-color: var(--green); }
+    .topbar-btn.active { 
+      background: var(--gg); 
+      color: var(--green); 
+      border-color: var(--green); 
+      box-shadow: 0 0 8px rgba(0, 230, 118, 0.2);
+    }
 
     .chat-messages {
       flex: 1;
@@ -1292,427 +1307,358 @@
   </style>
 </head>
 <body>
-
-<!-- ═══════════════════════════════════════════════════
+  <!-- ═══════════════════════════════════════════════════
      Activity Bar
 ══════════════════════════════════════════════════════ -->
-<div class="activity-bar" id="activityBar">
-  <div class="app-logo" title="AgentClaw v0.7">AGENT<br>CLAW<div style="font-size:8px;opacity:.5;margin-top:2px">v0.7</div></div>
-  <nav class="activity-nav">
-    <button class="nav-btn active" id="navHome"    title="Dashboard"  onclick="setView('home')"><span class="icon">🏠</span><span class="label">Home</span></button>
-    <button class="nav-btn"        id="navChat"    title="Chat"       onclick="setView('chat')"><span class="icon">💬</span><span class="label">Chat</span></button>
-    <button class="nav-btn"        id="navMulti"   title="Broadcast"  onclick="setView('multi')"><span class="icon">⚡</span><span class="label">Multi</span></button>
-    <button class="nav-btn"        id="navWatchdog" title="Watchdogs" onclick="openWatchdogModal()"><span class="icon">⏰</span><span class="label">Tasks</span></button>
-  </nav>
-  <div class="activity-foot">
-    <button class="nav-btn" title="Skills"    onclick="openSkillsModal()"><span class="icon">🧩</span><span class="label">Skills</span></button>
-    <button class="nav-btn" title="Memory"    onclick="openMemoryModal()"><span class="icon">🧠</span><span class="label">Memory</span></button>
-    <button class="nav-btn" title="Providers" onclick="openProviderModal()"><span class="icon">⚙️</span><span class="label">Setup</span></button>
-    <button class="nav-btn" title="Backup"    onclick="openBackupModal()"><span class="icon">💾</span><span class="label">Backup</span></button>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════
+  <div class="activity-bar" id="activityBar">
+    <div class="app-logo" title="AgentClaw v0.7">
+      AGENT<br>
+      CLAW
+      <div style="font-size:8px;opacity:.5;margin-top:2px">
+        v0.7
+      </div>
+    </div>
+    <nav class="activity-nav">
+      <button class="nav-btn active" id="navHome" title="Dashboard" onclick="setView('home')"><span class="icon">🏠</span><span class="label">Home</span></button> <button class="nav-btn" id="navChat" title="Chat" onclick="setView('chat')"><span class="icon">💬</span><span class="label">Chat</span></button> <button class="nav-btn" id="navMulti" title="Broadcast" onclick="setView('multi')"><span class="icon">⚡</span><span class="label">Multi</span></button> <button class="nav-btn" id="navWatchdog" title="Watchdogs" onclick="openWatchdogModal()"><span class="icon">⏰</span><span class="label">Tasks</span></button>
+    </nav>
+    <div class="activity-foot">
+      <button class="nav-btn" title="Skills" onclick="openSkillsModal()"><span class="icon">🧩</span><span class="label">Skills</span></button> <button class="nav-btn" title="Memory" onclick="openMemoryModal()"><span class="icon">🧠</span><span class="label">Memory</span></button> <button class="nav-btn" title="Providers" onclick="openProviderModal()"><span class="icon">⚙️</span><span class="label">Setup</span></button> <button class="nav-btn" title="Backup" onclick="openBackupModal()"><span class="icon">💾</span><span class="label">Backup</span></button>
+    </div>
+  </div><!-- ═══════════════════════════════════════════════════
      Side Panel
 ══════════════════════════════════════════════════════ -->
-<div class="side-panel" id="sidePanel">
-  <!-- rendered by JS -->
-</div>
-<!-- Global TTS Kill-Switch — always visible -->
-<div id="globalMuteBar" style="display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9999;background:var(--red);color:#fff;padding:8px 20px;border-radius:24px;font-size:13px;font-weight:600;font-family:var(--mono);cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.5);gap:8px;align-items:center" onclick="globalStopAudio()">
-  ⏹ Sprachausgabe stoppen
-</div>
-
-<!-- ═══════════════════════════════════════════════════
+  <div class="side-panel" id="sidePanel">
+    <!-- rendered by JS -->
+  </div><!-- Global TTS Kill-Switch — always visible -->
+  <div id="globalMuteBar" style="display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9999;background:var(--red);color:#fff;padding:8px 20px;border-radius:24px;font-size:13px;font-weight:600;font-family:var(--mono);cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.5);gap:8px;align-items:center" onclick="globalStopAudio()">
+    ⏹ Sprachausgabe stoppen
+  </div><!-- ═══════════════════════════════════════════════════
      Workspace
 ══════════════════════════════════════════════════════ -->
-<div class="workspace" id="workspace">
-  <!-- rendered by JS -->
-</div>
-
-
-<!-- Modal: Memory Dashboard -->
-<div class="modal-overlay" id="memoryModal">
-  <div class="modal" style="max-width:680px">
-    <div class="modal-title">
-      🧠 Memory Dashboard
-      <button class="close-btn" onclick="closeModal('memoryModal')">✕</button>
+  <div class="workspace" id="workspace">
+    <!-- rendered by JS -->
+  </div><!-- Modal: Memory Dashboard -->
+  <div class="modal-overlay" id="memoryModal">
+    <div class="modal" style="max-width:680px">
+      <div class="modal-title">
+        🧠 Memory Dashboard <button class="close-btn" onclick="closeModal('memoryModal')">✕</button>
+      </div>
+      <div class="modal-body" id="memoryModalBody">
+        <p style="color:var(--textdim);font-size:13px;font-family:var(--mono)">Lädt…</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal('memoryModal')">Close</button>
+      </div>
     </div>
-    <div class="modal-body" id="memoryModalBody">
-      <p style="color:var(--textdim);font-size:13px;font-family:var(--mono)">Lädt…</p>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeModal('memoryModal')">Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════
+  </div><!-- ═══════════════════════════════════════════════════
      Modal: New Agent
 ══════════════════════════════════════════════════════ -->
-<div class="modal-overlay" id="newAgentModal">
-  <div class="modal">
-    <div class="modal-title">
-      ➕ New Agent
-      <button class="close-btn" onclick="closeModal('newAgentModal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label">Avatar &amp; Farbe</label>
-        <div class="color-avatar-row">
-          <div class="avatar-upload-area">
-            <div class="avatar-preview" id="newAvatarPreview" onclick="document.getElementById('newAvatarInput').click()" style="background:#4f46e5">N</div>
-            <span class="avatar-preview-label" onclick="document.getElementById('newAvatarInput').click()">Upload</span>
-            <input type="file" id="newAvatarInput" accept="image/*" style="display:none" onchange="handleAvatarUpload(this,'new')">
+  <div class="modal-overlay" id="newAgentModal">
+    <div class="modal">
+      <div class="modal-title">
+        ➕ New Agent <button class="close-btn" onclick="closeModal('newAgentModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Avatar & Farbe</label>
+          <div class="color-avatar-row">
+            <div class="avatar-upload-area">
+              <div class="avatar-preview" id="newAvatarPreview" onclick="document.getElementById('newAvatarInput').click()" style="background:#4f46e5">
+                N
+              </div><span class="avatar-preview-label" onclick="document.getElementById('newAvatarInput').click()">Upload</span> <input type="file" id="newAvatarInput" accept="image/*" style="display:none" onchange="handleAvatarUpload(this,'new')">
+            </div>
+            <div class="color-picker-wrap">
+              <div class="color-swatches" id="newColorSwatches"></div><input type="color" class="color-custom" id="newAgentColorCustom" value="#4f46e5" oninput="applyAgentColor('new',this.value)">
+            </div>
           </div>
-          <div class="color-picker-wrap">
-            <div class="color-swatches" id="newColorSwatches"></div>
-            <input type="color" class="color-custom" id="newAgentColorCustom" value="#4f46e5" oninput="applyAgentColor('new',this.value)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Agent Name</label> <input class="form-input" id="newAgentName" placeholder="e.g. Research Bot" oninput="updateAvatarInitial('new',this.value)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Role / Focus</label> <input class="form-input" id="newAgentRole" placeholder="e.g. Research Assistant">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Provider</label> <select class="form-select" id="newAgentProvider">
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Model</label> <select class="form-select" id="newAgentModel">
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">System Prompt</label> 
+          <textarea class="form-textarea" id="newAgentSystem" placeholder="You are a helpful assistant…" style="min-height:100px"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">TTS Voice</label> <select class="form-select" id="newAgentVoice">
+            <option value="">
+              Off
+            </option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal('newAgentModal')">Cancel</button> <button class="btn-primary" onclick="createAgent()">Create</button>
+      </div>
+    </div>
+  </div><!-- Modal: Edit Agent -->
+  <div class="modal-overlay" id="editAgentModal">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-title">
+        ✏️ Edit Agent <button class="close-btn" onclick="closeModal('editAgentModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group" style="background:var(--b2);border-radius:12px;padding:16px;margin:-8px -8px 16px -8px">
+          <div style="display:flex;align-items:center;gap:16px">
+            <div class="avatar-preview" id="editAvatarPreviewLarge" onclick="document.getElementById('editAvatarInput').click()" style="width:120px;height:120px;font-size:56px;background:#4f46e5;border-radius:50%">
+              A
+            </div>
+            <div style="flex:1">
+              <input class="form-input" id="editAgentNameLarge" style="font-size:20px;font-weight:bold" oninput="updateAvatarInitial('edit',this.value)"> <input class="form-input" id="editAgentRoleLarge" placeholder="Role / Focus" style="font-size:14px;color:var(--textdim);margin-top:4px">
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Avatar & Farbe</label>
+          <div class="color-avatar-row">
+            <div class="avatar-upload-area">
+              <div class="avatar-preview" id="editAvatarPreview" onclick="document.getElementById('editAvatarInput').click()" style="background:#4f46e5">
+                A
+              </div><span class="avatar-preview-label" onclick="document.getElementById('editAvatarInput').click()">Upload</span> <input type="file" id="editAvatarInput" accept="image/*" style="display:none" onchange="handleAvatarUpload(this,'edit')">
+            </div>
+            <div class="color-picker-wrap">
+              <div class="color-swatches" id="editColorSwatches"></div><input type="color" class="color-custom" id="editAgentColorCustom" value="#4f46e5" oninput="applyAgentColor('edit',this.value)">
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Provider</label> <select class="form-select" id="editAgentProvider">
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Model</label> <select class="form-select" id="editAgentModel">
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">System Prompt</label> 
+          <textarea class="form-textarea" id="editAgentSystem" style="min-height:100px"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max Tokens <span style="font-size:10px;color:var(--textdim);font-family:var(--mono)">(empty = model default)</span></label> <input class="form-input" id="editAgentMaxTokens" type="number" min="128" max="32768" placeholder="e.g. 2048" style="width:140px">
+        </div>
+        <div class="form-group">
+          <label class="form-label">TTS Voice</label> <select class="form-select" id="editAgentVoice">
+            <option value="">
+              Off
+            </option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Skills</label>
+          <div id="editAgentSkills" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+        </div>
+        <div class="form-group" style="border-top:1px solid var(--b2);padding-top:12px">
+          <label class="form-label" style="display:flex;align-items:center;gap:8px">💓 Heartbeat</label>
+          <div class="toggle-switch" id="editHeartbeatToggle" onclick="toggleEditHeartbeat()"></div><label class="form-label" style="display:flex;align-items:center;gap:8px"><span id="editHeartbeatStatus" style="font-size:11px;color:var(--textdim);font-family:var(--mono)">inactive</span></label>
+          <div id="editHeartbeatFields" style="display:none;flex-direction:column;gap:8px;margin-top:8px">
+            <textarea class="form-textarea" id="editHeartbeatPrompt" placeholder="Task e.g. Summarize your current status. Use @AgentName to delegate tasks." style="min-height:80px;resize:vertical"></textarea>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:12px;color:var(--textdim);font-family:var(--mono);white-space:nowrap">Every</span> <input class="form-input" id="editHeartbeatInterval" type="number" min="1" max="1440" value="30" style="width:70px"> <span style="font-size:12px;color:var(--textdim);font-family:var(--mono)">minutes</span> <button class="btn-secondary" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="runHeartbeatNow()">▶ Run now</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-group" style="border-top:1px solid var(--b2);padding-top:12px">
+          <label class="form-label" style="display:flex;align-items:center;gap:8px">🌙 Dream</label>
+          <div class="toggle-switch" id="editDreamToggle" onclick="toggleEditDream()"></div><label class="form-label" style="display:flex;align-items:center;gap:8px"><span id="editDreamStatus" style="font-size:11px;color:var(--textdim);font-family:var(--mono)">inactive</span></label>
+          <div id="editDreamFields" style="display:none;flex-direction:column;gap:8px;margin-top:8px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:12px;color:var(--textdim);font-family:var(--mono);white-space:nowrap">Retention</span> <input class="form-input" id="editDreamRetention" type="number" min="1" max="365" value="30" style="width:70px"> <span style="font-size:12px;color:var(--textdim);font-family:var(--mono)">days</span> <button class="btn-secondary" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="runDreamNow()">▶ Run now</button>
+            </div><small style="color:var(--textdim);font-size:11px">Löscht Memories älter als X Tage aus dem Vector Store</small>
           </div>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Agent Name</label>
-        <input class="form-input" id="newAgentName" placeholder="e.g. Research Bot" oninput="updateAvatarInitial('new',this.value)">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Role / Focus</label>
-        <input class="form-input" id="newAgentRole" placeholder="e.g. Research Assistant">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Provider</label>
-        <select class="form-select" id="newAgentProvider"></select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Model</label>
-        <select class="form-select" id="newAgentModel"></select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">System Prompt</label>
-        <textarea class="form-textarea" id="newAgentSystem" placeholder="You are a helpful assistant…" style="min-height:100px"></textarea>
-      </div>
-      <div class="form-group">
-        <label class="form-label">TTS Voice</label>
-        <select class="form-select" id="newAgentVoice">
-          <option value="">Off</option>
-        </select>
+      <div class="modal-actions">
+        <button class="btn-danger" id="editAgentDeleteBtn">Delete</button> <button class="btn-secondary" onclick="closeModal('editAgentModal')">Cancel</button> <button class="btn-primary" onclick="saveEditAgent()">Save</button>
       </div>
     </div>
-    <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeModal('newAgentModal')">Cancel</button>
-      <button class="btn-primary" onclick="createAgent()">Create</button>
+  </div><!-- Modal: Provider Panel -->
+  <div class="modal-overlay" id="providerModal">
+    <div class="modal" style="max-width:700px">
+      <div class="modal-title">
+        ⚙️ Provider Settings <button class="close-btn" onclick="closeModal('providerModal')">✕</button>
+      </div>
+      <div class="modal-body" id="providerModalBody"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal('providerModal')">Close</button> <button class="btn-primary" onclick="saveProviders()">Save</button>
+      </div>
     </div>
-  </div>
-</div>
-
-<!-- Modal: Edit Agent -->
-<div class="modal-overlay" id="editAgentModal">
-  <div class="modal" style="max-width:520px">
-    <div class="modal-title">
-      ✏️ Edit Agent
-      <button class="close-btn" onclick="closeModal('editAgentModal')">✕</button>
+  </div><!-- Modal: Skills -->
+  <div class="modal-overlay" id="skillsModal">
+    <div class="modal">
+      <div class="modal-title">
+        🧩 Skills <button class="close-btn" onclick="closeModal('skillsModal')">✕</button>
+      </div>
+      <div class="modal-body" id="skillsModalBody">
+        <p style="color:var(--textdim);font-size:13px;font-family:var(--mono)">Loading skills…</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal('skillsModal')">Close</button>
+      </div>
     </div>
-    <div class="modal-body">
-      <div class="form-group" style="background:var(--b2);border-radius:12px;padding:16px;margin:-8px -8px 16px -8px">
-        <div style="display:flex;align-items:center;gap:16px">
-          <div class="avatar-preview" id="editAvatarPreviewLarge" onclick="document.getElementById('editAvatarInput').click()" style="width:120px;height:120px;font-size:56px;background:#4f46e5;border-radius:50%">A</div>
-          <div style="flex:1">
-            <input class="form-input" id="editAgentNameLarge" style="font-size:20px;font-weight:bold" oninput="updateAvatarInitial('edit',this.value)">
-            <input class="form-input" id="editAgentRoleLarge" placeholder="Role / Focus" style="font-size:14px;color:var(--textdim);margin-top:4px">
-          </div>
+  </div><!-- Modal: Watchdog -->
+  <div class="modal-overlay" id="watchdogModal">
+    <div class="modal" style="max-width:600px">
+      <div class="modal-title">
+        ⏰ Watchdog Scheduler <button class="close-btn" onclick="closeModal('watchdogModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="watchdogList" style="display:flex;flex-direction:column;gap:8px"></div>
+        <div class="glow-sep"></div>
+        <div style="font-size:11px;color:var(--textdim);font-family:var(--mono);padding:4px 0 2px">
+          New Watchdog
+        </div>
+        <div class="form-group">
+          <label class="form-label">Agent</label> <select class="form-select" id="wdAgentSelect">
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">URL to monitor</label> <input class="form-input" id="wdUrl" placeholder="https://example.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Interval (minutes)</label> <input class="form-input" id="wdInterval" type="number" value="30" min="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prompt</label> 
+          <textarea class="form-textarea" id="wdPrompt" placeholder="Has anything relevant changed? Answer YES or NO with a brief summary."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Alert keyword (trigger alert when response contains)</label> <input class="form-input" id="wdKeyword" placeholder="YES" value="YES">
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Avatar &amp; Farbe</label>
-        <div class="color-avatar-row">
-          <div class="avatar-upload-area">
-            <div class="avatar-preview" id="editAvatarPreview" onclick="document.getElementById('editAvatarInput').click()" style="background:#4f46e5">A</div>
-            <span class="avatar-preview-label" onclick="document.getElementById('editAvatarInput').click()">Upload</span>
-            <input type="file" id="editAvatarInput" accept="image/*" style="display:none" onchange="handleAvatarUpload(this,'edit')">
-          </div>
-          <div class="color-picker-wrap">
-            <div class="color-swatches" id="editColorSwatches"></div>
-            <input type="color" class="color-custom" id="editAgentColorCustom" value="#4f46e5" oninput="applyAgentColor('edit',this.value)">
-          </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal('watchdogModal')">Close</button> <button class="btn-primary" onclick="createWatchdog()">Add Watchdog</button>
+      </div>
+    </div>
+  </div><!-- Modal: Export -->
+  <div class="modal-overlay" id="exportModal">
+    <div class="modal" style="max-width:500px">
+      <div class="modal-title">
+        📤 Export Conversation <button class="close-btn" onclick="closeModal('exportModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn-secondary" onclick="exportAs('json')" style="justify-content:flex-start;text-align:left">📋 JSON — full message history</button> <button class="btn-secondary" onclick="exportAs('md')" style="justify-content:flex-start;text-align:left">📝 Markdown — readable transcript</button> <button class="btn-secondary" onclick="exportAs('txt')" style="justify-content:flex-start;text-align:left">📄 Plain text</button>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Provider</label>
-        <select class="form-select" id="editAgentProvider"></select>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal('exportModal')">Cancel</button>
       </div>
-      <div class="form-group">
-        <label class="form-label">Model</label>
-        <select class="form-select" id="editAgentModel"></select>
+    </div>
+  </div><!-- Modal: Auto Dialog -->
+  <div class="modal-overlay" id="autoDialogModal">
+    <div class="modal" style="max-width:540px">
+      <div class="modal-title">
+        🤖 Auto-Dialog Setup <button class="close-btn" onclick="closeModal('autoDialogModal')">✕</button>
       </div>
-      <div class="form-group">
-        <label class="form-label">System Prompt</label>
-        <textarea class="form-textarea" id="editAgentSystem" style="min-height:100px"></textarea>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Max Tokens <span style="font-size:10px;color:var(--textdim);font-family:var(--mono)">(empty = model default)</span></label>
-        <input class="form-input" id="editAgentMaxTokens" type="number" min="128" max="32768" placeholder="e.g. 2048" style="width:140px">
-      </div>
-      <div class="form-group">
-        <label class="form-label">TTS Voice</label>
-        <select class="form-select" id="editAgentVoice">
-          <option value="">Off</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Skills</label>
-        <div id="editAgentSkills" style="display:flex;flex-wrap:wrap;gap:6px"></div>
-      </div>
-      <div class="form-group" style="border-top:1px solid var(--b2);padding-top:12px">
-        <label class="form-label" style="display:flex;align-items:center;gap:8px">
-          💓 Heartbeat
-          <div class="toggle-switch" id="editHeartbeatToggle" onclick="toggleEditHeartbeat()"></div>
-          <span id="editHeartbeatStatus" style="font-size:11px;color:var(--textdim);font-family:var(--mono)">inactive</span>
-        </label>
-        <div id="editHeartbeatFields" style="display:none;flex-direction:column;gap:8px;margin-top:8px">
-          <textarea class="form-textarea" id="editHeartbeatPrompt" placeholder="Task e.g. Summarize your current status. Use @AgentName to delegate tasks." style="min-height:80px;resize:vertical"></textarea>
-          <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:12px;color:var(--textdim);font-family:var(--mono);white-space:nowrap">Every</span>
-            <input class="form-input" id="editHeartbeatInterval" type="number" min="1" max="1440" value="30" style="width:70px">
-            <span style="font-size:12px;color:var(--textdim);font-family:var(--mono)">minutes</span>
-            <button class="btn-secondary" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="runHeartbeatNow()">▶ Run now</button>
-          </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Agent A</label> <select class="form-select" id="autoAgentA">
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Agent B</label> <select class="form-select" id="autoAgentB">
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Opening Message</label> 
+          <textarea class="form-textarea" id="autoDialogPrompt" placeholder="Start the conversation with…"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Turns (each direction)</label> <input class="form-input" id="autoDialogTurns" type="number" value="5" min="1" max="50">
         </div>
       </div>
-      <div class="form-group" style="border-top:1px solid var(--b2);padding-top:12px">
-        <label class="form-label" style="display:flex;align-items:center;gap:8px">
-          🌙 Dream
-          <div class="toggle-switch" id="editDreamToggle" onclick="toggleEditDream()"></div>
-          <span id="editDreamStatus" style="font-size:11px;color:var(--textdim);font-family:var(--mono)">inactive</span>
-        </label>
-        <div id="editDreamFields" style="display:none;flex-direction:column;gap:8px;margin-top:8px">
-          <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:12px;color:var(--textdim);font-family:var(--mono);white-space:nowrap">Retention</span>
-            <input class="form-input" id="editDreamRetention" type="number" min="1" max="365" value="30" style="width:70px">
-            <span style="font-size:12px;color:var(--textdim);font-family:var(--mono)">days</span>
-            <button class="btn-secondary" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="runDreamNow()">▶ Run now</button>
-          </div>
-          <small style="color:var(--textdim);font-size:11px">Löscht Memories älter als X Tage aus dem Vector Store</small>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal('autoDialogModal')">Cancel</button> <button class="btn-primary" onclick="startAutoDialog()">Start</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="imageEditModal">
+    <div class="modal" style="max-width:500px">
+      <div class="modal-title">
+        ✏️ Bild bearbeiten <button class="close-btn" onclick="closeModal('imageEditModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Bild auswählen</label> <input type="file" id="editImageInput" accept="image/*" style="display:block;margin-top:4px" onchange="handleEditImageUpload(event)">
+        </div>
+        <div id="editImagePreview" style="display:none;margin:12px 0;text-align:center"><img id="editPreviewImg" style="max-width:200px;max-height:150px;border-radius:8px"></div>
+        <div class="form-group">
+          <label class="form-label">Bearbeitungs-Prompt</label> 
+          <textarea class="form-textarea" id="editPromptInput" placeholder="z.B. Make it brighter, add sunset background, change to oil painting style..."></textarea>
         </div>
       </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-danger" id="editAgentDeleteBtn">Delete</button>
-      <button class="btn-secondary" onclick="closeModal('editAgentModal')">Cancel</button>
-      <button class="btn-primary" onclick="saveEditAgent()">Save</button>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal('imageEditModal')">Cancel</button> <button class="btn-primary" id="editSubmitBtn" onclick="runImageEdit()">Bearbeiten</button>
+      </div>
     </div>
   </div>
-</div>
+  <script>
+  // ═══════════════════════════════════════════════════
+  // State
+  // ═══════════════════════════════════════════════════
+  let agents = [];
+  let providers = [];
+  let skills = [];
+  let watchdogs = [];
+  let currentAgent = null;
+  let conversations = {}; // agentId -> [{role,content,ts}]
+  let currentView = 'home'; // 'home' | 'chat' | 'multi'
+  let selectedAgents = new Set();
+  let isSending = false;
+  let editingAgentId = null;
+  let ttsQueue = [];
+  let ttsSpeaking = false;
+  let speechRecognition = null;
+  let voiceActive = false;
+  let voicePauseTimer = null;
+  let voiceBuffer = '';
+  let autoDialogActive = false;
+  let autoDialogAbort = false;
+  let _clickSound = null;
 
-<!-- Modal: Provider Panel -->
-<div class="modal-overlay" id="providerModal">
-  <div class="modal" style="max-width:700px">
-    <div class="modal-title">
-      ⚙️ Provider Settings
-      <button class="close-btn" onclick="closeModal('providerModal')">✕</button>
-    </div>
-    <div class="modal-body" id="providerModalBody"></div>
-    <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeModal('providerModal')">Close</button>
-      <button class="btn-primary" onclick="saveProviders()">Save</button>
-    </div>
-  </div>
-</div>
+  // ═══════════════════════════════════════════════════
+  // WebSocket (Socket.IO)
+  // ═══════════════════════════════════════════════════
+  let socket = null;
+  let wsConnected = false;
+  const _wsHandledTasks = new Set(); // Track tasks already handled by WebSocket
 
-<!-- Modal: Skills -->
-<div class="modal-overlay" id="skillsModal">
-  <div class="modal">
-    <div class="modal-title">
-      🧩 Skills
-      <button class="close-btn" onclick="closeModal('skillsModal')">✕</button>
-    </div>
-    <div class="modal-body" id="skillsModalBody">
-      <p style="color:var(--textdim);font-size:13px;font-family:var(--mono)">Loading skills…</p>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeModal('skillsModal')">Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Watchdog -->
-<div class="modal-overlay" id="watchdogModal">
-  <div class="modal" style="max-width:600px">
-    <div class="modal-title">
-      ⏰ Watchdog Scheduler
-      <button class="close-btn" onclick="closeModal('watchdogModal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div id="watchdogList" style="display:flex;flex-direction:column;gap:8px"></div>
-      <div class="glow-sep"></div>
-      <div style="font-size:11px;color:var(--textdim);font-family:var(--mono);padding:4px 0 2px">New Watchdog</div>
-      <div class="form-group">
-        <label class="form-label">Agent</label>
-        <select class="form-select" id="wdAgentSelect"></select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">URL to monitor</label>
-        <input class="form-input" id="wdUrl" placeholder="https://example.com">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Interval (minutes)</label>
-        <input class="form-input" id="wdInterval" type="number" value="30" min="1">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Prompt</label>
-        <textarea class="form-textarea" id="wdPrompt" placeholder="Has anything relevant changed? Answer YES or NO with a brief summary."></textarea>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Alert keyword (trigger alert when response contains)</label>
-        <input class="form-input" id="wdKeyword" placeholder="YES" value="YES">
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeModal('watchdogModal')">Close</button>
-      <button class="btn-primary" onclick="createWatchdog()">Add Watchdog</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Export -->
-<div class="modal-overlay" id="exportModal">
-  <div class="modal" style="max-width:500px">
-    <div class="modal-title">
-      📤 Export Conversation
-      <button class="close-btn" onclick="closeModal('exportModal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <button class="btn-secondary" onclick="exportAs('json')" style="justify-content:flex-start;text-align:left">
-          📋 JSON — full message history
-        </button>
-        <button class="btn-secondary" onclick="exportAs('md')" style="justify-content:flex-start;text-align:left">
-          📝 Markdown — readable transcript
-        </button>
-        <button class="btn-secondary" onclick="exportAs('txt')" style="justify-content:flex-start;text-align:left">
-          📄 Plain text
-        </button>
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeModal('exportModal')">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Auto Dialog -->
-<div class="modal-overlay" id="autoDialogModal">
-  <div class="modal" style="max-width:540px">
-    <div class="modal-title">
-      🤖 Auto-Dialog Setup
-      <button class="close-btn" onclick="closeModal('autoDialogModal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label">Agent A</label>
-        <select class="form-select" id="autoAgentA"></select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Agent B</label>
-        <select class="form-select" id="autoAgentB"></select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Opening Message</label>
-        <textarea class="form-textarea" id="autoDialogPrompt" placeholder="Start the conversation with…"></textarea>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Turns (each direction)</label>
-        <input class="form-input" id="autoDialogTurns" type="number" value="5" min="1" max="50">
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeModal('autoDialogModal')">Cancel</button>
-      <button class="btn-primary" onclick="startAutoDialog()">Start</button>
-    </div>
-    </div>
-</div>
-
-<div class="modal-overlay" id="imageEditModal">
-  <div class="modal" style="max-width:500px">
-    <div class="modal-title">
-      ✏️ Bild bearbeiten
-      <button class="close-btn" onclick="closeModal('imageEditModal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label">Bild auswählen</label>
-        <input type="file" id="editImageInput" accept="image/*" style="display:block;margin-top:4px" onchange="handleEditImageUpload(event)">
-      </div>
-      <div id="editImagePreview" style="display:none;margin:12px 0;text-align:center">
-        <img id="editPreviewImg" style="max-width:200px;max-height:150px;border-radius:8px">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Bearbeitungs-Prompt</label>
-        <textarea class="form-textarea" id="editPromptInput" placeholder="z.B. Make it brighter, add sunset background, change to oil painting style..."></textarea>
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeModal('imageEditModal')">Cancel</button>
-      <button class="btn-primary" id="editSubmitBtn" onclick="runImageEdit()">Bearbeiten</button>
-    </div>
-  </div>
-</div>
-
-<script>
-// ═══════════════════════════════════════════════════
-// State
-// ═══════════════════════════════════════════════════
-let agents = [];
-let providers = [];
-let skills = [];
-let watchdogs = [];
-let currentAgent = null;
-let conversations = {}; // agentId -> [{role,content,ts}]
-let currentView = 'home'; // 'home' | 'chat' | 'multi'
-let selectedAgents = new Set();
-let isSending = false;
-let editingAgentId = null;
-let ttsQueue = [];
-let ttsSpeaking = false;
-let speechRecognition = null;
-let voiceActive = false;
-let voicePauseTimer = null;
-let voiceBuffer = '';
-let autoDialogActive = false;
-let autoDialogAbort = false;
-let _clickSound = null;
-
-// ═══════════════════════════════════════════════════
-// WebSocket (Socket.IO)
-// ═══════════════════════════════════════════════════
-let socket = null;
-let wsConnected = false;
-const _wsHandledTasks = new Set(); // Track tasks already handled by WebSocket
-
-function initWebSocket() {
+  function initWebSocket() {
   const wsHost = window.location.host;
   socket = io('/ws', { 
     transports: ['websocket', 'polling'],
     pingTimeout: 30000,
     pingInterval: 10000,
   });
-  
+
   socket.on('connect', () => {
     wsConnected = true;
     console.log('[WS] Connected:', socket.id);
     socket.emit('join_all', {});
   });
-  
+
   socket.on('disconnect', () => {
     wsConnected = false;
     console.log('[WS] Disconnected');
   });
-  
+
   socket.on('connected', (data) => console.log('[WS] Server confirmed:', data));
-  
+
   socket.on('joined_all', (data) => {
     console.log('[WS] Joined all rooms:', data.agents);
   });
-  
+
   socket.on('agent_activity', (data) => {
     console.log('[WS] Agent activity:', data);
     if (data.status === 'ended') {
@@ -1730,38 +1676,43 @@ function initWebSocket() {
     }
     renderSidePanel();
   });
-  
+
   socket.on('task_result', (data) => {
     console.log('[WS] Task result:', data);
     handleWsTaskResult(data);
   });
-  
+
   socket.on('chat_message', (data) => {
     console.log('[WS] Chat message:', data);
     handleWsChatMessage(data);
   });
-  
+
   socket.on('heartbeat_result', (data) => {
     console.log('[WS] Heartbeat result:', data);
     handleWsHeartbeatResult(data);
   });
-  
+
   socket.on('error', (data) => {
     console.error('[WS] Error:', data);
     showToast('WebSocket Error: ' + (data.error || 'Unknown'), 'error', 5000);
   });
-}
 
-// WebSocket event handlers (to be implemented based on needs)
-function handleWsTaskResult(data) {
+  socket.on('reload', () => {
+    console.log('[WS] Reload signal received from server');
+    window.location.reload();
+  });
+  }
+
+  // WebSocket event handlers (to be implemented based on needs)
+  function handleWsTaskResult(data) {
   console.log('[WS] handleWsTaskResult received:', JSON.stringify(data));
   const { task_id, agent_id, result_text, result_image, status, error } = data;
-  
+
   console.log('[WS] currentAgent:', currentAgent?.id, '| agent_id from msg:', agent_id, '| currentView:', currentView);
-  
+
   // Mark task as handled by WebSocket so polling doesn't duplicate
   if (task_id) _wsHandledTasks.add(task_id);
-  
+
   if (status === 'completed') {
     console.log('[WS] status=completed, result_image:', !!result_image, 'result_text:', result_text ? result_text.substring(0, 50) : null);
     
@@ -1794,25 +1745,25 @@ function handleWsTaskResult(data) {
     document.querySelectorAll('[id^="task-placeholder-"], [id^="img-placeholder-"]').forEach(el => el.remove());
     appendSystemMsg('❌ Task failed: ' + (error || 'Unknown error'));
   }
-}
+  }
 
-function handleWsChatMessage(data) {
+  function handleWsChatMessage(data) {
   const { agent_id, role, content, ts } = data;
   if (!conversations[agent_id]) conversations[agent_id] = [];
   conversations[agent_id].push({ role, content, ts });
   if (currentAgent && currentAgent.id === agent_id && currentView === 'chat') {
     renderMessages();
   }
-}
+  }
 
-function handleWsHeartbeatResult(data) {
+  function handleWsHeartbeatResult(data) {
   const { agent_id, result, ts } = data;
   if (currentAgent && currentAgent.id === agent_id) {
     appendSystemMsg('💓 Heartbeat: ' + result);
   }
-}
+  }
 
-function playClickSound() {
+  function playClickSound() {
   if (!_clickSound) {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = ctx.createOscillator();
@@ -1826,19 +1777,19 @@ function playClickSound() {
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.05);
   }
-}
+  }
 
-document.addEventListener('click', e => {
+  document.addEventListener('click', e => {
   const t = e.target;
   if (t.tagName === 'BUTTON' || t.closest('button') || t.closest('.home-agent-row') || t.closest('.multi-card')) {
     playClickSound();
   }
-}, true);
+  }, true);
 
-// ═══════════════════════════════════════════════════
-// Init
-// ═══════════════════════════════════════════════════
-async function init() {
+  // ═══════════════════════════════════════════════════
+  // Init
+  // ═══════════════════════════════════════════════════
+  async function init() {
   // Load saved voice language or detect from browser
   const savedLang = localStorage.getItem('voiceLang');
   if (savedLang) {
@@ -1865,12 +1816,12 @@ async function init() {
   setInterval(pollWatchdogs, 60000);
   // WebSocket handles activity updates - no polling needed
   setView(lastAgentId ? 'chat' : 'home');
-}
+  }
 
-// ═══════════════════════════════════════════════════
-// API helpers
-// ═══════════════════════════════════════════════════
-async function api(path, opts = {}) {
+  // ═══════════════════════════════════════════════════
+  // API helpers
+  // ═══════════════════════════════════════════════════
+  async function api(path, opts = {}) {
   const r = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
     ...opts,
@@ -1882,32 +1833,32 @@ async function api(path, opts = {}) {
     catch { throw new Error(txt.substring(0, 200)); }
   }
   return JSON.parse(txt);
-}
+  }
 
-async function loadAgents() {
+  async function loadAgents() {
   try { agents = await api('/api/agents'); } catch(e) { agents = []; }
-}
+  }
 
-async function loadProviders() {
+  async function loadProviders() {
   try {
     const raw = await api('/api/providers');
     // Backend returns a dict {ollama: {...}, mistral: {...}} — convert to array
     providers = Object.entries(raw).map(([id, v]) => ({ id, name: id, ...v }));
   } catch(e) { providers = []; }
-}
+  }
 
-async function loadSkills() {
+  async function loadSkills() {
   try { skills = await api('/api/skills'); } catch(e) { skills = []; }
-}
+  }
 
-async function loadWatchdogs() {
+  async function loadWatchdogs() {
   try { watchdogs = await api('/api/watchdogs'); } catch(e) { watchdogs = []; }
-}
+  }
 
-// ═══════════════════════════════════════════════════
-// View Router
-// ═══════════════════════════════════════════════════
-function setView(v) {
+  // ═══════════════════════════════════════════════════
+  // View Router
+  // ═══════════════════════════════════════════════════
+  function setView(v) {
   currentView = v;
   document.querySelectorAll('.nav-btn[id^="nav"]').forEach(b => b.classList.remove('active'));
   const map = { home: 'navHome', chat: 'navChat', multi: 'navMulti' };
@@ -1923,14 +1874,14 @@ function setView(v) {
   } else if (v === 'multi') {
     renderMultiShell(ws);
   }
-}
+  }
 
-// ═══════════════════════════════════════════════════
-// Side Panel
-// ═══════════════════════════════════════════════════
-let agentActivity = {};
+  // ═══════════════════════════════════════════════════
+  // Side Panel
+  // ═══════════════════════════════════════════════════
+  let agentActivity = {};
 
-async function pollActivity() {
+  async function pollActivity() {
   try {
     const data = await api('/api/activity');
     const hasActivity = Object.keys(data).length > 0;
@@ -1959,10 +1910,10 @@ async function pollActivity() {
   } catch(e) {
     setTimeout(pollActivity, 15000);
   }
-}
+  }
 
-// Fetch latest history for an agent and append any new messages to the chat
-async function syncAgentHistory(agentId) {
+  // Fetch latest history for an agent and append any new messages to the chat
+  async function syncAgentHistory(agentId) {
   try {
     const hist = await api(`/api/history/${agentId}`);
     const existing = conversations[agentId] || [];
@@ -1980,32 +1931,32 @@ async function syncAgentHistory(agentId) {
     conversations[agentId] = existing;
     if (el) scrollToBottom(el);
   } catch(e) {}
-}
+  }
 
-function getFavs() {
+  function getFavs() {
   try { return new Set(JSON.parse(localStorage.getItem('agentFavs') || '[]')); }
   catch(e) { return new Set(); }
-}
+  }
 
-function toggleFav(e, agentId) {
+  function toggleFav(e, agentId) {
   e.stopPropagation();
   const favs = getFavs();
   if (favs.has(agentId)) favs.delete(agentId);
   else favs.add(agentId);
   localStorage.setItem('agentFavs', JSON.stringify([...favs]));
   renderSidePanel();
-}
+  }
 
-function renderSidePanel() {
+  function renderSidePanel() {
   const sp = document.getElementById('sidePanel');
   if (currentView === 'multi') {
     sp.innerHTML = renderMultiSidePanel();
   } else {
     sp.innerHTML = renderChatSidePanel();
   }
-}
+  }
 
-function renderChatSidePanel() {
+  function renderChatSidePanel() {
   const favs = getFavs();
   const sorted = [...agents].sort((a, b) => {
     const fa = favs.has(a.id) ? 0 : 1;
@@ -2048,9 +1999,9 @@ function renderChatSidePanel() {
       <button class="panel-foot-btn" onclick="openAutoDialogModal()">🤖 Auto-Dialog</button>
       <button class="panel-foot-btn" onclick="openExportModal()">📤 Export</button>
     </div>`;
-}
+  }
 
-function renderMultiSidePanel() {
+  function renderMultiSidePanel() {
   const agentRows = agents.map(a => {
     const checked = selectedAgents.has(a.id) ? 'checked' : '';
     return `<label class="agent-item" style="cursor:pointer">
@@ -2069,9 +2020,9 @@ function renderMultiSidePanel() {
       <button class="panel-foot-btn" onclick="selectedAgents=new Set(agents.map(a=>a.id));renderSidePanel();renderMultiCards()">✅ Select All</button>
       <button class="panel-foot-btn" onclick="selectedAgents.clear();renderSidePanel();renderMultiCards()">☐ Deselect All</button>
     </div>`;
-}
+  }
 
-function toggleSelectAgent(id, checked) {
+  function toggleSelectAgent(id, checked) {
   if (checked) selectedAgents.add(id);
   else selectedAgents.delete(id);
   // update count label
@@ -2079,12 +2030,12 @@ function toggleSelectAgent(id, checked) {
   const lbl = sp.querySelector('[style*="selected"]');
   if (lbl) lbl.textContent = selectedAgents.size + ' selected';
   renderMultiCards();
-}
+  }
 
-// ═══════════════════════════════════════════════════
-// Home / Dashboard
-// ═══════════════════════════════════════════════════
-function renderHome(ws) {
+  // ═══════════════════════════════════════════════════
+  // Home / Dashboard
+  // ═══════════════════════════════════════════════════
+  function renderHome(ws) {
   const totalMsgs = Object.values(conversations).reduce((s, c) => s + c.length, 0);
   const activeWds = watchdogs.filter(w => w.active).length;
 
@@ -2148,12 +2099,12 @@ function renderHome(ws) {
         </div>`).join('')}
       </div>` : ''}
     </div>`;
-}
+  }
 
-// ═══════════════════════════════════════════════════
-// Select Agent & Chat
-// ═══════════════════════════════════════════════════
-async function selectAgent(id) {
+  // ═══════════════════════════════════════════════════
+  // Select Agent & Chat
+  // ═══════════════════════════════════════════════════
+  async function selectAgent(id) {
   currentAgent = agents.find(a => a.id === id) || null;
   if (currentAgent) {
     localStorage.setItem('lastAgentId', id);
@@ -2169,9 +2120,9 @@ async function selectAgent(id) {
     renderSidePanel();
     renderChatShell(document.getElementById('workspace'));
   }
-}
+  }
 
-function renderChatShell(ws) {
+  function renderChatShell(ws) {
   if (!currentAgent) { renderNoAgent(ws); return; }
   const msgs = conversations[currentAgent.id] || [];
 
@@ -2244,28 +2195,29 @@ function renderChatShell(ws) {
 
   renderMessages();
   renderSkillBtns();
-}
+  }
 
-function renderNoAgent(ws) {
+  function renderNoAgent(ws) {
   ws.innerHTML = `
     <div class="no-agent">
       <div class="big-icon">🤠🤖</div>
       <p>Select or create an agent to start chatting</p>
       <button class="btn-primary" onclick="openNewAgentModal()" style="margin-top:8px">➕ New Agent</button>
     </div>`;
-}
+  }
 
-function renderMessages() {
+  function renderMessages() {
   const el = document.getElementById('chatMessages');
   if (!el || !currentAgent) return;
   const msgs = conversations[currentAgent.id] || [];
   el.innerHTML = msgs.map((m, i) => renderMsg(m, i)).join('');
   scrollToBottom(el);
-}
+  }
 
-function renderMsg(m, index) {
+  function renderMsg(m, index) {
   let content = m.content;
-  if (m.role === 'assistant') {
+  // Render as markdown if role is assistant OR if it looks like a task result (starts with [)
+  if (m.role === 'assistant' || (typeof content === 'string' && content.startsWith('['))) {
     try { content = DOMPurify.sanitize(marked.parse(content)); } catch(e) {}
   } else {
     content = `<p>${esc(content).replace(/\n/g,'<br>')}</p>`;
@@ -2294,9 +2246,9 @@ function renderMsg(m, index) {
     <div class="msg-bubble">${content}</div>
     ${m.role === 'user' ? ts : ''}
   </div>`;
-}
+  }
 
-function appendMsg(role, content, stats, image = null) {
+  function appendMsg(role, content, stats, image = null) {
   if (!currentAgent) return -1;
   if (!conversations[currentAgent.id]) conversations[currentAgent.id] = [];
   const msg = { role, content, ts: Date.now() };
@@ -2312,9 +2264,9 @@ function appendMsg(role, content, stats, image = null) {
     scrollToBottom(el);
   }
   return index;
-}
+  }
 
-function appendSystemMsg(content) {
+  function appendSystemMsg(content) {
   const el = document.getElementById('chatMessages');
   if (!el) return;
   const div = document.createElement('div');
@@ -2322,10 +2274,10 @@ function appendSystemMsg(content) {
   div.innerHTML = `<div class="msg-bubble">${esc(content)}</div>`;
   el.appendChild(div);
   scrollToBottom(el);
-}
+  }
 
-// Toast Notifications
-function showToast(message, type = 'info', duration = 3000) {
+  // Toast Notifications
+  function showToast(message, type = 'info', duration = 3000) {
   const container = document.getElementById('toastContainer') || createToastContainer();
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
@@ -2339,17 +2291,17 @@ function showToast(message, type = 'info', duration = 3000) {
     toast.classList.remove('show');
     setTimeout(() => toast.remove(), 300);
   }, duration);
-}
+  }
 
-function createToastContainer() {
+  function createToastContainer() {
   const div = document.createElement('div');
   div.id = 'toastContainer';
   div.style.cssText = 'position:fixed;top:60px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px';
   document.body.appendChild(div);
   return div;
-}
+  }
 
-function showThinkingIndicator() {
+  function showThinkingIndicator() {
   const el = document.getElementById('chatMessages');
   if (!el) return;
   const bars = [2,4,6,5,3,6,4,5,3,4].map((h,i) =>
@@ -2361,22 +2313,22 @@ function showThinkingIndicator() {
   div.innerHTML = `<span class="think-brain">🧠</span><div class="think-eeg">${bars}</div>`;
   el.appendChild(div);
   scrollToBottom(el);
-}
+  }
 
-function removeThinkingIndicator() {
+  function removeThinkingIndicator() {
   document.getElementById('thinkIndicator')?.remove();
-}
+  }
 
-// ═══════════════════════════════════════════════════
-// Send Message
-// ═══════════════════════════════════════════════════
-function _releaseSend() {
+  // ═══════════════════════════════════════════════════
+  // Send Message
+  // ═══════════════════════════════════════════════════
+  function _releaseSend() {
   isSending = false;
   document.getElementById('sendBtn')?.removeAttribute('disabled');
   document.getElementById('mainInput')?.focus();
-}
+  }
 
-async function sendMessage(overrideText) {
+  async function sendMessage(overrideText) {
   if (isSending) return;
   const input = document.getElementById('mainInput');
   const text = overrideText || (input ? input.value.trim() : '');
@@ -2641,24 +2593,24 @@ async function sendMessage(overrideText) {
 
   clearImageAttachment();
   _release();
-}
+  }
 
-function handleInputKey(e) {
+  function handleInputKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     sendMessage();
   }
-}
+  }
 
-function autoResizeTextarea(el) {
+  function autoResizeTextarea(el) {
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 140) + 'px';
-}
+  }
 
-async function clearChat() {
+  async function clearChat() {
   if (!currentAgent) return;
   if (!confirm('🗑️ Chat komplett löschen?\n\nKurzzeit-Speicher (Chat) UND Langzeit-Speicher (Vector Memory) werden gelöscht!')) return;
-  
+
   conversations[currentAgent.id] = [];
   try { 
     await api(`/api/history/${currentAgent.id}`, { method: 'DELETE' }); 
@@ -2668,12 +2620,12 @@ async function clearChat() {
     showToast('Fehler: ' + e.message, 'error');
   }
   renderMessages();
-}
+  }
 
-// ═══════════════════════════════════════════════════
-// Multi-Agent Broadcast
-// ═══════════════════════════════════════════════════
-function renderMultiShell(ws) {
+  // ═══════════════════════════════════════════════════
+  // Multi-Agent Broadcast
+  // ═══════════════════════════════════════════════════
+  function renderMultiShell(ws) {
   ws.innerHTML = `
     <div class="multi-shell">
       <div class="multi-topbar">
@@ -2690,9 +2642,9 @@ function renderMultiShell(ws) {
       <div class="multi-grid" id="multiGrid"></div>
     </div>`;
   renderMultiCards();
-}
+  }
 
-function renderMultiCards() {
+  function renderMultiCards() {
   const grid = document.getElementById('multiGrid');
   if (!grid) return;
 
@@ -2718,9 +2670,9 @@ function renderMultiCards() {
         <span class="multi-card-empty">Waiting for broadcast…</span>
       </div>
     </div>`).join('');
-}
+  }
 
-async function sendBroadcast() {
+  async function sendBroadcast() {
   const text = document.getElementById('broadcastInput')?.value.trim();
   if (!text || selectedAgents.size === 0) return;
 
@@ -2768,30 +2720,30 @@ async function sendBroadcast() {
   }));
 
   if (btn) btn.disabled = false;
-}
+  }
 
-// ═══════════════════════════════════════════════════
-// Modals
-// ═══════════════════════════════════════════════════
-function openModal(id) {
+  // ═══════════════════════════════════════════════════
+  // Modals
+  // ═══════════════════════════════════════════════════
+  function openModal(id) {
   document.getElementById(id)?.classList.add('open');
-}
+  }
 
-function closeModal(id) {
+  function closeModal(id) {
   document.getElementById(id)?.classList.remove('open');
-}
+  }
 
-// Close modal on overlay click
-document.addEventListener('click', e => {
+  // Close modal on overlay click
+  document.addEventListener('click', e => {
   if (e.target.classList.contains('modal-overlay')) {
     e.target.classList.remove('open');
   }
-});
+  });
 
-// Image Edit Modal functions
-let editImageData = null;
+  // Image Edit Modal functions
+  let editImageData = null;
 
-function openImageEditModal() {
+  function openImageEditModal() {
   editImageData = null;
   document.getElementById('editImageInput').value = '';
   document.getElementById('editPromptInput').value = '';
@@ -2799,9 +2751,9 @@ function openImageEditModal() {
   document.getElementById('editResultContainer').style.display = 'none';
   document.getElementById('editSubmitBtn').textContent = '✨ Bearbeiten';
   openModal('imageEditModal');
-}
+  }
 
-function handleEditImageUpload(e) {
+  function handleEditImageUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -2811,9 +2763,9 @@ function handleEditImageUpload(e) {
     document.getElementById('editImagePreview').style.display = 'block';
   };
   reader.readAsDataURL(file);
-}
+  }
 
-async function runImageEdit() {
+  async function runImageEdit() {
   if (!editImageData) {
     alert('Bitte ein Bild auswählen');
     return;
@@ -2823,11 +2775,11 @@ async function runImageEdit() {
     alert('Bitte einen Prompt eingeben');
     return;
   }
-  
+
   const btn = document.getElementById('editSubmitBtn');
   btn.disabled = true;
   btn.textContent = 'Bearbeite...';
-  
+
   try {
     const result = await api('/api/image/edit', {
       method: 'POST',
@@ -2853,16 +2805,16 @@ async function runImageEdit() {
     btn.disabled = false;
     btn.textContent = 'Bearbeiten';
   }
-}
+  }
 
-// ─── Provider Modal ───────────────────────────────
-async function openProviderModal() {
+  // ─── Provider Modal ───────────────────────────────
+  async function openProviderModal() {
   openModal('providerModal');
   await loadProviders();
   renderProviderModal();
-}
+  }
 
-function renderProviderModal() {
+  function renderProviderModal() {
   const body = document.getElementById('providerModalBody');
   if (!body) return;
 
@@ -2917,9 +2869,9 @@ function renderProviderModal() {
   }).join('');
 
   body.innerHTML = rows || `<p style="color:var(--textdim);font-size:13px;font-family:var(--mono)">No providers configured in config.</p>`;
-}
+  }
 
-async function saveProviders() {
+  async function saveProviders() {
   // Backend expects a dict: { ollama: {api_key:…}, mistral: {api_key:…}, … }
   const updates = {};
   providers.forEach(p => {
@@ -2943,16 +2895,16 @@ async function saveProviders() {
   } catch(e) {
     alert('Save failed: ' + e.message);
   }
-}
+  }
 
-// ─── Agent Create / Edit ──────────────────────────
-let allModels = { ollama: [], openrouter: [] };
+  // ─── Agent Create / Edit ──────────────────────────
+  let allModels = { ollama: [], openrouter: [] };
 
-async function loadModels() {
+  async function loadModels() {
   try { allModels = await api('/api/models'); } catch(e) {}
-}
+  }
 
-function populateModelSelect(selectId, provider, currentModel) {
+  function populateModelSelect(selectId, provider, currentModel) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
   const models = provider === 'openrouter'
@@ -2979,18 +2931,18 @@ function populateModelSelect(selectId, provider, currentModel) {
       `<option value="${esc(m)}"${m === currentModel ? ' selected' : ''}>${esc(m)}</option>`
     ).join('');
   }
-}
+  }
 
-function populateProviderSelects() {
+  function populateProviderSelects() {
   ['newAgentProvider', 'editAgentProvider'].forEach(selId => {
     const sel = document.getElementById(selId);
     if (!sel) return;
     sel.innerHTML = providers.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
   });
   populateVoiceSelects(); // async, runs in background
-}
+  }
 
-async function openNewAgentModal() {
+  async function openNewAgentModal() {
   await Promise.all([loadModels(), loadProviders()]);
   populateProviderSelects();
   const provSel = document.getElementById('newAgentProvider');
@@ -3003,11 +2955,11 @@ async function openNewAgentModal() {
   const preview = document.getElementById('newAvatarPreview');
   if (preview) { preview.innerHTML = 'N'; preview.style.background = defaultColor; }
   openModal('newAgentModal');
-}
+  }
 
-async function populateVoiceSelects() {
+  async function populateVoiceSelects() {
   let browserVoices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
-  
+
   // Fallback: Stimmen neu laden wenn leer
   if (!browserVoices.length) {
     await new Promise(resolve => {
@@ -3018,18 +2970,18 @@ async function populateVoiceSelects() {
       setTimeout(resolve, 1000);
     });
   }
-  
+
   console.log('[Voices] All available:', browserVoices.map(v => `${v.name} (${v.lang})`));
-  
+
   // Filter: Nur deutsche und englische Stimmen
   const deEnVoices = browserVoices.filter(v => v.lang.startsWith('de') || v.lang.startsWith('en'));
-  
+
   console.log('[Voices] DE/EN filtered:', deEnVoices.map(v => v.name));
-  
+
   // Gruppieren nach Sprache
   const deVoices = deEnVoices.filter(v => v.lang.startsWith('de'));
   const enVoices = deEnVoices.filter(v => v.lang.startsWith('en'));
-  
+
   let macGroup = '';
   if (deVoices.length || enVoices.length) {
     const renderOpts = (vos, lang) => vos.map(v => 
@@ -3071,9 +3023,9 @@ async function populateVoiceSelects() {
     sel.innerHTML = '<option value="">Off</option>' + mistralGroup + macGroup;
     if (current) sel.value = current;
   });
-}
+  }
 
-async function createAgent() {
+  async function createAgent() {
   const name = document.getElementById('newAgentName')?.value.trim();
   const provider = document.getElementById('newAgentProvider')?.value;
   const model = document.getElementById('newAgentModel')?.value.trim();
@@ -3100,26 +3052,26 @@ async function createAgent() {
   } catch(e) {
     alert('Create failed: ' + e.message);
   }
-}
+  }
 
-async function openEditAgentModal(id) {
+  async function openEditAgentModal(id) {
   const a = agents.find(x => x.id === id);
   if (!a) return;
   editingAgentId = id;
   _hasUnsavedChanges = false;
-  
+
   // Large header fields
   const nameL = document.getElementById('editAgentNameLarge');
   if (nameL) nameL.value = a.name || '';
   const roleL = document.getElementById('editAgentRoleLarge');
   if (roleL) roleL.value = a.role || '';
-  
+
   // Original fields (hidden/duplicate) - check for existence to avoid crash
   const nameE = document.getElementById('editAgentName');
   if (nameE) nameE.value = a.name || '';
   const roleE = document.getElementById('editAgentRole');
   if (roleE) roleE.value = a.role || '';
-  
+
   const sysE = document.getElementById('editAgentSystem');
   if (sysE) sysE.value = a.soul || '';
   const maxE = document.getElementById('editAgentMaxTokens');
@@ -3129,7 +3081,7 @@ async function openEditAgentModal(id) {
   _editAvatarB64 = a.avatar || '';
   const editColor = a.color || '#4f46e5';
   initColorSwatches('edit', editColor);
-  
+
   const updatePreview = (elId) => {
     const el = document.getElementById(elId);
     if (!el) return;
@@ -3149,7 +3101,7 @@ async function openEditAgentModal(id) {
   const psel = document.getElementById('editAgentProvider');
   if (psel) { psel.value = a.provider || 'ollama'; }
   populateModelSelect('editAgentModel', a.provider || 'ollama', a.model || '');
-  
+
   // Auto-save on field changes
   const addAutoSave = (elId, field, endpoint, transform) => {
     const el = document.getElementById(elId);
@@ -3157,7 +3109,7 @@ async function openEditAgentModal(id) {
     el.onchange = () => triggerAutoSave();
     el.onkeyup = () => triggerAutoSave();
   };
-  
+
   addAutoSave('editAgentName', 'name', '/settings');
   addAutoSave('editAgentRole', 'role', '/settings');
   addAutoSave('editAgentSystem', 'soul', '/settings');
@@ -3166,12 +3118,12 @@ async function openEditAgentModal(id) {
   addAutoSave('editAgentModel', 'model', '/settings');
   addAutoSave('editAgentNameLarge', 'name', '/settings');
   addAutoSave('editAgentRoleLarge', 'role', '/settings');
-  
+
   if (psel) psel.onchange = () => {
     populateModelSelect('editAgentModel', psel.value, '');
     triggerAutoSave();
   };
-  
+
   // Voice auto-save - wait for voices to load first
   const savedVoice = a.voice || '';
   populateVoiceSelects().then(() => {
@@ -3187,13 +3139,13 @@ async function openEditAgentModal(id) {
       _hasUnsavedChanges = false;
     };
   });
-  
+
   const delBtn = document.getElementById('editAgentDeleteBtn');
   if (delBtn) delBtn.onclick = () => deleteAgent(editingAgentId);
-  
+
   // Skills
   renderEditAgentSkills(a.skills || [], true);
-  
+
   // Heartbeat
   const hb = a.heartbeat || {};
   const hbActive = !!hb.active;
@@ -3223,7 +3175,7 @@ async function openEditAgentModal(id) {
     hbInterval.value = hb.interval_min || 30;
     hbInterval.onchange = () => saveHeartbeat();
   }
-  
+
   const saveHeartbeat = async () => {
     const active = document.getElementById('editHeartbeatToggle')?.classList.contains('on');
     const prompt = document.getElementById('editHeartbeatPrompt')?.value.trim();
@@ -3277,11 +3229,11 @@ async function openEditAgentModal(id) {
       showToast('Fehler: ' + e.message, 'error');
     }
   };
-  
-  openModal('editAgentModal');
-}
 
-function renderEditAgentSkills(activeList, autoSave = false) {
+  openModal('editAgentModal');
+  }
+
+  function renderEditAgentSkills(activeList, autoSave = false) {
   const el = document.getElementById('editAgentSkills');
   if (!el) return;
   const active = new Set(activeList);
@@ -3296,17 +3248,17 @@ function renderEditAgentSkills(activeList, autoSave = false) {
       onclick="${clickHandler}"
       data-skill-id="${s.id}">${s.icon} ${esc(s.name)}</button>`;
   }).join('');
-}
+  }
 
-// Auto-save skills when changed
-async function saveSkillsOnChange() {
+  // Auto-save skills when changed
+  async function saveSkillsOnChange() {
   if (!editingAgentId) return;
   const skillEls = document.querySelectorAll('#editAgentSkills [data-skill-id]');
   const activeSkills = [...skillEls].filter(b => b.classList.contains('active')).map(b => b.dataset.skillId);
   await saveField(`/api/agents/${editingAgentId}/skills`, { skills: activeSkills }, 'Skills gespeichert');
-}
+  }
 
-function toggleEditHeartbeat() {
+  function toggleEditHeartbeat() {
   const tog = document.getElementById('editHeartbeatToggle');
   const fields = document.getElementById('editHeartbeatFields');
   const status = document.getElementById('editHeartbeatStatus');
@@ -3314,30 +3266,30 @@ function toggleEditHeartbeat() {
   tog.classList.toggle('on', on);
   fields.style.display = on ? 'flex' : 'none';
   status.textContent = on ? 'active' : 'inactive';
-}
+  }
 
-async function runHeartbeatNow() {
+  async function runHeartbeatNow() {
   if (!editingAgentId) return;
   try {
     await api(`/api/agents/${editingAgentId}/heartbeat/run`, { method: 'POST' });
     appendSystemMsg('💓 Heartbeat triggered — response will appear in chat');
   } catch(e) { alert('Error: ' + e.message); }
-}
+  }
 
-async function runDreamNow() {
+  async function runDreamNow() {
   if (!editingAgentId) return;
   try {
     await api(`/api/agents/${editingAgentId}/dream/run`, { method: 'POST' });
     appendSystemMsg('🌙 Dream cycle started — old memories will be cleaned up');
   } catch(e) { alert('Error: ' + e.message); }
-}
+  }
 
-// Auto-save debounce timer
-let _autoSaveTimer = null;
-let _hasUnsavedChanges = false;
+  // Auto-save debounce timer
+  let _autoSaveTimer = null;
+  let _hasUnsavedChanges = false;
 
-// Save functions for each field type
-async function saveField(endpoint, data, successMsg) {
+  // Save functions for each field type
+  async function saveField(endpoint, data, successMsg) {
   try {
     const res = await api(endpoint, { method: 'PUT', body: data });
     if (res.ok) {
@@ -3353,9 +3305,9 @@ async function saveField(endpoint, data, successMsg) {
   } catch(e) {
     showToast('Fehler: ' + e.message, 'error');
   }
-}
+  }
 
-function triggerAutoSave() {
+  function triggerAutoSave() {
   _hasUnsavedChanges = true;
   clearTimeout(_autoSaveTimer);
   _autoSaveTimer = setTimeout(async () => {
@@ -3380,11 +3332,11 @@ function triggerAutoSave() {
       'Einstellungen gespeichert'
     );
   }, 500);
-}
+  }
 
-async function saveEditAgent() {
+  async function saveEditAgent() {
   if (!editingAgentId) return;
-  
+
   // Final save - save everything including skills and heartbeat
   const name = document.getElementById('editAgentName')?.value.trim();
   const provider = document.getElementById('editAgentProvider')?.value;
@@ -3437,9 +3389,9 @@ async function saveEditAgent() {
   } catch(e) {
     showToast('Fehler: ' + e.message, 'error');
   }
-}
+  }
 
-async function deleteAgent(id) {
+  async function deleteAgent(id) {
   if (!confirm('Delete this agent?')) return;
   try {
     await api(`/api/agents/${id}`, { method: 'DELETE' });
@@ -3455,10 +3407,10 @@ async function deleteAgent(id) {
   } catch(e) {
     alert('Delete failed: ' + e.message);
   }
-}
+  }
 
-// ─── Skills Modal ──────────────────────────────────
-async function openSkillsModal() {
+  // ─── Skills Modal ──────────────────────────────────
+  async function openSkillsModal() {
   openModal('skillsModal');
   await loadSkills();
   const body = document.getElementById('skillsModalBody');
@@ -3476,9 +3428,9 @@ async function openSkillsModal() {
       </div>
       ${s.trigger ? `<button class="btn-secondary" style="font-size:11px;padding:5px 10px" onclick="useSkill('${esc(s.id)}')">Use</button>` : ''}
     </div>`).join('');
-}
+  }
 
-function useSkill(id) {
+  function useSkill(id) {
   if (!currentAgent) { alert('Please select an agent first'); return; }
   const skill = skills.find(s => s.id === id);
   closeModal('skillsModal');
@@ -3490,19 +3442,19 @@ function useSkill(id) {
       input.focus();
     }
   }, 100);
-}
+  }
 
-// ─── Watchdog Modal ────────────────────────────────
-async function openWatchdogModal() {
+  // ─── Watchdog Modal ────────────────────────────────
+  async function openWatchdogModal() {
   document.getElementById('navWatchdog')?.classList.add('active');
   setTimeout(() => document.getElementById('navWatchdog')?.classList.remove('active'), 1000);
   await loadWatchdogs();
   renderWatchdogModal();
   populateWatchdogAgentSelect();
   openModal('watchdogModal');
-}
+  }
 
-function renderWatchdogModal() {
+  function renderWatchdogModal() {
   const list = document.getElementById('watchdogList');
   if (!list) return;
   if (!watchdogs.length) {
@@ -3518,15 +3470,15 @@ function renderWatchdogModal() {
       <span class="watchdog-badge ${w.active ? 'active' : 'paused'}">${w.active ? 'active' : 'paused'}</span>
       <button class="wd-delete-btn" onclick="deleteWatchdog('${w.id}')">🗑</button>
     </div>`).join('');
-}
+  }
 
-function populateWatchdogAgentSelect() {
+  function populateWatchdogAgentSelect() {
   const sel = document.getElementById('wdAgentSelect');
   if (!sel) return;
   sel.innerHTML = agents.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
-}
+  }
 
-async function createWatchdog() {
+  async function createWatchdog() {
   const agent_id = document.getElementById('wdAgentSelect')?.value;
   const url = document.getElementById('wdUrl')?.value.trim();
   const interval_min = parseInt(document.getElementById('wdInterval')?.value || '30');
@@ -3542,24 +3494,24 @@ async function createWatchdog() {
   } catch(e) {
     alert('Error: ' + e.message);
   }
-}
+  }
 
-async function deleteWatchdog(id) {
+  async function deleteWatchdog(id) {
   try {
     await api(`/api/watchdogs/${id}`, { method: 'DELETE' });
     watchdogs = watchdogs.filter(w => w.id !== id);
     renderWatchdogModal();
   } catch(e) { alert('Error: ' + e.message); }
-}
+  }
 
-async function pollWatchdogs() {
+  async function pollWatchdogs() {
   // No poll endpoint — watchdogs run server-side via background thread
-}
+  }
 
-// ─── Export ────────────────────────────────────────
-function openExportModal() { openModal('exportModal'); }
+  // ─── Export ────────────────────────────────────────
+  function openExportModal() { openModal('exportModal'); }
 
-function exportAs(fmt) {
+  function exportAs(fmt) {
   if (!currentAgent) { alert('Select an agent first'); return; }
   const msgs = conversations[currentAgent.id] || [];
   let content = '', filename = `${currentAgent.name}-${Date.now()}`;
@@ -3583,10 +3535,10 @@ function exportAs(fmt) {
   a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
   closeModal('exportModal');
-}
+  }
 
-// ─── Auto Dialog ───────────────────────────────────
-function openAutoDialogModal() {
+  // ─── Auto Dialog ───────────────────────────────────
+  function openAutoDialogModal() {
   const selA = document.getElementById('autoAgentA');
   const selB = document.getElementById('autoAgentB');
   if (selA && selB) {
@@ -3596,9 +3548,9 @@ function openAutoDialogModal() {
     if (agents.length > 1) selB.value = agents[1].id;
   }
   openModal('autoDialogModal');
-}
+  }
 
-async function startAutoDialog() {
+  async function startAutoDialog() {
   const idA = document.getElementById('autoAgentA')?.value;
   const idB = document.getElementById('autoAgentB')?.value;
   const opening = document.getElementById('autoDialogPrompt')?.value.trim();
@@ -3661,14 +3613,14 @@ async function startAutoDialog() {
   currentAgent = agentA;
   if (banner) banner.classList.remove('active');
   appendSystemMsg(`Auto-dialog ended after ${currentTurns} turns.`);
-}
+  }
 
-// ═══════════════════════════════════════════════════
-// Image Upload
-// ═══════════════════════════════════════════════════
-let pendingImageData = null;
+  // ═══════════════════════════════════════════════════
+  // Image Upload
+  // ═══════════════════════════════════════════════════
+  let pendingImageData = null;
 
-function handleImageUpload(e) {
+  function handleImageUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -3681,20 +3633,20 @@ function handleImageUpload(e) {
   };
   reader.readAsDataURL(file);
   e.target.value = ''; // reset so same file can be picked again
-}
+  }
 
-async function handleDocumentUpload(e) {
+  async function handleDocumentUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
-  
+
   if (!currentAgent || !currentAgent.skills?.includes('document_memory')) {
     alert('Document Memory skill nicht aktiv. Bitte zuerst aktivieren.');
     e.target.value = '';
     return;
   }
-  
+
   appendSystemMsg(`📄 Lade ${file.name} hoch…`);
-  
+
   try {
     const formData = new FormData();
     formData.append('file', file);
@@ -3714,45 +3666,45 @@ async function handleDocumentUpload(e) {
   } catch(err) {
     appendSystemMsg(`❌ Upload fehlgeschlagen: ${err.message}`);
   }
-  
-  e.target.value = '';
-}
 
-function clearImageAttachment() {
+  e.target.value = '';
+  }
+
+  function clearImageAttachment() {
   pendingImageData = null;
   const wrap = document.getElementById('imagePreviewWrap');
   if (wrap) wrap.style.display = 'none';
-}
+  }
 
-// ═══════════════════════════════════════════════════
-// TTS
-// ═══════════════════════════════════════════════════
-// TTS — sentence-chunked, per-message play buttons
-// ═══════════════════════════════════════════════════
-let autoPlay = true;
-let ttsSpeed = 1;
-let currentAudio = null;
-let currentPlayingIndex = -1;
+  // ═══════════════════════════════════════════════════
+  // TTS
+  // ═══════════════════════════════════════════════════
+  // TTS — sentence-chunked, per-message play buttons
+  // ═══════════════════════════════════════════════════
+  let autoPlay = true;
+  let ttsSpeed = 1;
+  let currentAudio = null;
+  let currentPlayingIndex = -1;
 
-// ═══════════════════════════════════════════════════
-// Avatar & Color helpers
-// ═══════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════
+  // Avatar & Color helpers
+  // ═══════════════════════════════════════════════════
 
-const AGENT_COLORS = [
+  const AGENT_COLORS = [
   '#4f46e5','#7c3aed','#db2777','#dc2626','#ea580c',
   '#ca8a04','#16a34a','#0891b2','#0284c7','#475569'
-];
+  ];
 
-function renderAgentAvatar(agent, sizeCls = '') {
+  function renderAgentAvatar(agent, sizeCls = '') {
   const color = agent.color || '#4f46e5';
   const initial = (agent.name || '?')[0].toUpperCase();
   if (agent.avatar) {
     return `<img class="agent-avatar-img ${sizeCls}" src="${agent.avatar}" style="border-color:${color}" alt="${esc(agent.name)}">`;
   }
   return `<div class="agent-avatar-initial ${sizeCls}" style="background:${color}">${initial}</div>`;
-}
+  }
 
-function initColorSwatches(prefix, currentColor) {
+  function initColorSwatches(prefix, currentColor) {
   const wrap = document.getElementById(prefix + 'ColorSwatches');
   if (!wrap) return;
   wrap.innerHTML = AGENT_COLORS.map(c => `
@@ -3762,9 +3714,9 @@ function initColorSwatches(prefix, currentColor) {
   `).join('');
   const custom = document.getElementById(prefix + 'AgentColorCustom');
   if (custom) custom.value = currentColor || '#4f46e5';
-}
+  }
 
-function applyAgentColor(prefix, color) {
+  function applyAgentColor(prefix, color) {
   const preview = document.getElementById(prefix + 'AvatarPreview');
   if (preview) {
     const img = preview.querySelector('img');
@@ -3782,20 +3734,20 @@ function applyAgentColor(prefix, color) {
   if (prefix === 'edit' && editingAgentId) {
     saveField(`/api/agents/${editingAgentId}/settings`, { color }, null);
   }
-}
+  }
 
-function updateAvatarInitial(prefix, name) {
+  function updateAvatarInitial(prefix, name) {
   const initials = (name || '?')[0].toUpperCase() || '?';
   [prefix + 'AvatarPreview', prefix + 'AvatarPreviewLarge'].forEach(id => {
     const preview = document.getElementById(id);
     if (preview && !preview.querySelector('img')) preview.textContent = initials;
   });
-}
+  }
 
-let _newAvatarB64 = '';
-let _editAvatarB64 = '';
+  let _newAvatarB64 = '';
+  let _editAvatarB64 = '';
 
-function handleAvatarUpload(input, prefix) {
+  function handleAvatarUpload(input, prefix) {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -3828,21 +3780,21 @@ function handleAvatarUpload(input, prefix) {
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
-}
+  }
 
-function toggleTTSSpeed() {
+  function toggleTTSSpeed() {
   ttsSpeed = ttsSpeed === 1 ? 2 : 1;
   if (currentAudio) currentAudio.playbackRate = ttsSpeed;
   const btn = document.getElementById('ttsSpeedBtn');
   if (btn) btn.textContent = ttsSpeed === 2 ? '2×' : '1×';
-}
+  }
 
-function toggleAutoPlay() {
+  function toggleAutoPlay() {
   autoPlay = !autoPlay;
   document.getElementById('autoplayToggle')?.classList.toggle('on', autoPlay);
-}
+  }
 
-function cleanForTTS(text) {
+  function cleanForTTS(text) {
   return text
     .replace(/\[.*?\]/gs, '')
     .replace(/https?:\/\/\S+/g, '')
@@ -3852,9 +3804,9 @@ function cleanForTTS(text) {
     .replace(/`[^`]*`/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
-}
+  }
 
-function splitSentences(text) {
+  function splitSentences(text) {
   const raw = text.match(/[^.!?…\n]+[.!?…\n]+|[^.!?…\n]+$/g) || [text];
   const merged = [];
   let buf = '';
@@ -3864,9 +3816,9 @@ function splitSentences(text) {
   }
   if (buf.trim()) merged.push(buf.trim());
   return merged.filter(s => s.length > 0);
-}
+  }
 
-function _cancelSpeechSynthesis() {
+  function _cancelSpeechSynthesis() {
   if (!window.speechSynthesis) return;
   // cancel() is unreliable — hammer it
   for (let i = 0; i < 3; i++) {
@@ -3874,9 +3826,9 @@ function _cancelSpeechSynthesis() {
   }
   setTimeout(() => { try { window.speechSynthesis.cancel(); } catch(e) {} }, 50);
   setTimeout(() => { try { window.speechSynthesis.cancel(); } catch(e) {} }, 150);
-}
+  }
 
-function stopCurrentAudio() {
+  function stopCurrentAudio() {
   if (currentAudio) { try { currentAudio.pause(); currentAudio.currentTime = 0; } catch(e) {} currentAudio = null; }
   _cancelSpeechSynthesis();
   if (currentPlayingIndex >= 0) {
@@ -3885,23 +3837,23 @@ function stopCurrentAudio() {
     currentPlayingIndex = -1;
   }
   setTTSPlaying(false);
-}
+  }
 
-function globalStopAudio() {
+  function globalStopAudio() {
   stopCurrentAudio();
   // Belt-and-suspenders: also nuke any dangling audio elements
   document.querySelectorAll('audio').forEach(a => { try { a.pause(); a.src = ''; } catch(e) {} });
   _cancelSpeechSynthesis();
-}
+  }
 
-function setTTSPlaying(on) {
+  function setTTSPlaying(on) {
   document.getElementById('speakingDot')?.classList.toggle('active', on);
   document.getElementById('ttsStopBtn')?.classList.toggle('active', on);
   const bar = document.getElementById('globalMuteBar');
   if (bar) bar.style.display = on ? 'flex' : 'none';
-}
+  }
 
-async function fetchAudioBlob(text, voice) {
+  async function fetchAudioBlob(text, voice) {
   const resp = await fetch('/api/tts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -3909,15 +3861,15 @@ async function fetchAudioBlob(text, voice) {
   });
   if (!resp.ok) throw new Error('TTS error ' + resp.status);
   return await resp.blob();
-}
+  }
 
-function togglePlayByIndex(index) {
+  function togglePlayByIndex(index) {
   const msgs = conversations[currentAgent?.id] || [];
   const msg = msgs[index];
   if (msg) togglePlay(index, msg.content);
-}
+  }
 
-async function togglePlay(index, text) {
+  async function togglePlay(index, text) {
   if (!currentAgent || !text) return;
   text = cleanForTTS(text);
   if (!text) return;
@@ -3954,9 +3906,9 @@ async function togglePlay(index, text) {
     }
   } catch(e) {}
   finally { if (currentPlayingIndex === index) stopCurrentAudio(); }
-}
+  }
 
-async function downloadAudioByIndex(index) {
+  async function downloadAudioByIndex(index) {
   const msgs = conversations[currentAgent?.id] || [];
   const msg = msgs[index];
   if (!msg || !currentAgent) return;
@@ -3973,9 +3925,9 @@ async function downloadAudioByIndex(index) {
     const a = document.createElement('a'); a.href = url; a.download = `msg-${index}.mp3`; a.click();
     URL.revokeObjectURL(url);
   } catch(e) { alert('Download failed: ' + e.message); }
-}
+  }
 
-async function playMacVoiceAsync(text, voiceName, btn) {
+  async function playMacVoiceAsync(text, voiceName, btn) {
   return new Promise(async resolve => {
     if (!window.speechSynthesis) { 
       showToast('Speech Synthesis nicht verfügbar', 'error');
@@ -4071,11 +4023,11 @@ async function playMacVoiceAsync(text, voiceName, btn) {
       }
     }, 100);
   });
-}
+  }
 
-// ─── Agent-to-Agent Tasks ──────────────────────────────────────────────────────
+  // ─── Agent-to-Agent Tasks ──────────────────────────────────────────────────────
 
-function dispatchReplyMentions(reply) {
+  function dispatchReplyMentions(reply) {
   // Scan an assistant reply for @AgentName mentions and auto-dispatch tasks
   if (!reply || !currentAgent) return;
   const rx = /@([A-Za-zÄÖÜäöüß][\w\s&]*?)(?=[,\s:!?.–—]|$)/g;
@@ -4091,14 +4043,14 @@ function dispatchReplyMentions(reply) {
     handleAgentMention(target, taskMsg, `@${target.name} ${taskMsg}`);
     break; // one dispatch per reply to avoid spam
   }
-}
+  }
 
-async function handleAgentMention(targetAgent, message, rawText) {
+  async function handleAgentMention(targetAgent, message, rawText) {
   appendMsg('user', rawText);
-  
+
   // Check if this is likely an image generation task
   const isImageTask = /^(generier\w*|mal\w*|zeichn\w*|zeichne|generate|draw|paint|bild|hund|portrait|foto|image|picture)/i.test(message);
-  
+
   // Create placeholder with spinner for image tasks
   let placeholderId = null;
   if (isImageTask) {
@@ -4222,9 +4174,9 @@ async function handleAgentMention(targetAgent, message, rawText) {
     document.getElementById(placeholderId)?.remove();
   }
   appendSystemMsg(`@${esc(targetAgent.name)} — Timeout after 3 minutes`);
-}
+  }
 
-function renderTaskResult(task, fromAgent) {
+  function renderTaskResult(task, fromAgent) {
   if (!currentAgent) return;
   if (!conversations[currentAgent.id]) conversations[currentAgent.id] = [];
 
@@ -4273,10 +4225,10 @@ function renderTaskResult(task, fromAgent) {
       scrollToBottom(el);
     }
   }
-}
+  }
 
-// ─── ComfyUI image generation (browser-direct, CORS enabled on server) ────────
-async function comfyuiGenerate(prompt) {
+  // ─── ComfyUI image generation (browser-direct, CORS enabled on server) ────────
+  async function comfyuiGenerate(prompt) {
   const cfg = await api('/api/comfyui/config');
   const baseUrl = cfg.url.replace(/\/$/, '');
   const workflow = cfg.workflow;
@@ -4316,10 +4268,10 @@ async function comfyuiGenerate(prompt) {
     }
   }
   throw new Error('Timeout: ComfyUI did not respond in time');
-}
+  }
 
-// ─── Memory Dashboard ──────────────────────────────────────────────────────────
-async function openMemoryModal() {
+  // ─── Memory Dashboard ──────────────────────────────────────────────────────────
+  async function openMemoryModal() {
   openModal('memoryModal');
   const body = document.getElementById('memoryModalBody');
   body.innerHTML = '<p style="color:var(--textdim);font-size:13px;font-family:var(--mono)">Loading…</p>';
@@ -4336,9 +4288,9 @@ async function openMemoryModal() {
   } catch(e) {
     body.innerHTML = `<p style="color:var(--red);font-family:var(--mono);font-size:13px">Error: ${esc(e.message)}</p>`;
   }
-}
+  }
 
-function renderMemoryModal(stats) {
+  function renderMemoryModal(stats) {
   const body = document.getElementById('memoryModalBody');
   if (!body) return;
   const total = stats.reduce((s, a) => s + a.memCount, 0);
@@ -4358,9 +4310,9 @@ function renderMemoryModal(stats) {
       Total: ${total} stored memories · Vector DB: Qdrant (localhost:6333)
     </div>
     ${rows || '<p style="color:var(--textdim);font-family:var(--mono);font-size:13px">No agents found</p>'}`;
-}
+  }
 
-async function clearMemory(agentId) {
+  async function clearMemory(agentId) {
   if (!confirm('Delete all memories for this agent?')) return;
   try {
     await api(`/api/memory/${agentId}`, { method: 'DELETE' });
@@ -4368,9 +4320,9 @@ async function clearMemory(agentId) {
   } catch(e) {
     alert('Error: ' + e.message);
   }
-}
+  }
 
-function renderSkillBtns() {
+  function renderSkillBtns() {
   const el = document.getElementById('skillBtns');
   if (!el || !currentAgent) return;
   const active = new Set(currentAgent.skills || []);
@@ -4381,9 +4333,9 @@ function renderSkillBtns() {
       title="${esc(s.description)}"
       onclick="toggleSkill('${s.id}')">${s.icon} ${esc(s.name)}</button>`;
   }).join('');
-}
+  }
 
-async function toggleSkill(skillId) {
+  async function toggleSkill(skillId) {
   if (!currentAgent) return;
   const active = new Set(currentAgent.skills || []);
   if (active.has(skillId)) active.delete(skillId);
@@ -4399,37 +4351,37 @@ async function toggleSkill(skillId) {
     });
   } catch(e) {}
   renderSkillBtns();
-}
+  }
 
 
-function toggleEditMode() {
+  function toggleEditMode() {
   const btn = document.getElementById('editModeBtn');
   const isOn = btn.classList.contains('active');
   btn.classList.toggle('active', !isOn);
-  
+
   if (!isOn) {
     // Turn on edit mode - open modal
     openImageEditModal();
     btn.classList.remove('active'); // Reset after opening
   }
-}
+  }
 
 
-// ═══════════════════════════════════════════════════
-// Voice Input
-// ═══════════════════════════════════════════════════
-let voicePressTimer = null;
-let voicePttActive = false;
-let voiceLang = 'de-DE';
+  // ═══════════════════════════════════════════════════
+  // Voice Input
+  // ═══════════════════════════════════════════════════
+  let voicePressTimer = null;
+  let voicePttActive = false;
+  let voiceLang = 'de-DE';
 
-function setVoiceLang(lang) {
+  function setVoiceLang(lang) {
   voiceLang = lang;
   localStorage.setItem('voiceLang', lang);
   const btn = document.getElementById('voiceBtn');
   if (btn) btn.title = `Sprache: ${lang} · Click: Conversation mode · Hold: Push-to-Talk`;
-}
+  }
 
-function voiceBtnDown(e) {
+  function voiceBtnDown(e) {
   e.preventDefault();
   voicePressTimer = setTimeout(() => {
     voicePressTimer = null;
@@ -4437,9 +4389,9 @@ function voiceBtnDown(e) {
     voicePttActive = true;
     if (!voiceActive) startVoice(true);
   }, 400);
-}
+  }
 
-function voiceBtnUp(e) {
+  function voiceBtnUp(e) {
   if (voicePressTimer !== null) {
     // Short click → toggle conversation mode
     clearTimeout(voicePressTimer);
@@ -4454,11 +4406,11 @@ function voiceBtnUp(e) {
     stopVoice();
     if (text) { if (input) input.value = ''; sendMessage(text); }
   }
-}
+  }
 
-function toggleVoice() {} // kept for compat
+  function toggleVoice() {} // kept for compat
 
-function startVoice(ptt = false) {
+  function startVoice(ptt = false) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) { alert('Speech recognition not supported'); return; }
 
@@ -4512,9 +4464,9 @@ function startVoice(ptt = false) {
   btn?.classList.remove('conv', 'ptt');
   btn?.classList.add(ptt ? 'ptt' : 'conv');
   document.getElementById('voiceIndicator')?.classList.add('active');
-}
+  }
 
-function stopVoice() {
+  function stopVoice() {
   clearTimeout(voicePauseTimer);
   speechRecognition?.stop();
   voiceActive = false;
@@ -4522,59 +4474,59 @@ function stopVoice() {
   const btn = document.getElementById('voiceBtn');
   btn?.classList.remove('conv', 'ptt');
   document.getElementById('voiceIndicator')?.classList.remove('active');
-}
+  }
 
 
-// ═══════════════════════════════════════════════════
-// Utilities
-// ═══════════════════════════════════════════════════
-function esc(s) {
+  // ═══════════════════════════════════════════════════
+  // Utilities
+  // ═══════════════════════════════════════════════════
+  function esc(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+  }
 
-function scrollToBottom(el, smooth = true) {
+  function scrollToBottom(el, smooth = true) {
   if (!el) return;
   if (smooth) {
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   } else {
     scrollToBottom(el);
   }
-}
+  }
 
-function agentName(id) {
+  function agentName(id) {
   return agents.find(a => a.id === id)?.name || id;
-}
+  }
 
-// ═══════════════════════════════════════════════════
-// Boot
-// ═══════════════════════════════════════════════════
-window.addEventListener('load', () => {
+  // ═══════════════════════════════════════════════════
+  // Boot
+  // ═══════════════════════════════════════════════════
+  window.addEventListener('load', () => {
   if (window.speechSynthesis) {
     window.speechSynthesis.onvoiceschanged = () => {};
     window.speechSynthesis.getVoices();
   }
   init();
-});
+  });
 
-document.addEventListener('keydown', e => {
+  document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     globalStopAudio();
   }
-});
+  });
 
 
-// ═══════════════════════════════════════════════════
-// Backup Modal
-// ═══════════════════════════════════════════════════
-async function openBackupModal() {
+  // ═══════════════════════════════════════════════════
+  // Backup Modal
+  // ═══════════════════════════════════════════════════
+  async function openBackupModal() {
   const modal = document.getElementById('backupModal') || createBackupModal();
   document.getElementById('backupModalBody').innerHTML = '<p>Laden...</p>';
   openModal('backupModal');
   loadBackupList();
-}
+  }
 
-function createBackupModal() {
+  function createBackupModal() {
   const div = document.createElement('div');
   div.id = 'backupModal';
   div.className = 'modal-overlay';
@@ -4592,9 +4544,9 @@ function createBackupModal() {
   `;
   document.body.appendChild(div);
   return div;
-}
+  }
 
-async function loadBackupList() {
+  async function loadBackupList() {
   const body = document.getElementById('backupModalBody');
   try {
     const res = await fetch('/api/backup/list');
@@ -4631,9 +4583,9 @@ async function loadBackupList() {
   } catch(e) {
     body.innerHTML = '<p style="color:red">Fehler beim Laden der Backups</p>';
   }
-}
+  }
 
-async function createBackup() {
+  async function createBackup() {
   try {
     const res = await fetch('/api/backup', { method: 'POST' });
     const data = await res.json();
@@ -4646,9 +4598,9 @@ async function createBackup() {
   } catch(e) {
     alert('Fehler: ' + e.message);
   }
-}
+  }
 
-async function restoreBackup(name) {
+  async function restoreBackup(name) {
   if (!confirm('⚠️ Warnung: Dies überschreibt alle aktuellen Daten! Fortfahren?')) return;
   try {
     const res = await fetch('/api/backup/restore', {
@@ -4666,11 +4618,11 @@ async function restoreBackup(name) {
   } catch(e) {
     alert('Fehler: ' + e.message);
   }
-}
+  }
 
-function downloadBackup(name) {
+  function downloadBackup(name) {
   window.open('/api/backup/download/' + name, '_blank');
-}
-</script>
+  }
+  </script>
 </body>
 </html>

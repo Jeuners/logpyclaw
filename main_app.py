@@ -59,9 +59,16 @@ def find_free_port(start=5050, end=5099):
 
 
 def start_flask(port):
-    from app import app
+    from app import app, socketio
 
-    app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False)
+    socketio.run(
+        app,
+        host="127.0.0.1",
+        port=port,
+        debug=False,
+        use_reloader=False,
+        allow_unsafe_werkzeug=True,
+    )
 
 
 def wait_for_server(port, timeout=10):

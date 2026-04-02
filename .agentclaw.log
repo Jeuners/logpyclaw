@@ -1,11 +1,1001 @@
 [Scheduler] Watchdog-Scheduler gestartet
-Starting on http://0.0.0.0:5050
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
  * Serving Flask app 'app'
  * Debug mode: on
 [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
  * Running on all addresses (0.0.0.0)
  * Running on http://127.0.0.1:5050
- * Running on http://10.8.0.2:5050
+ * Running on http://192.168.3.17:5050
 [33mPress CTRL+C to quit[0m
-127.0.0.1 - - [01/Apr/2026 19:05:12] "GET /api/activity HTTP/1.1" 200 -
-[Telegram] Polling error: HTTPSConnectionPool(host='api.telegram.org', port=443): Read timed out. (read timeout=2)
+ * Restarting with stat
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 139-789-296
+[WS] Client connected: H-cyaM26ziznHm5ZAAAB
+[WS] H-cyaM26ziznHm5ZAAAB joined all agent rooms
+[Document Memory] stored 1773135071764.jpeg for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 12:51:49] "POST /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027/document HTTP/1.1" 200 -
+ * Detected change in '/Users/jeuner/Desktop/agentclaw/app.py', reloading
+ * Restarting with stat
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 139-789-296
+[WS] Client connected: o_XZ8vSYNYyAqWEnAAAB
+[WS] o_XZ8vSYNYyAqWEnAAAB joined all agent rooms
+[Agent] PUT received for 4d6fc07f-6d2c-4442-bf64-a2b129041027: ['skills']
+[Agent] Saved 9 agents successfully
+[Agent] Successfully saved agent MARTIN
+127.0.0.1 - - [02/Apr/2026 12:52:08] "PUT /api/agents/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+[Memory] injected 99 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 12:52:20] "POST /api/chat HTTP/1.1" 200 -
+[Task] created f77de6ce-d2e2-453a-9d72-35b1db91549c: MARTIN → LISA: memory – wir haben Bilder im Langzeitspeicher.
+127.0.0.1 - - [02/Apr/2026 12:52:20] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing f77de6ce-d2e2-453a-9d72-35b1db91549c: memory – wir haben Bilder im Langzeitspeicher.
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 12:52:22] "GET /api/tasks/f77de6ce-d2e2-453a-9d72-35b1db91549c HTTP/1.1" 200 -
+[Task] done f77de6ce-d2e2-453a-9d72-35b1db91549c via llm
+[WS] emit_task_result: task=f77de6ce-d2e2-453a-9d72-35b1db91549c, agent=d95d2862-fd99-4d35-a84f-b589bcc23248, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 12:52:23] "GET /api/tasks/f77de6ce-d2e2-453a-9d72-35b1db91549c HTTP/1.1" 200 -
+[Memory] injected 216 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 12:52:40] "POST /api/chat HTTP/1.1" 200 -
+[Task] created ec4f927c-cedd-4d69-aba9-6e1950fd08bd: MARTIN → ARIA: screenshot – Langzeitspeicher-Bild, Bitte Details zur Bildau
+127.0.0.1 - - [02/Apr/2026 12:52:40] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing ec4f927c-cedd-4d69-aba9-6e1950fd08bd: screenshot – Langzeitspeicher-Bild, Bitte Details zur Bildau
+[Task] screenshot trigger detected: screenshot – Langzeitspeicher-Bild, Bitte Details zur Bildau
+[Task] done ec4f927c-cedd-4d69-aba9-6e1950fd08bd via None
+[WS] emit_task_result: task=ec4f927c-cedd-4d69-aba9-6e1950fd08bd, agent=aria-seo-prompt-agent-001, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 12:52:41] "GET /api/tasks/ec4f927c-cedd-4d69-aba9-6e1950fd08bd HTTP/1.1" 200 -
+[Memory] injected 339 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 12:53:01] "POST /api/chat HTTP/1.1" 200 -
+[Task] created c9c47d6c-caa4-498f-816b-4c7d77e55e52: MARTIN → ARIA: screenshot – Bitte gib mir eine Beschreibung des Bildes, das
+127.0.0.1 - - [02/Apr/2026 12:53:01] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing c9c47d6c-caa4-498f-816b-4c7d77e55e52: screenshot – Bitte gib mir eine Beschreibung des Bildes, das
+[Task] screenshot trigger detected: screenshot – Bitte gib mir eine Beschreibung des Bildes, das
+[Task] done c9c47d6c-caa4-498f-816b-4c7d77e55e52 via None
+[WS] emit_task_result: task=c9c47d6c-caa4-498f-816b-4c7d77e55e52, agent=aria-seo-prompt-agent-001, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 12:53:03] "GET /api/tasks/c9c47d6c-caa4-498f-816b-4c7d77e55e52 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 12:53:26] "DELETE /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 12:53:26] "DELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 12:53:43] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 45d4906e-5cf4-4558-ba6f-373fdb364753: MARTIN → LISA: zeig mir das letzte Bild aus dem Langzeitspeicher.
+127.0.0.1 - - [02/Apr/2026 12:53:43] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 45d4906e-5cf4-4558-ba6f-373fdb364753: zeig mir das letzte Bild aus dem Langzeitspeicher.
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 12:53:44] "GET /api/tasks/45d4906e-5cf4-4558-ba6f-373fdb364753 HTTP/1.1" 200 -
+[Task] done 45d4906e-5cf4-4558-ba6f-373fdb364753 via llm
+[WS] emit_task_result: task=45d4906e-5cf4-4558-ba6f-373fdb364753, agent=d95d2862-fd99-4d35-a84f-b589bcc23248, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 12:53:46] "GET /api/tasks/45d4906e-5cf4-4558-ba6f-373fdb364753 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 12:53:54] "GET /api/history/d95d2862-fd99-4d35-a84f-b589bcc23248 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 12:54:15] "POST /api/chat HTTP/1.1" 200 -
+[Task] created c3211053-8017-4ef6-b562-8ea78f54c21b: LISA → Fotograf: zeige das letzte Bild aus dem Langzeitspeicher.
+127.0.0.1 - - [02/Apr/2026 12:54:15] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing c3211053-8017-4ef6-b562-8ea78f54c21b: zeige das letzte Bild aus dem Langzeitspeicher.
+[Task] image_gen prompt: das letzte aus dem Langzeitspeicher.
+[ComfyUI] original: das letzte aus dem Langzeitspeicher....
+[ComfyUI] optimized: das letzte aus dem langzeitspeicher., no text, no letters, n...
+[Memory] stored for agent d95d2862-fd99-4d35-a84f-b589bcc23248
+[TTS] API Fehler 500: {'object': 'error', 'message': 'Service unavailable.', 'type': 'internal_server_error', 'param': None, 'code': '1000', 'raw_status_code': 500}
+127.0.0.1 - - [02/Apr/2026 12:54:16] "[35m[1mPOST /api/tts HTTP/1.1[0m" 500 -
+127.0.0.1 - - [02/Apr/2026 12:54:17] "GET /api/tasks/c3211053-8017-4ef6-b562-8ea78f54c21b HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 12:54:19] "GET /api/tasks/c3211053-8017-4ef6-b562-8ea78f54c21b HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 12:54:21] "GET /api/tasks/c3211053-8017-4ef6-b562-8ea78f54c21b HTTP/1.1" 200 -
+[Task] error c3211053-8017-4ef6-b562-8ea78f54c21b: Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/connection.py", line 85, in create_connection
+    raise err
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+TimeoutError: [Errno 60] Operation timed out
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 500, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1113, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1057, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 331, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 213, in _new_conn
+    raise ConnectTimeoutError(
+    ...<2 lines>...
+    ) from e
+urllib3.exceptions.ConnectTimeoutError: (<HTTPConnection(host='192.168.3.26', port=8000) at 0x10c613ac0>, 'Connection to 192.168.3.26 timed out. (connect timeout=30)')
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/adapters.py", line 645, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/retry.py", line 535, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='192.168.3.26', port=8000): Max retries exceeded with url: /prompt (Caused by ConnectTimeoutError(<HTTPConnection(host='192.168.3.26', port=8000) at 0x10c613ac0>, 'Connection to 192.168.3.26 timed out. (connect timeout=30)'))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/app.py", line 1350, in process_task
+    task["result_image"] = _run_comfyui_sync(img_prompt)
+                           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "/Users/jeuner/Desktop/agentclaw/app.py", line 816, in _run_comfyui_sync
+    r = requests.post(
+        f"{base_url}/prompt",
+        json={"prompt": workflow, "client_id": "agentclaw-task"},
+        timeout=30,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/api.py", line 115, in post
+    return request("post", url, data=data, json=json, **kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/api.py", line 59, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/sessions.py", line 592, in request
+    resp = self.send(prep, **send_kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/sessions.py", line 706, in send
+    r = adapter.send(request, **kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/adapters.py", line 666, in send
+    raise ConnectTimeout(e, request=request)
+requests.exceptions.ConnectTimeout: HTTPConnectionPool(host='192.168.3.26', port=8000): Max retries exceeded with url: /prompt (Caused by ConnectTimeoutError(<HTTPConnection(host='192.168.3.26', port=8000) at 0x10c613ac0>, 'Connection to 192.168.3.26 timed out. (connect timeout=30)'))
+
+[WS] emit_task_result: task=c3211053-8017-4ef6-b562-8ea78f54c21b, agent=547225e8-ada2-42a0-bc3c-e3859bf9d8ce, has_image=False (0KB), status=failed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 12:54:24] "GET /api/tasks/c3211053-8017-4ef6-b562-8ea78f54c21b HTTP/1.1" 200 -
+[Memory] injected 135 chars for agent d95d2862-fd99-4d35-a84f-b589bcc23248
+127.0.0.1 - - [02/Apr/2026 12:54:35] "POST /api/chat HTTP/1.1" 200 -
+[Task] created dcabc151-26cb-452f-8119-da9cd1309cac: LISA → Fotograf: bitte liefern Sie das letzte Bild aus dem Langzeitspeicher.
+127.0.0.1 - - [02/Apr/2026 12:54:35] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing dcabc151-26cb-452f-8119-da9cd1309cac: bitte liefern Sie das letzte Bild aus dem Langzeitspeicher.
+[Task] image_gen prompt: liefern Sie das letzte aus dem Langzeitspeicher.
+[ComfyUI] original: liefern Sie das letzte aus dem Langzeitspeicher....
+[ComfyUI] optimized: liefern sie das letzte aus dem langzeitspeicher., no text, n...
+[Task] error dcabc151-26cb-452f-8119-da9cd1309cac: Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/connection.py", line 85, in create_connection
+    raise err
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+OSError: [Errno 64] Host is down
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 500, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1113, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1057, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 331, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 219, in _new_conn
+    raise NewConnectionError(
+        self, f"Failed to establish a new connection: {e}"
+    ) from e
+urllib3.exceptions.NewConnectionError: HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 64] Host is down
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/adapters.py", line 645, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/retry.py", line 535, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='192.168.3.26', port=8000): Max retries exceeded with url: /prompt (Caused by NewConnectionError("HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 64] Host is down"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/app.py", line 1350, in process_task
+    task["result_image"] = _run_comfyui_sync(img_prompt)
+                           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "/Users/jeuner/Desktop/agentclaw/app.py", line 816, in _run_comfyui_sync
+    r = requests.post(
+        f"{base_url}/prompt",
+        json={"prompt": workflow, "client_id": "agentclaw-task"},
+        timeout=30,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/api.py", line 115, in post
+    return request("post", url, data=data, json=json, **kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/api.py", line 59, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/sessions.py", line 592, in request
+    resp = self.send(prep, **send_kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/sessions.py", line 706, in send
+    r = adapter.send(request, **kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/adapters.py", line 678, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='192.168.3.26', port=8000): Max retries exceeded with url: /prompt (Caused by NewConnectionError("HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 64] Host is down"))
+
+[WS] emit_task_result: task=dcabc151-26cb-452f-8119-da9cd1309cac, agent=547225e8-ada2-42a0-bc3c-e3859bf9d8ce, has_image=False (0KB), status=failed
+[WS] emit_task_result SUCCESS
+[Memory] stored for agent d95d2862-fd99-4d35-a84f-b589bcc23248
+[TTS] API Fehler 500: {'object': 'error', 'message': 'Service unavailable.', 'type': 'internal_server_error', 'param': None, 'code': '1000', 'raw_status_code': 500}
+127.0.0.1 - - [02/Apr/2026 12:54:35] "[35m[1mPOST /api/tts HTTP/1.1[0m" 500 -
+127.0.0.1 - - [02/Apr/2026 12:54:36] "GET /api/tasks/dcabc151-26cb-452f-8119-da9cd1309cac HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 12:55:01] "DELETE /api/history/d95d2862-fd99-4d35-a84f-b589bcc23248 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 12:55:01] "DELETE /api/memory/d95d2862-fd99-4d35-a84f-b589bcc23248 HTTP/1.1" 200 -
+[Memory] Uploading document for agent d95d2862-fd99-4d35-a84f-b589bcc23248
+[Memory] Received file: img_2232.jpg (2501726 bytes)
+[Memory] Using google_key: False
+[Memory] Processing Image
+[Memory] Falling back to Ollama embeddings
+[Document Memory] stored img_2232.jpg for agent d95d2862-fd99-4d35-a84f-b589bcc23248
+127.0.0.1 - - [02/Apr/2026 12:55:15] "POST /api/memory/d95d2862-fd99-4d35-a84f-b589bcc23248/document HTTP/1.1" 200 -
+[Memory] injected 27 chars for agent d95d2862-fd99-4d35-a84f-b589bcc23248
+127.0.0.1 - - [02/Apr/2026 12:55:47] "POST /api/chat HTTP/1.1" 200 -
+[Task] created f6488554-a0ac-49a8-ad67-c2f9b4a54870: LISA → Fotograf: hole img_2232.jpg aus dem langzeitspeicher.
+127.0.0.1 - - [02/Apr/2026 12:55:47] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing f6488554-a0ac-49a8-ad67-c2f9b4a54870: hole img_2232.jpg aus dem langzeitspeicher.
+[Task] image_gen prompt: hole img_2232.jpg aus dem langzeitspeicher.
+[ComfyUI] original: hole img_2232.jpg aus dem langzeitspeicher....
+[ComfyUI] optimized: hole img_2232.jpg aus dem langzeitspeicher., no text, no let...
+[Task] error f6488554-a0ac-49a8-ad67-c2f9b4a54870: Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/connection.py", line 85, in create_connection
+    raise err
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+OSError: [Errno 64] Host is down
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 500, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1113, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1057, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 331, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 219, in _new_conn
+    raise NewConnectionError(
+        self, f"Failed to establish a new connection: {e}"
+    ) from e
+urllib3.exceptions.NewConnectionError: HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 64] Host is down
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/adapters.py", line 645, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/retry.py", line 535, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='192.168.3.26', port=8000): Max retries exceeded with url: /prompt (Caused by NewConnectionError("HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 64] Host is down"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/app.py", line 1350, in process_task
+    task["result_image"] = _run_comfyui_sync(img_prompt)
+                           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "/Users/jeuner/Desktop/agentclaw/app.py", line 816, in _run_comfyui_sync
+    r = requests.post(
+        f"{base_url}/prompt",
+        json={"prompt": workflow, "client_id": "agentclaw-task"},
+        timeout=30,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/api.py", line 115, in post
+    return request("post", url, data=data, json=json, **kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/api.py", line 59, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/sessions.py", line 592, in request
+    resp = self.send(prep, **send_kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/sessions.py", line 706, in send
+    r = adapter.send(request, **kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/adapters.py", line 678, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='192.168.3.26', port=8000): Max retries exceeded with url: /prompt (Caused by NewConnectionError("HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 64] Host is down"))
+
+[WS] emit_task_result: task=f6488554-a0ac-49a8-ad67-c2f9b4a54870, agent=547225e8-ada2-42a0-bc3c-e3859bf9d8ce, has_image=False (0KB), status=failed
+[WS] emit_task_result SUCCESS
+[Memory] stored for agent d95d2862-fd99-4d35-a84f-b589bcc23248
+[TTS] API Fehler 500: {'object': 'error', 'message': 'Service unavailable.', 'type': 'internal_server_error', 'param': None, 'code': '1000', 'raw_status_code': 500}
+127.0.0.1 - - [02/Apr/2026 12:55:48] "[35m[1mPOST /api/tts HTTP/1.1[0m" 500 -
+127.0.0.1 - - [02/Apr/2026 12:55:49] "GET /api/tasks/f6488554-a0ac-49a8-ad67-c2f9b4a54870 HTTP/1.1" 200 -
+[Memory] injected 171 chars for agent d95d2862-fd99-4d35-a84f-b589bcc23248
+127.0.0.1 - - [02/Apr/2026 12:56:13] "POST /api/chat HTTP/1.1" 200 -
+[Task] created cd5431eb-9d44-4d26-a183-97044fc7edba: LISA → Fotograf: hole img_2232.jpg direkt aus dem langzeitspeicher.
+127.0.0.1 - - [02/Apr/2026 12:56:13] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing cd5431eb-9d44-4d26-a183-97044fc7edba: hole img_2232.jpg direkt aus dem langzeitspeicher.
+[Task] image_gen prompt: hole img_2232.jpg direkt aus dem langzeitspeicher.
+[ComfyUI] original: hole img_2232.jpg direkt aus dem langzeitspeicher....
+[ComfyUI] optimized: hole img_2232.jpg direkt aus dem langzeitspeicher., no text,...
+[Task] error cd5431eb-9d44-4d26-a183-97044fc7edba: Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/connection.py", line 85, in create_connection
+    raise err
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+OSError: [Errno 64] Host is down
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 500, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1113, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1057, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 331, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 219, in _new_conn
+    raise NewConnectionError(
+        self, f"Failed to establish a new connection: {e}"
+    ) from e
+urllib3.exceptions.NewConnectionError: HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 64] Host is down
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/adapters.py", line 645, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/retry.py", line 535, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='192.168.3.26', port=8000): Max retries exceeded with url: /prompt (Caused by NewConnectionError("HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 64] Host is down"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/app.py", line 1350, in process_task
+    task["result_image"] = _run_comfyui_sync(img_prompt)
+                           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "/Users/jeuner/Desktop/agentclaw/app.py", line 816, in _run_comfyui_sync
+    r = requests.post(
+        f"{base_url}/prompt",
+        json={"prompt": workflow, "client_id": "agentclaw-task"},
+        timeout=30,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/api.py", line 115, in post
+    return request("post", url, data=data, json=json, **kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/api.py", line 59, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/sessions.py", line 592, in request
+    resp = self.send(prep, **send_kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/sessions.py", line 706, in send
+    r = adapter.send(request, **kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/adapters.py", line 678, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='192.168.3.26', port=8000): Max retries exceeded with url: /prompt (Caused by NewConnectionError("HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 64] Host is down"))
+
+[WS] emit_task_result: task=cd5431eb-9d44-4d26-a183-97044fc7edba, agent=547225e8-ada2-42a0-bc3c-e3859bf9d8ce, has_image=False (0KB), status=failed
+[WS] emit_task_result SUCCESS
+[Memory] stored for agent d95d2862-fd99-4d35-a84f-b589bcc23248
+127.0.0.1 - - [02/Apr/2026 12:56:15] "GET /api/tasks/cd5431eb-9d44-4d26-a183-97044fc7edba HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 12:56:15] "POST /api/tts HTTP/1.1" 200 -
+[Memory] injected 138 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:23:53] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 0d59f4f9-fa9d-4d64-8106-ed78c4e2a3f2: MARTIN → Fotograf: generiere ein Bild von einem gemütlichen Arbeitszimmer, wie 
+127.0.0.1 - - [02/Apr/2026 13:23:53] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 0d59f4f9-fa9d-4d64-8106-ed78c4e2a3f2: generiere ein Bild von einem gemütlichen Arbeitszimmer, wie 
+[Task] image_gen prompt: gemütlichen Arbeitszimmer, wie Dilles’ Büro, mit Regen draußen.
+[ComfyUI] original: gemütlichen Arbeitszimmer, wie Dilles’ Büro, mit Regen drauß...
+[ComfyUI] optimized: gemuetlichen arbeitszimmer, wie dilles’ buero, mit regen dra...
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[Task] error 0d59f4f9-fa9d-4d64-8106-ed78c4e2a3f2: Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/connection.py", line 85, in create_connection
+    raise err
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+ConnectionRefusedError: [Errno 61] Connection refused
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 500, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1113, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1057, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 331, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 219, in _new_conn
+    raise NewConnectionError(
+        self, f"Failed to establish a new connection: {e}"
+    ) from e
+urllib3.exceptions.NewConnectionError: HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 61] Connection refused
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/adapters.py", line 645, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/retry.py", line 535, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='192.168.3.26', port=8000): Max retries exceeded with url: /prompt (Caused by NewConnectionError("HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 61] Connection refused"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/app.py", line 1350, in process_task
+    task["result_image"] = _run_comfyui_sync(img_prompt)
+                           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "/Users/jeuner/Desktop/agentclaw/app.py", line 816, in _run_comfyui_sync
+    r = requests.post(
+        f"{base_url}/prompt",
+        json={"prompt": workflow, "client_id": "agentclaw-task"},
+        timeout=30,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/api.py", line 115, in post
+    return request("post", url, data=data, json=json, **kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/api.py", line 59, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/sessions.py", line 592, in request
+    resp = self.send(prep, **send_kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/sessions.py", line 706, in send
+    r = adapter.send(request, **kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/adapters.py", line 678, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='192.168.3.26', port=8000): Max retries exceeded with url: /prompt (Caused by NewConnectionError("HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 61] Connection refused"))
+
+[WS] emit_task_result: task=0d59f4f9-fa9d-4d64-8106-ed78c4e2a3f2, agent=547225e8-ada2-42a0-bc3c-e3859bf9d8ce, has_image=False (0KB), status=failed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 13:23:55] "GET /api/tasks/0d59f4f9-fa9d-4d64-8106-ed78c4e2a3f2 HTTP/1.1" 200 -
+[Memory] injected 305 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:24:08] "POST /api/chat HTTP/1.1" 200 -
+[Task] created e2ad83b7-9557-4d7e-8567-a66e2672da42: MARTIN → Fotograf: generiere ein Bild von einem gemütlichen Arbeitszimmer, wie 
+127.0.0.1 - - [02/Apr/2026 13:24:08] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing e2ad83b7-9557-4d7e-8567-a66e2672da42: generiere ein Bild von einem gemütlichen Arbeitszimmer, wie 
+[Task] image_gen prompt: gemütlichen Arbeitszimmer, wie Dilles’ Büro, mit Regen draußen.
+[ComfyUI] original: gemütlichen Arbeitszimmer, wie Dilles’ Büro, mit Regen drauß...
+[ComfyUI] optimized: gemuetlichen arbeitszimmer, wie dilles’ buero, mit regen dra...
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[Task] error e2ad83b7-9557-4d7e-8567-a66e2672da42: Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/connection.py", line 85, in create_connection
+    raise err
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+ConnectionRefusedError: [Errno 61] Connection refused
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 500, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1113, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1057, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 331, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 219, in _new_conn
+    raise NewConnectionError(
+        self, f"Failed to establish a new connection: {e}"
+    ) from e
+urllib3.exceptions.NewConnectionError: HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 61] Connection refused
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/adapters.py", line 645, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/retry.py", line 535, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='192.168.3.26', port=8000): Max retries exceeded with url: /prompt (Caused by NewConnectionError("HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 61] Connection refused"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/app.py", line 1350, in process_task
+    task["result_image"] = _run_comfyui_sync(img_prompt)
+                           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "/Users/jeuner/Desktop/agentclaw/app.py", line 816, in _run_comfyui_sync
+    r = requests.post(
+        f"{base_url}/prompt",
+        json={"prompt": workflow, "client_id": "agentclaw-task"},
+        timeout=30,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/api.py", line 115, in post
+    return request("post", url, data=data, json=json, **kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/api.py", line 59, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/sessions.py", line 592, in request
+    resp = self.send(prep, **send_kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/sessions.py", line 706, in send
+    r = adapter.send(request, **kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/adapters.py", line 678, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='192.168.3.26', port=8000): Max retries exceeded with url: /prompt (Caused by NewConnectionError("HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 61] Connection refused"))
+
+[WS] emit_task_result: task=e2ad83b7-9557-4d7e-8567-a66e2672da42, agent=547225e8-ada2-42a0-bc3c-e3859bf9d8ce, has_image=False (0KB), status=failed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 13:24:09] "GET /api/tasks/e2ad83b7-9557-4d7e-8567-a66e2672da42 HTTP/1.1" 200 -
+[Task] created 51f498d6-d03b-48c6-b69a-9dc7030b11aa: MARTIN → Fotograf: generiere ein Bild von einem gemütlichen Arbeitszimmer die D
+127.0.0.1 - - [02/Apr/2026 13:24:18] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 51f498d6-d03b-48c6-b69a-9dc7030b11aa: generiere ein Bild von einem gemütlichen Arbeitszimmer die D
+[Task] image_gen prompt: gemütlichen Arbeitszimmer die Dennis Büro mit Regen draußen
+[ComfyUI] original: gemütlichen Arbeitszimmer die Dennis Büro mit Regen draußen...
+[ComfyUI] optimized: gemuetlichen arbeitszimmer die dennis buero mit regen drauss...
+[Task] error 51f498d6-d03b-48c6-b69a-9dc7030b11aa: Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/connection.py", line 85, in create_connection
+    raise err
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+ConnectionRefusedError: [Errno 61] Connection refused
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 500, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1113, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1057, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 331, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connection.py", line 219, in _new_conn
+    raise NewConnectionError(
+        self, f"Failed to establish a new connection: {e}"
+    ) from e
+urllib3.exceptions.NewConnectionError: HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 61] Connection refused
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/adapters.py", line 645, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/urllib3/util/retry.py", line 535, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='192.168.3.26', port=8000): Max retries exceeded with url: /prompt (Caused by NewConnectionError("HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 61] Connection refused"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/jeuner/Desktop/agentclaw/app.py", line 1350, in process_task
+    task["result_image"] = _run_comfyui_sync(img_prompt)
+                           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "/Users/jeuner/Desktop/agentclaw/app.py", line 816, in _run_comfyui_sync
+    r = requests.post(
+        f"{base_url}/prompt",
+        json={"prompt": workflow, "client_id": "agentclaw-task"},
+        timeout=30,
+    )
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/api.py", line 115, in post
+    return request("post", url, data=data, json=json, **kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/api.py", line 59, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/sessions.py", line 592, in request
+    resp = self.send(prep, **send_kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/sessions.py", line 706, in send
+    r = adapter.send(request, **kwargs)
+  File "/Users/jeuner/Desktop/agentclaw/venv/lib/python3.14/site-packages/requests/adapters.py", line 678, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='192.168.3.26', port=8000): Max retries exceeded with url: /prompt (Caused by NewConnectionError("HTTPConnection(host='192.168.3.26', port=8000): Failed to establish a new connection: [Errno 61] Connection refused"))
+
+[WS] emit_task_result: task=51f498d6-d03b-48c6-b69a-9dc7030b11aa, agent=547225e8-ada2-42a0-bc3c-e3859bf9d8ce, has_image=False (0KB), status=failed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 13:24:20] "GET /api/tasks/51f498d6-d03b-48c6-b69a-9dc7030b11aa HTTP/1.1" 200 -
+[Memory] injected 444 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:25:53] "POST /api/chat HTTP/1.1" 200 -
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[Memory] injected 631 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:26:08] "POST /api/chat HTTP/1.1" 200 -
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[Memory] injected 631 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:26:29] "POST /api/chat HTTP/1.1" 200 -
+[Task] created ac14d8fb-9b91-46e0-8add-924b785b4eb3: MARTIN → LISA: merke dir bitte, dass ich nachfragen wollte, ob Dilles Prior
+127.0.0.1 - - [02/Apr/2026 13:26:29] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing ac14d8fb-9b91-46e0-8add-924b785b4eb3: merke dir bitte, dass ich nachfragen wollte, ob Dilles Prior
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:26:31] "GET /api/tasks/ac14d8fb-9b91-46e0-8add-924b785b4eb3 HTTP/1.1" 200 -
+[Task] done ac14d8fb-9b91-46e0-8add-924b785b4eb3 via llm
+[WS] emit_task_result: task=ac14d8fb-9b91-46e0-8add-924b785b4eb3, agent=d95d2862-fd99-4d35-a84f-b589bcc23248, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+127.0.0.1 - - [02/Apr/2026 13:26:33] "GET /api/tasks/ac14d8fb-9b91-46e0-8add-924b785b4eb3 HTTP/1.1" 200 -
+[Heartbeat] 💓 Agent 'Jan' — Schaue in den Tagesschau und in Hacker News nach wichtigen N
+[Heartbeat] image prompt: Schaue in den Tagesschau und in Hacker News nach wichtigen Neuigkeiten. Informie
+[ComfyUI] original: Schaue in den Tagesschau und in Hacker News nach wichtigen N...
+[ComfyUI] optimized: schaue in den tagesschau und in hacker news nach wichtigen n...
+[Heartbeat] done 'Jan'
+ * Detected change in '/Users/jeuner/Desktop/agentclaw/app.py', reloading
+ * Restarting with stat
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 139-789-296
+[WS] Client connected: J8HcjhlWIabZ1YhSAAAB
+[WS] J8HcjhlWIabZ1YhSAAAB joined all agent rooms
+ * Detected change in '/Users/jeuner/Desktop/agentclaw/app.py', reloading
+ * Restarting with stat
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 139-789-296
+[WS] Client connected: JxB-OZnIxz7LbtrBAAAB
+[WS] JxB-OZnIxz7LbtrBAAAB joined all agent rooms
+ * Detected change in '/Users/jeuner/Desktop/agentclaw/app.py', reloading
+ * Restarting with stat
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 139-789-296
+[WS] Client connected: i0v16n2m4xpcyJSKAAAB
+[WS] i0v16n2m4xpcyJSKAAAB joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 13:46:14] "DELETE /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:46:14] "DELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+[Memory] Uploading document for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[Memory] Received file: img_2231.jpg (1593296 bytes)
+[Memory] Using google_key: False
+[Memory] Processing Image
+[Memory] Falling back to Ollama embeddings
+[Document Memory] stored img_2231.jpg (path: /static/uploads/c55860e3_img_2231.jpg) for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:46:20] "POST /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027/document HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:46:34] "POST /api/chat HTTP/1.1" 200 -
+[Task] created 1408be9b-4ec6-459f-9192-336480601ea2: MARTIN → ARIA: zeige mir den letzten Screenshot.
+127.0.0.1 - - [02/Apr/2026 13:46:34] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing 1408be9b-4ec6-459f-9192-336480601ea2: zeige mir den letzten Screenshot.
+[Task] screenshot trigger detected: zeige mir den letzten Screenshot.
+[Task] done 1408be9b-4ec6-459f-9192-336480601ea2 via None
+[WS] emit_task_result: task=1408be9b-4ec6-459f-9192-336480601ea2, agent=aria-seo-prompt-agent-001, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:46:35] "GET /api/tasks/1408be9b-4ec6-459f-9192-336480601ea2 HTTP/1.1" 200 -
+ * Detected change in '/Users/jeuner/Desktop/agentclaw/app.py', reloading
+ * Restarting with stat
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 139-789-296
+[WS] Client connected: yRxdN3ixGiX3QgDEAAAB
+[WS] yRxdN3ixGiX3QgDEAAAB joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 13:49:05] "GET / HTTP/1.1" 200 -
+[WS] Client disconnected: yRxdN3ixGiX3QgDEAAAB
+127.0.0.1 - - [02/Apr/2026 13:49:05] "GET /api/agents HTTP/1.1" 200 -
+[WS] Client connected: o_ZAS3GufoE6OEDLAAAD
+127.0.0.1 - - [02/Apr/2026 13:49:05] "GET /api/watchdogs HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:49:05] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:49:05] "GET /api/skills HTTP/1.1" 200 -
+[WS] o_ZAS3GufoE6OEDLAAAD joined all agent rooms
+127.0.0.1 - - [02/Apr/2026 13:49:05] "GET /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:49:10] "DELETE /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:49:10] "DELETE /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+[Memory] Uploading document for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+[Memory] Received file: img_2238.jpg (2448119 bytes)
+[Memory] Using google_key: False
+[Memory] Processing Image
+[Memory] Falling back to Ollama embeddings
+[Document Memory] stored img_2238.jpg (path: /static/uploads/185a7353_img_2238.jpg) for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:49:17] "POST /api/memory/4d6fc07f-6d2c-4442-bf64-a2b129041027/document HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:49:36] "POST /api/chat HTTP/1.1" 200 -
+[Task] created cfa31ee9-d2b3-4629-a44c-b64086d2d583: MARTIN → ARIA: Screenshot des letzten Bildes
+127.0.0.1 - - [02/Apr/2026 13:49:36] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing cfa31ee9-d2b3-4629-a44c-b64086d2d583: Screenshot des letzten Bildes
+[Task] screenshot trigger detected: Screenshot des letzten Bildes
+[Task] done cfa31ee9-d2b3-4629-a44c-b64086d2d583 via None
+[WS] emit_task_result: task=cfa31ee9-d2b3-4629-a44c-b64086d2d583, agent=aria-seo-prompt-agent-001, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:49:38] "GET /api/tasks/cfa31ee9-d2b3-4629-a44c-b64086d2d583 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:50:00] "GET / HTTP/1.1" 200 -
+[WS] Client disconnected: o_ZAS3GufoE6OEDLAAAD
+127.0.0.1 - - [02/Apr/2026 13:50:00] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:50:00] "GET /api/watchdogs HTTP/1.1" 200 -
+[WS] Client connected: 3rgP5Kn85OedvrDKAAAF
+127.0.0.1 - - [02/Apr/2026 13:50:00] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:50:00] "GET /api/skills HTTP/1.1" 200 -
+127.0.0.1 - - [02/Apr/2026 13:50:00] "GET /api/history/4d6fc07f-6d2c-4442-bf64-a2b129041027 HTTP/1.1" 200 -
+[WS] 3rgP5Kn85OedvrDKAAAF joined all agent rooms
+ * Detected change in '/Users/jeuner/Desktop/agentclaw/app.py', reloading
+ * Restarting with stat
+[Scheduler] Watchdog-Scheduler gestartet
+[Live-Reload] Monitoring templates and static files...
+Starting on http://0.0.0.0:5050 with WebSocket support
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 139-789-296
+[WS] Client connected: MkBJWckptR7w8-3_AAAB
+[WS] MkBJWckptR7w8-3_AAAB joined all agent rooms
+[Memory] injected 224 chars for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:50:29] "POST /api/chat HTTP/1.1" 200 -
+[Task] created dab3041b-8228-41aa-abd0-e7bb7c4164dc: MARTIN → ARIA: Screenshot des letzten Bildes
+127.0.0.1 - - [02/Apr/2026 13:50:29] "[35m[1mPOST /api/tasks HTTP/1.1[0m" 202 -
+[Task] processing dab3041b-8228-41aa-abd0-e7bb7c4164dc: Screenshot des letzten Bildes
+[Task] screenshot trigger detected: Screenshot des letzten Bildes
+[Task] done dab3041b-8228-41aa-abd0-e7bb7c4164dc via None
+[WS] emit_task_result: task=dab3041b-8228-41aa-abd0-e7bb7c4164dc, agent=aria-seo-prompt-agent-001, has_image=False (0KB), status=completed
+[WS] emit_task_result SUCCESS
+[Memory] stored for agent 4d6fc07f-6d2c-4442-bf64-a2b129041027
+127.0.0.1 - - [02/Apr/2026 13:50:31] "GET /api/tasks/dab3041b-8228-41aa-abd0-e7bb7c4164dc HTTP/1.1" 200 -
+/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/resource_tracker.py:396: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown: {'/mp-n338s7fd'}
+  warnings.warn(

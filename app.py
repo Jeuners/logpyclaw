@@ -333,67 +333,97 @@ TERMINAL_STATES = {"completed", "failed", "canceled", "rejected"}
 
 A2A_COMMUNICATION_PROMPT = """
 --- A2A KOMMUNIKATION ---
-Du bist Teil des AgentClaw Multi-Agent-Systems. Agents kommunizieren über das A2A-Protokoll.
+Du bist Teil des AgentClaw Multi-Agent-Systems.
 
 VERHALTENSREGELN:
-1. Antworte NUR wenn du direkt angesprochen wirst oder eigenständig handeln musst.
-2. Wenn ein Task nicht zu deinen Skills passt, delegiere an den passenden Agenten.
-3. Antworte präzise und minimal — keine langen Erklärungen.
+1. Prüfe IMMER zuerst, ob du eine Anfrage mit DEINEN EIGENEN SKILLS (siehe unten) lösen kannst.
+2. Delegiere NUR an andere Agents (@Mention), wenn du den benötigten Skill absolut nicht selbst besitzt.
+3. Wenn du Informationen im Gedächtnis (Memory) findest, präsentiere sie selbst, anstatt jemanden anderen zu fragen.
+4. Antworte präzise und minimal — keine langen Erklärungen.
 
 DELEGIERUNG (@Mention):
   • Schreibe @AgentName gefolgt von deiner Anfrage
-  • Beispiel: "@Fotograf generiere ein Bild von einer Katze"
-  • Der目标是 Agent übernimmt und liefert das Ergebnis zurück
+  • Beispiel: "@Fotograf generiere ein Bild von einer Katze" (Nur wenn du selbst kein image_gen besitzt!)
 
-API-ENDPOINTS FÜR DIREKTE KOMMUNIKATION:
-  • /api/a2a/tasks → Task erstellen
-  • /api/a2a/tasks/<id> → Task Status abfragen
-  • /api/a2a/tasks/<id>/cancel → Task abbrechen
-  • /api/a2a/agents → Alle Agents mit Skills abrufen
-
-TASK STATES (wissen musst du):
-  • submitted → working → completed/failed
-  • input-required: Wenn du mehr Infos vom Sender brauchst
-  • canceled: Wenn Task abgebrochen wurde
-
-Wenn du Hilfe brauchst oder nicht weiterkommst, sage das klar.
+WICHTIG: Nutze dein eigenes Memory, um Fragen zu Inhalten, Dokumenten oder früheren Chats zu beantworten.
 --- ENDE A2A ---
 """.strip()
 
 
 def _build_agent_directory(current_agent_id: str = None) -> str:
     """
-    Baut ein kompaktes Agent-Verzeichnis für den System-Prompt.
-    Jeder Agent kennt so alle anderen Agents und deren Skills.
+    Baut ein kompaktes Agent-Verzeichnis und Delegationsregeln dynamisch auf.
+    Filtert Agenten heraus, deren Skills der aktuelle Agent bereits selbst besitzt.
     """
     agents = load_agents()
     if not agents:
         return ""
 
+    current_agent = next((a for a in agents if a["id"] == current_agent_id), None)
+    my_skills = set(current_agent.get("skills", [])) if current_agent else set()
+
     def _skill_label(sid: str) -> str:
         s = _SKILL_MAP.get(sid)
         return f"{s['icon']} {s['name']}" if s else sid
 
+    # Map skills to agents (only skills I DON'T have)
+    skill_to_agents = {}
+    for a in agents:
+        if a["id"] == current_agent_id:
+            continue
+        for s in a.get("skills", []):
+            if s not in my_skills:
+                skill_to_agents.setdefault(s, []).append(a["name"])
+
     lines = [
-        "--- AGENT NETWORK ---",
-        "Du bist Teil eines Multi-Agent-Systems. Du kannst Tasks jederzeit an andere Agents delegieren.",
-        "Delegations-Syntax: @AgentName <Aufgabe>",
-        'Beispiel: "@Fotograf generiere ein Bild von einem Sonnenuntergang über Bergen"',
+        "--- DYNAMISCHE DELEGATIONSREGELN ---",
+        "Du kannst Aufgaben an spezialisierte Agents delegieren mit @AgentName <Task>.",
+        "ACHTUNG: Nutze für alles andere DEINE EIGENEN SKILLS.",
         "",
-        "VERFÜGBARE AGENTS:",
     ]
 
-    for a in agents:
-        is_self = a["id"] == current_agent_id
-        skills = a.get("skills", [])
-        skill_str = ", ".join(_skill_label(s) for s in skills) if skills else "—"
-        role_str = f" · {a['role']}" if a.get("role") else ""
-        self_tag = " (DU)" if is_self else ""
-        lines.append(f"  • {a['name']}{self_tag}{role_str} — Skills: {skill_str}")
+    # Map human tasks to skills
+    delegation_map = [
+        ("Screenshot", "screenshot"),
+        ("Website analysieren / URL check", "url_fetch"),
+        ("Bild generieren / Foto / Malen", "image_gen"),
+        ("Prompt optimieren", "prompt_optimize"),
+        ("Tagesschau / Nachrichten", "tagesschau"),
+        ("Hacker News / Tech News", "hackernews"),
+        ("Memory / Erinnerungen", "memory"),
+        ("Telegram Nachrichten", "telegram_incoming"),
+        ("Web Suche", "web_search"),
+        ("Gmail / E-Mail", "gmail"),
+    ]
+
+    for label, sid in delegation_map:
+        if sid in my_skills:
+            continue # I have this skill, don't show delegation rule
+        target_agents = skill_to_agents.get(sid, [])
+        if target_agents:
+            mentions = " oder ".join([f"@{name}" for name in target_agents])
+            lines.append(f"• **{label}** → {mentions}")
 
     lines += [
         "",
-        "Delegiere nur wenn der Task wirklich zum Skill des anderen Agents passt.",
+        "VERFÜGBARE HILFS-AGENTS IM NETZWERK:",
+    ]
+
+    for a in agents:
+        if a["id"] == current_agent_id:
+            continue # Hide self from directory list
+        
+        # Only show agents that offer at least one skill I don't have
+        other_skills = set(a.get("skills", []))
+        useful_skills = other_skills - my_skills
+        
+        if useful_skills:
+            skill_str = ", ".join(_skill_label(s) for s in other_skills)
+            lines.append(f"  • {a['name']} — Skills: {skill_str}")
+
+    lines += [
+        "",
+        "WICHTIG: Wenn ein Skill oben NICHT aufgeführt ist, besitzt du ihn entweder selbst oder er ist im System nicht verfügbar.",
         "--- ENDE AGENT NETWORK ---",
     ]
     return "\n".join(lines)
@@ -1489,30 +1519,84 @@ def ensure_collection(client, agent_id):
 
 
 def memory_search(agent_id, query, top_k=4):
-    """Return relevant past exchanges as context string."""
+    """Return relevant past exchanges or documents as context string."""
     client = get_qdrant()
     if not client:
         return ""
     try:
         providers = load_providers()
         ollama_url = providers.get("ollama", {}).get("url", "http://localhost:11434")
-        vec = embed_text(query, ollama_url)
         name = collection_name(agent_id)
         existing = [c.name for c in client.get_collections().collections]
         if name not in existing:
             return ""
+
+        # Special handling for "last image/document" queries
+        if re.search(r"\b(letzte|letztes|last)\b.*\b(bild|foto|document|datei|image)\b", query, re.IGNORECASE):
+            is_image_query = re.search(r"\b(bild|foto|image|jpg|png)\b", query, re.IGNORECASE)
+            scroll = client.scroll(collection_name=name, limit=50, with_payload=True)
+            docs = [p for p in scroll[0] if p.payload.get("type") == "document"]
+            if docs:
+                docs.sort(key=lambda x: x.payload.get("ts", ""), reverse=True)
+                if is_image_query:
+                    img_exts = (".jpg", ".jpeg", ".png", ".webp", ".gif")
+                    images = [d for d in docs if d.payload.get("filename", "").lower().endswith(img_exts)]
+                    if images:
+                        p = images[0].payload
+                        return f"[LATEST IMAGE] Filename: {p.get('filename')}\nPath: {p.get('file_path')}\nContext: {p.get('text')}"
+                p = docs[0].payload
+                return f"[LATEST DOCUMENT] Filename: {p.get('filename')}\nPath: {p.get('file_path')}\nContext: {p.get('text')}"
+
+        # Special handling for "today/heute" or "yesterday/gestern" queries
+        if re.search(r"\b(heute|today|gestern|yesterday)\b", query, re.IGNORECASE):
+            scroll = client.scroll(collection_name=name, limit=100, with_payload=True)
+            all_entries = scroll[0]
+            if all_entries:
+                # Sort by timestamp
+                all_entries.sort(key=lambda x: x.payload.get("ts", ""), reverse=True)
+                
+                target_date = datetime.now().date()
+                if re.search(r"\b(gestern|yesterday)\b", query, re.IGNORECASE):
+                    target_date = target_date - timedelta(days=1)
+                
+                date_str = target_date.isoformat()
+                recent = [e for e in all_entries if e.payload.get("ts", "").startswith(date_str)]
+                
+                if recent:
+                    parts = ["### Recent Activity from Memory:"]
+                    for e in recent[:10]:
+                        p = e.payload
+                        ts = p.get("ts", "").split("T")[1][:5]
+                        if p.get("type") == "document":
+                            parts.append(f"- [{ts}] 📄 Document: {p.get('filename')} ({p.get('file_path')})")
+                        else:
+                            parts.append(f"- [{ts}] 💬 User: {p.get('user')}\n  Assistant: {p.get('assistant')}")
+                    return "\n".join(parts)
+
+        vec = embed_text(query, ollama_url)
         result = client.query_points(
-            collection_name=name, query=vec, limit=top_k, score_threshold=0.45
+            collection_name=name, query=vec, limit=top_k, score_threshold=0.30 # Even lower for better recall
         )
         hits = result.points
         if not hits:
             return ""
-        parts = []
+        parts = ["### Relevant Past Context from Memory:"]
         for h in hits:
             p = h.payload
-            parts.append(
-                f"[Memory] User: {p.get('user', '')}\nAssistant: {p.get('assistant', '')}"
-            )
+            mtype = p.get("type", "chat")
+            if mtype == "document":
+                fpath = p.get("file_path", "")
+                parts.append(
+                    f"#### 📄 Document: {p.get('filename', 'Unknown')}\n"
+                    f"- Content: {p.get('text', '')}\n"
+                    f"- Path: {fpath}"
+                )
+            else:
+                parts.append(
+                    f"#### 💬 Past Exchange\n"
+                    f"- User: {p.get('user', '')}\n"
+                    f"- Assistant: {p.get('assistant', '')}"
+                )
         return "\n\n".join(parts)
     except Exception as e:
         print(f"[Memory] search error: {e}", flush=True)
@@ -2668,7 +2752,26 @@ def chat():
     # Inject current datetime + agent directory into system prompt
     now = datetime.now().strftime("%A, %B %d %Y, %H:%M")
     agent_directory = _build_agent_directory(agent_id)
-    system_content = f"[Current time: {now}]\n\n{agent['soul']}\n\n{A2A_COMMUNICATION_PROMPT}\n\n{agent_directory}"
+    
+    # List actual current agent skills
+    my_skills = agent.get("skills", [])
+    skill_labels = [_SKILL_MAP.get(sid, {"name": sid})["name"] for sid in my_skills]
+    skills_str = ", ".join(skill_labels) if skill_labels else "Keine speziellen Skills aktiv."
+    
+    system_content = (
+        f"[Current time: {now}]\n\n"
+        f"DEINE IDENTITÄT:\n{agent['soul']}\n\n"
+        f"DEINE SKILLS (Absolutes Vorranggebot):\n{skills_str}\n\n"
+        f"GESTALTUNGSRICHTLINIEN:\n"
+        f"- Nutze IMMER sauberes Markdown (Fett, Listen, Tabellen).\n"
+        f"- Listen sollten IMMER Zeilenumbrüche zwischen den Punkten haben.\n"
+        f"- Sei visuell ansprechend und strukturiert.\n\n"
+        f"REGELN FÜR DIE AUFGABENERFÜLLUNG:\n"
+        f"1. Besitzt du einen der oben genannten Skills? Dann MUSST du ihn selbst nutzen. Es ist dir UNTERSAGT, Aufgaben, die zu DEINEN SKILLS passen, an andere Agents (@Mention) zu delegieren.\n"
+        f"2. Wenn nach 'Ereignissen heute' oder 'was passiert ist' gefragt wird, prüfe ZUERST dein Memory auf systeminterne Events und Dokumente.\n"
+        f"3. Delegiere NUR an andere Agents, wenn du den Skill NICHT besitzt und das Memory keine Antwort liefert.\n\n"
+        f"{agent_directory}"
+    )
 
     # Determine active skills
     agent_skills = set(agent.get("skills", []))
@@ -2940,7 +3043,8 @@ def chat():
     if "memory" in agent_skills:
         memory_context = memory_search(agent["id"], user_message)
         if memory_context:
-            system_content += f"\n\n[Relevant past conversations — use for context and continuity:]\n{memory_context}"
+            system_content += f"\n\n[Relevant past conversations & documents — use for context and continuity:]\n{memory_context}"
+            system_content += "\n\nIMPORTANT: If you find a 'Path' in the Document Memory (e.g. /static/uploads/...), you can display the image to the user using Markdown: ![Image Description](PATH)"
             print(
                 f"[Memory] injected {len(memory_context)} chars for agent {agent['id']}",
                 flush=True,
@@ -4217,10 +4321,51 @@ def scheduler_loop():
         time.sleep(60)  # tick every minute
 
 
-# Scheduler als Daemon-Thread starten (nicht blockierend)
-import threading
+def live_reload_loop():
+    """Monitor templates and static files for changes and emit reload event."""
+    print("[Live-Reload] Monitoring templates and static files...", flush=True)
+    paths = ["templates", "static"]
+    last_mtimes = {}
 
-threading.Thread(target=scheduler_loop, daemon=True).start()
+    while True:
+        try:
+            changed = False
+            for p in paths:
+                full_path = os.path.join(BASE_DIR, p)
+                if not os.path.exists(full_path):
+                    continue
+                for root, dirs, files in os.walk(full_path):
+                    for f in files:
+                        if f.startswith(".") or f.endswith(".pyc"):
+                            continue
+                        fpath = os.path.join(root, f)
+                        try:
+                            mtime = os.path.getmtime(fpath)
+                        except OSError:
+                            continue
+
+                        if fpath in last_mtimes:
+                            if mtime > last_mtimes[fpath]:
+                                changed = True
+                                last_mtimes[fpath] = mtime
+                        else:
+                            last_mtimes[fpath] = mtime
+
+            if changed:
+                print(
+                    f"[Live-Reload] Change detected, emitting reload event", flush=True
+                )
+                socketio.emit("reload", {}, namespace="/ws")
+        except Exception:
+            pass
+        time.sleep(1)
+
+
+# Scheduler & Live-Reload als Daemon-Threads starten (nicht blockierend)
+# WERKZEUG_RUN_MAIN check verhindert Doppelstart bei use_reloader=True
+if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not os.environ.get("WERKZEUG_RUN_MAIN"):
+    threading.Thread(target=scheduler_loop, daemon=True).start()
+    threading.Thread(target=live_reload_loop, daemon=True).start()
 
 
 # ─── Skills ───────────────────────────────────────────────────────────────────
@@ -5025,33 +5170,42 @@ def memory_clear(agent_id):
 @app.route("/api/memory/<agent_id>/document", methods=["POST"])
 def memory_upload_document(agent_id):
     """Upload PDF or image - store as vector in Qdrant."""
+    import requests as req_module
+    print(f"[Memory] Uploading document for agent {agent_id}", flush=True)
     if "document_memory" not in _get_agent_skills(agent_id):
+        print(f"[Memory] Skill not active for agent {agent_id}", flush=True)
         return jsonify({"error": "document_memory skill not active"}), 403
 
     # Check for file in request
     if "file" not in request.files:
+        print("[Memory] No file in request.files", flush=True)
         return jsonify({"error": "No file provided"}), 400
 
     file = request.files["file"]
     if not file.filename:
+        print("[Memory] Empty filename", flush=True)
         return jsonify({"error": "Empty filename"}), 400
 
     filename = file.filename.lower()
     file_data = file.read()
+    print(f"[Memory] Received file: {filename} ({len(file_data)} bytes)", flush=True)
 
     # Determine file type
     is_pdf = filename.endswith(".pdf")
     is_image = filename.endswith((".png", ".jpg", ".jpeg", ".gif", ".webp"))
 
     if not (is_pdf or is_image):
+        print(f"[Memory] Unsupported file type: {filename}", flush=True)
         return jsonify({"error": "Only PDF and images supported"}), 400
 
     # Try Google API first, fallback to Ollama
     providers = load_providers()
     google_key = providers.get("google_api", {}).get("api_key", "")
+    print(f"[Memory] Using google_key: {bool(google_key)}", flush=True)
 
     try:
         if google_key and is_pdf:
+            print("[Memory] Processing PDF with Google API", flush=True)
             # Use Gemini Embedding 2 for PDF
             import base64
 
@@ -5069,7 +5223,7 @@ def memory_upload_document(agent_id):
                 text = f"[Image/PDF file: {filename}]"
 
             # Use Google for embedding
-            resp = requests.post(
+            resp = req_module.post(
                 "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2-preview:embedContent",
                 headers={"Authorization": f"Bearer {google_key}"},
                 json={"content": {"role": "user", "parts": [{"text": text[:2000]}]}},
@@ -5077,13 +5231,15 @@ def memory_upload_document(agent_id):
             )
             if resp.ok:
                 embedding = resp.json()["embedding"]["values"]
-                _store_document_vector(agent_id, filename, text[:1000], embedding)
+                _store_document_vector(agent_id, filename, text[:1000], embedding, file_data=file_data)
                 return jsonify({"ok": True, "filename": filename, "type": "pdf"})
         elif is_image:
+            print("[Memory] Processing Image", flush=True)
             # For images, use text description as fallback
             text = f"[Image: {filename}]"
             if google_key:
-                resp = requests.post(
+                print("[Memory] Processing Image with Google API", flush=True)
+                resp = req_module.post(
                     "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2-preview:embedContent",
                     headers={"Authorization": f"Bearer {google_key}"},
                     json={"content": {"role": "user", "parts": [{"text": text}]}},
@@ -5091,25 +5247,30 @@ def memory_upload_document(agent_id):
                 )
                 if resp.ok:
                     embedding = resp.json()["embedding"]["values"]
-                    _store_document_vector(agent_id, filename, text, embedding)
+                    _store_document_vector(agent_id, filename, text, embedding, file_data=file_data)
                     return jsonify({"ok": True, "filename": filename, "type": "image"})
 
         # Fallback to Ollama embeddings
+        print("[Memory] Falling back to Ollama embeddings", flush=True)
         ollama_url = providers.get("ollama", {}).get("url", "http://localhost:11434")
         text = f"[Document: {filename}]"
-        resp = requests.post(
+        resp = req_module.post(
             f"{ollama_url}/api/embeddings",
             json={"model": "nomic-embed-text", "prompt": text},
             timeout=30,
         )
         if resp.ok:
             embedding = resp.json()["embedding"]
-            _store_document_vector(agent_id, filename, text, embedding)
+            _store_document_vector(agent_id, filename, text, embedding, file_data=file_data)
             return jsonify({"ok": True, "filename": filename, "type": "fallback"})
+        else:
+            print(f"[Memory] Ollama error: {resp.text}", flush=True)
 
         return jsonify({"error": "No embedding provider available"}), 500
 
     except Exception as e:
+        import traceback
+        print(f"[Memory] Exception: {traceback.format_exc()}", flush=True)
         return jsonify({"error": str(e)}), 500
 
 
@@ -5121,11 +5282,26 @@ def _get_agent_skills(agent_id):
     return set()
 
 
-def _store_document_vector(agent_id, filename, text, embedding):
-    """Store document embedding in Qdrant."""
+def _store_document_vector(agent_id, filename, text, embedding, file_data=None):
+    """Store document embedding in Qdrant and save file to disk."""
+    import uuid
+    from datetime import datetime
     client = get_qdrant()
     if not client:
         return
+
+    # Create uploads directory if not exists
+    upload_dir = os.path.join(BASE_DIR, "static", "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+
+    # Save file if data provided
+    file_path = ""
+    if file_data:
+        unique_name = f"{uuid.uuid4().hex[:8]}_{filename}"
+        save_path = os.path.join(upload_dir, unique_name)
+        with open(save_path, "wb") as f:
+            f.write(file_data)
+        file_path = f"/static/uploads/{unique_name}"
 
     from qdrant_client.models import PointStruct, VectorParams, Distance
 
@@ -5145,6 +5321,7 @@ def _store_document_vector(agent_id, filename, text, embedding):
                 vector=embedding,
                 payload={
                     "filename": filename,
+                    "file_path": file_path,
                     "text": text,
                     "type": "document",
                     "ts": datetime.now().isoformat(),
@@ -5152,7 +5329,7 @@ def _store_document_vector(agent_id, filename, text, embedding):
             )
         ],
     )
-    print(f"[Document Memory] stored {filename} for agent {agent_id}", flush=True)
+    print(f"[Document Memory] stored {filename} (path: {file_path}) for agent {agent_id}", flush=True)
 
 
 @app.route("/api/comfyui/config", methods=["GET"])
@@ -5254,6 +5431,6 @@ if __name__ == "__main__":
         debug=True,
         host="0.0.0.0",
         port=port,
-        use_reloader=False,
+        use_reloader=True,
         allow_unsafe_werkzeug=True,
     )
