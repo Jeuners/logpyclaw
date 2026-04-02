@@ -4044,7 +4044,8 @@ def run_heartbeat(agent_or_id):
         # Atomic patch — no race with concurrent save_agents() calls
         patch_agent_heartbeat(agent_id, last_run=ts, last_result=short[:300])
         # Emit heartbeat result via WebSocket
-        emit_heartbeat_result(agent_id, reply or short)
+        reply_or_short = locals().get("reply") or short
+        emit_heartbeat_result(agent_id, reply_or_short)
         # macOS Notification
         try:
             subprocess.run(
@@ -5068,8 +5069,6 @@ def memory_upload_document(agent_id):
                 text = f"[Image/PDF file: {filename}]"
 
             # Use Google for embedding
-            import requests
-
             resp = requests.post(
                 "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2-preview:embedContent",
                 headers={"Authorization": f"Bearer {google_key}"},
@@ -5084,8 +5083,6 @@ def memory_upload_document(agent_id):
             # For images, use text description as fallback
             text = f"[Image: {filename}]"
             if google_key:
-                import requests
-
                 resp = requests.post(
                     "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2-preview:embedContent",
                     headers={"Authorization": f"Bearer {google_key}"},

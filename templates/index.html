@@ -160,7 +160,7 @@
     }
 
     .panel-head {
-      padding: 14px 14px 8px;
+      padding: 14px;
       font-size: 10px;
       font-weight: 700;
       color: var(--textdim);
@@ -168,6 +168,7 @@
       letter-spacing: 1.2px;
       flex-shrink: 0;
       font-family: var(--mono);
+      text-align: center;
     }
 
     .agent-list {
@@ -254,8 +255,8 @@
     .agent-avatar-img.sm  { width: 32px; height: 32px; }
     .agent-avatar-initial.sm { width: 32px; height: 32px; font-size: 13px; }
     /* Large variant for main chat header */
-    .agent-avatar-img.lg  { width: 50px; height: 50px; }
-    .agent-avatar-initial.lg { width: 50px; height: 50px; font-size: 22px; }
+    .agent-avatar-img.lg  { width: 100%; height: 100%; }
+    .agent-avatar-initial.lg { width: 100%; height: 100%; font-size: 72px; }
 
     /* Color picker row */
     .color-avatar-row {
@@ -417,19 +418,17 @@
     .chat-topbar {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 0 16px;
-      height: 46px;
+      gap: 24px;
+      padding: 0 32px;
+      height: 200px;
       background: var(--bg2);
       border-bottom: 1px solid var(--b1);
       flex-shrink: 0;
     }
 
     .chat-topbar-name {
-      font-size: 14px;
       font-weight: 600;
       color: var(--textbr);
-      flex: 1;
     }
 
     .topbar-badge {
@@ -540,6 +539,14 @@
     .toast-message { flex: 1; }
 
     /* Markdown in messages */
+    .msg-bubble a {
+      color: var(--green);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .msg-bubble a:hover {
+      text-decoration: underline;
+    }
     .msg-bubble p { margin-bottom: 8px; }
     .msg-bubble p:last-child { margin-bottom: 0; }
     .msg-bubble code {
@@ -1429,6 +1436,7 @@
           </div>
         </div>
       </div>
+      <div class="form-group">
         <label class="form-label">Provider</label>
         <select class="form-select" id="editAgentProvider"></select>
       </div>
@@ -2055,7 +2063,7 @@ function renderMultiSidePanel() {
   const selCount = selectedAgents.size;
   return `
     <div class="panel-head">Select Agents</div>
-    <div style="padding:4px 14px 6px;font-size:11px;font-family:var(--mono);color:var(--textdim)">${selCount} selected</div>
+    <div style="padding:4px 14px 10px;font-size:11px;font-family:var(--mono);color:var(--textdim);text-align:center">${selCount} selected</div>
     <div class="agent-list">${agentRows || '<div style="padding:12px 14px;font-size:12px;color:var(--textdim)">No agents</div>'}</div>
     <div class="panel-foot">
       <button class="panel-foot-btn" onclick="selectedAgents=new Set(agents.map(a=>a.id));renderSidePanel();renderMultiCards()">✅ Select All</button>
@@ -2170,22 +2178,28 @@ function renderChatShell(ws) {
   ws.innerHTML = `
     <div class="chat-shell" id="chatShell">
       <div class="chat-topbar">
-        <div class="agent-avatar-wrap" style="width:50px;height:50px">${renderAgentAvatar(currentAgent,'lg')}</div>
-        <div>
-          <div class="chat-topbar-name" style="font-size:18px">${esc(currentAgent.name)}</div>
-          ${currentAgent.role ? `<div style="font-size:12px;color:var(--textdim);font-family:var(--mono);margin-top:2px">${esc(currentAgent.role)}</div>` : ''}
+        <div class="agent-avatar-wrap" style="width:180px;height:180px;border-radius:50%;overflow:hidden;flex-shrink:0;border:4px solid var(--b2)">${renderAgentAvatar(currentAgent,'lg')}</div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center">
+          <div class="chat-topbar-name" style="font-size:42px;line-height:1.1">${esc(currentAgent.name)}</div>
+          ${currentAgent.role ? `<div style="font-size:18px;color:var(--textdim);font-family:var(--mono);margin-top:2px">${esc(currentAgent.role)}</div>` : ''}
         </div>
-        <span class="topbar-badge">${esc(currentAgent.model||'')}</span>
-        <span class="speaking-dot" id="speakingDot"></span>
-        <button class="tts-stop-btn" id="ttsStopBtn" onclick="stopCurrentAudio()" title="Sprachausgabe stoppen (Esc)">⏹ Stop</button>
-        <label class="autoplay-toggle" title="Auto-Play TTS">
-          🔊 <div class="toggle-switch ${autoPlay ? 'on' : ''}" id="autoplayToggle" onclick="toggleAutoPlay()"></div>
-        </label>
-        <button class="topbar-btn" id="ttsSpeedBtn" onclick="toggleTTSSpeed()" title="TTS Geschwindigkeit">${ttsSpeed === 2 ? '2×' : '1×'}</button>
-        <button class="topbar-btn" onclick="openEditAgentModal('${currentAgent.id}')">✏️ Edit</button>
-        <button class="topbar-btn" onclick="openAutoDialogModal()">🤖 Auto</button>
-        <button class="topbar-btn" onclick="openExportModal()">📤</button>
-        <button class="topbar-btn" onclick="clearChat()">🗑</button>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:16px;height:180px;justify-content:center">
+          <div style="display:flex;gap:12px;align-items:center">
+            <span class="topbar-badge" style="font-size:13px;padding:4px 10px">${esc(currentAgent.model||'')}</span>
+            <span class="speaking-dot" id="speakingDot"></span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+            <button class="tts-stop-btn" id="ttsStopBtn" onclick="stopCurrentAudio()" title="Sprachausgabe stoppen (Esc)">⏹ Stop</button>
+            <label class="autoplay-toggle" title="Auto-Play TTS">
+              🔊 <div class="toggle-switch ${autoPlay ? 'on' : ''}" id="autoplayToggle" onclick="toggleAutoPlay()"></div>
+            </label>
+            <button class="topbar-btn" id="ttsSpeedBtn" onclick="toggleTTSSpeed()" title="TTS Geschwindigkeit">${ttsSpeed === 2 ? '2×' : '1×'}</button>
+            <button class="topbar-btn" onclick="openEditAgentModal('${currentAgent.id}')">✏️ Edit</button>
+            <button class="topbar-btn" onclick="openAutoDialogModal()">🤖 Auto</button>
+            <button class="topbar-btn" onclick="openExportModal()">📤</button>
+            <button class="topbar-btn" onclick="clearChat()">🗑</button>
+          </div>
+        </div>
       </div>
       <div class="auto-banner" id="autoBanner">
         <span>🤖</span><span id="autoBannerText">Auto-dialog running…</span>
@@ -3095,31 +3109,41 @@ async function openEditAgentModal(id) {
   _hasUnsavedChanges = false;
   
   // Large header fields
-  document.getElementById('editAgentNameLarge').value = a.name || '';
-  document.getElementById('editAgentRoleLarge').value = a.role || '';
+  const nameL = document.getElementById('editAgentNameLarge');
+  if (nameL) nameL.value = a.name || '';
+  const roleL = document.getElementById('editAgentRoleLarge');
+  if (roleL) roleL.value = a.role || '';
   
-  // Original fields (hidden/duplicate)
-  document.getElementById('editAgentName').value = a.name || '';
-  document.getElementById('editAgentRole').value = a.role || '';
-  document.getElementById('editAgentSystem').value = a.soul || '';
-  document.getElementById('editAgentMaxTokens').value = a.max_tokens || '';
+  // Original fields (hidden/duplicate) - check for existence to avoid crash
+  const nameE = document.getElementById('editAgentName');
+  if (nameE) nameE.value = a.name || '';
+  const roleE = document.getElementById('editAgentRole');
+  if (roleE) roleE.value = a.role || '';
+  
+  const sysE = document.getElementById('editAgentSystem');
+  if (sysE) sysE.value = a.soul || '';
+  const maxE = document.getElementById('editAgentMaxTokens');
+  if (maxE) maxE.value = a.max_tokens || '';
 
   // Avatar & color - update both previews
   _editAvatarB64 = a.avatar || '';
   const editColor = a.color || '#4f46e5';
   initColorSwatches('edit', editColor);
   
-  const updatePreview = (el) => {
+  const updatePreview = (elId) => {
+    const el = document.getElementById(elId);
     if (!el) return;
     if (_editAvatarB64) {
       el.innerHTML = `<img src="${_editAvatarB64}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:2px solid ${editColor}">`;
     } else {
       el.textContent = (a.name || '?')[0].toUpperCase();
       el.style.background = editColor;
+      el.innerHTML = (a.name || '?')[0].toUpperCase();
     }
   };
-  updatePreview(document.getElementById('editAvatarPreview'));
-  updatePreview(document.getElementById('editAvatarPreviewLarge'));
+  updatePreview('editAvatarPreview');
+  updatePreview('editAvatarPreviewLarge');
+
   await Promise.all([loadModels(), loadProviders()]);
   populateProviderSelects();
   const psel = document.getElementById('editAgentProvider');
@@ -3140,7 +3164,6 @@ async function openEditAgentModal(id) {
   addAutoSave('editAgentMaxTokens', 'max_tokens', '/settings');
   addAutoSave('editAgentProvider', 'provider', '/settings');
   addAutoSave('editAgentModel', 'model', '/settings');
-  // Large header auto-save (sync with main fields)
   addAutoSave('editAgentNameLarge', 'name', '/settings');
   addAutoSave('editAgentRoleLarge', 'role', '/settings');
   
@@ -3154,10 +3177,8 @@ async function openEditAgentModal(id) {
   populateVoiceSelects().then(() => {
     const vsel = document.getElementById('editAgentVoice');
     if (!vsel) return;
-    // Set value after voices are loaded
     if (savedVoice) {
       vsel.value = savedVoice;
-      // If still not set, try with mac: prefix
       if (!vsel.value && savedVoice !== 'voxtral') vsel.value = 'mac:' + savedVoice;
     }
     vsel.onchange = async () => {
@@ -3167,76 +3188,95 @@ async function openEditAgentModal(id) {
     };
   });
   
-  document.getElementById('editAgentDeleteBtn').onclick = () => deleteAgent(editingAgentId);
+  const delBtn = document.getElementById('editAgentDeleteBtn');
+  if (delBtn) delBtn.onclick = () => deleteAgent(editingAgentId);
   
-  // Skills with auto-save
+  // Skills
   renderEditAgentSkills(a.skills || [], true);
   
   // Heartbeat
   const hb = a.heartbeat || {};
   const hbActive = !!hb.active;
-  document.getElementById('editHeartbeatToggle').classList.toggle('on', hbActive);
-  document.getElementById('editHeartbeatStatus').textContent = hbActive ? 'active' : 'inactive';
-  document.getElementById('editHeartbeatFields').style.display = hbActive ? 'flex' : 'none';
-  document.getElementById('editHeartbeatPrompt').value = hb.prompt || '';
-  document.getElementById('editHeartbeatInterval').value = hb.interval_min || 30;
+  const hbToggle = document.getElementById('editHeartbeatToggle');
+  if (hbToggle) {
+    hbToggle.classList.toggle('on', hbActive);
+    hbToggle.onclick = () => {
+      const on = hbToggle.classList.toggle('on');
+      const hbStatus = document.getElementById('editHeartbeatStatus');
+      if (hbStatus) hbStatus.textContent = on ? 'active' : 'inactive';
+      const hbFields = document.getElementById('editHeartbeatFields');
+      if (hbFields) hbFields.style.display = on ? 'flex' : 'none';
+      saveHeartbeat();
+    };
+  }
+  const hbStatus = document.getElementById('editHeartbeatStatus');
+  if (hbStatus) hbStatus.textContent = hbActive ? 'active' : 'inactive';
+  const hbFields = document.getElementById('editHeartbeatFields');
+  if (hbFields) hbFields.style.display = hbActive ? 'flex' : 'none';
+  const hbPrompt = document.getElementById('editHeartbeatPrompt');
+  if (hbPrompt) {
+    hbPrompt.value = hb.prompt || '';
+    hbPrompt.onkeyup = () => saveHeartbeat();
+  }
+  const hbInterval = document.getElementById('editHeartbeatInterval');
+  if (hbInterval) {
+    hbInterval.value = hb.interval_min || 30;
+    hbInterval.onchange = () => saveHeartbeat();
+  }
   
-  // Heartbeat auto-save
   const saveHeartbeat = async () => {
-    const hbActive = document.getElementById('editHeartbeatToggle').classList.contains('on');
-    const hbPrompt = document.getElementById('editHeartbeatPrompt')?.value.trim();
-    const hbInterval = parseInt(document.getElementById('editHeartbeatInterval')?.value) || 30;
-    console.log('[Heartbeat] Saving for agent:', editingAgentId, {active: hbActive, prompt: hbPrompt});
+    const active = document.getElementById('editHeartbeatToggle')?.classList.contains('on');
+    const prompt = document.getElementById('editHeartbeatPrompt')?.value.trim();
+    const interval = parseInt(document.getElementById('editHeartbeatInterval')?.value) || 30;
     try {
       await api(`/api/agents/${editingAgentId}/heartbeat`, {
         method: 'PUT',
-        body: { active: hbActive, prompt: hbPrompt, interval_min: hbInterval }
+        body: { active, prompt, interval_min: interval }
       });
       showToast('Heartbeat gespeichert!', 'success');
     } catch(e) {
-      console.error('[Heartbeat] Error:', e);
       showToast('Fehler: ' + e.message, 'error');
     }
   };
-  document.getElementById('editHeartbeatToggle').onclick = () => {
-    const on = document.getElementById('editHeartbeatToggle').classList.toggle('on');
-    document.getElementById('editHeartbeatStatus').textContent = on ? 'active' : 'inactive';
-    document.getElementById('editHeartbeatFields').style.display = on ? 'flex' : 'none';
-    saveHeartbeat();
-  };
-  document.getElementById('editHeartbeatPrompt').onkeyup = () => saveHeartbeat();
-  document.getElementById('editHeartbeatInterval').onchange = () => saveHeartbeat();
-  
+
   // Dream
   const dream = a.dream || {};
   const dreamActive = !!dream.active;
-  document.getElementById('editDreamToggle').classList.toggle('on', dreamActive);
-  document.getElementById('editDreamStatus').textContent = dreamActive ? 'active' : 'inactive';
-  document.getElementById('editDreamFields').style.display = dreamActive ? 'flex' : 'none';
-  document.getElementById('editDreamRetention').value = dream.retention_days || 30;
-  
+  const dreamToggle = document.getElementById('editDreamToggle');
+  if (dreamToggle) {
+    dreamToggle.classList.toggle('on', dreamActive);
+    dreamToggle.onclick = () => {
+      const on = dreamToggle.classList.toggle('on');
+      const dStatus = document.getElementById('editDreamStatus');
+      if (dStatus) dStatus.textContent = on ? 'active' : 'inactive';
+      const dFields = document.getElementById('editDreamFields');
+      if (dFields) dFields.style.display = on ? 'flex' : 'none';
+      saveDream();
+    };
+  }
+  const dStatus = document.getElementById('editDreamStatus');
+  if (dStatus) dStatus.textContent = dreamActive ? 'active' : 'inactive';
+  const dFields = document.getElementById('editDreamFields');
+  if (dFields) dFields.style.display = dreamActive ? 'flex' : 'none';
+  const dRetention = document.getElementById('editDreamRetention');
+  if (dRetention) {
+    dRetention.value = dream.retention_days || 30;
+    dRetention.onchange = () => saveDream();
+  }
+
   const saveDream = async () => {
-    const dreamActive = document.getElementById('editDreamToggle').classList.contains('on');
+    const active = document.getElementById('editDreamToggle')?.classList.contains('on');
     const retention = parseInt(document.getElementById('editDreamRetention')?.value) || 30;
-    console.log('[Dream] Saving for agent:', editingAgentId, {active: dreamActive, retention});
     try {
       await api(`/api/agents/${editingAgentId}/dream`, {
         method: 'PUT',
-        body: { active: dreamActive, retention_days: retention }
+        body: { active, retention_days: retention }
       });
       showToast('Dream gespeichert!', 'success');
     } catch(e) {
-      console.error('[Dream] Error:', e);
       showToast('Fehler: ' + e.message, 'error');
     }
   };
-  document.getElementById('editDreamToggle').onclick = () => {
-    const on = document.getElementById('editDreamToggle').classList.toggle('on');
-    document.getElementById('editDreamStatus').textContent = on ? 'active' : 'inactive';
-    document.getElementById('editDreamFields').style.display = on ? 'flex' : 'none';
-    saveDream();
-  };
-  document.getElementById('editDreamRetention').onchange = () => saveDream();
   
   openModal('editAgentModal');
 }
