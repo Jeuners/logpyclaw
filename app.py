@@ -398,10 +398,10 @@ def _build_agent_directory(current_agent_id: str = None) -> str:
     )
     lines = [
         "--- AGENT NETZWERK ---",
-        f"DEINE EIGENEN SKILLS (kannst du SELBST ausführen): {own_skills_str}",
+        f"⚡ DEINE EIGENEN SKILLS: {own_skills_str}",
+        f"→ Diese Skills führst du IMMER selbst aus. Für diese Skills delegierst du NIEMALS.",
         "",
-        "Du kannst Aufgaben an spezialisierte Agents delegieren mit @AgentName <Task>.",
-        "Nutze zuerst DEINE eigenen Skills — delegiere nur wenn du den Skill NICHT besitzt.",
+        "Für Skills die du NICHT besitzt kannst du @AgentName <Task> delegieren:",
         "",
     ]
 
@@ -436,18 +436,20 @@ def _build_agent_directory(current_agent_id: str = None) -> str:
     for a in agents:
         if a["id"] == current_agent_id:
             continue # Hide self from directory list
-        
-        # Only show agents that offer at least one skill I don't have
+
+        # Only show skills the current agent does NOT have — never advertise shared skills
         other_skills = set(a.get("skills", []))
         useful_skills = other_skills - my_skills
-        
+
         if useful_skills:
-            skill_str = ", ".join(_skill_label(s) for s in other_skills)
-            lines.append(f"  • {a['name']} — Skills: {skill_str}")
+            # Show ONLY useful skills, never the ones I already possess
+            skill_str = ", ".join(_skill_label(s) for s in sorted(useful_skills))
+            lines.append(f"  • {a['name']} — kann: {skill_str}")
 
     lines += [
         "",
-        "WICHTIG: Delegiere NUR Skills die NICHT in deiner eigenen Skill-Liste oben stehen.",
+        "REGEL: Jeder Agent sieht nur die Skills anderer Agents die er selbst NICHT hat.",
+        "Ein Agent der für einen Skill nicht gelistet ist → nutze deinen eigenen.",
         "--- ENDE AGENT NETZWERK ---",
     ]
     return "\n".join(lines)
