@@ -648,16 +648,80 @@ def _extract_img_prompt(message: str) -> str:
 
 
 def _extract_video_prompt(message: str) -> str:
-    """Strip video-specific keywords and return a clean scene description."""
+    """Extract a clean scene description from a user message for video generation."""
+    # Remove angle brackets from heartbeat/task format e.g. <Generate a video of...>
+    cleaned = re.sub(r"^[\s<]+|[\s>]+$", "", message.strip())
+    # Remove only clear meta-instructions — keep all descriptive content
     cleaned = re.sub(
-        r"\b(video|videos|animier\w*|animate|clip|kurzfilm|film\w*|bewegt\w*|motion|"
-        r"dreh\w*|generier\w*|erstell\w*|mach\w*|zeig\w*|erzeug\w*|render\w*|"
-        r"create|make|generate|produce|mir\w*|eine?\w*|eines?\w*|bitte|please|einen?|einer?)\b",
+        r"\b(generiere?\s+(ein|einen|eine)?\s*video|erstelle?\s+(ein|einen|eine)?\s*video|"
+        r"mach(e)?\s+(ein|einen|eine)?\s*video|erzeuge?\s+(ein|einen|eine)?\s*video|"
+        r"create\s+a\s+video|generate\s+a\s+video|make\s+a\s+video|produce\s+a\s+video|"
+        r"animate|animiere?|video\s+von|video\s+of|dreh(e)?\s+(ein|einen|eine)?|"
+        r"bitte|please)\b",
         " ",
-        message,
+        cleaned,
         flags=re.IGNORECASE,
     )
     return re.sub(r"\s{2,}", " ", cleaned).strip()
+
+
+def _prepare_video_prompt(message: str, providers: dict) -> str:
+    """
+    Turn a raw user message into an optimized English video prompt.
+    Uses a fast LLM call to translate/expand if ollama is available,
+    otherwise falls back to basic extraction + translation.
+    """
+    raw = _extract_video_prompt(message)
+    if not raw:
+        raw = message.strip()
+
+    # Try LLM-based prompt optimization (fast, local)
+    try:
+        ollama_url = providers.get("ollama", {}).get("url", "http://localhost:11434")
+        system = (
+            "You are a cinematic video prompt engineer. "
+            "Convert the user's request into a concise, vivid English prompt for an AI video model. "
+            "Output ONLY the prompt — no explanation, no quotes, no meta text. "
+            "Keep it under 120 words. Focus on visual description: scene, lighting, mood, style, movement. "
+            "If the input is German, translate to English. "
+            "Always end with cinematic quality descriptors."
+        )
+        resp = requests.post(
+            f"{ollama_url}/api/chat",
+            json={
+                "model": "gemma3:latest",
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": raw},
+                ],
+                "stream": False,
+                "options": {"num_predict": 150},
+            },
+            timeout=20,
+        )
+        if resp.ok:
+            optimized = resp.json().get("message", {}).get("content", "").strip()
+            if optimized and len(optimized) > 10:
+                print(f"[Video] optimized prompt: {optimized[:100]}", flush=True)
+                return optimized
+    except Exception as e:
+        print(f"[Video] prompt optimization failed, using raw: {e}", flush=True)
+
+    # Fallback: basic German→English word substitution
+    de_en = {
+        "farben": "colors", "farbe": "color", "dunkel": "dark", "hell": "bright",
+        "licht": "light", "neon": "neon", "grün": "green", "blau": "blue",
+        "rot": "red", "schwarz": "black", "weiß": "white", "gold": "golden",
+        "organisch": "organic", "biomechanisch": "biomechanical", "alien": "alien",
+        "atmosphärisch": "atmospheric", "surreal": "surreal", "dramatisch": "dramatic",
+        "kinofilm": "cinematic", "stimmung": "mood", "textur": "texture",
+        "bewegung": "motion", "szene": "scene", "hintergrund": "background",
+    }
+    p = raw.lower()
+    for de, en in de_en.items():
+        p = re.sub(rf"\b{re.escape(de)}\b", en, p)
+    p = p.replace("ü", "ue").replace("ö", "oe").replace("ä", "ae").replace("ß", "ss")
+    return p.strip()
 
 
 def _optimize_prompt_for_image(prompt: str) -> str:
@@ -993,8 +1057,11 @@ def _run_comfyui_video(prompt: str) -> str:
     base_url = cfg.get("url", "http://localhost:8188").rstrip("/")
     seed = int(time.time()) % (2**32)
 
-    print(f"[Video] prompt: {prompt[:80]}", flush=True)
-    workflow = _build_wan_video_workflow(prompt, seed)
+    # Optimize prompt: translate to English, expand cinematically
+    optimized = _prepare_video_prompt(prompt, providers)
+    print(f"[Video] raw: {prompt[:80]}", flush=True)
+    print(f"[Video] final prompt: {optimized[:120]}", flush=True)
+    workflow = _build_wan_video_workflow(optimized, seed)
 
     r = requests.post(
         f"{base_url}/prompt",
