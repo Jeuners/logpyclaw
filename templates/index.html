@@ -2161,20 +2161,28 @@
   _autoSaveTimer = setTimeout(async () => {
     if (!_hasUnsavedChanges || !editingAgentId) return;
     _hasUnsavedChanges = false;
-    
-    // Save all fields - also sync large header fields
-    const name = document.getElementById('editAgentName')?.value.trim();
+
+    // Read from either field (small or large header) — prefer non-empty value
+    const nameSmall = document.getElementById('editAgentName');
+    const nameLarge = document.getElementById('editAgentNameLarge');
+    const roleSmall = document.getElementById('editAgentRole');
+    const roleLarge = document.getElementById('editAgentRoleLarge');
+
+    const name = (nameSmall?.value || nameLarge?.value || '').trim();
+    const role = (roleSmall?.value || roleLarge?.value || '').trim();
+
+    // Sync both name/role fields so they stay in lockstep
+    if (nameSmall && name) nameSmall.value = name;
+    if (nameLarge && name) nameLarge.value = name;
+    if (roleSmall && role) roleSmall.value = role;
+    if (roleLarge && role) roleLarge.value = role;
+
     const provider = document.getElementById('editAgentProvider')?.value;
     const model = document.getElementById('editAgentModel')?.value.trim();
     const system = document.getElementById('editAgentSystem')?.value.trim();
-    const role = document.getElementById('editAgentRole')?.value.trim();
     const maxTokens = parseInt(document.getElementById('editAgentMaxTokens')?.value) || null;
-    
-    // Sync large header fields
-    document.getElementById('editAgentNameLarge').value = name;
-    document.getElementById('editAgentRoleLarge').value = role;
-    
     const color = document.getElementById('editAgentColorCustom')?.value;
+
     await saveField(`/api/agents/${editingAgentId}/settings`,
       { name, role, provider, model, soul: system, max_tokens: maxTokens, color },
       'Einstellungen gespeichert'
