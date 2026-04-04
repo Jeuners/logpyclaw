@@ -35,7 +35,18 @@ except ImportError:
 
 load_dotenv()
 
-# Wenn als py2app .app-Bundle gestartet, Resources-Verzeichnis ermitteln
+# ── Debug Logging ──────────────────────────────────────────────────────────────
+# Set via env var DEBUG_LOG=1 or toggle at runtime via /api/debug
+_DEBUG_LOG = os.environ.get("DEBUG_LOG", "0") == "1"
+
+
+def dlog(*args, tag="DEBUG"):
+    """Conditional debug log — only prints when _DEBUG_LOG is True."""
+    if _DEBUG_LOG:
+        print(f"[{tag}]", *args, flush=True)
+
+
+# ── Wenn als py2app .app-Bundle gestartet, Resources-Verzeichnis ermitteln
 if getattr(sys, "frozen", False):
     # Contents/MacOS/AgentClaw → Contents/Resources/
     _bundle_resources = os.path.join(
@@ -293,6 +304,13 @@ SKILLS = [
         "requires": "comfyui",
     },
     {
+        "id": "video_gen",
+        "name": "Video Producer",
+        "icon": "🎬",
+        "description": "Generates 5-second videos via ComfyUI using Wan 2.2 T2V (14B) with LightX2V — triggered by keywords like 'video', 'animiere', 'clip'",
+        "requires": "comfyui",
+    },
+    {
         "id": "prompt_optimize",
         "name": "Prompt Optimizer",
         "icon": "✨",
@@ -375,10 +393,15 @@ def _build_agent_directory(current_agent_id: str = None) -> str:
             if s not in my_skills:
                 skill_to_agents.setdefault(s, []).append(a["name"])
 
+    own_skills_str = (
+        ", ".join(_skill_label(s) for s in sorted(my_skills)) if my_skills else "keine"
+    )
     lines = [
-        "--- DYNAMISCHE DELEGATIONSREGELN ---",
+        "--- AGENT NETZWERK ---",
+        f"DEINE EIGENEN SKILLS (kannst du SELBST ausführen): {own_skills_str}",
+        "",
         "Du kannst Aufgaben an spezialisierte Agents delegieren mit @AgentName <Task>.",
-        "ACHTUNG: Nutze für alles andere DEINE EIGENEN SKILLS.",
+        "Nutze zuerst DEINE eigenen Skills — delegiere nur wenn du den Skill NICHT besitzt.",
         "",
     ]
 
@@ -387,6 +410,7 @@ def _build_agent_directory(current_agent_id: str = None) -> str:
         ("Screenshot", "screenshot"),
         ("Website analysieren / URL check", "url_fetch"),
         ("Bild generieren / Foto / Malen", "image_gen"),
+        ("Video generieren / Animieren / Clip", "video_gen"),
         ("Prompt optimieren", "prompt_optimize"),
         ("Tagesschau / Nachrichten", "tagesschau"),
         ("Hacker News / Tech News", "hackernews"),
@@ -423,8 +447,8 @@ def _build_agent_directory(current_agent_id: str = None) -> str:
 
     lines += [
         "",
-        "WICHTIG: Wenn ein Skill oben NICHT aufgeführt ist, besitzt du ihn entweder selbst oder er ist im System nicht verfügbar.",
-        "--- ENDE AGENT NETWORK ---",
+        "WICHTIG: Delegiere NUR Skills die NICHT in deiner eigenen Skill-Liste oben stehen.",
+        "--- ENDE AGENT NETZWERK ---",
     ]
     return "\n".join(lines)
 
@@ -614,6 +638,19 @@ def _extract_img_prompt(message: str) -> str:
         r"\b(bild|generier\w*|erstell\w*|zeich\w*|mal\w*|mach\w*|zeig\w*|"
         r"mir\w*|eine?\w*|eines?\w*|von|generate|draw|create|make|"
         r"paint|an?\b|image|picture|photo|of|bitte|please|einen?|einer?)\b",
+        " ",
+        message,
+        flags=re.IGNORECASE,
+    )
+    return re.sub(r"\s{2,}", " ", cleaned).strip()
+
+
+def _extract_video_prompt(message: str) -> str:
+    """Strip video-specific keywords and return a clean scene description."""
+    cleaned = re.sub(
+        r"\b(video|videos|animier\w*|animate|clip|kurzfilm|film\w*|bewegt\w*|motion|"
+        r"dreh\w*|generier\w*|erstell\w*|mach\w*|zeig\w*|erzeug\w*|render\w*|"
+        r"create|make|generate|produce|mir\w*|eine?\w*|eines?\w*|bitte|please|einen?|einer?)\b",
         " ",
         message,
         flags=re.IGNORECASE,
@@ -888,6 +925,139 @@ def _run_comfyui_sync(prompt: str) -> str:
     img_r.raise_for_status()
     mime = img_r.headers.get("Content-Type", "image/png").split(";")[0]
     b64 = base64.b64encode(img_r.content).decode()
+    return f"data:{mime};base64,{b64}"
+
+
+WAN_VIDEO_NEGATIVE = (
+    "vivid colors, overexposed, static, blurry details, subtitles, stylized, artwork, "
+    "painting, still frame, grayish overall, worst quality, low quality, JPEG compression artifacts, "
+    "ugly, incomplete, extra fingers, poorly drawn hands, poorly drawn face, deformed, disfigured, "
+    "malformed limbs, fused fingers, static motion, cluttered background, three legs, "
+    "crowded background, walking backwards, nudity, NSFW"
+)
+
+
+def _build_wan_video_workflow(prompt: str, seed: int) -> dict:
+    """Build the Wan 2.2 T2V LightX2V 4-step workflow."""
+    return {
+        "71": {"inputs": {"clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "type": "wan", "device": "default"}, "class_type": "CLIPLoader"},
+        "72": {"inputs": {"text": WAN_VIDEO_NEGATIVE, "clip": ["71", 0]}, "class_type": "CLIPTextEncode"},
+        "73": {"inputs": {"vae_name": "wan_2.1_vae.safetensors"}, "class_type": "VAELoader"},
+        "74": {"inputs": {"width": 640, "height": 640, "length": 81, "batch_size": 1}, "class_type": "EmptyHunyuanLatentVideo"},
+        "75": {"inputs": {"unet_name": "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors", "weight_dtype": "default"}, "class_type": "UNETLoader"},
+        "76": {"inputs": {"unet_name": "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors", "weight_dtype": "default"}, "class_type": "UNETLoader"},
+        "78": {
+            "inputs": {
+                "add_noise": "disable", "noise_seed": seed, "steps": 4, "cfg": 1,
+                "sampler_name": "euler", "scheduler": "simple",
+                "start_at_step": 2, "end_at_step": 4, "return_with_leftover_noise": "disable",
+                "model": ["86", 0], "positive": ["89", 0], "negative": ["72", 0], "latent_image": ["81", 0],
+            },
+            "class_type": "KSamplerAdvanced",
+        },
+        "80": {
+            "inputs": {"filename_prefix": "video/ComfyUI", "format": "auto", "codec": "auto", "video-preview": "", "video": ["88", 0]},
+            "class_type": "SaveVideo",
+        },
+        "81": {
+            "inputs": {
+                "add_noise": "enable", "noise_seed": seed, "steps": 4, "cfg": 1,
+                "sampler_name": "euler", "scheduler": "simple",
+                "start_at_step": 0, "end_at_step": 2, "return_with_leftover_noise": "enable",
+                "model": ["82", 0], "positive": ["89", 0], "negative": ["72", 0], "latent_image": ["74", 0],
+            },
+            "class_type": "KSamplerAdvanced",
+        },
+        "82": {"inputs": {"shift": 5.0, "model": ["83", 0]}, "class_type": "ModelSamplingSD3"},
+        "83": {
+            "inputs": {"lora_name": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors", "strength_model": 1.0, "model": ["75", 0]},
+            "class_type": "LoraLoaderModelOnly",
+        },
+        "85": {
+            "inputs": {"lora_name": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors", "strength_model": 1.0, "model": ["76", 0]},
+            "class_type": "LoraLoaderModelOnly",
+        },
+        "86": {"inputs": {"shift": 5.0, "model": ["85", 0]}, "class_type": "ModelSamplingSD3"},
+        "87": {"inputs": {"samples": ["78", 0], "vae": ["73", 0]}, "class_type": "VAEDecode"},
+        "88": {"inputs": {"fps": 16, "images": ["87", 0]}, "class_type": "CreateVideo"},
+        "89": {"inputs": {"text": prompt, "clip": ["71", 0]}, "class_type": "CLIPTextEncode"},
+    }
+
+
+def _run_comfyui_video(prompt: str) -> str:
+    """Generate a 5-second video via Wan 2.2 T2V on ComfyUI. Returns base64 data URL."""
+    providers = load_providers()
+    cfg = providers.get("comfyui", {})
+    base_url = cfg.get("url", "http://localhost:8188").rstrip("/")
+    seed = int(time.time()) % (2**32)
+
+    print(f"[Video] prompt: {prompt[:80]}", flush=True)
+    workflow = _build_wan_video_workflow(prompt, seed)
+
+    r = requests.post(
+        f"{base_url}/prompt",
+        json={"prompt": workflow, "client_id": "agentclaw-video"},
+        timeout=30,
+    )
+    r.raise_for_status()
+    resp_json = r.json()
+    if "prompt_id" not in resp_json:
+        raise RuntimeError(f"ComfyUI Antwort unerwartet: {resp_json}")
+    prompt_id = resp_json["prompt_id"]
+    print(f"[Video] queued prompt_id={prompt_id}", flush=True)
+
+    # Video generation takes longer — 20 min timeout
+    deadline = time.time() + 1200
+    outputs = None
+    while time.time() < deadline:
+        time.sleep(3)
+        h = requests.get(f"{base_url}/history/{prompt_id}", timeout=10)
+        data = h.json()
+        entry = data.get(prompt_id, {})
+        status = entry.get("status", {})
+        if status.get("completed"):
+            outputs = entry.get("outputs", {})
+            dlog(f"ComfyUI completed. status_str={status.get('status_str')} output_nodes={list(outputs.keys())}", tag="Video")
+            for nid, nout in outputs.items():
+                dlog(f"  node {nid}: keys={list(nout.keys())}", tag="Video")
+            break
+        # Check for error state
+        if status.get("status_str") == "error":
+            msgs = status.get("messages", [])
+            print(f"[Video] ComfyUI error status: {msgs}", flush=True)
+            raise RuntimeError(f"ComfyUI Workflow-Fehler: {msgs}")
+
+    if outputs is None:
+        raise RuntimeError("Timeout: ComfyUI Video hat nicht rechtzeitig geantwortet")
+
+    # Find video in outputs — supports SaveVideo ("videos") and VHS_VideoCombine ("gifs")
+    video_info = None
+    for node_out in outputs.values():
+        for key in ("videos", "gifs", "images"):
+            items = node_out.get(key, [])
+            if items:
+                video_info = items[0]
+                dlog(f"found output under key '{key}': {video_info}", tag="Video")
+                break
+        if video_info:
+            break
+
+    if not video_info:
+        dlog(f"Full outputs dump: {outputs}", tag="Video")
+        raise RuntimeError("Keine Videodaten in der ComfyUI-Antwort")
+
+    filename = video_info["filename"]
+    subfolder = video_info.get("subfolder", "")
+    v_type = video_info.get("type", "output")
+    params = f"filename={filename}&type={v_type}"
+    if subfolder:
+        params += f"&subfolder={subfolder}"
+
+    print(f"[Video] downloading: {filename}", flush=True)
+    vid_r = requests.get(f"{base_url}/view?{params}", timeout=60)
+    vid_r.raise_for_status()
+    mime = vid_r.headers.get("Content-Type", "video/mp4").split(";")[0]
+    b64 = base64.b64encode(vid_r.content).decode()
     return f"data:{mime};base64,{b64}"
 
 
@@ -1166,14 +1336,9 @@ def process_task(task_id: str):
     skills = set(recipient.get("skills", []))
     message = task["message"]
 
-    IMG_TRIGGERS = re.compile(
-        r"\b(generier\w*|mal\w*|zeichn\w*|illustrier\w*|"
-        r"generate|draw|paint|illustrate|"
-        r"bild|foto|image|picture|photo|wallpaper|artwork|illustration|zeichnung|gemälde)\b",
-        re.IGNORECASE,
-    )
-    # If agent only has image_gen skill, treat every task as an image prompt
+    # If agent only has image_gen/video_gen skill, treat every task as that prompt
     only_image_gen = skills == {"image_gen"}
+    only_video_gen = "video_gen" in skills and not skills.intersection({"image_gen", "image_edit"})
 
     TG_TRIGGERS = re.compile(
         r"schick.*(das\s*)?(bild|foto|photo|image).*telegram|"
@@ -1332,6 +1497,25 @@ def process_task(task_id: str):
             except Exception as e:
                 task["result_text"] = f"❌ Error fetching Hacker News: {str(e)}"
             task["skill_used"] = "hackernews"
+        elif "prompt_optimize" in skills and PROMPT_OPTIMIZE_TRIGGERS.search(message):
+            print(f"[Task] prompt_optimize trigger detected: {message[:60]}", flush=True)
+            fw_id = "RTF"
+            for fid in PROMPT_FRAMEWORKS:
+                if fid in message.upper():
+                    fw_id = fid
+                    break
+            if re.search(r"\bseo\b", message, re.IGNORECASE):
+                fw_id = "BAB"
+            elif re.search(r"\bstrateg\w+\b", message, re.IGNORECASE):
+                fw_id = "RISE"
+            raw = re.sub(
+                r"^.{0,80}?(?:optimize|improve|refine|enhance|rewrite|optimiere|verbessere)[^:\"]*[:\"]\s*",
+                "",
+                message,
+                flags=re.IGNORECASE,
+            ).strip() or message
+            task["result_text"] = _optimize_prompt(raw, fw_id)
+            task["skill_used"] = "prompt_optimize"
         # Screenshot skill
         elif "screenshot" in skills and SCREENSHOT_TRIGGERS.search(message):
             print(f"[Task] screenshot trigger detected: {message[:60]}", flush=True)
@@ -1371,6 +1555,14 @@ def process_task(task_id: str):
                 task["result_text"] = "❌ Keine URL im Prompt gefunden"
             if not task.get("result_image"):
                 task["skill_used"] = task.get("skill_used", "screenshot")
+        elif "video_gen" in skills and (VIDEO_TRIGGERS.search(message) or only_video_gen):
+            # Extend task timeout to 20 min for video generation
+            task["timeout_at"] = (datetime.now() + timedelta(seconds=1210)).isoformat()
+            vid_prompt = _extract_video_prompt(message) or message
+            task["prompt_used"] = vid_prompt
+            print(f"[Task] video_gen prompt: {vid_prompt}", flush=True)
+            task["result_image"] = _run_comfyui_video(vid_prompt)  # stored in result_image as data URL
+            task["skill_used"] = "video_gen"
         elif "image_gen" in skills and (IMG_TRIGGERS.search(message) or only_image_gen):
             img_prompt = _extract_img_prompt(message)
             if not img_prompt:
@@ -1380,6 +1572,12 @@ def process_task(task_id: str):
             task["result_image"] = _run_comfyui_sync(img_prompt)
             task["skill_used"] = "image_gen"
         else:
+            if task.get("chat_mode"):
+                # No skill matched — let /api/chat handle the LLM call with full history
+                task["skill_used"] = None
+                task["status"] = "completed"
+                task["completed_at"] = datetime.now().isoformat()
+                return
             system_suffix = (
                 f"[Task delegated by agent {task['sender_agent_name']}]\n"
                 f"Handle the following request directly and concisely. "
@@ -1393,62 +1591,63 @@ def process_task(task_id: str):
         print(f"[Task] done {task_id} via {task['skill_used']}", flush=True)
 
         # ── Save result to recipient's chat history ───────────────────────────
-        ts = datetime.now().isoformat()
-        history = load_history()
-        recipient_id = task["recipient_agent_id"]
-        sender_id = task["sender_agent_id"]
-        if recipient_id not in history:
-            history[recipient_id] = []
+        if not task.get("chat_mode"):
+            ts = datetime.now().isoformat()
+            history = load_history()
+            recipient_id = task["recipient_agent_id"]
+            sender_id = task["sender_agent_id"]
+            if recipient_id not in history:
+                history[recipient_id] = []
 
-        if task["skill_used"] == "image_gen" and task.get("result_image"):
-            content = f"[Task from {task['sender_agent_name']}]: {task['message']}"
-            thumb = _make_thumbnail(task["result_image"])
-            task_prompt = task.get("prompt_used", "")
-            history[recipient_id].append(
-                {
-                    "role": "assistant",
-                    "content": content,
-                    "task_image": thumb,  # Thumbnail statt vollem Bild
-                    "task_prompt": task_prompt,
-                    "task_id": task_id,
-                    "ts": ts,
-                }
-            )
-            # Also notify sender agent's history (with thumbnail)
-            if sender_id and sender_id != "system":
-                if sender_id not in history:
-                    history[sender_id] = []
-                history[sender_id].append(
+            if task["skill_used"] in ("image_gen", "video_gen") and task.get("result_image"):
+                content = f"[Task from {task['sender_agent_name']}]: {task['message']}"
+                thumb = _make_thumbnail(task["result_image"])
+                task_prompt = task.get("prompt_used", "")
+                history[recipient_id].append(
                     {
                         "role": "assistant",
-                        "content": f"📬 **@{task['recipient_agent_name']}** finished the image: _{task['message'][:80]}_",
-                        "task_image": thumb,  # Thumbnail
+                        "content": content,
+                        "task_image": thumb,  # Thumbnail statt vollem Bild
                         "task_prompt": task_prompt,
                         "task_id": task_id,
                         "ts": ts,
                     }
                 )
-        elif task.get("result_text"):
-            history[recipient_id].append(
-                {
-                    "role": "assistant",
-                    "content": f"[Aufgabe von {task['sender_agent_name']}]: {task['result_text']}",
-                    "task_id": task_id,
-                    "ts": ts,
-                }
-            )
-            if sender_id and sender_id != "system":
-                if sender_id not in history:
-                    history[sender_id] = []
-                history[sender_id].append(
+                # Also notify sender agent's history (with thumbnail)
+                if sender_id and sender_id != "system":
+                    if sender_id not in history:
+                        history[sender_id] = []
+                    history[sender_id].append(
+                        {
+                            "role": "assistant",
+                            "content": f"📬 **@{task['recipient_agent_name']}** finished the image: _{task['message'][:80]}_",
+                            "task_image": thumb,  # Thumbnail
+                            "task_prompt": task_prompt,
+                            "task_id": task_id,
+                            "ts": ts,
+                        }
+                    )
+            elif task.get("result_text"):
+                history[recipient_id].append(
                     {
                         "role": "assistant",
-                        "content": f"📬 **@{task['recipient_agent_name']}**: {task['result_text']}",
+                        "content": f"[Aufgabe von {task['sender_agent_name']}]: {task['result_text']}",
                         "task_id": task_id,
                         "ts": ts,
                     }
                 )
-        save_history(history)
+                if sender_id and sender_id != "system":
+                    if sender_id not in history:
+                        history[sender_id] = []
+                    history[sender_id].append(
+                        {
+                            "role": "assistant",
+                            "content": f"📬 **@{task['recipient_agent_name']}**: {task['result_text']}",
+                            "task_id": task_id,
+                            "ts": ts,
+                        }
+                    )
+            save_history(history)
         emit_task_result(
             task["id"],
             task["recipient_agent_id"],
@@ -1476,6 +1675,49 @@ def process_task(task_id: str):
         activity_end(task["recipient_agent_id"])
 
     _save_tasks()
+
+
+def _run_chat_skill(agent: dict, message: str, image_data: str = None) -> dict | None:
+    """
+    Route a direct chat message through the A2A task system for skill execution.
+    Returns the completed task if a skill fired, None if no skill matched
+    (in which case /api/chat should handle the LLM call with full history).
+    """
+    task_id = str(uuid.uuid4())
+    now = datetime.now()
+    task = {
+        "id": task_id,
+        "sender_agent_id": "user",
+        "sender_agent_name": "User",
+        "recipient_agent_id": agent["id"],
+        "recipient_agent_name": agent["name"],
+        "message": message,
+        "status": "submitted",
+        "skill_used": None,
+        "result_text": None,
+        "result_image": image_data,  # pass existing image for image_edit
+        "prompt_used": None,
+        "error": None,
+        "created_at": now.isoformat(),
+        "completed_at": None,
+        "timeout_at": (now + timedelta(seconds=1210)).isoformat(),
+        "chat_mode": True,  # signals process_task to skip history saving
+    }
+    with _tasks_lock:
+        _TASKS[task_id] = task
+
+    process_task(task_id)  # runs synchronously (blocking)
+
+    with _tasks_lock:
+        result = _TASKS.get(task_id, task)
+
+    if result.get("skill_used"):
+        return result  # skill fired — return result to /api/chat
+
+    # No skill matched — clean up and let /api/chat handle LLM
+    with _tasks_lock:
+        _TASKS.pop(task_id, None)
+    return None
 
 
 # ─── Memory (Qdrant + Ollama embeddings) ──────────────────────────────────────
@@ -1820,8 +2062,9 @@ def load_agents():
     with _agents_lock:
         data = _read_json(AGENTS_FILE, None)
         if data is None:
-            data = DEFAULT_AGENTS
-            _write_json(AGENTS_FILE, data)
+            # Datei fehlt oder fehlerhaft - keine Defaults mehr schreiben
+            print("[Agent] WARN: agents.json fehlt, lade leere Liste", flush=True)
+            return []
         return data
 
 
@@ -2496,6 +2739,19 @@ def clear_history(agent_id):
 
 # ─── Chat ─────────────────────────────────────────────────────────────────────
 
+IMG_TRIGGERS = re.compile(
+    r"\b(generier\w*|mal\w*|zeichn\w*|illustrier\w*|"
+    r"generate|draw|paint|illustrate|"
+    r"bild|foto|image|picture|photo|wallpaper|artwork|illustration|zeichnung|gemälde)\b",
+    re.IGNORECASE,
+)
+
+VIDEO_TRIGGERS = re.compile(
+    r"\b(video|videos|animier\w*|animate|clip|kurzfilm|film\w*|bewegt\w*|motion|"
+    r"dreh\w*|render.*video|video.*render|erzeug.*video|video.*erzeug)\b",
+    re.IGNORECASE,
+)
+
 IMAGE_EDIT_TRIGGERS = re.compile(
     # explicit edit verbs (DE)
     r"\b(bearbeit|änder|editier|modifizier|verände|verwandl|transformier|konvertier|anpass|korrigier)\w*\b|"
@@ -2778,223 +3034,46 @@ def chat():
     if "skills" not in agent:  # old agent without skills field: keep url_fetch on
         agent_skills.add("url_fetch")
 
-    # Telegram: check if user wants to send to Telegram
-    TG_TRIGGERS = re.compile(
-        r"schick.*(das\s*)?(bild|foto|photo|image).*telegram|"
-        r"schick.*telegram|"
-        r"sende.*(das\s*)?(bild|foto|photo|image)?.*telegram|"
-        r"sende.*telegram|"
-        r"send.*(the\s*)?(image|picture|photo).*telegram|"
-        r"send.*to\s*telegram|"
-        r"telegram.*(bild|foto|image)|"
-        r"tg\s*send",
-        re.IGNORECASE,
-    )
-    if "telegram" in agent_skills and TG_TRIGGERS.search(user_message):
-        print(f"[Chat] telegram trigger: {user_message[:60]}...", flush=True)
-        # If there's an image, use it; otherwise send text
-        result = _run_telegram(user_message, image_data)
-        history[agent_id].append(
-            {
-                "role": "user",
-                "content": user_message,
-                "image": image_data,
-                "ts": datetime.now().isoformat(),
-            }
-        )
-        history[agent_id].append(
-            {"role": "assistant", "content": result, "ts": datetime.now().isoformat()}
-        )
-        save_history(history)
-        return jsonify({"reply": result, "image": image_data})
-
-    # Gmail: check if user wants to send or check email
-    GMAIL_TRIGGERS = re.compile(
-        r"schick.*mail|"
-        r"sende.*e-?mail|"
-        r"e-?mail.*an|"
-        r"send.*mail|"
-        r"send.*email|"
-        r"email.*to|"
-        r"check.*(my\s*)?mail|"
-        r"check.*e-?mails|"
-        r"letzte.*mail|"
-        r"letzte.*e-?mail|"
-        r"neue.*mail|"
-        r"neue.*e-?mail|",
-        re.IGNORECASE,
-    )
-    if "gmail" in agent_skills and GMAIL_TRIGGERS.search(user_message):
-        print(f"[Chat] gmail trigger: {user_message[:60]}...", flush=True)
-        import re as re_module
-
-        # Check if fetch or send
-        is_fetch = re_module.search(
-            r"(check|letzte|neue|show).*(mail|email)",
-            user_message,
-            re_module.IGNORECASE,
-        )
-        if is_fetch:
-            result = _run_gmail("fetch", {"max_results": 5})
+    # ── Skill Dispatch via A2A ────────────────────────────────────────────────
+    # All skill execution (image_gen, video_gen, telegram, gmail, screenshot,
+    # hackernews, prompt_optimize, image_edit) is routed through process_task()
+    # to eliminate duplication and ensure stats tracking.
+    skill_result = _run_chat_skill(agent, user_message, image_data)
+    if skill_result:
+        if skill_result.get("error"):
+            return jsonify({"error": skill_result["error"]}), 500
+        ts = datetime.now().isoformat()
+        result_image = skill_result.get("result_image")
+        result_text = skill_result.get("result_text")
+        skill_used = skill_result.get("skill_used", "skill")
+        # Build reply text
+        if skill_used == "image_gen":
+            reply = f"🎨 Bild erstellt: {skill_result.get('prompt_used', user_message)[:100]}"
+        elif skill_used == "video_gen":
+            reply = f"🎬 Video erstellt: {skill_result.get('prompt_used', user_message)[:100]}"
+        elif skill_used == "image_edit":
+            reply = f"🎨 Bild bearbeitet"
         else:
-            # Extract recipient
-            to_match = re_module.search(
-                r"(?:an|to)\s+([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)",
-                user_message,
-                re_module.IGNORECASE,
-            )
-            to_addr = to_match.group(1) if to_match else ""
-            # Extract subject
-            subject_match = re_module.search(
-                r"(?:betreff|subject)[:\s]+([^\n]+)", user_message, re_module.IGNORECASE
-            )
-            subject = (
-                subject_match.group(1).strip()
-                if subject_match
-                else "Nachricht von AgentClaw"
-            )
-            # Extract body
-            body_match = re_module.search(
-                r"(?:mit|with|body|text)[:\s]*(.+)", user_message, re_module.IGNORECASE
-            )
-            body = body_match.group(1).strip() if body_match else user_message
-            result = _run_gmail(
-                "send", {"to": to_addr, "subject": subject, "body": body}
-            )
-        history[agent_id].append(
-            {"role": "user", "content": user_message, "ts": datetime.now().isoformat()}
-        )
-        history[agent_id].append(
-            {"role": "assistant", "content": result, "ts": datetime.now().isoformat()}
-        )
+            reply = result_text or f"✅ {skill_used} abgeschlossen"
+        # Save to history in chat format
+        user_entry = {"role": "user", "content": user_message, "ts": ts}
+        if image_data:
+            user_entry["image"] = image_data
+        history[agent_id].append(user_entry)
+        assistant_entry = {"role": "assistant", "content": reply, "ts": ts}
+        if result_image:
+            assistant_entry["image"] = result_image
+            if skill_used in ("image_gen",):
+                assistant_entry["task_image"] = _make_thumbnail(result_image)
+                assistant_entry["task_prompt"] = skill_result.get("prompt_used", "")
+        history[agent_id].append(assistant_entry)
         save_history(history)
-        return jsonify({"reply": result})
-
-    # Image Generation: check if user wants to generate an image
-    IMG_TRIGGERS = re.compile(
-        r"\b(generier\w*|mal\w*|zeichn\w*|illustrier\w*|"
-        r"generate|draw|paint|illustrate|"
-        r"bild|foto|image|picture|photo|wallpaper|artwork|illustration|zeichnung|gemälde)\b",
-        re.IGNORECASE,
-    )
-    if "image_gen" in agent_skills and IMG_TRIGGERS.search(user_message):
-        print(f"[Chat] image_gen triggered: {user_message[:60]}...", flush=True)
-        try:
-            img_prompt = _extract_img_prompt(user_message) or user_message
-            result_image = _run_comfyui_sync(img_prompt)
-            history[agent_id].append(
-                {
-                    "role": "user",
-                    "content": user_message,
-                    "ts": datetime.now().isoformat(),
-                }
-            )
-            history[agent_id].append(
-                {
-                    "role": "assistant",
-                    "content": f"🎨 Bild erstellt: {img_prompt[:100]}",
-                    "image": result_image,
-                    "task_image": _make_thumbnail(result_image),
-                    "task_prompt": img_prompt,
-                    "ts": datetime.now().isoformat(),
-                }
-            )
-            save_history(history)
-            return jsonify(
-                {
-                    "reply": f"🎨 Bild erstellt: {img_prompt[:100]}",
-                    "image": result_image,
-                }
-            )
-        except Exception as e:
-            return jsonify({"error": f"Bildgenerierung fehlgeschlagen: {str(e)}"}), 500
-
-    # Image Edit: check if user uploaded image + has edit skill + trigger words
-    if (
-        image_data
-        and "image_edit" in agent_skills
-        and IMAGE_EDIT_TRIGGERS.search(user_message)
-    ):
-        print(f"[Chat] image_edit triggered: {user_message[:60]}...", flush=True)
-        try:
-            edit_prompt = _extract_img_prompt(user_message) or user_message
-            result_image = _run_comfyui_edit(
-                image_data, edit_prompt, use_lightning=True
-            )
-            # Save to history
-            history[agent_id].append(
-                {
-                    "role": "user",
-                    "content": user_message,
-                    "image": image_data,
-                    "ts": datetime.now().isoformat(),
-                }
-            )
-            history[agent_id].append(
-                {
-                    "role": "assistant",
-                    "content": f"🎨 Bild bearbeitet: {edit_prompt[:100]}",
-                    "image": result_image,
-                    "ts": datetime.now().isoformat(),
-                }
-            )
-            save_history(history)
-            return jsonify(
-                {
-                    "reply": f"🎨 Bild bearbeitet: {edit_prompt[:100]}",
-                    "image": result_image,
-                }
-            )
-        except Exception as e:
-            return jsonify({"error": f"Bildbearbeitung fehlgeschlagen: {str(e)}"}), 500
-
-    # Prompt Optimize skill
-    if "prompt_optimize" in agent_skills and PROMPT_OPTIMIZE_TRIGGERS.search(
-        user_message
-    ):
-        print(f"[Chat] prompt_optimize triggered: {user_message[:60]}...", flush=True)
-        try:
-            # Auto-detect framework from message, default RTF
-            fw_id = "RTF"
-            for fid in PROMPT_FRAMEWORKS:
-                if fid in user_message.upper():
-                    fw_id = fid
-                    break
-            # Auto-detect SEO → BAB, strategy → RISE
-            if re.search(r"\bseo\b", user_message, re.IGNORECASE):
-                fw_id = "BAB"
-            elif re.search(r"\bstrateg\w+\b", user_message, re.IGNORECASE):
-                fw_id = "RISE"
-            # Extract the raw prompt to optimize (everything after colon or quote if present)
-            raw = (
-                re.sub(
-                    r"^.{0,80}?(?:optimize|improve|refine|enhance|rewrite|optimiere|verbessere)[^:\"]*[:\"]\s*",
-                    "",
-                    user_message,
-                    flags=re.IGNORECASE,
-                ).strip()
-                or user_message
-            )
-            result = _optimize_prompt(raw, fw_id)
-            history[agent_id].append(
-                {
-                    "role": "user",
-                    "content": user_message,
-                    "ts": datetime.now().isoformat(),
-                }
-            )
-            history[agent_id].append(
-                {
-                    "role": "assistant",
-                    "content": result,
-                    "ts": datetime.now().isoformat(),
-                }
-            )
-            save_history(history)
-            return jsonify({"reply": result})
-        except Exception as e:
-            print(f"[Chat] prompt_optimize error: {e}", flush=True)
-            # Fall through to normal LLM if optimizer fails
+        resp = {"reply": reply}
+        if result_image:
+            resp["image"] = result_image
+        if agent.get("voice"):
+            resp["voice"] = agent["voice"]
+        return jsonify(resp)
 
     # Extra context injected by frontend skills (e.g. tagesschau news)
     if system_extra:
@@ -3315,18 +3394,61 @@ def chat():
 # ─── TTS ──────────────────────────────────────────────────────────────────────
 
 
+GOOGLE_TTS_URL = "https://texttospeech.googleapis.com/v1/text:synthesize"
+GOOGLE_VOICES_URL = "https://texttospeech.googleapis.com/v1/voices"
+
+
 @app.route("/api/tts", methods=["POST"])
 def tts():
     data = request.json
     text = data.get("text", "").strip()
     voice = data.get("voice", "en_paul_neutral")
-    # Mac voices (browser-only) and invalid slugs → fallback
+    # Mac voices (browser-only) → handled client-side, should not reach here
     if not voice or voice.startswith("mac:") or voice in ("voxtral", "en_paul_neutral"):
         voice = "neutral_male"
 
     if not text:
         return jsonify({"error": "Kein Text"}), 400
 
+    # ── Google Cloud TTS ───────────────────────────────────────────────────────
+    if voice.startswith("google:"):
+        voice_name = voice[len("google:"):]
+        # Determine language code from voice name (e.g. "de-DE-Neural2-B" → "de-DE")
+        lang_code = "-".join(voice_name.split("-")[:2])
+        google_key = load_providers().get("google_api", {}).get("api_key", "")
+        if not google_key:
+            return jsonify({"error": "Google API Key nicht gesetzt"}), 500
+        payload = {
+            "input": {"text": text},
+            "voice": {"languageCode": lang_code, "name": voice_name},
+            "audioConfig": {"audioEncoding": "MP3"},
+        }
+        try:
+            response = requests.post(
+                f"{GOOGLE_TTS_URL}?key={google_key}",
+                json=payload,
+                timeout=30,
+            )
+            response.raise_for_status()
+            audio_b64 = response.json().get("audioContent", "")
+            audio_bytes = base64.b64decode(audio_b64)
+            return send_file(
+                io.BytesIO(audio_bytes),
+                mimetype="audio/mpeg",
+                as_attachment=False,
+                download_name="speech.mp3",
+            )
+        except requests.exceptions.HTTPError:
+            try:
+                err_body = response.json()
+            except Exception:
+                err_body = response.text
+            print(f"[TTS/Google] Fehler {response.status_code}: {err_body}", flush=True)
+            return jsonify({"error": f"Google TTS Fehler {response.status_code}"}), response.status_code
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    # ── Mistral Voxtral TTS ────────────────────────────────────────────────────
     mistral_key = load_providers().get("mistral", {}).get("api_key", "")
     if not mistral_key:
         return jsonify(
@@ -3374,6 +3496,34 @@ def tts():
 
 
 # ─── Voices ───────────────────────────────────────────────────────────────────
+
+# Curated list of Google TTS voices (DE + EN, male + female, Neural2 quality)
+GOOGLE_TTS_VOICES = [
+    # Deutsche Stimmen
+    {"name": "de-DE-Neural2-B", "lang": "de-DE", "gender": "male",  "label": "Markus (Neural2)"},
+    {"name": "de-DE-Neural2-D", "lang": "de-DE", "gender": "male",  "label": "Lukas (Neural2)"},
+    {"name": "de-DE-Neural2-A", "lang": "de-DE", "gender": "female","label": "Anna (Neural2)"},
+    {"name": "de-DE-Neural2-C", "lang": "de-DE", "gender": "female","label": "Clara (Neural2)"},
+    {"name": "de-DE-Wavenet-B", "lang": "de-DE", "gender": "male",  "label": "Markus (Wavenet)"},
+    {"name": "de-DE-Wavenet-D", "lang": "de-DE", "gender": "male",  "label": "Lukas (Wavenet)"},
+    {"name": "de-DE-Wavenet-A", "lang": "de-DE", "gender": "female","label": "Anna (Wavenet)"},
+    # Englische Stimmen
+    {"name": "en-US-Neural2-A", "lang": "en-US", "gender": "male",  "label": "James (Neural2)"},
+    {"name": "en-US-Neural2-D", "lang": "en-US", "gender": "male",  "label": "Ryan (Neural2)"},
+    {"name": "en-US-Neural2-C", "lang": "en-US", "gender": "female","label": "Emma (Neural2)"},
+    {"name": "en-GB-Neural2-B", "lang": "en-GB", "gender": "male",  "label": "Oliver (Neural2)"},
+    {"name": "en-GB-Neural2-A", "lang": "en-GB", "gender": "female","label": "Sophie (Neural2)"},
+]
+
+
+@app.route("/api/voices/google", methods=["GET"])
+def google_voices():
+    """Return available Google Cloud TTS voices. Checks if API key is configured."""
+    google_key = load_providers().get("google_api", {}).get("api_key", "")
+    if not google_key:
+        return jsonify({"voices": [], "available": False})
+    # Return curated list – no extra API call needed
+    return jsonify({"voices": GOOGLE_TTS_VOICES, "available": True})
 
 
 @app.route("/api/voices/mistral", methods=["GET"])
@@ -4314,7 +4464,7 @@ def scheduler_loop():
         try:
             tick_watchdogs()
             tick_heartbeats()
-            # tick_telegram()  # DISABLED - uncomment to enable Telegram polling
+            tick_telegram()
             activity_cleanup()
         except Exception as e:
             print(f"[Scheduler] Fehler: {e}", flush=True)
@@ -5421,6 +5571,119 @@ def comfyui_generate():
         flush=True,
     )
     return jsonify({"image": f"data:{mime};base64,{b64}", "filename": filename})
+
+
+# ─── Statistics Dashboard ──────────────────────────────────────────────────────
+
+
+@app.route("/api/debug", methods=["GET", "POST"])
+def toggle_debug():
+    """GET = current status, POST = toggle or set debug logging."""
+    global _DEBUG_LOG
+    if request.method == "POST":
+        data = request.json or {}
+        if "enabled" in data:
+            _DEBUG_LOG = bool(data["enabled"])
+        else:
+            _DEBUG_LOG = not _DEBUG_LOG
+        print(f"[Debug] logging {'ON' if _DEBUG_LOG else 'OFF'}", flush=True)
+    return jsonify({"debug_log": _DEBUG_LOG})
+
+
+@app.route("/api/stats", methods=["GET"])
+def get_stats():
+    """Return aggregated statistics for the dashboard."""
+    with _tasks_lock:
+        tasks = list(_TASKS.values())
+
+    agents = load_agents()
+    agent_map = {a["id"]: a["name"] for a in agents}
+
+    total = len(tasks)
+    status_counts = {}
+    skill_counts = {}
+    agent_task_counts = {}
+    agent_success_counts = {}
+    errors_by_agent = {}
+    recent_tasks = []
+    durations = []
+
+    for t in tasks:
+        # Status
+        s = t.get("status", "unknown")
+        status_counts[s] = status_counts.get(s, 0) + 1
+
+        # Skill usage
+        skill = t.get("skill_used") or "chat"
+        skill_counts[skill] = skill_counts.get(skill, 0) + 1
+
+        # Per-agent stats
+        rid = t.get("recipient_agent_id", "")
+        rname = t.get("recipient_agent_name") or agent_map.get(rid, rid)
+        agent_task_counts[rname] = agent_task_counts.get(rname, 0) + 1
+        if s == "completed":
+            agent_success_counts[rname] = agent_success_counts.get(rname, 0) + 1
+        elif s == "failed":
+            errors_by_agent[rname] = errors_by_agent.get(rname, 0) + 1
+
+        # Duration
+        if t.get("created_at") and t.get("completed_at"):
+            try:
+                created = datetime.fromisoformat(t["created_at"])
+                completed = datetime.fromisoformat(t["completed_at"])
+                durations.append((completed - created).total_seconds())
+            except Exception:
+                pass
+
+    avg_duration = round(sum(durations) / len(durations), 1) if durations else 0
+
+    # Success rate
+    completed = status_counts.get("completed", 0)
+    failed = status_counts.get("failed", 0)
+    success_rate = round(completed / (completed + failed) * 100, 1) if (completed + failed) > 0 else 0
+
+    # Per-agent success rates
+    agent_stats = []
+    for name, count in sorted(agent_task_counts.items(), key=lambda x: -x[1]):
+        succ = agent_success_counts.get(name, 0)
+        errs = errors_by_agent.get(name, 0)
+        rate = round(succ / count * 100, 1) if count > 0 else 0
+        agent_stats.append({
+            "name": name,
+            "total": count,
+            "completed": succ,
+            "failed": errs,
+            "success_rate": rate,
+        })
+
+    # Top skills sorted by usage
+    top_skills = sorted(
+        [{"skill": k, "count": v} for k, v in skill_counts.items()],
+        key=lambda x: -x["count"],
+    )
+
+    # Last 10 tasks (newest first)
+    sorted_tasks = sorted(tasks, key=lambda t: t.get("created_at", ""), reverse=True)
+    for t in sorted_tasks[:10]:
+        recent_tasks.append({
+            "id": t["id"][:8],
+            "sender": t.get("sender_agent_name", "?"),
+            "recipient": t.get("recipient_agent_name", "?"),
+            "skill": t.get("skill_used") or "chat",
+            "status": t.get("status", "?"),
+            "message": (t.get("message") or "")[:60],
+            "created_at": t.get("created_at", ""),
+        })
+
+    return jsonify({
+        "total_tasks": total,
+        "status_counts": status_counts,
+        "success_rate": success_rate,
+        "avg_duration_sec": avg_duration,
+        "top_skills": top_skills,
+        "agent_stats": agent_stats,
+        "recent_tasks": recent_tasks,
+    })
 
 
 if __name__ == "__main__":
