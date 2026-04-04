@@ -406,6 +406,15 @@
     console.log('[WS] Reload signal received from server');
     window.location.reload();
   });
+
+  socket.on('inbox_updated', async (data) => {
+    // Update local agent inbox count
+    const agent = agents.find(a => a.id === data.agent_id);
+    if (agent) {
+      agent.inbox = data.inbox;
+      renderSidePanel();
+    }
+  });
   }
 
   // WebSocket event handlers (to be implemented based on needs)
@@ -692,6 +701,7 @@
         ${a.role ? `<div style="font-size:10px;color:var(--textdim);font-family:var(--mono);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.role)}</div>` : ''}
         <div style="font-size:10px;color:var(--textdim);font-family:var(--mono);opacity:.5;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc((a.model||'').split('/').pop())}</div>
         ${agentSkills ? `<div style="display:flex;gap:3px;margin-top:3px">${agentSkills}</div>` : ''}
+        ${(a.inbox?.length > 0) ? `<div style="display:flex;align-items:center;gap:3px;margin-top:3px"><span style="background:#e67e22;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;cursor:pointer" onclick="event.stopPropagation();openInboxModal('${a.id}')" title="Inbox öffnen">📥 ${a.inbox.length}</span></div>` : ''}
         ${act ? `<div style="font-size:10px;color:var(--green);font-family:var(--mono);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(act.label)}</div>` : ''}
       </div>
       ${actIcon}
@@ -949,6 +959,88 @@
     const el = document.getElementById('statsContent');
     if (el) el.innerHTML = `<p style="color:#f44336">Fehler beim Laden: ${e.message}</p>`;
   }
+  }
+
+  // ═══════════════════════════════════════════════════
+  // Agent Inbox
+  // ═══════════════════════════════════════════════════
+  async function openInboxModal(agentId) {
+    const agent = agents.find(a => a.id === agentId);
+    if (!agent) return;
+
+    let inbox = [];
+    try { inbox = await api(`/api/agents/${agentId}/inbox`); } catch(e) {}
+
+    const modal = document.createElement('div');
+    modal.id = 'inboxModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+    modal.onclick = e => { if (e.target === modal) modal.remove(); };
+
+    const renderItems = (items) => items.length === 0
+      ? '<p style="color:var(--text-muted);text-align:center;margin:20px 0;font-size:13px">Inbox ist leer — keine ausstehenden Tasks</p>'
+      : items.map((item, i) => `
+        <div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;background:var(--bg-input);border-radius:8px;margin-bottom:6px" id="inbox-item-${item.id}">
+          <span style="background:#e67e22;color:#fff;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px">${i+1}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;color:var(--text-primary);word-break:break-word">${esc(item.task)}</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:3px">von ${esc(item.added_by)} · ${item.added_at ? new Date(item.added_at).toLocaleString('de') : ''}</div>
+          </div>
+          <button onclick="deleteInboxItem('${agentId}','${item.id}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:0;flex-shrink:0" title="Entfernen">🗑</button>
+        </div>`).join('');
+
+    modal.innerHTML = `
+      <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;width:500px;max-width:95vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:20px 20px 16px;border-bottom:1px solid var(--border-color);display:flex;align-items:center;justify-content:space-between">
+          <h3 style="margin:0;font-size:16px;font-weight:700">📥 Inbox — ${esc(agent.name)}</h3>
+          <button onclick="document.getElementById('inboxModal').remove()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1">×</button>
+        </div>
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border-color)">
+          <div style="display:flex;gap:8px">
+            <input id="inboxTaskInput" type="text" placeholder="Neuer Task für ${esc(agent.name)}…" style="flex:1;padding:9px 12px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-input);color:var(--text-primary);font-size:13px" onkeydown="if(event.key==='Enter')addInboxItem('${agentId}')">
+            <button onclick="addInboxItem('${agentId}')" style="padding:9px 16px;border-radius:8px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-weight:600;font-size:13px">+ Hinzufügen</button>
+          </div>
+        </div>
+        <div id="inboxList" style="flex:1;overflow-y:auto;padding:16px 20px">
+          ${renderItems(inbox)}
+        </div>
+        ${inbox.length > 1 ? `<div style="padding:12px 20px;border-top:1px solid var(--border-color);text-align:right"><button onclick="clearInbox('${agentId}')" style="background:none;border:none;color:#f44336;cursor:pointer;font-size:12px">🗑 Alle löschen</button></div>` : ''}
+      </div>`;
+    document.body.appendChild(modal);
+    setTimeout(() => document.getElementById('inboxTaskInput')?.focus(), 100);
+  }
+
+  async function addInboxItem(agentId) {
+    const input = document.getElementById('inboxTaskInput');
+    const task = input?.value.trim();
+    if (!task) return;
+    try {
+      await api(`/api/agents/${agentId}/inbox`, { method: 'POST', body: { task, added_by: 'User' } });
+      input.value = '';
+      // Refresh modal
+      document.getElementById('inboxModal')?.remove();
+      openInboxModal(agentId);
+      await loadAgents();
+      renderSidePanel();
+    } catch(e) { showToast('Fehler: ' + e.message, 'error'); }
+  }
+
+  async function deleteInboxItem(agentId, itemId) {
+    try {
+      await api(`/api/agents/${agentId}/inbox/${itemId}`, { method: 'DELETE' });
+      document.getElementById(`inbox-item-${itemId}`)?.remove();
+      await loadAgents();
+      renderSidePanel();
+    } catch(e) { showToast('Fehler: ' + e.message, 'error'); }
+  }
+
+  async function clearInbox(agentId) {
+    if (!confirm('Alle Inbox-Einträge löschen?')) return;
+    try {
+      await api(`/api/agents/${agentId}/inbox/clear`, { method: 'DELETE' });
+      document.getElementById('inboxModal')?.remove();
+      await loadAgents();
+      renderSidePanel();
+    } catch(e) { showToast('Fehler: ' + e.message, 'error'); }
   }
 
   function renderChatShell(ws) {

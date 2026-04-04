@@ -4365,22 +4365,11 @@ def tick_telegram():
     token = tg.get("bot_token", "")
     chat_id = tg.get("chat_id", "")
 
-    if not token or not chat_id:
+    if not token or not chat_id or not tg.get("enabled", True):
         return
 
     try:
-        # Reset polling to avoid conflict - get all pending updates first
-        params = {"timeout": 1}
-
-        # First reset: get offset=0 to clear any stale polling
-        try:
-            requests.get(
-                f"https://api.telegram.org/bot{token}/getUpdates",
-                params={"offset": 0, "timeout": 1},
-                timeout=2,
-            )
-        except:
-            pass
+        params = {"timeout": 5}
 
         # Then get updates with offset
         if _telegram_last_update_id is not None:
@@ -4389,7 +4378,7 @@ def tick_telegram():
         r = requests.get(
             f"https://api.telegram.org/bot{token}/getUpdates",
             params=params,
-            timeout=2,
+            timeout=10,
         )
         if not r.ok:
             print(f"[Telegram] API error: {r.text[:100]}", flush=True)
@@ -4460,6 +4449,62 @@ def tick_telegram():
         print(f"[Telegram] Polling error: {e}", flush=True)
 
 
+def tick_inbox():
+    """Process one pending inbox item per idle agent."""
+    agents = load_agents()
+    changed = False
+
+    for agent in agents:
+        inbox = agent.get("inbox", [])
+        if not inbox:
+            continue
+        agent_id = agent["id"]
+
+        # Skip if agent has an active task
+        with _tasks_lock:
+            busy = any(
+                t.get("recipient_agent_id") == agent_id
+                and t.get("status") in ("submitted", "working")
+                for t in _TASKS.values()
+            )
+        if busy:
+            continue
+
+        # Sort by priority (0 = highest), then by added_at
+        inbox.sort(key=lambda x: (x.get("priority", 0), x.get("added_at", "")))
+        item = inbox.pop(0)
+        agent["inbox"] = inbox
+        changed = True
+
+        now = datetime.now()
+        task_id = str(uuid.uuid4())
+        task = {
+            "id": task_id,
+            "sender_agent_id": "inbox",
+            "sender_agent_name": item.get("added_by", "User"),
+            "recipient_agent_id": agent_id,
+            "recipient_agent_name": agent["name"],
+            "message": item["task"],
+            "status": "submitted",
+            "skill_used": None,
+            "result_text": None,
+            "result_image": None,
+            "prompt_used": None,
+            "error": None,
+            "created_at": now.isoformat(),
+            "completed_at": None,
+            "timeout_at": (now + timedelta(seconds=1210)).isoformat(),
+            "inbox_item_id": item["id"],
+        }
+        with _tasks_lock:
+            _TASKS[task_id] = task
+        print(f"[Inbox] dispatching to {agent['name']}: {item['task'][:60]}", flush=True)
+        spawn_background(process_task, task_id)
+
+    if changed:
+        save_agents(agents)
+
+
 def scheduler_loop():
     print("[Scheduler] Watchdog-Scheduler gestartet", flush=True)
     while True:
@@ -4467,6 +4512,7 @@ def scheduler_loop():
             tick_watchdogs()
             tick_heartbeats()
             tick_telegram()
+            tick_inbox()
             activity_cleanup()
         except Exception as e:
             print(f"[Scheduler] Fehler: {e}", flush=True)
@@ -4513,11 +4559,9 @@ def live_reload_loop():
         time.sleep(1)
 
 
-# Scheduler & Live-Reload als Daemon-Threads starten (nicht blockierend)
-# WERKZEUG_RUN_MAIN check verhindert Doppelstart bei use_reloader=True
-if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not os.environ.get("WERKZEUG_RUN_MAIN"):
-    threading.Thread(target=scheduler_loop, daemon=True).start()
-    threading.Thread(target=live_reload_loop, daemon=True).start()
+# Scheduler & Live-Reload starten (use_reloader=False verhindert Doppelstart)
+threading.Thread(target=scheduler_loop, daemon=True).start()
+threading.Thread(target=live_reload_loop, daemon=True).start()
 
 
 # ─── Skills ───────────────────────────────────────────────────────────────────
@@ -5688,6 +5732,68 @@ def get_stats():
     })
 
 
+# ─── Agent Inbox API ───────────────────────────────────────────────────────────
+
+@app.route("/api/agents/<agent_id>/inbox", methods=["GET"])
+def get_agent_inbox(agent_id):
+    agents = load_agents()
+    agent = next((a for a in agents if a["id"] == agent_id), None)
+    if not agent:
+        return jsonify({"error": "Agent nicht gefunden"}), 404
+    inbox = agent.get("inbox", [])
+    inbox.sort(key=lambda x: (x.get("priority", 0), x.get("added_at", "")))
+    return jsonify(inbox)
+
+
+@app.route("/api/agents/<agent_id>/inbox", methods=["POST"])
+def add_inbox_item(agent_id):
+    data = request.json or {}
+    task_text = (data.get("task") or "").strip()
+    if not task_text:
+        return jsonify({"error": "Kein Task-Text"}), 400
+    agents = load_agents()
+    idx = next((i for i, a in enumerate(agents) if a["id"] == agent_id), None)
+    if idx is None:
+        return jsonify({"error": "Agent nicht gefunden"}), 404
+    item = {
+        "id": str(uuid.uuid4()),
+        "task": task_text,
+        "added_by": data.get("added_by", "User"),
+        "added_at": datetime.now().isoformat(),
+        "priority": int(data.get("priority", 0)),
+    }
+    agents[idx].setdefault("inbox", []).append(item)
+    save_agents(agents)
+    # Emit update to all clients
+    socketio.emit("inbox_updated", {"agent_id": agent_id, "inbox": agents[idx]["inbox"]}, namespace="/ws")
+    return jsonify(item), 201
+
+
+@app.route("/api/agents/<agent_id>/inbox/<item_id>", methods=["DELETE"])
+def delete_inbox_item(agent_id, item_id):
+    agents = load_agents()
+    idx = next((i for i, a in enumerate(agents) if a["id"] == agent_id), None)
+    if idx is None:
+        return jsonify({"error": "Agent nicht gefunden"}), 404
+    inbox = agents[idx].get("inbox", [])
+    agents[idx]["inbox"] = [i for i in inbox if i["id"] != item_id]
+    save_agents(agents)
+    socketio.emit("inbox_updated", {"agent_id": agent_id, "inbox": agents[idx]["inbox"]}, namespace="/ws")
+    return jsonify({"ok": True})
+
+
+@app.route("/api/agents/<agent_id>/inbox/clear", methods=["DELETE"])
+def clear_agent_inbox(agent_id):
+    agents = load_agents()
+    idx = next((i for i, a in enumerate(agents) if a["id"] == agent_id), None)
+    if idx is None:
+        return jsonify({"error": "Agent nicht gefunden"}), 404
+    agents[idx]["inbox"] = []
+    save_agents(agents)
+    socketio.emit("inbox_updated", {"agent_id": agent_id, "inbox": []}, namespace="/ws")
+    return jsonify({"ok": True})
+
+
 if __name__ == "__main__":
     port = 5050
     print(f"Starting on http://0.0.0.0:{port} with WebSocket support", flush=True)
@@ -5696,6 +5802,6 @@ if __name__ == "__main__":
         debug=True,
         host="0.0.0.0",
         port=port,
-        use_reloader=True,
+        use_reloader=False,
         allow_unsafe_werkzeug=True,
     )
