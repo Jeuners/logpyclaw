@@ -1065,6 +1065,9 @@
             <label class="autoplay-toggle" title="Auto-Play TTS">
               🔊 <div class="toggle-switch ${autoPlay ? 'on' : ''}" id="autoplayToggle" onclick="toggleAutoPlay()"></div>
             </label>
+            <label class="autoplay-toggle" title="Heartbeat ein/ausschalten" id="heartbeatToggleLabel">
+              💓 <div class="toggle-switch ${currentAgent.heartbeat?.active ? 'on' : ''}" id="heartbeatTopbarToggle" onclick="toggleHeartbeatTopbar()"></div>
+            </label>
             <button class="topbar-btn" id="ttsSpeedBtn" onclick="toggleTTSSpeed()" title="TTS Geschwindigkeit">${ttsSpeed === 2 ? '2×' : '1×'}</button>
             <button class="topbar-btn" onclick="openEditAgentModal('${currentAgent.id}')">✏️ Edit</button>
             <button class="topbar-btn" onclick="openAutoDialogModal()">🤖 Auto</button>
@@ -2770,6 +2773,29 @@
   function toggleAutoPlay() {
   autoPlay = !autoPlay;
   document.getElementById('autoplayToggle')?.classList.toggle('on', autoPlay);
+  }
+
+  async function toggleHeartbeatTopbar() {
+  if (!currentAgent) return;
+  const hb = currentAgent.heartbeat || {};
+  const newActive = !hb.active;
+  try {
+    await api(`/api/agents/${currentAgent.id}/heartbeat`, {
+      method: 'PUT',
+      body: { active: newActive, prompt: hb.prompt || '', interval_min: hb.interval_min || 30 }
+    });
+    // Update local state
+    const idx = agents.findIndex(a => a.id === currentAgent.id);
+    if (idx >= 0) {
+      agents[idx].heartbeat = { ...hb, active: newActive };
+      currentAgent = agents[idx];
+    }
+    document.getElementById('heartbeatTopbarToggle')?.classList.toggle('on', newActive);
+    showToast(newActive ? '💓 Heartbeat aktiviert' : '💓 Heartbeat deaktiviert', 'success');
+    renderAll();
+  } catch(e) {
+    showToast('Fehler: ' + e.message, 'error');
+  }
   }
 
   function cleanForTTS(text) {
