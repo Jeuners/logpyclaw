@@ -35,7 +35,7 @@ for dirpath, dirnames, filenames in os.walk("static"):
 
 OPTIONS = {
     "argv_emulation": False,  # WICHTIG: False für pywebview
-    "semi_standalone": False,
+    "semi_standalone": True,
     "site_packages": True,
     # Explizit einzubindende Pakete
     "packages": [

@@ -28,7 +28,39 @@ from skills import (
     _make_thumbnail, WAN_VIDEO_NEGATIVE,
     _is_safe_url, fetch_url_text,
     _run_telegram, _run_gmail, _optimize_prompt,
+    _run_youtube, YT_TRIGGERS, YT_URL_RX, _yt_last_result,
+    _run_transcription, _transcribe_uploaded_video, TRANSCRIBE_TRIGGERS,
+    _run_file_access, _write_downloads_file, FILE_TRIGGERS,
+    _run_linkedin, _process_linkedin_scheduled, LI_TRIGGERS,
 )
+
+# ── Phase 1+2 Refactoring: Core + Storage + MacMail modules ───────────────────
+from core.state import (
+    _DEBUG_LOG,
+    _agents_lock, _history_lock, _providers_lock, _watchdogs_lock,
+    _tasks_lock, _activity_lock, _events_lock,
+    _TASKS, _TASK_TTL_SECONDS, _USERS, _ACTIVITY, _EVENTS,
+    _PENDING_MAIL_SORT, MAC_MAIL_TRIGGERS,
+)
+import core.state as _cstate
+from core.config import (
+    BASE_DIR, AGENTS_FILE, HISTORY_FILE, PROVIDERS_FILE,
+    WATCHDOGS_FILE, TASKS_FILE, BACKUP_DIR,
+    MAX_HISTORY_PER_AGENT, MAX_CONTENT_LENGTH,
+    dlog, spawn_background, _read_json, _write_json,
+)
+from storage.agents import load_agents, save_agents, patch_agent_heartbeat
+from storage.history import load_history, save_history
+from storage.providers import (
+    load_providers, save_providers, get_redis_client,
+    log_a2a_event, get_a2a_events,
+)
+from storage.watchdogs import load_watchdogs, save_watchdogs, update_watchdog_field
+from storage.nodes import (
+    load_nodes, save_nodes, get_node_by_alias,
+    update_node_cache, mark_node_offline, get_self_identity,
+)
+from mac_mail.skill import _run_mac_mail
 
 try:
     from qdrant_client import QdrantClient
@@ -47,16 +79,7 @@ except ImportError:
 
 load_dotenv()
 
-# ── Debug Logging ──────────────────────────────────────────────────────────────
-# Set via env var DEBUG_LOG=1 or toggle at runtime via /api/debug
-_DEBUG_LOG = os.environ.get("DEBUG_LOG", "0") == "1"
-
-
-def dlog(*args, tag="DEBUG"):
-    """Conditional debug log — only prints when _DEBUG_LOG is True."""
-    if _DEBUG_LOG:
-        print(f"[{tag}]", *args, flush=True)
-
+# ← moved to modules (Phase 1+2): _DEBUG_LOG, dlog
 
 # ── Wenn als py2app .app-Bundle gestartet, Resources-Verzeichnis ermitteln
 if getattr(sys, "frozen", False):
@@ -86,18 +109,10 @@ socketio = SocketIO(
 )
 
 
-# ─── Background Task Helper (threading-compatible) ─────────────────────
-def spawn_background(target, *args, **kwargs):
-    """Spawn a background task using threading."""
-    import threading
-
-    t = threading.Thread(target=target, args=args, kwargs=kwargs, daemon=True)
-    t.start()
-    return t
-
+# ← moved to modules (Phase 1+2): spawn_background
 
 # ─── WebSocket Event Handlers ────────────────────────────────────────
-_USERS = {}  # sid -> {agent_ids: []}
+# ← moved to modules (Phase 1+2): _USERS (imported from core.state)
 
 
 @socketio.on("connect", namespace="/ws")
@@ -237,6 +252,63 @@ MISTRAL_TTS_URL = "https://api.mistral.ai/v1/audio/speech"
 MISTRAL_VOICES_URL = "https://api.mistral.ai/v1/audio/voices"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
+def _get_codebase_context() -> str:
+    """Erstellt eine kompakte Übersicht des AgentClaw-Quellcodes für den codebase_read Skill.
+    Enthält: Projektstruktur, wichtige Dateien, Architektur-Notizen und app.py Kurzübersicht.
+    """
+    lines = ["--- SYSTEM CODEBASE ZUGRIFF ---",
+             f"Projekt: AgentClaw | Pfad: {BASE_DIR}",
+             ""]
+    # Projektstruktur (Top-Level)
+    try:
+        entries = sorted(os.listdir(BASE_DIR))
+        py_files = [e for e in entries if e.endswith(".py") and not e.startswith("_")]
+        dirs = [e for e in entries if os.path.isdir(os.path.join(BASE_DIR, e))
+                and not e.startswith(".") and e not in ("__pycache__", "venv", ".venv", "node_modules")]
+        lines.append("Hauptdateien:")
+        for f in py_files[:12]:
+            fpath = os.path.join(BASE_DIR, f)
+            size = os.path.getsize(fpath) // 1024
+            lines.append(f"  {f} ({size} KB)")
+        lines.append("")
+        lines.append("Verzeichnisse: " + ", ".join(dirs[:12]))
+    except Exception:
+        pass
+    # Architektur-Notizen
+    lines += [
+        "",
+        "Architektur:",
+        "  app.py          — Flask-Backend, alle API-Routen, Skills, WebSocket",
+        "  templates/index.html — Komplette SPA (HTML/JS/CSS)",
+        "  core/state.py   — Locks + globale State-Variablen",
+        "  core/config.py  — Pfade, Konstanten, Helpers",
+        "  storage/*.py    — agents.json, history.json, providers.json I/O",
+        "  mac_mail/skill.py — AppleScript Mail-Integration",
+        "  skills/*.py     — Image, Video, Telegram, Gmail, URL Skills",
+        "  WebSocket NS: /ws | Port: 5050 | async_mode: threading",
+        "  A2A: @AgentName Task → _dispatch_mentions_from_reply()",
+        "  Tasks: _TASKS dict + _tasks_lock + _enqueue_task() + tick_task_queue()",
+        "",
+    ]
+    # Wichtige API-Routen (Kurzübersicht)
+    lines.append("Wichtige API-Routen:")
+    routes = [
+        "POST /api/chat            — Chat mit Agent (LLM + Skills)",
+        "POST /api/tasks           — Neuen A2A-Task erstellen",
+        "GET  /api/tasks/<id>      — Task-Status abfragen",
+        "GET/PUT /api/agents       — Agenten laden/speichern",
+        "PUT /api/agents/<id>/settings — Agent-Settings",
+        "PUT /api/agents/<id>/heartbeat — Heartbeat-Prompt",
+        "POST /api/a2a/dispatch    — A2A Task direkt dispatchen",
+        "GET  /api/providers       — Provider-Config",
+        "POST /api/tts             — Text-to-Speech",
+        "DELETE /api/history/<id>  — Chat-History löschen",
+    ]
+    lines += [f"  {r}" for r in routes]
+    lines.append("--- ENDE CODEBASE ---")
+    return "\n".join(lines)
+
+
 SKILLS = [
     {
         "id": "url_fetch",
@@ -343,6 +415,41 @@ SKILLS = [
         "description": "Liest E-Mails und Anhänge aus Apple Mail, verschiebt Nachrichten und legt Ordner an (via MCP auf Port 5051)",
         "requires": "mac_mail_mcp",
     },
+    {
+        "id": "codebase_read",
+        "name": "Codebase Lesen",
+        "icon": "🗂️",
+        "description": "Gibt Zugriff auf Quellcode, Projektstruktur und Konfigurationsdateien des AgentClaw-Systems. Automatisch aktiv für Favoriten-Agenten.",
+        "requires": None,
+    },
+    {
+        "id": "youtube",
+        "name": "YouTube Download",
+        "icon": "📺",
+        "description": "Lädt YouTube-Videos oder Audio (MP3) herunter via yt-dlp. Unterstützt auch Video-Info abrufen ohne Download.",
+        "requires": "yt-dlp",
+    },
+    {
+        "id": "transcription",
+        "name": "Video/Audio Transkription",
+        "icon": "🎙️",
+        "description": "Transkribiert und analysiert Videos und Audio-Dateien via ffmpeg + Ollama (gemma4/whisper). Funktioniert mit hochgeladenen Dateien und lokalen Pfaden.",
+        "requires": "ollama",
+    },
+    {
+        "id": "file_access",
+        "name": "Datei-Zugriff (Downloads)",
+        "icon": "📁",
+        "description": "Lesen, Schreiben und Auflisten von Dateien im ~/Downloads/AgentClaw Ordner. Ermöglicht Transkriptionen, Ergebnisse und andere Inhalte als Dateien zu speichern.",
+        "requires": None,
+    },
+    {
+        "id": "linkedin",
+        "name": "LinkedIn",
+        "icon": "💼",
+        "description": "Postet und plant LinkedIn-Beiträge via LinkedIn API. Unterstützt sofortiges Posten und zeitgesteuertes Scheduling (z.B. 'morgen um 9 Uhr', 'Freitag 14:00').",
+        "requires": "LinkedIn Access Token",
+    },
 ]
 
 # ─── Agent Directory ──────────────────────────────────────────────────────────
@@ -378,9 +485,15 @@ VERHALTENSREGELN:
 3. Wenn du Informationen im Gedächtnis (Memory) findest, präsentiere sie selbst, anstatt jemanden anderen zu fragen.
 4. Antworte präzise und minimal — keine langen Erklärungen.
 
-DELEGIERUNG (@Mention):
-  • Schreibe @AgentName gefolgt von deiner Anfrage
-  • Beispiel: "@Fotograf generiere ein Bild von einer Katze" (Nur wenn du selbst kein image_gen besitzt!)
+DELEGIERUNG (@Mention) — KRITISCHE REGELN:
+  • Schreibe @AgentName gefolgt von ALLEN notwendigen Schritten — in einer einzigen @Mention!
+  • Du wirst KEIN ERGEBNIS zurückbekommen. Der andere Agent erledigt ALLES selbst bis zum Ende.
+  • Schreibe NIEMALS "Sobald ich die Ergebnisse habe..." — du bekommst keine. Der Agent macht alles.
+  • Beispiel für mehrstufig: "@Flo 1. Hole die neusten Hackernews. 2. Schreibe einen Bericht. 3. Sende den Bericht an Telegram."
+  • NIEMALS [TOOL_CALL], JSON, Funktionsaufrufe oder ähnliche Formate verwenden!
+  • NIEMALS Delegation ankündigen ("Ich delegiere...") — einfach direkt @AgentName schreiben.
+  • Falsch: "@Flo hole Hackernews" + danach selbst weitermachen
+  • Richtig: "@Flo hole Hackernews, schreibe Bericht, sende an Telegram" (alles in einer Zeile!)
 
 WICHTIG: Nutze dein eigenes Memory, um Fragen zu Inhalten, Dokumenten oder früheren Chats zu beantworten.
 --- ENDE A2A ---
@@ -474,23 +587,9 @@ def _build_agent_directory(current_agent_id: str = None) -> str:
     return "\n".join(lines)
 
 
-# Im py2app-Bundle zeigt __file__ auf die .zip — deshalb CWD nutzen (gesetzt durch chdir in main_app.py)
-BASE_DIR = (
-    os.getcwd()
-    if getattr(sys, "frozen", False)
-    else os.path.dirname(os.path.abspath(__file__))
-)
-AGENTS_FILE = os.path.join(BASE_DIR, "agents.json")
-HISTORY_FILE = os.path.join(BASE_DIR, "history.json")
-PROVIDERS_FILE = os.path.join(BASE_DIR, "providers.json")
-WATCHDOGS_FILE = os.path.join(BASE_DIR, "watchdogs.json")
-TASKS_FILE = os.path.join(BASE_DIR, "tasks.json")
+# ← moved to modules (Phase 1+2): BASE_DIR, AGENTS_FILE, HISTORY_FILE, PROVIDERS_FILE, WATCHDOGS_FILE, TASKS_FILE
 
-# ── Agent-Tasks in-memory store ──────────────────────────────────────────────
-_TASKS: dict = {}
-_tasks_lock = threading.Lock()
-
-_TASK_TTL_SECONDS = 3600  # Completed/failed Tasks nach 1h aus Memory entfernen
+# ← moved to modules (Phase 1+2): _TASKS, _tasks_lock, _TASK_TTL_SECONDS
 
 
 def _cleanup_old_tasks():
@@ -500,7 +599,7 @@ def _cleanup_old_tasks():
         to_remove = [
             tid for tid, t in _TASKS.items()
             if t.get("status") in ("completed", "failed", "cancelled")
-            and t.get("completed_at", "9999") < cutoff
+            and (t.get("completed_at") or "9999") < cutoff
         ]
         for tid in to_remove:
             del _TASKS[tid]
@@ -525,30 +624,10 @@ def _init_tasks():
     if recovered:
         print(f"[Tasks] {recovered} offene Tasks von Disk geladen", flush=True)
 
-# ── Mac Mail pending sort state (per-Agent) ──────────────────────────────────
-_PENDING_MAIL_SORT: dict = {}  # { agent_id: bool } — verhindert Multi-Agent-Kollision
+# ← moved to modules (Phase 1+2): _PENDING_MAIL_SORT, MAC_MAIL_TRIGGERS
 
-# ── Mac Mail Trigger (Modul-Ebene, da Heartbeat + process_task beide darauf zugreifen) ──
-MAC_MAIL_TRIGGERS = re.compile(
-    r"\b(mails?|e-?mails?|emails?)\b|"
-    r"\b(posteingang|postfach|inbox)\b|"
-    r"\b(anhang|attachment)\b|"
-    r"\b(eingang|eingegangen)\b.{0,20}\b(nachricht|mail)\b|"
-    r"\b(mail|nachricht)\b.{0,20}\b(eingang|eingegangen|neu|lesen|zeig|lies|check)\b|"
-    r"\b(verschieb|archiviere?)\b.{0,30}\b(nachricht|mail)\b|"
-    r"\b(ordner)\b.{0,20}\b(anlegen|erstellen|neu)\b|"
-    r"\b(aufräum|sortier|einsortier|organis|kategorisier)\w*\b|"
-    r"\b(triage|prüf\s*mail|check\s*mail|mail.*bewert|mail.*prüf|wichtig.*mail|dringend.*mail)\w*\b|"
-    r"\b(älteste?|oldest)\b.{0,30}\b(mail|mails?|nachricht)\b|"
-    r"\b(verschieb|move)\b.{0,40}\b(martin)\b|"
-    r"\bja[,.]?\s*(verschieb|sortier|mach|go|los|ok|weiter|bestätig)\w*\b",
-    re.IGNORECASE,
-)
-
-# ── Event system for push updates ───────────────────────────────────────────
-_EVENTS: list = []
-_events_lock = threading.Lock()
-_EVENT_VERSION = 0
+# ← moved to modules (Phase 1+2): _EVENTS, _events_lock, _EVENT_VERSION
+_EVENT_VERSION = 0  # local tracking var for emit_event/get_events_since in this module
 
 
 def emit_event(event_type: str, data: dict = None):
@@ -575,10 +654,8 @@ def get_events_since(version: int) -> list:
         return [e for e in _EVENTS if e["v"] > version]
 
 
-# ── Live activity tracker ─────────────────────────────────────────────────────
+# ← moved to modules (Phase 1+2): _ACTIVITY, _activity_lock
 # { agent_id: { "type": "heartbeat"|"task", "label": str, "since": iso } }
-_ACTIVITY: dict = {}
-_activity_lock = threading.Lock()
 
 
 def activity_start(agent_id: str, atype: str, label: str):
@@ -928,6 +1005,71 @@ def process_task(task_id: str):
             print(f"[Task] image_gen prompt: {img_prompt}", flush=True)
             task["result_image"] = _run_comfyui_sync(img_prompt)
             task["skill_used"] = "image_gen"
+        elif "youtube" in skills and (YT_TRIGGERS.search(message) or YT_URL_RX.search(message)):
+            print(f"[Task] youtube trigger: {message[:60]}", flush=True)
+            import skills.youtube_skill as _yt_mod
+            yt_result = _run_youtube(message)
+            task["result_text"] = yt_result
+            task["skill_used"] = "youtube"
+            # ── Filepath direkt aus Modul-Variable holen (robuster als Regex) ──
+            _yt_filepath = _yt_mod._last_download_result.get("filepath")
+            if _yt_filepath:
+                task["downloaded_filepath"] = _yt_filepath
+            _transcribe_rx = re.compile(
+                r"transkrib\w*|transcrib\w*|zeig.*transkr|text.*video|video.*text", re.IGNORECASE
+            )
+            # original_message: die ursprüngliche Aufgabe vom Sender (enthält alle Schritte)
+            _original_msg = task.get("original_message", message)
+            if "transcription" in skills and (
+                _transcribe_rx.search(message) or _transcribe_rx.search(_original_msg)
+            ) and _yt_filepath:
+                print(f"[Task] Auto-Transkription nach Download: {_yt_filepath[:60]}", flush=True)
+                _trans = _run_transcription(message, attachment_path=_yt_filepath)
+                _trans_text = _trans
+                task["result_text"] = f"{yt_result}\n\n---\n\n{_trans}"
+                task["skill_used"] = "youtube+transcription"
+                # ── Auto-Speichern falls Dateiname in Message oder original_message ──
+                _save_m = re.search(
+                    r"(?:speichere?|schreib\w*|save|write)\s+.*?(\w[\w.\-]+\.(?:md|txt|json|csv|log))",
+                    message + " " + _original_msg, re.IGNORECASE,
+                )
+                if _save_m and "file_access" in skills:
+                    _fname = _save_m.group(1)
+                    _save_result = _write_downloads_file(_fname, _trans_text)
+                    task["result_text"] += f"\n\n{_save_result}"
+                    task["skill_used"] = "youtube+transcription+file_write"
+        elif "transcription" in skills and (
+            TRANSCRIBE_TRIGGERS.search(message) or task.get("attachment_path")
+        ):
+            print(f"[Task] transcription trigger: {message[:60]}", flush=True)
+            attachment = task.get("attachment_path")
+            # Dateipfad aus Message extrahieren falls kein attachment
+            if not attachment:
+                _pm = re.search(r"(/[\w\-./: ]+\.(?:mp4|mov|avi|mkv|webm|mp3|wav|m4a|m4v))", message, re.IGNORECASE)
+                if _pm:
+                    attachment = _pm.group(1).strip()
+            _trans_text = _run_transcription(message, attachment_path=attachment)
+            task["result_text"] = _trans_text
+            task["skill_used"] = "transcription"
+            # ── Auto-Speichern falls Dateiname in Message ──
+            _save_m2 = re.search(
+                r"(?:speichere?|schreib\w*|save|write)\s+.*?(\w[\w.\-]+\.(?:md|txt|json|csv|log))",
+                message, re.IGNORECASE,
+            )
+            if _save_m2 and "file_access" in skills:
+                _fname2 = _save_m2.group(1)
+                _save_result2 = _write_downloads_file(_fname2, _trans_text)
+                task["result_text"] += f"\n\n{_save_result2}"
+                task["skill_used"] = "transcription+file_write"
+        elif "file_access" in skills and FILE_TRIGGERS.search(message):
+            print(f"[Task] file_access trigger: {message[:60]}", flush=True)
+            task["result_text"] = _run_file_access(message)
+            task["skill_used"] = "file_access"
+        elif "linkedin" in skills and LI_TRIGGERS.search(message):
+            print(f"[Task] linkedin trigger: {message[:60]}", flush=True)
+            providers = load_providers()
+            task["result_text"] = _run_linkedin(message, providers)
+            task["skill_used"] = "linkedin"
         else:
             if task.get("chat_mode"):
                 # No skill matched — let /api/chat handle the LLM call with full history
@@ -940,12 +1082,64 @@ def process_task(task_id: str):
                 f"Handle the following request directly and concisely. "
                 f"You are acting autonomously — no user is present. Respond with a result, not a question."
             )
-            task["result_text"] = call_agent_text(recipient, system_suffix, message)
+            llm_reply = call_agent_text(recipient, system_suffix, message)
+            task["result_text"] = llm_reply
             task["skill_used"] = "llm"
+            # ── Nach LLM-Antwort: @Mentions in der Reply dispatchen ───────────
+            # (z.B. Flo antwortet auf "Hackernews + sende an Telegram" mit
+            #  "@Telegram sende das:" + result → neuer Sub-Task wird erstellt)
+            if llm_reply and _MENTION_RX.search(llm_reply):
+                try:
+                    _dispatch_mentions_from_reply(recipient, llm_reply, task)
+                except Exception as _de:
+                    print(f"[A2A] dispatch after LLM error: {_de}", flush=True)
 
         task["status"] = "completed"
         task["completed_at"] = datetime.now().isoformat()
         print(f"[Task] done {task_id} via {task['skill_used']}", flush=True)
+
+        # ── M2M Callback: Ergebnis an Ursprungs-Node senden ──────────────────
+        if task.get("callback_url"):
+            spawn_background(_m2m_send_callback, task)
+
+        # ── Multi-Step Follow-up: Skill-Ergebnis + Rest-Schritte via LLM ─────
+        # Wenn die Task-Message mehrere Schritte enthielt UND ein Skill (kein LLM)
+        # nur Schritt 1 abgearbeitet hat, LLM mit Ergebnis + ursprünglicher Aufgabe
+        # beauftragen — damit Schritt 2/3 (z.B. Telegram) noch ausgeführt wird.
+        _skill_used = task.get("skill_used", "llm")
+        _result_text = task.get("result_text", "")
+        _is_single_step_skill = _skill_used not in ("llm", "image_gen", "video_gen", "image_edit")
+        _has_more_steps = bool(re.search(r'\n\s*\d+[\.\)]\s+|\n\s*[-•]\s+|'
+                                         r'\b(dann|danach|außerdem|anschließend|und dann|sende|schicke|poste)\b',
+                                         message, re.IGNORECASE))
+        # "youtube+transcription" bedeutet beide Schritte schon erledigt — kein Follow-up nötig
+        _already_combined = _skill_used == "youtube+transcription"
+        if _is_single_step_skill and _has_more_steps and _result_text and not task.get("chat_mode") and not _already_combined:
+            print(f"[Task] Multi-Step: Skill {_skill_used} done, triggering LLM follow-up", flush=True)
+            # Dateipfad aus Ergebnis extrahieren (z.B. nach YouTube-Download)
+            _extracted_path = None
+            _path_m = re.search(r"\*\*Pfad:\*\*\s*`([^`]+)`|Pfad:\s*`([^`]+)`", _result_text)
+            if _path_m:
+                _extracted_path = (_path_m.group(1) or _path_m.group(2) or "").strip()
+            try:
+                _path_hint = f"\nDateipfad der Datei: `{_extracted_path}`" if _extracted_path else ""
+                followup_system = (
+                    f"[Task delegated by agent {task['sender_agent_name']}]\n"
+                    f"Du hast gerade '{_skill_used}' ausgeführt. Ergebnis:\n\n"
+                    f"{_result_text[:3000]}\n\n"
+                    f"Führe jetzt die verbleibenden Schritte der ursprünglichen Aufgabe aus.{_path_hint}\n"
+                    f"Nutze deine Skills direkt (KEIN @Mention nötig wenn du den Skill hast). "
+                    f"Du bist autonom — kein User ist anwesend."
+                )
+                followup_reply = call_agent_text(recipient, followup_system, message)
+                if followup_reply and _MENTION_RX.search(followup_reply):
+                    # Beim Dispatch: attachment_path mitgeben
+                    _dispatch_mentions_from_reply(recipient, followup_reply, task,
+                                                  extra_task_fields={"attachment_path": _extracted_path} if _extracted_path else None)
+                elif followup_reply:
+                    task["result_text"] = f"{_result_text}\n\n---\n{followup_reply}"
+            except Exception as _fe:
+                print(f"[Task] Multi-Step follow-up error: {_fe}", flush=True)
 
         # ── Save result to recipient's chat history ───────────────────────────
         if not task.get("chat_mode"):
@@ -1034,7 +1228,7 @@ def process_task(task_id: str):
     _save_tasks()
 
 
-def _run_chat_skill(agent: dict, message: str, image_data: str = None) -> dict | None:
+def _run_chat_skill(agent: dict, message: str, image_data: str = None, attachment_path: str = None) -> dict | None:
     """
     Route a direct chat message through the A2A task system for skill execution.
     Returns the completed task if a skill fired, None if no skill matched
@@ -1059,6 +1253,7 @@ def _run_chat_skill(agent: dict, message: str, image_data: str = None) -> dict |
         "completed_at": None,
         "timeout_at": (now + timedelta(seconds=1210)).isoformat(),
         "chat_mode": True,  # signals process_task to skip history saving
+        "attachment_path": attachment_path,  # lokale Datei für Transkription etc.
     }
     with _tasks_lock:
         _TASKS[task_id] = task
@@ -1385,263 +1580,18 @@ DEFAULT_AGENTS = [
 ]
 
 
-# ─── File locks (no in-memory cache — local app, files are small) ────────────
-_agents_lock = threading.Lock()
-_history_lock = threading.Lock()
-_providers_lock = threading.Lock()
-_watchdogs_lock = threading.Lock()
-
-# History-only cache (ein Lock für File + Cache — verhindert dirty reads)
-# Cache deaktiviert — direkt von Disk lesen/schreiben (kein Stale-State, kein Überschreiben nach Reset)
+# ← moved to modules (Phase 1+2): _agents_lock, _history_lock, _providers_lock, _watchdogs_lock, _read_json, _write_json
 
 
-def _read_json(path, default):
-    if not os.path.exists(path):
-        return default
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return default
+# ← moved to modules (Phase 1+2): load_agents, save_agents, patch_agent_heartbeat
 
 
-def _write_json(path, data):
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print(f"[Error] Failed to write {path}: {e}", flush=True)
-        raise
+# ← moved to modules (Phase 1+2): load_history, save_history, MAX_HISTORY_PER_AGENT, MAX_CONTENT_LENGTH
 
 
-def load_agents():
-    with _agents_lock:
-        data = _read_json(AGENTS_FILE, None)
-        if data is None:
-            # Datei fehlt oder fehlerhaft - keine Defaults mehr schreiben
-            print("[Agent] WARN: agents.json fehlt, lade leere Liste", flush=True)
-            return []
-        return data
+# ← moved to modules (Phase 1+2): load_providers, save_providers
 
-
-def save_agents(agents, create_backup=True):
-    import shutil
-
-    with _agents_lock:
-        # Create backup before saving
-        if create_backup and os.path.exists(AGENTS_FILE):
-            backup_path = AGENTS_FILE + ".backup"
-            shutil.copy2(AGENTS_FILE, backup_path)
-
-        # Write atomically: write to temp file first
-        temp_path = AGENTS_FILE + ".tmp"
-        _write_json(temp_path, agents)
-
-        # Verify write was successful
-        try:
-            verified = _read_json(temp_path, None)
-            if verified is None:
-                raise Exception("Verification failed - file is empty")
-        except Exception as e:
-            if os.path.exists(temp_path):
-                try:
-                    os.remove(temp_path)
-                except:
-                    pass
-            raise Exception(f"Save validation failed: {e}")
-
-        # Atomic rename
-        try:
-            os.replace(temp_path, AGENTS_FILE)
-        except Exception as e:
-            raise Exception(f"Failed to replace file: {e}")
-
-        # Remove backup on success
-        try:
-            if create_backup and os.path.exists(AGENTS_FILE + ".backup"):
-                os.remove(AGENTS_FILE + ".backup")
-        except:
-            pass  # Best effort - don't fail on backup removal
-
-        print(f"[Agent] Saved {len(agents)} agents successfully", flush=True)
-
-
-def patch_agent_heartbeat(agent_id: str, **fields):
-    """Atomically update heartbeat fields on one agent without a race.
-
-    Holds _agents_lock across the entire read-modify-write cycle so no
-    concurrent save_agents() call can overwrite changes made in between.
-    """
-    with _agents_lock:
-        data = _read_json(AGENTS_FILE, None)
-        if data is None:
-            return
-        for a in data:
-            if a["id"] == agent_id:
-                hb = a.setdefault("heartbeat", {})
-                hb.update(fields)
-                break
-        temp_path = AGENTS_FILE + ".tmp"
-        _write_json(temp_path, data)
-        os.replace(temp_path, AGENTS_FILE)
-
-
-def load_history():
-    with _history_lock:
-        return _read_json(HISTORY_FILE, {})
-
-
-MAX_HISTORY_PER_AGENT = 500
-MAX_CONTENT_LENGTH = 8000
-
-
-def save_history(history):
-    with _history_lock:
-        for agent_id in history:
-            msgs = history[agent_id]
-            if len(msgs) > MAX_HISTORY_PER_AGENT:
-                history[agent_id] = msgs[-MAX_HISTORY_PER_AGENT:]
-            for msg in history[agent_id]:
-                if (
-                    isinstance(msg.get("content"), str)
-                    and len(msg["content"]) > MAX_CONTENT_LENGTH
-                ):
-                    msg["content"] = msg["content"][:MAX_CONTENT_LENGTH] + " […]"
-        # Atomic write: tmp → replace (verhindert Corruption bei 3 MB+ Files)
-        tmp = HISTORY_FILE + ".tmp"
-        try:
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(history, f, ensure_ascii=False, indent=2)
-            os.replace(tmp, HISTORY_FILE)
-        except Exception as e:
-            print(f"[History] save_history Fehler: {e}", flush=True)
-            try:
-                os.remove(tmp)
-            except OSError:
-                pass
-
-
-def load_providers():
-    defaults = {
-        "ollama": {"url": "http://localhost:11434"},
-        "mistral": {"api_key": os.getenv("MISTRAL_API_KEY", "")},
-        "openrouter": {"api_key": ""},
-        "comfyui": {"url": "http://localhost:8188", "model": "flux2pro"},
-        "qdrant": {"url": "http://localhost:6333"},
-        "google_api": {"api_key": ""},
-        "telegram": {"bot_token": "", "chat_id": ""},
-        "gmail": {"email": "", "app_password": ""},
-        "redis": {"host": "localhost", "port": 6379, "enabled": False},
-    }
-    with _providers_lock:
-        stored = _read_json(PROVIDERS_FILE, {})
-        for k, v in defaults.items():
-            if k not in stored:
-                stored[k] = v
-        return stored
-
-
-def save_providers(providers):
-    with _providers_lock:
-        _write_json(PROVIDERS_FILE, providers)
-
-
-# ─── Redis Watchdog Logger (A2A Events) ───────────────────────────────────────
-
-_redis_client = None
-
-
-def get_redis_client():
-    """Get or create Redis client."""
-    global _redis_client
-    if _redis_client is not None:
-        return _redis_client
-
-    providers = load_providers()
-    redis_config = providers.get("redis", {})
-
-    if not redis_config.get("enabled", False):
-        print("[Watchdog] Redis disabled in config", flush=True)
-        return None
-
-    try:
-        _redis_client = redis.Redis(
-            host=redis_config.get("host", "localhost"),
-            port=redis_config.get("port", 6379),
-            decode_responses=True,
-            socket_connect_timeout=2,
-        )
-        _redis_client.ping()
-        print("[Watchdog] Redis connected", flush=True)
-        return _redis_client
-    except Exception as e:
-        print(f"[Watchdog] Redis connection failed: {e}", flush=True)
-        return None
-
-
-def log_a2a_event(
-    event_type: str,
-    from_agent: str,
-    to_agent: str,
-    payload: dict,
-    status: str = "submitted",
-):
-    """Loggt einen A2A Event nach Redis."""
-    client = get_redis_client()
-    if not client:
-        return
-
-    event = {
-        "event_id": str(uuid.uuid4()),
-        "timestamp": datetime.now().isoformat(),
-        "type": event_type,
-        "from_agent": from_agent,
-        "to_agent": to_agent,
-        "payload": payload,
-        "status": status,
-    }
-
-    try:
-        # Key für heute: a2a:events:2026-03-31
-        date_key = datetime.now().strftime("%Y-%m-%d")
-        event_key = f"a2a:event:{event['event_id']}"
-
-        # Speichere Event mit TTL von 7 Tagen
-        client.setex(event_key, 604800, json.dumps(event))
-
-        # Füge zu Tages-Liste hinzu
-        client.lpush(f"a2a:events:{date_key}", event["event_id"])
-        client.expire(f"a2a:events:{date_key}", 604800)
-
-        print(f"[Watchdog] Logged: {event_type} {from_agent} → {to_agent}", flush=True)
-    except Exception as e:
-        print(f"[Watchdog] Error logging event: {e}", flush=True)
-
-
-def get_a2a_events(limit: int = 50, agent_filter: str = None):
-    """Holt A2A Events aus Redis."""
-    client = get_redis_client()
-    if not client:
-        return []
-
-    events = []
-    today = datetime.now().strftime("%Y-%m-%d")
-
-    # Check today's events
-    event_ids = client.lrange(f"a2a:events:{today}", 0, limit - 1)
-
-    for eid in event_ids:
-        event_data = client.get(f"a2a:event:{eid}")
-        if event_data:
-            event = json.loads(event_data)
-            if agent_filter and agent_filter not in [
-                event.get("from_agent", ""),
-                event.get("to_agent", ""),
-            ]:
-                continue
-            events.append(event)
-
-    return events[:limit]
+# ← moved to modules (Phase 1+2): _redis_client, get_redis_client, log_a2a_event, get_a2a_events
 
 
 # ─── Watchdog API Endpoints ───────────────────────────────────────────────────
@@ -1681,45 +1631,9 @@ def get_watchdog_status():
         return jsonify({"status": "error", "error": str(e)})
 
 
-def cleanup_redis_watchdog(max_memory_mb: int = 2048):
-    """Bereinigt alte Events basierend auf TTL und Speicher."""
-    client = get_redis_client()
-    if not client:
-        return
-
-    # Redis hat eingebautes maxmemory und eviction - wir verlassen uns darauf
-    # Zusätzlich: alte Keys bereinigen die durch TTL nicht gelöscht wurden
-    try:
-        # Lösche Events älter als 7 Tage (basierend auf Key-Pattern)
-        for key in client.scan_iter("a2a:event:*"):
-            if not client.ttl(key) or client.ttl(key) < 0:
-                # Kein TTL gesetzt - neu setzen
-                client.expire(key, 604800)
-        print("[Watchdog] Cleanup completed", flush=True)
-    except Exception as e:
-        print(f"[Watchdog] Cleanup error: {e}", flush=True)
-
+# ← moved to modules (Phase 1+2): cleanup_redis_watchdog, load_watchdogs, save_watchdogs, update_watchdog_field
 
 # ─── Watchdogs ────────────────────────────────────────────────────────────────
-
-
-def load_watchdogs():
-    with _watchdogs_lock:
-        return _read_json(WATCHDOGS_FILE, [])
-
-
-def save_watchdogs(watchdogs):
-    with _watchdogs_lock:
-        _write_json(WATCHDOGS_FILE, watchdogs)
-
-
-def update_watchdog_field(wd_id, **kwargs):
-    watchdogs = load_watchdogs()
-    for wd in watchdogs:
-        if wd["id"] == wd_id:
-            wd.update(kwargs)
-            break
-    save_watchdogs(watchdogs)
 
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
@@ -1975,6 +1889,217 @@ def a2a_dispatch():
     )
 
 
+# ─── MARTIN M2M Bridge — API Endpoints ───────────────────────────────────────
+
+@app.route("/.well-known/martin-agent.json", methods=["GET"])
+def martin_discovery():
+    """MARTIN A2A v1 Discovery Document — beschreibt diesen Node und seine Agents."""
+    import socket as _socket
+    agents = load_agents()
+    providers = load_providers()
+    self_id = get_self_identity(providers)
+    return jsonify({
+        "protocol": "MARTIN-A2A",
+        "version": "1",
+        "node_id": self_id["node_id"],
+        "node_name": self_id["node_name"],
+        "public_url": self_id["public_url"],
+        "agents": [build_agent_card(a) for a in agents],
+        "endpoints": {
+            "dispatch": "/api/m2m/dispatch",
+            "callback": "/api/m2m/callback",
+            "agents": "/api/m2m/agents",
+            "discovery": "/.well-known/martin-agent.json",
+        },
+        "auth": {"scheme": "shared-secret", "header": "X-MARTIN-Token"},
+        "task_states": list(A2A_TASK_STATES.keys()),
+        "mention_syntax": "@<node_id>::<AgentName>",
+        "generated_at": datetime.now().isoformat(),
+    })
+
+
+@app.route("/api/m2m/nodes", methods=["GET"])
+def m2m_list_nodes():
+    """Listet alle bekannten Peer-Nodes."""
+    nodes = load_nodes()
+    # Shared secrets nicht zurückgeben
+    safe = [{k: v for k, v in n.items() if k != "shared_secret"} for n in nodes]
+    return jsonify(safe)
+
+
+@app.route("/api/m2m/nodes", methods=["POST"])
+def m2m_add_node():
+    """Registriert einen neuen Peer-Node."""
+    data = request.json
+    required = ["node_id", "base_url", "shared_secret"]
+    if not all(data.get(k) for k in required):
+        return jsonify({"error": f"Pflichtfelder: {required}"}), 400
+    nodes = load_nodes()
+    # Existierenden Node aktualisieren oder neu hinzufügen
+    existing = next((n for n in nodes if n["node_id"] == data["node_id"]), None)
+    if existing:
+        existing.update({
+            "base_url": data["base_url"],
+            "shared_secret": data["shared_secret"],
+            "node_name": data.get("node_name", data["node_id"]),
+            "alias": data.get("alias", data["node_id"]),
+        })
+    else:
+        nodes.append({
+            "node_id": data["node_id"],
+            "node_name": data.get("node_name", data["node_id"]),
+            "alias": data.get("alias", data["node_id"]),
+            "base_url": data["base_url"].rstrip("/"),
+            "shared_secret": data["shared_secret"],
+            "discovery_mode": data.get("discovery_mode", "manual"),
+            "status": "unknown",
+            "last_seen": None,
+            "agent_cache": [],
+            "agent_cache_ttl": None,
+            "created_at": datetime.now().isoformat(),
+        })
+    save_nodes(nodes)
+    # Sofort Agent-Cache aufbauen
+    node = next((n for n in nodes if n["node_id"] == data["node_id"]), None)
+    if node:
+        spawn_background(_refresh_node_agent_cache, node)
+    return jsonify({"ok": True, "node_id": data["node_id"]})
+
+
+@app.route("/api/m2m/nodes/<node_id>", methods=["DELETE"])
+def m2m_delete_node(node_id):
+    nodes = [n for n in load_nodes() if n["node_id"] != node_id]
+    save_nodes(nodes)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/m2m/nodes/<node_id>/sync", methods=["POST"])
+def m2m_sync_node(node_id):
+    """Erzwingt Neuabruf der Agent-Cards vom Remote-Node."""
+    node = get_node_by_alias(node_id)
+    if not node:
+        return jsonify({"error": "Node nicht gefunden"}), 404
+    spawn_background(_refresh_node_agent_cache, node)
+    return jsonify({"ok": True, "node_id": node_id, "status": "syncing"})
+
+
+@app.route("/api/m2m/agents", methods=["GET"])
+def m2m_all_agents():
+    """Merged lokale + gecachte Remote-Agents für die UI."""
+    local = [dict(a, remote=False, node_id="local") for a in load_agents()]
+    remote = []
+    for node in load_nodes():
+        for card in node.get("agent_cache", []):
+            remote.append({
+                **card,
+                "remote": True,
+                "node_id": node["node_id"],
+                "node_name": node.get("node_name", node["node_id"]),
+                "node_url": node["base_url"],
+                "node_online": node.get("status") == "online",
+                "mention_prefix": f"@{node.get('alias', node['node_id'])}::",
+            })
+    return jsonify({"local": local, "remote": remote})
+
+
+@app.route("/api/m2m/dispatch", methods=["POST"])
+def m2m_dispatch():
+    """Empfängt einen Task von einem Remote-Node und enqueued ihn lokal."""
+    if not _m2m_auth_check(request):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.json
+    origin_task_id = data.get("task_id", str(uuid.uuid4()))
+    target_name = data.get("target_agent_name", "")
+    message = data.get("message", "")
+    callback_url = data.get("origin_callback_url", "")
+    sender_name = data.get("sender_agent_name", "Remote")
+    origin_node = data.get("origin_node", "unknown")
+
+    agents = load_agents()
+    target = next((a for a in agents if a["name"].lower() == target_name.lower()), None)
+    if not target:
+        return jsonify({"error": f"Agent '{target_name}' nicht gefunden"}), 404
+
+    now = datetime.now()
+    task = {
+        "id": str(uuid.uuid4()),
+        "sender_agent_id": f"remote::{origin_node}",
+        "sender_agent_name": f"{sender_name} ({origin_node})",
+        "recipient_agent_id": target["id"],
+        "recipient_agent_name": target["name"],
+        "message": message,
+        "skill_used": None,
+        "result_text": None,
+        "result_image": None,
+        "error": None,
+        "created_at": now.isoformat(),
+        "completed_at": None,
+        "timeout_at": (now + timedelta(seconds=300)).isoformat(),
+        "m2m": True,
+        "callback_url": callback_url,
+        "origin_task_id": origin_task_id,
+        "remote_node": origin_node,
+        "delegation_depth": data.get("delegation_depth", 1),
+        "chain": data.get("chain", []),
+    }
+    queued, pos = _enqueue_task(task)
+    print(f"[M2M] Eingehender Task von {origin_node}::{sender_name} "
+          f"→ @{target['name']} (queued={queued})", flush=True)
+    return jsonify({"ok": True, "task_id": task["id"], "queued": queued}), 202
+
+
+@app.route("/api/m2m/callback", methods=["POST"])
+def m2m_callback():
+    """Empfängt Task-Ergebnis vom Remote-Node und aktualisiert den lokalen Task."""
+    if not _m2m_auth_check(request):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.json
+    origin_task_id = data.get("origin_task_id", "")
+
+    with _tasks_lock:
+        task = _TASKS.get(origin_task_id)
+    if not task:
+        return jsonify({"error": "Task nicht gefunden"}), 404
+
+    with _tasks_lock:
+        _TASKS[origin_task_id]["status"] = data.get("status", "completed")
+        _TASKS[origin_task_id]["result_text"] = data.get("result_text")
+        _TASKS[origin_task_id]["result_image"] = data.get("result_image")
+        _TASKS[origin_task_id]["error"] = data.get("error")
+        _TASKS[origin_task_id]["completed_at"] = data.get("completed_at",
+                                                           datetime.now().isoformat())
+    _save_tasks()
+
+    # History-Eintrag beim Sender
+    ts = datetime.now().isoformat()
+    history = load_history()
+    sender_id = task.get("sender_agent_id", "")
+    result_text = data.get("result_text", "")
+    remote_node = task.get("remote_node", "?")
+    if sender_id and not sender_id.startswith("remote::"):
+        history.setdefault(sender_id, []).append({
+            "role": "assistant",
+            "content": (f"📬 **@{task['recipient_agent_name']}** [{remote_node}]:\n\n"
+                        f"{result_text}"),
+            "task_id": origin_task_id,
+            "ts": ts,
+            "remote_node": remote_node,
+        })
+        save_history(history)
+
+    emit_task_result(
+        origin_task_id,
+        sender_id,
+        result_text,
+        data.get("result_image"),
+        data.get("status", "completed"),
+        data.get("error"),
+    )
+    return jsonify({"ok": True})
+
+
 @app.route("/api/agents", methods=["POST"])
 def create_agent():
     data = request.json
@@ -2171,14 +2296,19 @@ def chat():
     agent_id = data.get("agent_id")
     user_message = data.get("message", "").strip()
     image_data = data.get("image_data")  # base64 data URL from frontend
+    attachment_path = data.get("attachment_path")  # lokaler Pfad (Video/Audio/Doc)
+    attachment_type = data.get("attachment_type")  # "video"|"audio"|"document"
+    attachment_name = data.get("attachment_name", "")
     system_extra = data.get(
         "system_extra", ""
     )  # extra context injected by frontend skills
 
-    if not user_message and not image_data:
+    if not user_message and not image_data and not attachment_path:
         return jsonify({"error": "Keine Nachricht"}), 400
-    if not user_message:
+    if not user_message and image_data:
         user_message = "Describe what you see in this image."
+    if not user_message and attachment_path:
+        user_message = f"Analysiere/transkribiere diese Datei: {attachment_name}"
 
     # Load agent
     agents = load_agents()
@@ -2192,17 +2322,28 @@ def chat():
 
     # Load history
     history = load_history()
-    agent_history = history.get(agent_id, [])
+    history.setdefault(agent_id, [])      # KeyError-Guard: agent_id immer als Key anlegen
+    agent_history = history[agent_id]
 
     # Inject current datetime + agent directory into system prompt
     now = datetime.now().strftime("%A, %B %d %Y, %H:%M")
     agent_directory = _build_agent_directory(agent_id)
-    
+
+    # Auto-assign codebase_read for favorite agents
+    agent_skills_list = list(agent.get("skills", []))
+    if agent.get("favorite") and "codebase_read" not in agent_skills_list:
+        agent_skills_list.append("codebase_read")
+
     # List actual current agent skills
-    my_skills = agent.get("skills", [])
+    my_skills = agent_skills_list
     skill_labels = [_SKILL_MAP.get(sid, {"name": sid})["name"] for sid in my_skills]
     skills_str = ", ".join(skill_labels) if skill_labels else "Keine speziellen Skills aktiv."
     
+    # Codebase context for agents with codebase_read skill (favorites get it auto)
+    codebase_ctx = ""
+    if "codebase_read" in my_skills:
+        codebase_ctx = f"\n\n{_get_codebase_context()}"
+
     system_content = (
         f"[Current time: {now}]\n\n"
         f"DEINE IDENTITÄT:\n{agent['soul']}\n\n"
@@ -2216,6 +2357,7 @@ def chat():
         f"2. Wenn nach 'Ereignissen heute' oder 'was passiert ist' gefragt wird, prüfe ZUERST dein Memory auf systeminterne Events und Dokumente.\n"
         f"3. Delegiere NUR an andere Agents, wenn du den Skill NICHT besitzt und das Memory keine Antwort liefert.\n\n"
         f"{agent_directory}"
+        f"{codebase_ctx}"
     )
 
     # Determine active skills
@@ -2227,7 +2369,7 @@ def chat():
     # All skill execution (image_gen, video_gen, telegram, gmail, screenshot,
     # hackernews, prompt_optimize, image_edit) is routed through process_task()
     # to eliminate duplication and ensure stats tracking.
-    skill_result = _run_chat_skill(agent, user_message, image_data)
+    skill_result = _run_chat_skill(agent, user_message, image_data, attachment_path=attachment_path)
     if skill_result:
         if skill_result.get("error"):
             return jsonify({"error": skill_result["error"]}), 500
@@ -3080,554 +3222,7 @@ def watchdog_fetch_hash(url):
     return hashlib.md5(text.encode()).hexdigest(), text
 
 
-def _run_mac_mail(message: str, agent_id: str = "") -> str:
-    """
-    Steuert Apple Mail direkt via AppleScript.
-    Kein externer Server nötig.
-    """
-    import re as _re
-    import subprocess as _sp
-
-    def _as(script: str) -> str:
-        r = _sp.run(["osascript", "-e", script], capture_output=True, text=True, timeout=30)
-        if r.returncode != 0:
-            raise RuntimeError(r.stderr.strip())
-        return r.stdout.strip()
-
-    def _get_messages(unread_only=False, limit=10, mailbox_name="INBOX") -> list:
-        """Holt Mails aus INBOX aller Accounts oder aus einem benannten lokalen Ordner."""
-        filt = "whose read status is false" if unread_only else ""
-        script = f"""
-tell application "Mail"
-    set output to ""
-    set counter to 0
-    -- Zuerst Account-INBOXen durchsuchen
-    repeat with acc in accounts
-        try
-            set mb to mailbox "{mailbox_name}" of acc
-            set msgs to (messages of mb) {filt}
-            repeat with m in msgs
-                if counter >= {limit} then exit repeat
-                set output to output & (message id of m) & "|" & (subject of m) & "|" & (sender of m) & "|" & ((date received of m) as string) & "|" & (read status of m) & "|" & (name of acc) & "\n"
-                set counter to counter + 1
-            end repeat
-        end try
-        if counter >= {limit} then exit repeat
-    end repeat
-    -- Falls kein Ergebnis: lokale Postfächer durchsuchen
-    if counter = 0 then
-        repeat with mb in mailboxes
-            if (name of mb) is "{mailbox_name}" then
-                set msgs to (messages of mb) {filt}
-                repeat with m in msgs
-                    if counter >= {limit} then exit repeat
-                    set output to output & (message id of m) & "|" & (subject of m) & "|" & (sender of m) & "|" & ((date received of m) as string) & "|" & (read status of m) & "|Lokal\n"
-                    set counter to counter + 1
-                end repeat
-            end if
-        end repeat
-    end if
-    return output
-end tell"""
-        raw = _as(script)
-        result = []
-        for line in raw.splitlines():
-            if not line.strip(): continue
-            p = line.split("|")
-            if len(p) >= 5:
-                result.append({"id": p[0], "subject": p[1], "sender": p[2], "date": p[3], "read": p[4] == "true", "account": p[5] if len(p) > 5 else ""})
-        return result
-
-    # Kategorisierungsregeln → lokale Ordner
-    SORT_RULES = [
-        ("Finanzen", [
-            "rechnung", "invoice", "zahlung", "payment", "überweisung", "sepa",
-            "kontoauszug", "steuer", "gebühr", "mahnung", "abbuchung", "paypal",
-            "stripe", "lastschrift", "bankverbindung", "kreditkarte", "kosten",
-            "betrag", "eur", "€", "quittung", "beleg", "abrechnung", "payslip",
-        ]),
-        ("Termine", [
-            "termin", "kalender", "meeting", "einladung", "reminder", "erinnerung",
-            "appointment", "schedule", "calendar", "zoom", "teams", "webinar",
-            "konferenz", "veranstaltung", "event", "rsvp", "reservierung",
-        ]),
-        ("Sicherheit", [
-            "passwort", "password", "sicherheit", "security", "verification",
-            "bestätigung", "2fa", "login", "zugang", "alert", "warning",
-            "authentifizierung", "code", "pin", "verify", "confirm", "access",
-        ]),
-        ("News", [
-            "newsletter", "digest", "weekly", "monthly", "update", "ankündigung",
-            "announcement", "roundup", "summary", "report", "tagesschau",
-            "breaking", "headlines", "edition", "ausgabe",
-        ]),
-        ("Werbung", [
-            "angebot", "sale", "rabatt", "discount", "promotion", "marketing",
-            "werbung", "deal", "offer", "unsubscribe", "abmelden", "exklusiv",
-            "limited", "nur heute", "jetzt kaufen", "% off", "promo",
-            "newsletter abbestellen", "commercial", "advertis",
-        ]),
-    ]
-
-    def _categorize(subject: str, sender: str) -> str:
-        """Ordnet eine Mail per Keyword-Matching einem lokalen Ordner zu."""
-        text = (subject + " " + sender).lower()
-        for folder, keywords in SORT_RULES:
-            if any(kw in text for kw in keywords):
-                return folder
-        return "Wichtig"  # Fallback
-
-    try:
-        global _PENDING_MAIL_SORT
-        _agent_sort_pending = _PENDING_MAIL_SORT.get(agent_id, False)
-        msg = message.lower()
-
-        def _fetch_inbox_batch(acc_name: str, batch_size: int = 50, offset: int = 1) -> list:
-            """Holt einen Batch Mails aus der INBOX eines Accounts per Index (kein Iteration über alle)."""
-            end_idx = offset + batch_size - 1
-            raw = _as(f"""tell application "Mail"
-    set output to ""
-    set mb to mailbox "INBOX" of account "{acc_name}"
-    set total to count of messages of mb
-    set endIdx to {end_idx}
-    if endIdx > total then set endIdx to total
-    if {offset} > total then return ""
-    repeat with i from {offset} to endIdx
-        set m to message i of mb
-        set output to output & (message id of m) & "|" & (subject of m) & "|" & (sender of m) & "\n"
-    end repeat
-    return output
-end tell""")
-            result = []
-            for line in raw.splitlines():
-                if not line.strip(): continue
-                p = line.split("|")
-                if len(p) >= 3:
-                    result.append({"id": p[0], "subject": p[1], "sender": p[2], "account": acc_name})
-            return result
-
-        def _move_batch(mails: list) -> tuple:
-            """Verschiebt eine Liste Mails in lokale Ordner. Gibt (moved_dict, errors) zurück."""
-            moved = {}
-            errors = 0
-            for mail in mails:
-                folder = _categorize(mail["subject"], mail["sender"])
-                try:
-                    _as(f"""tell application "Mail"
-    set mb to mailbox "INBOX" of account "{mail['account']}"
-    set theMsg to first message of mb whose message id is "{mail['id']}"
-    move theMsg to mailbox "{folder}"
-end tell""")
-                    moved[folder] = moved.get(folder, 0) + 1
-                except Exception:
-                    errors += 1
-            return moved, errors
-
-        # Aufräumen / Einsortieren → Vorschau
-        if _re.search(r"\b(aufräum|sortier|einsortier|organis|kategorisier)\w*\b", msg, _re.I):
-            # Zähle zuerst wie viele Mails pro Account
-            counts_raw = _as("""tell application "Mail"
-    set output to ""
-    repeat with acc in accounts
-        try
-            set mb to mailbox "INBOX" of acc
-            set output to output & (name of acc) & "|" & (count of messages of mb) & "\n"
-        end try
-    end repeat
-    return output
-end tell""")
-            accounts_with_mail = []
-            total_count = 0
-            for line in counts_raw.splitlines():
-                if not line.strip(): continue
-                p = line.split("|")
-                if len(p) == 2 and p[1].isdigit() and int(p[1]) > 0:
-                    accounts_with_mail.append((p[0], int(p[1])))
-                    total_count += int(p[1])
-
-            if total_count == 0:
-                return "📬 Posteingang ist bereits leer."
-
-            # Vorschau: ersten Batch (50) holen und kategorisieren
-            preview_mails = []
-            for acc_name, count in accounts_with_mail:
-                preview_mails += _fetch_inbox_batch(acc_name, batch_size=min(50, count))
-
-            plan = {}
-            for mail in preview_mails:
-                folder = _categorize(mail["subject"], mail["sender"])
-                plan.setdefault(folder, []).append(mail)
-
-            lines = [f"📬 **{total_count} Mails** in {len(accounts_with_mail)} Account(s) — Sortierplan (Vorschau):\n"]
-            for acc_name, count in accounts_with_mail:
-                lines.append(f"  • {acc_name}: {count} Mails")
-            lines.append("")
-            for folder, items in sorted(plan.items()):
-                lines.append(f"**📁 {folder}** (~{len(items)} Beispiele)")
-                for item in items[:2]:
-                    lines.append(f"  • {item['subject'][:55]}")
-            lines.append(f"\n✋ Soll ich alle **{total_count} Mails** in Batches verschieben?")
-            lines.append("Antworte mit **'ja'** oder **'go'**.")
-            _PENDING_MAIL_SORT[agent_id] = True
-            return "\n".join(lines)
-
-        # Bestätigung → tatsächlich verschieben in Batches
-        # Explizit: "ja, verschieben" / "ja ok" / "ja go" ...
-        _explicit_confirm = bool(_re.search(r"\bja[,.]?\s*(verschieb|sortier|mach|go|los|ok|weiter|bestätig)\w*\b", msg, _re.I))
-        # Pending + kurzes Okay-Wort: "go", "los", "ok", "ja", "yes", "mach", "1 go" etc.
-        _short_confirm = bool(_agent_sort_pending and _re.search(
-            r"^\s*[0-9]*\s*(go|los|ja|ok|yes|weiter|mach\s*mal?|start|run|tu\s*es?|bestätig\w*)\s*$",
-            msg.strip(), _re.I
-        ))
-        if _explicit_confirm or _short_confirm:
-            counts_raw = _as("""tell application "Mail"
-    set output to ""
-    repeat with acc in accounts
-        try
-            set mb to mailbox "INBOX" of acc
-            set output to output & (name of acc) & "|" & (count of messages of mb) & "\n"
-        end try
-    end repeat
-    return output
-end tell""")
-            accounts_with_mail = []
-            for line in counts_raw.splitlines():
-                if not line.strip(): continue
-                p = line.split("|")
-                if len(p) == 2 and p[1].isdigit() and int(p[1]) > 0:
-                    accounts_with_mail.append((p[0], int(p[1])))
-
-            if not accounts_with_mail:
-                return "📬 Keine Mails zum Verschieben."
-
-            total_moved = {}
-            total_errors = 0
-            BATCH = 50
-
-            for acc_name, total in accounts_with_mail:
-                remaining = total
-                while remaining > 0:
-                    # Immer von Index 1 holen — nach dem Verschieben rücken Mails nach oben
-                    batch = _fetch_inbox_batch(acc_name, batch_size=min(BATCH, remaining))
-                    if not batch:
-                        break
-                    moved, errors = _move_batch(batch)
-                    for k, v in moved.items():
-                        total_moved[k] = total_moved.get(k, 0) + v
-                    total_errors += errors
-                    remaining -= len(batch)
-
-            _PENDING_MAIL_SORT[agent_id] = False  # Pending-State zurücksetzen
-            lines = [f"✅ **{sum(total_moved.values())} Mails verschoben:**\n"]
-            for folder, count in sorted(total_moved.items()):
-                lines.append(f"  📁 {folder}: {count}")
-            if total_errors:
-                lines.append(f"\n⚠️ {total_errors} Mail(s) konnten nicht verschoben werden.")
-            return "\n".join(lines)
-
-        # Ordner anlegen
-        if _re.search(r"ordner\s+anlegen|create.*folder|new.*mailbox|erstell.*ordner", msg, _re.I):
-            m = _re.search(r'(?:ordner|folder|mailbox)[:\s]+["\']?([^"\'.,\n]{2,40})["\']?', message, _re.I)
-            name = m.group(1).strip() if m else "Neu"
-            _as(f'tell application "Mail" to make new mailbox with properties {{name:"{name}"}}')
-            return f"📬 Ordner **{name}** angelegt ✅"
-
-        # Nachricht verschieben
-        if _re.search(r"verschieb|move.*mail|archiviere?", msg, _re.I):
-            id_m = _re.search(r'id[:\s]+([^\s,]+)', message, _re.I)
-            to_m = _re.search(r'(?:nach|in|to|into)[:\s]+["\']?([^"\'.,\n]{2,40})["\']?', message, _re.I)
-            if id_m and to_m:
-                mid = id_m.group(1)
-                target = to_m.group(1).strip()
-                _as(f"""tell application "Mail"
-    set theMsg to first message of mailbox "INBOX" whose message id is "{mid}"
-    move theMsg to mailbox "{target}"
-end tell""")
-                return f"📬 Nachricht verschoben nach **{target}** ✅"
-            return "📬 Bitte angeben: welche Mail-ID und in welchen Ordner?"
-
-        # Anhänge
-        if _re.search(r"anhang|attachment", msg, _re.I):
-            id_m = _re.search(r'id[:\s]+([^\s,]+)', message, _re.I)
-            if id_m:
-                mid = id_m.group(1)
-                raw = _as(f"""tell application "Mail"
-    set theMsg to missing value
-    repeat with acc in accounts
-        try
-            set theMsg to first message of mailbox "INBOX" of acc whose message id is "{mid}"
-            exit repeat
-        end try
-    end repeat
-    if theMsg is missing value then return "not found"
-    set output to ""
-    repeat with att in mail attachments of theMsg
-        set output to output & (name of att) & "|" & (file size of att) & "\n"
-    end repeat
-    return output
-end tell""")
-                atts = [l.split("|") for l in raw.splitlines() if l.strip()]
-                if not atts:
-                    return "📬 Keine Anhänge in dieser Nachricht."
-                lines = [f"📎 **{len(atts)} Anhang/Anhänge:**\n"]
-                for a in atts:
-                    kb = int(a[1]) // 1024 if len(a) > 1 and a[1].isdigit() else 0
-                    lines.append(f"• {a[0]} ({kb} KB)")
-                return "\n".join(lines)
-            return "📬 Bitte Nachrichten-ID angeben."
-
-        # Suche
-        if _re.search(r"suche?|such|search|find", msg, _re.I):
-            q_m = _re.search(r'(?:suche?|nach|search|find|von|from|betreff|subject)[:\s]+["\']?([^"\'.,\n]{2,60})["\']?', message, _re.I)
-            query = q_m.group(1).strip() if q_m else message[:40]
-            # Schnelle Suche: `whose` in allen lokalen Ordnern + Account-INBOXen
-            raw = _as(f"""tell application "Mail"
-    set output to ""
-    set counter to 0
-    set q to "{query}"
-    -- Lokale Ordner (MARTIN/*, Finanzen, etc.)
-    repeat with mb in mailboxes
-        try
-            set found to (messages of mb) whose subject contains q
-            repeat with m in found
-                if counter >= 20 then exit repeat
-                set output to output & (message id of m) & "|" & (subject of m) & "|" & (sender of m) & "|" & ((date received of m) as string) & "|" & (name of mb) & "\n"
-                set counter to counter + 1
-            end repeat
-        end try
-        if counter >= 20 then exit repeat
-    end repeat
-    -- Account-INBOXen
-    if counter < 20 then
-        repeat with acc in accounts
-            try
-                set mb to mailbox "INBOX" of acc
-                set found to (messages of mb) whose subject contains q
-                repeat with m in found
-                    if counter >= 20 then exit repeat
-                    set output to output & (message id of m) & "|" & (subject of m) & "|" & (sender of m) & "|" & ((date received of m) as string) & "|INBOX/" & (name of acc) & "\n"
-                    set counter to counter + 1
-                end repeat
-            end try
-            if counter >= 20 then exit repeat
-        end repeat
-    end if
-    return output
-end tell""")
-            results = [l.split("|") for l in raw.splitlines() if l.strip()]
-            if not results:
-                return f"📬 Keine Mails gefunden für: **{query}**"
-            lines = [f"📬 **{len(results)} Treffer** für '{query}':\n"]
-            for r in results[:15]:
-                folder = r[4][:30] if len(r) > 4 else ""
-                lines.append(f"• **{r[1][:55]}**  \n  von {r[2]} — {r[3][:16]}  `{folder}`")
-            return "\n".join(lines)
-
-        # Ungelesene
-        if _re.search(r"ungelesen|neu(e|en)?\s+mail|new\s+mail|unread|posteingang", msg, _re.I):
-            msgs = _get_messages(unread_only=True, limit=10)
-            if not msgs:
-                return "📬 Keine ungelesenen Mails."
-            lines = [f"📬 **{len(msgs)} ungelesene Mail(s):**\n"]
-            for m2 in msgs:
-                lines.append(f"📧 **{m2['subject']}**  \n  von {m2['sender']} — {m2['date'][:16]}")
-            return "\n".join(lines)
-
-        # Ordner auflisten
-        if _re.search(r"postfächer|ordner|mailbox|folder", msg, _re.I):
-            raw = _as("""tell application "Mail"
-    set output to ""
-    -- Lokale Postfächer
-    set output to output & "=== Lokal ===" & "\n"
-    repeat with mb in mailboxes
-        -- nur Top-Level lokale (keine Account-Postfächer)
-        try
-            set _ to account of mb
-        on error
-            set output to output & "  " & (name of mb) & "\n"
-        end try
-    end repeat
-    -- Account-Postfächer
-    repeat with acc in accounts
-        set aname to name of acc
-        set output to output & "=== " & aname & " ===" & "\n"
-        repeat with mb in mailboxes of acc
-            set output to output & "  " & (name of mb) & "\n"
-        end repeat
-    end repeat
-    return output
-end tell""")
-            lines = ["📬 **Verfügbare Postfächer:**\n"]
-            for line in raw.splitlines():
-                if line.startswith("==="):
-                    lines.append(f"\n**{line.strip('= ')}**")
-                elif line.strip():
-                    lines.append(f"  • {line.strip()}")
-            return "\n".join(lines)
-
-        # Älteste N Mails → MARTIN-Unterordner
-        if _re.search(r"\b(älteste?|oldest)\b.{0,30}\b(mail|mails?|nachricht)\b|\b(verschieb|move)\b.{0,40}\bmartin\b", msg, _re.I):
-            n_m = _re.search(r"\b(\d+)\b", msg)
-            n = int(n_m.group(1)) if n_m else 20
-
-            # Älteste N Mails aus allen Account-INBOXen holen (von hinten = älteste)
-            raw = _as(f"""tell application "Mail"
-    set output to ""
-    set counter to 0
-    repeat with acc in accounts
-        try
-            set mb to mailbox "INBOX" of acc
-            set total to count of messages of mb
-            if total > 0 then
-                set startIdx to total - {n} + 1
-                if startIdx < 1 then set startIdx to 1
-                repeat with i from startIdx to total
-                    set m to message i of mb
-                    set output to output & (message id of m) & "|" & (subject of m) & "|" & (sender of m) & "|" & (name of acc) & "\n"
-                    set counter to counter + 1
-                    if counter >= {n} then exit repeat
-                end repeat
-            end if
-        end try
-        if counter >= {n} then exit repeat
-    end repeat
-    return output
-end tell""")
-
-            mails = []
-            for line in raw.splitlines():
-                if not line.strip(): continue
-                p = line.split("|")
-                if len(p) >= 4:
-                    mails.append({"id": p[0], "subject": p[1], "sender": p[2], "account": p[3]})
-
-            if not mails:
-                return "📬 Keine Mails zum Verschieben gefunden."
-
-            moved = {}
-            errors = 0
-            for mail in mails:
-                folder = _categorize(mail["subject"], mail["sender"])
-                target = f"MARTIN/{folder}"
-                try:
-                    _as(f"""tell application "Mail"
-    set mb to mailbox "INBOX" of account "{mail['account']}"
-    set theMsg to first message of mb whose message id is "{mail['id']}"
-    move theMsg to mailbox "{target}"
-end tell""")
-                    moved[target] = moved.get(target, 0) + 1
-                except Exception:
-                    errors += 1
-
-            lines = [f"✅ **{sum(moved.values())} älteste Mails → MARTIN-Unterordner:**\n"]
-            for folder, count in sorted(moved.items()):
-                lines.append(f"  📁 {folder}: {count}")
-            if errors:
-                lines.append(f"\n⚠️ {errors} konnten nicht verschoben werden.")
-            return "\n".join(lines)
-
-        # Triage: neue Mails per LLM bewerten
-        if _re.search(r"\b(triage|prüf|check|bewerт|analyse|wichtig|dringend|priorit)\w*\b", msg, _re.I):
-            import json as _json
-            import requests as _req
-
-            # Ollama URL aus providers.json
-            try:
-                with open(os.path.join(BASE_DIR, "providers.json"), encoding="utf-8") as _f:
-                    _providers = _json.load(_f)
-                ollama_url = _providers.get("ollama", {}).get("url", "http://localhost:11434").rstrip("/")
-            except Exception:
-                ollama_url = "http://localhost:11434"
-
-            # Ungelesene Mails holen (alle Accounts, max 15)
-            unread_raw = _as("""tell application "Mail"
-    set output to ""
-    set counter to 0
-    repeat with acc in accounts
-        try
-            set mb to mailbox "INBOX" of acc
-            set msgs to (messages of mb) whose read status is false
-            repeat with m in msgs
-                if counter >= 15 then exit repeat
-                set output to output & (message id of m) & "|||" & (subject of m) & "|||" & (sender of m) & "|||" & ((date received of m) as string) & "|||" & (name of acc) & "\n"
-                set counter to counter + 1
-            end repeat
-        end try
-        if counter >= 15 then exit repeat
-    end repeat
-    return output
-end tell""")
-
-            unread = []
-            for line in unread_raw.splitlines():
-                if not line.strip(): continue
-                p = line.split("|||")
-                if len(p) >= 4:
-                    unread.append({"id": p[0], "subject": p[1], "sender": p[2], "date": p[3], "account": p[4] if len(p) > 4 else ""})
-
-            if not unread:
-                return "📬 Keine ungelesenen Mails — Posteingang ist sauber! ✅"
-
-            # Body-Snippets holen (erste 400 Zeichen)
-            for mail in unread:
-                try:
-                    body_raw = _as(f"""tell application "Mail"
-    set mb to mailbox "INBOX" of account "{mail['account']}"
-    set m to first message of mb whose message id is "{mail['id']}"
-    set b to content of m
-    if length of b > 400 then set b to text 1 thru 400 of b
-    return b
-end tell""")
-                    mail["snippet"] = body_raw.strip().replace("\n", " ")
-                except Exception:
-                    mail["snippet"] = ""
-
-            # Alle Mails als Block an LLM
-            mail_block = ""
-            for i, m in enumerate(unread, 1):
-                mail_block += f"\n---\nMail {i}:\nVon: {m['sender']}\nBetreff: {m['subject']}\nDatum: {m['date'][:16]}\nInhalt: {m['snippet'][:300]}\n"
-
-            llm_prompt = f"""Du bist ein E-Mail-Assistent. Bewerte folgende ungelesene Mails und gib für jede Mail aus:
-- Priorität: 🔴 Hoch / 🟡 Mittel / 🟢 Niedrig
-- 1-Satz-Zusammenfassung was die Mail will
-- Empfohlene Aktion: Antworten / Lesen / Archivieren / Ignorieren / Löschen
-
-Antworte kompakt, eine Mail pro Zeile im Format:
-[Mail N] PRIORITÄT | ZUSAMMENFASSUNG | AKTION
-
-Mails:{mail_block}"""
-
-            try:
-                resp = _req.post(
-                    f"{ollama_url}/api/generate",
-                    json={"model": "gemma3:latest", "prompt": llm_prompt, "stream": False},
-                    timeout=60
-                )
-                resp.raise_for_status()
-                llm_result = resp.json().get("response", "").strip()
-            except Exception as e:
-                llm_result = f"(LLM nicht erreichbar: {e})"
-
-            lines = [f"📬 **Triage — {len(unread)} ungelesene Mail(s):**\n", llm_result, ""]
-            lines.append("─" * 40)
-            lines.append("**Mails:**")
-            for i, m in enumerate(unread, 1):
-                lines.append(f"  {i}. **{m['subject'][:55]}**  \n     von {m['sender']} — {m['date'][:16]}")
-            return "\n".join(lines)
-
-        # Standard: Inbox zeigen
-        msgs = _get_messages(limit=10)
-        if not msgs:
-            return "📬 Posteingang ist leer."
-        lines = [f"📬 **Posteingang** ({len(msgs)} Nachrichten):\n"]
-        for m2 in msgs:
-            icon = "📧" if not m2["read"] else "✉️"
-            lines.append(f"{icon} **{m2['subject']}**  \n  von {m2['sender']} — {m2['date'][:16]}")
-        return "\n".join(lines)
-
-    except Exception as e:
-        return f"❌ Mac Mail Fehler: {str(e)[:300]}"
-
+# ← moved to modules (Phase 1+2): _run_mac_mail
 
 def call_agent_text(agent, system_suffix, user_prompt, retries: int = 2):
     """Schlanker LLM-Call ohne History, nur Text — für Watchdog. Mit Timeout-Retry."""
@@ -3636,7 +3231,12 @@ def call_agent_text(agent, system_suffix, user_prompt, retries: int = 2):
     provider = agent.get("provider", "ollama")
     now = datetime.now().strftime("%A, %d. %B %Y, %H:%M Uhr")
     agent_directory = _build_agent_directory(agent.get("id"))
-    system_content = f"[Aktuelle Zeit: {now}]\n\n{agent['soul']}\n\n{agent_directory}\n\n{system_suffix}"
+    # Codebase context für Favoriten oder Agenten mit codebase_read Skill
+    _agent_skills = set(agent.get("skills", []))
+    if agent.get("favorite"):
+        _agent_skills.add("codebase_read")
+    _codebase = f"\n\n{_get_codebase_context()}" if "codebase_read" in _agent_skills else ""
+    system_content = f"[Aktuelle Zeit: {now}]\n\n{agent['soul']}\n\n{agent_directory}{_codebase}\n\n{system_suffix}"
     messages = [
         {"role": "system", "content": system_content},
         {"role": "user", "content": user_prompt},
@@ -3864,6 +3464,8 @@ def tick_watchdogs():
 
 
 _MENTION_RX = re.compile(r"@([\w\-äöüÄÖÜß]+)", re.UNICODE)
+# M2M remote mention: @node_alias::AgentName (Vorrang vor lokalem _MENTION_RX)
+_REMOTE_MENTION_RX = re.compile(r"@([\w\-]+)::([\w\-äöüÄÖÜß]+)", re.UNICODE)
 
 
 MAX_DELEGATION_DEPTH = 5
@@ -3972,15 +3574,238 @@ def _dispatch_mentions_from_prompt(sender_agent: dict, prompt: str, task_message
         # kein break — alle Mentions verarbeiten
 
 
-def _dispatch_mentions_from_reply(sender_agent: dict, reply: str, sender_task: dict = None):
-    """Scan reply for @AgentName mentions, split multi-tasks, enqueue each."""
+_TOOL_CALL_RX = re.compile(
+    r'\[TOOL_CALL\].*?(?:tool|name)\s*[=:>]+\s*["\']?(\w+)["\']?.*?'
+    r'(?:--command|message|task|content|prompt)\s+["\']([^"\']+)["\'].*?\[/TOOL_CALL\]',
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _normalize_tool_calls(reply: str, name_map: dict) -> str:
+    """Konvertiert halluzinierte [TOOL_CALL]-Syntax in @AgentName-Mentions.
+    Unterstützt: [TOOL_CALL]{tool => "Flo", args => {--command "..."}}[/TOOL_CALL]
+    """
+    def _replace(m):
+        agent_name = m.group(1).strip()
+        task_text = (m.group(2) or "").strip()
+        if agent_name.lower() not in name_map:
+            return m.group(0)  # unbekannter Agent → unverändert lassen
+        out = f"@{agent_name}"
+        if task_text:
+            out += f" {task_text}"
+        print(f"[A2A] TOOL_CALL normalisiert → '{out[:80]}'", flush=True)
+        return out
+    normalized = _TOOL_CALL_RX.sub(_replace, reply)
+    # Fallback: einfaches JSON-ähnliches Format ohne TOOL_CALL-Tag
+    if normalized == reply:
+        # z.B. {"tool": "Flo", "message": "..."}
+        _json_rx = re.compile(
+            r'\{\s*["\']?(?:tool|name)["\']?\s*:\s*["\'](\w+)["\'].*?["\'](?:message|task|command|content)["\']?\s*:\s*["\']([^"\']+)["\']',
+            re.IGNORECASE | re.DOTALL,
+        )
+        normalized = _json_rx.sub(lambda m: f"@{m.group(1)} {m.group(2)}" if m.group(1).lower() in name_map else m.group(0), normalized)
+    return normalized
+
+
+# ─── MARTIN M2M Bridge — Hilfsfunktionen ─────────────────────────────────────
+
+def _m2m_auth_check(req) -> bool:
+    """Prüft X-MARTIN-Token gegen alle konfigurierten Nodes."""
+    token = req.headers.get("X-MARTIN-Token", "")
+    if not token:
+        return False
+    nodes = load_nodes()
+    return any(n.get("shared_secret") == token for n in nodes)
+
+
+def _get_node_token(node: dict) -> str:
+    return node.get("shared_secret", "")
+
+
+def _refresh_node_agent_cache(node: dict):
+    """Holt Agent-Cards vom Remote-Node und cached sie lokal."""
+    try:
+        resp = requests.get(
+            f"{node['base_url']}/.well-known/martin-agent.json",
+            headers={"X-MARTIN-Token": _get_node_token(node)},
+            timeout=5,
+        )
+        if resp.status_code == 200:
+            remote_cards = resp.json().get("agents", [])
+            update_node_cache(node["node_id"], remote_cards)
+            print(f"[M2M] {len(remote_cards)} Agents gecacht von {node['node_id']}", flush=True)
+        else:
+            mark_node_offline(node["node_id"])
+    except Exception as e:
+        print(f"[M2M] Cache-Refresh fehlgeschlagen für {node.get('node_id')}: {e}", flush=True)
+        mark_node_offline(node["node_id"])
+
+
+def tick_m2m_peers():
+    """Alle 15 min: Agent-Caches für online Nodes auffrischen."""
+    nodes = load_nodes()
+    now = datetime.now().isoformat()
+    for node in nodes:
+        ttl = node.get("agent_cache_ttl") or "0"
+        if now > ttl:
+            spawn_background(_refresh_node_agent_cache, node)
+
+
+def _send_remote_task(node: dict, agent_name: str, local_task: dict):
+    """Sendet einen Task an einen Remote-Node."""
+    providers = load_providers()
+    self_id = get_self_identity(providers)
+    my_url = self_id.get("public_url", "")
+
+    payload = {
+        "task_id": local_task["id"],
+        "origin_node": self_id["node_id"],
+        "origin_callback_url": f"{my_url}/api/m2m/callback",
+        "sender_agent_name": local_task["sender_agent_name"],
+        "target_agent_name": agent_name,
+        "message": local_task["message"],
+        "delegation_depth": local_task.get("delegation_depth", 1),
+        "chain": local_task.get("chain", []),
+    }
+    try:
+        resp = requests.post(
+            f"{node['base_url']}/api/m2m/dispatch",
+            json=payload,
+            headers={"X-MARTIN-Token": _get_node_token(node)},
+            timeout=10,
+        )
+        if resp.status_code not in (200, 202):
+            raise Exception(f"HTTP {resp.status_code}: {resp.text[:200]}")
+        remote_task_id = resp.json().get("task_id", "")
+        with _tasks_lock:
+            if local_task["id"] in _TASKS:
+                _TASKS[local_task["id"]]["remote_task_id"] = remote_task_id
+                _TASKS[local_task["id"]]["status"] = "working"
+        _save_tasks()
+        print(f"[M2M] Task dispatched → {node['node_id']}::{agent_name} "
+              f"(remote_id={remote_task_id[:8]})", flush=True)
+    except Exception as e:
+        print(f"[M2M] Dispatch fehlgeschlagen: {e}", flush=True)
+        with _tasks_lock:
+            if local_task["id"] in _TASKS:
+                _TASKS[local_task["id"]]["status"] = "failed"
+                _TASKS[local_task["id"]]["error"] = str(e)
+        _save_tasks()
+        emit_task_result(local_task["id"], local_task["sender_agent_id"],
+                         None, None, "failed", str(e))
+
+
+def _m2m_send_callback(task: dict):
+    """Sendet Task-Ergebnis als Callback an den Ursprungs-Node."""
+    callback_url = task.get("callback_url")
+    if not callback_url:
+        return
+    # Token des Ursprungs-Nodes ermitteln
+    nodes = load_nodes()
+    token = ""
+    for n in nodes:
+        if callback_url.startswith(n.get("base_url", "XXXX")):
+            token = n.get("shared_secret", "")
+            break
+    payload = {
+        "origin_task_id": task["id"],
+        "status": task["status"],
+        "result_text": task.get("result_text"),
+        "result_image": task.get("result_image"),
+        "error": task.get("error"),
+        "completed_at": task.get("completed_at"),
+    }
+    try:
+        requests.post(
+            callback_url,
+            json=payload,
+            headers={"X-MARTIN-Token": token},
+            timeout=15,
+        )
+        print(f"[M2M] Callback gesendet → {callback_url[:60]}", flush=True)
+    except Exception as e:
+        print(f"[M2M] Callback fehlgeschlagen: {e}", flush=True)
+
+
+def _dispatch_remote_mention(sender_agent: dict, node_alias: str, agent_name: str,
+                              task_text: str, sender_task: dict = None):
+    """Erstellt einen Remote-Task für @node::Agent Mentions."""
+    node = get_node_by_alias(node_alias)
+    if not node:
+        print(f"[M2M] Unbekannter Node-Alias '{node_alias}' — ignoriert", flush=True)
+        return
+
+    current_depth = sender_task.get("delegation_depth", 0) if sender_task else 0
+    parent_chain = list(sender_task.get("chain", [sender_agent["id"]])) if sender_task else [sender_agent["id"]]
+
+    task_id = str(uuid.uuid4())
+    now = datetime.now()
+    local_task = {
+        "id": task_id,
+        "sender_agent_id": sender_agent["id"],
+        "sender_agent_name": sender_agent["name"],
+        "recipient_agent_id": f"remote::{node['node_id']}::{agent_name}",
+        "recipient_agent_name": f"{node_alias}::{agent_name}",
+        "message": task_text.strip() or "(kein Text)",
+        "skill_used": "m2m_remote",
+        "result_text": None,
+        "result_image": None,
+        "error": None,
+        "created_at": now.isoformat(),
+        "completed_at": None,
+        "timeout_at": (now + timedelta(seconds=300)).isoformat(),
+        "status": "submitted",
+        "m2m": True,
+        "remote_node": node["node_id"],
+        "delegation_depth": current_depth + 1,
+        "chain": parent_chain,
+    }
+    with _tasks_lock:
+        _TASKS[task_id] = local_task
+    _save_tasks()
+    print(f"[M2M] Remote dispatch: @{node_alias}::{agent_name} ← '{task_text[:60]}'", flush=True)
+    spawn_background(_send_remote_task, node, agent_name, local_task)
+
+
+def _dispatch_mentions_from_reply(sender_agent: dict, reply: str, sender_task: dict = None, extra_task_fields: dict = None):
+    """Scan reply for @AgentName mentions and enqueue tasks.
+
+    Merge-Logik: mehrere @SameAgent-Mentions werden zu EINER kombinierten Aufgabe
+    zusammengefasst, damit alle Schritte mit Kontext in einem Task landen.
+    """
     current_depth = sender_task.get("delegation_depth", 0) if sender_task else 0
     if current_depth >= MAX_DELEGATION_DEPTH:
         print(f"[A2A] Max delegation depth {MAX_DELEGATION_DEPTH} erreicht, kein Dispatch", flush=True)
         return
+
+    # ── M2M: Remote @node::Agent Mentions zuerst abarbeiten ──────────────────
+    for rm in _REMOTE_MENTION_RX.finditer(reply):
+        node_alias = rm.group(1)
+        r_agent_name = rm.group(2)
+        after_raw = reply[rm.end():].lstrip(" ,–—:\t\n")
+        # Text bis zum nächsten Mention
+        next_any = _REMOTE_MENTION_RX.search(after_raw) or _MENTION_RX.search(after_raw)
+        r_text = after_raw[:next_any.start()].strip() if next_any else after_raw.strip()
+        if not r_text:
+            r_text = reply.strip()
+        _dispatch_remote_mention(sender_agent, node_alias, r_agent_name, r_text, sender_task)
+    # Remote Mentions aus Reply entfernen damit lokaler Scan sie nicht nochmal matcht
+    reply = _REMOTE_MENTION_RX.sub("", reply).strip()
+    if not reply:
+        return
+    # ── Ende M2M Remote Dispatch ──────────────────────────────────────────────
+
     all_agents = load_agents()
     name_map = {a["name"].lower(): a for a in all_agents}
+    # Halluzinierte TOOL_CALL / JSON-Syntax in @Mention konvertieren
+    reply = _normalize_tool_calls(reply, name_map)
     parent_chain = list(sender_task.get("chain", [sender_agent["id"]])) if sender_task else [sender_agent["id"]]
+
+    # ── Alle Mentions sammeln und pro Ziel-Agent zusammenfassen ──────────────
+    # { agent_id: {"target": agent_dict, "parts": [str, ...]} }
+    from collections import defaultdict
+    agent_parts: dict = defaultdict(lambda: {"target": None, "parts": []})
+
     for m in _MENTION_RX.finditer(reply):
         target_name = m.group(1).rstrip(",.;:!?").lower()
         target = name_map.get(target_name)
@@ -3989,63 +3814,85 @@ def _dispatch_mentions_from_reply(sender_agent: dict, reply: str, sender_task: d
         if target["id"] in parent_chain:
             print(f"[A2A] Circular chain {parent_chain} → {target['id']}, skip", flush=True)
             continue
-        # Gesamte Message nach dem @Mention — mehrzeilig, nicht nur erste Zeile
+        # Text nach dem @Mention bis zum nächsten @Mention
         after_raw = reply[m.end():].lstrip(" ,–—:\t\n")
-        # Bis zum nächsten @Mention oder Ende der Reply
-        next_mention = _MENTION_RX.search(after_raw)
-        raw_msg = after_raw[:next_mention.start()].strip() if next_mention else after_raw.strip()
-        if not raw_msg:
-            raw_msg = reply.strip()
-        # Mindestlänge: zu kurze Fragmente (z.B. "an Telegram." als Teil eines Satzes)
-        # sind kein echter Task-Delegate — überspringen
-        if len(raw_msg) < 20:
-            print(f"[A2A] Mention @{target_name} übersprungen — Message zu kurz: '{raw_msg}'", flush=True)
+        next_m = _MENTION_RX.search(after_raw)
+        part = after_raw[:next_m.start()].strip() if next_m else after_raw.strip()
+        if not part:
+            part = reply.strip()
+
+        # Echte Satz-Fragmente filtern (z.B. "@Flo." oder "@Flo an Telegram.")
+        # aber Skill-Labels wie "🎩 Hacker News" zulassen (min 3 Zeichen)
+        _fragment_rx = re.compile(r'^(an|auf|zu|mit|für|in|bei|von|nach|über)\b', re.IGNORECASE)
+        if len(part) < 3 or _fragment_rx.match(part):
+            print(f"[A2A] Fragment @{target_name} übersprungen: '{part}'", flush=True)
             continue
-        # KEIN Splitting — mehrstufige Tasks müssen sequenziell mit Kontext laufen.
-        # Das LLM im Ziel-Agent orchestriert selbst und delegiert Schritte mit Ergebnis-Kontext.
-        # Splitting würde Abhängigkeiten brechen (Task 3 hat kein Ergebnis von Task 2).
-        for sub_msg in [raw_msg]:
-            now = datetime.now()
-            task = {
-                "id": str(uuid.uuid4()),
-                "sender_agent_id": sender_agent["id"],
-                "sender_agent_name": sender_agent["name"],
-                "recipient_agent_id": target["id"],
-                "recipient_agent_name": target["name"],
-                "message": sub_msg,
-                "skill_used": None,
-                "result_text": None,
-                "result_image": None,
-                "error": None,
-                "created_at": now.isoformat(),
-                "completed_at": None,
-                "timeout_at": (now + timedelta(seconds=180)).isoformat(),
-                "delegation_depth": current_depth + 1,
-                "chain": parent_chain + [target["id"]],
-            }
-            queued, pos = _enqueue_task(task)
-            if queued:
-                eta_min = pos * 2
-                print(f"[A2A] @{target['name']} beschäftigt — Task eingereiht (Pos. {pos}, ~{eta_min}min)", flush=True)
-                busy_msg = (
-                    f"📬 @{target['name']} ist beschäftigt. "
-                    f"Task eingereiht (Position {pos}, ~{eta_min} min)."
-                )
-                bh = load_history()
-                bh.setdefault(sender_agent["id"], []).append({
-                    "role": "assistant",
-                    "content": busy_msg,
-                    "ts": datetime.now().isoformat(),
-                    "queue_notification": True,
-                })
-                save_history(bh)
-                try:
-                    emit_chat_message(sender_agent["id"], "assistant", busy_msg)
-                except Exception:
-                    pass
-            else:
-                print(f"[A2A] dispatch @{target['name']} ← '{sub_msg[:60]}' (depth={current_depth+1})", flush=True)
-        # kein break — alle Mentions in der Reply verarbeiten
+
+        agent_parts[target["id"]]["target"] = target
+        agent_parts[target["id"]]["parts"].append(part)
+
+    # ── Pro Ziel-Agent: Parts mergen und Task erstellen ───────────────────────
+    for agent_id, info in agent_parts.items():
+        target = info["target"]
+        parts = info["parts"]
+        if not parts:
+            continue
+
+        # Mehrere Parts zu einer Nachricht zusammenfassen
+        if len(parts) == 1:
+            combined_msg = parts[0]
+        else:
+            # Nummerierte Liste wenn mehrere Teile
+            combined_msg = "\n".join(
+                f"{i+1}. {p}" for i, p in enumerate(parts)
+            )
+            print(f"[A2A] {len(parts)} @{target['name']}-Mentions gemergt zu einem Task", flush=True)
+
+        now = datetime.now()
+        # original_message: voller Auftrag des Senders (alle Schritte), für Pipeline-Skills
+        _orig_msg = sender_task.get("message", "") if sender_task else ""
+        task = {
+            "id": str(uuid.uuid4()),
+            "sender_agent_id": sender_agent["id"],
+            "sender_agent_name": sender_agent["name"],
+            "recipient_agent_id": target["id"],
+            "recipient_agent_name": target["name"],
+            "message": combined_msg,
+            "original_message": _orig_msg,  # vollständige Originalaufgabe für Pipeline-Erkennung
+            "skill_used": None,
+            "result_text": None,
+            "result_image": None,
+            "error": None,
+            "created_at": now.isoformat(),
+            "completed_at": None,
+            "timeout_at": (now + timedelta(seconds=180)).isoformat(),
+            "delegation_depth": current_depth + 1,
+            "chain": parent_chain + [target["id"]],
+        }
+        if extra_task_fields:
+            task.update(extra_task_fields)
+        queued, pos = _enqueue_task(task)
+        if queued:
+            eta_min = pos * 2
+            print(f"[A2A] @{target['name']} beschäftigt — Task eingereiht (Pos. {pos}, ~{eta_min}min)", flush=True)
+            busy_msg = (
+                f"📬 @{target['name']} ist beschäftigt. "
+                f"Task eingereiht (Position {pos}, ~{eta_min} min)."
+            )
+            bh = load_history()
+            bh.setdefault(sender_agent["id"], []).append({
+                "role": "assistant",
+                "content": busy_msg,
+                "ts": datetime.now().isoformat(),
+                "queue_notification": True,
+            })
+            save_history(bh)
+            try:
+                emit_chat_message(sender_agent["id"], "assistant", busy_msg)
+            except Exception:
+                pass
+        else:
+            print(f"[A2A] dispatch @{target['name']} ← '{combined_msg[:80]}' (depth={current_depth+1})", flush=True)
 
 
 def run_heartbeat(agent_or_id):
@@ -4397,7 +4244,7 @@ def tick_task_queue():
             )
         if busy:
             continue
-        oldest = min(agent_tasks, key=lambda t: t.get("created_at", "9999"))
+        oldest = min(agent_tasks, key=lambda t: t.get("created_at") or "9999")
         with _tasks_lock:
             if oldest["id"] not in _TASKS or _TASKS[oldest["id"]]["status"] != "queued":
                 continue
@@ -4423,6 +4270,12 @@ def scheduler_loop():
             # tick_telegram()  # Polling deaktiviert — nur Senden aktiv
             tick_inbox()
             tick_task_queue()
+            tick_m2m_peers()
+            # LinkedIn: geplante Posts prüfen
+            try:
+                _process_linkedin_scheduled(load_providers())
+            except Exception as _le:
+                print(f"[LinkedIn/Scheduler] {_le}", flush=True)
             activity_cleanup()
             _cleanup_old_tasks()
         except Exception as e:
@@ -5639,12 +5492,72 @@ def clear_agent_inbox(agent_id):
     return jsonify({"ok": True})
 
 
+@app.route("/api/upload", methods=["POST"])
+def upload_file():
+    """Universeller Upload-Endpoint: Bilder, Videos, Dokumente, Audio.
+    Gibt zurück: { type, data_url, filename, path, size_mb }
+    """
+    ALLOWED_IMAGE = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
+    ALLOWED_VIDEO = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
+    ALLOWED_AUDIO = {".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"}
+    ALLOWED_DOC   = {".pdf", ".txt", ".md", ".csv", ".json"}
+    ALL_ALLOWED   = ALLOWED_IMAGE | ALLOWED_VIDEO | ALLOWED_AUDIO | ALLOWED_DOC
+
+    if "file" not in request.files:
+        return jsonify({"error": "Keine Datei"}), 400
+
+    file = request.files["file"]
+    if not file.filename:
+        return jsonify({"error": "Kein Dateiname"}), 400
+
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in ALL_ALLOWED:
+        return jsonify({"error": f"Dateityp {ext} nicht erlaubt"}), 400
+
+    upload_dir = os.path.join(BASE_DIR, "static", "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+
+    uid = uuid.uuid4().hex[:8]
+    safe_name = re.sub(r"[^\w\-.]", "_", file.filename)
+    unique_name = f"{uid}_{safe_name}"
+    save_path = os.path.join(upload_dir, unique_name)
+    file.save(save_path)
+
+    size_mb = round(os.path.getsize(save_path) / 1024 / 1024, 2)
+    static_path = f"/static/uploads/{unique_name}"
+
+    if ext in ALLOWED_IMAGE:
+        ftype = "image"
+        with open(save_path, "rb") as f:
+            mime = "image/jpeg" if ext in (".jpg", ".jpeg") else f"image/{ext[1:]}"
+            data_url = f"data:{mime};base64," + base64.b64encode(f.read()).decode()
+    elif ext in ALLOWED_VIDEO:
+        ftype = "video"
+        data_url = static_path  # Video nicht als base64 — zu groß
+    elif ext in ALLOWED_AUDIO:
+        ftype = "audio"
+        data_url = static_path
+    else:
+        ftype = "document"
+        data_url = static_path
+
+    print(f"[Upload] {ftype}: {unique_name} ({size_mb} MB)", flush=True)
+    return jsonify({
+        "type": ftype,
+        "data_url": data_url,
+        "filename": file.filename,
+        "path": save_path,
+        "static_path": static_path,
+        "size_mb": size_mb,
+    })
+
+
 if __name__ == "__main__":
     port = 5050
     print(f"Starting on http://0.0.0.0:{port} with WebSocket support", flush=True)
     socketio.run(
         app,
-        debug=True,
+        debug=False,
         host="0.0.0.0",
         port=port,
         use_reloader=False,

@@ -27,7 +27,7 @@
       <button class="nav-btn active" id="navHome" title="Dashboard" onclick="setView('home')"><span class="icon">🏠</span><span class="label">Home</span></button> <button class="nav-btn" id="navChat" title="Chat" onclick="setView('chat')"><span class="icon">💬</span><span class="label">Chat</span></button> <button class="nav-btn" id="navMulti" title="Broadcast" onclick="setView('multi')"><span class="icon">⚡</span><span class="label">Multi</span></button> <button class="nav-btn" id="navStats" title="Statistiken" onclick="setView('stats')"><span class="icon">📊</span><span class="label">Stats</span></button> <button class="nav-btn" id="navWatchdog" title="Watchdogs" onclick="openWatchdogModal()"><span class="icon">⏰</span><span class="label">Tasks</span></button>
     </nav>
     <div class="activity-foot">
-      <button class="nav-btn" title="Skills" onclick="openSkillsModal()"><span class="icon">🧩</span><span class="label">Skills</span></button> <button class="nav-btn" title="Memory" onclick="openMemoryModal()"><span class="icon">🧠</span><span class="label">Memory</span></button> <button class="nav-btn" title="Providers" onclick="openProviderModal()"><span class="icon">⚙️</span><span class="label">Setup</span></button> <button class="nav-btn" title="Backup" onclick="openBackupModal()"><span class="icon">💾</span><span class="label">Backup</span></button>
+      <button class="nav-btn" title="Skills" onclick="openSkillsModal()"><span class="icon">🧩</span><span class="label">Skills</span></button> <button class="nav-btn" title="Memory" onclick="openMemoryModal()"><span class="icon">🧠</span><span class="label">Memory</span></button> <button class="nav-btn" title="Providers" onclick="openProviderModal()"><span class="icon">⚙️</span><span class="label">Setup</span></button> <button class="nav-btn" title="MARTIN Network (M2M)" onclick="openM2MModal()"><span class="icon">🌐</span><span class="label">Network</span></button> <button class="nav-btn" title="Backup" onclick="openBackupModal()"><span class="icon">💾</span><span class="label">Backup</span></button>
     </div>
   </div><!-- ═══════════════════════════════════════════════════
      Side Panel
@@ -196,6 +196,40 @@
       <div class="modal-body" id="providerModalBody"></div>
       <div class="modal-actions">
         <button class="btn-secondary" onclick="closeModal('providerModal')">Close</button> <button class="btn-primary" onclick="saveProviders()">Save</button>
+      </div>
+    </div>
+  </div><!-- Modal: M2M Network -->
+  <div class="modal-overlay" id="m2mModal">
+    <div class="modal" style="max-width:700px">
+      <div class="modal-title">
+        🌐 MARTIN Network (M2M) <button class="close-btn" onclick="closeModal('m2mModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Self Identity -->
+        <div style="margin-bottom:16px;padding:12px;background:var(--bg2);border-radius:8px">
+          <div style="font-size:12px;color:var(--textdim);margin-bottom:8px;font-family:var(--mono)">DIESER NODE</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input class="form-input" id="m2m_node_id" placeholder="Node ID (z.B. 'studio')" style="flex:1;min-width:120px">
+            <input class="form-input" id="m2m_node_name" placeholder="Name (z.B. 'Mac Mini Studio')" style="flex:2;min-width:180px">
+            <input class="form-input" id="m2m_public_url" placeholder="Eigene URL (z.B. http://192.168.3.10:5050)" style="flex:2;min-width:200px">
+          </div>
+          <button class="btn-primary" style="margin-top:8px;font-size:12px" onclick="saveM2MSelf()">💾 Speichern</button>
+        </div>
+        <!-- Add Peer -->
+        <div style="margin-bottom:16px;padding:12px;background:var(--bg2);border-radius:8px">
+          <div style="font-size:12px;color:var(--textdim);margin-bottom:8px;font-family:var(--mono)">PEER-NODE VERBINDEN</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input class="form-input" id="m2m_peer_id" placeholder="Node ID / Alias" style="flex:1;min-width:100px">
+            <input class="form-input" id="m2m_peer_url" placeholder="http://192.168.x.x:5050" style="flex:2;min-width:180px">
+            <input class="form-input" id="m2m_peer_secret" placeholder="Shared Secret" type="password" style="flex:1;min-width:120px">
+          </div>
+          <button class="btn-primary" style="margin-top:8px;font-size:12px" onclick="addM2MNode()">🔗 Verbinden</button>
+        </div>
+        <!-- Node List -->
+        <div id="m2mNodeList" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal('m2mModal')">Schließen</button>
       </div>
     </div>
   </div><!-- Modal: Skills -->
@@ -1107,11 +1141,9 @@
           <div class="voice-indicator" id="voiceIndicator">
             <div class="voice-dot"></div> Listening…
           </div>
-          <button class="tool-btn" onclick="document.getElementById('imageFileInput').click()" title="Upload image">🖼 Image</button>
-          <button class="tool-btn" id="editModeBtn" onclick="toggleEditMode()" title="Edit image">✏️ Edit</button>
-          <input type="file" id="imageFileInput" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
-          <button class="tool-btn" id="docUploadBtn" onclick="document.getElementById('docFileInput').click()" title="Upload document to memory">📄 Doc</button>
-          <input type="file" id="docFileInput" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp" style="display:none" onchange="handleDocumentUpload(event)">
+          <button class="tool-btn" id="editModeBtn" onclick="toggleEditMode()" title="Bild bearbeiten">✏️ Edit</button>
+          <button class="tool-btn" onclick="document.getElementById('universalFileInput').click()" title="Datei anhängen (Bild, Video, Audio, Dokument)">📎</button>
+          <input type="file" id="universalFileInput" accept="image/*,video/*,audio/*,.pdf,.txt,.md,.csv" style="display:none" onchange="handleUniversalUpload(event)">
           <div id="skillBtns" style="display:flex;flex-wrap:wrap;gap:4px;max-width:100%;overflow:hidden"></div>
         </div>
       </div>
@@ -1487,8 +1519,27 @@
     }
   }
 
-  // Show image preview in chat if attached
-  if (pendingImageData) {
+  // Show attachment preview in chat
+  if (pendingAttachment) {
+    const el = document.getElementById('chatMessages');
+    if (el) {
+      const div = document.createElement('div');
+      div.className = 'msg user';
+      let previewHtml = '';
+      if (pendingAttachment.type === 'image') {
+        previewHtml = `<img src="${pendingAttachment.data_url}" style="max-width:260px;border-radius:6px;display:block;margin-bottom:4px">`;
+      } else if (pendingAttachment.type === 'video') {
+        previewHtml = `<video src="${pendingAttachment.data_url}" controls style="max-width:300px;border-radius:6px;display:block;margin-bottom:4px"></video>`;
+      } else if (pendingAttachment.type === 'audio') {
+        previewHtml = `<audio src="${pendingAttachment.data_url}" controls style="display:block;margin-bottom:4px"></audio>`;
+      } else {
+        previewHtml = `<div style="padding:6px 10px;background:var(--bg-2);border-radius:6px;margin-bottom:4px;font-size:12px">📄 ${esc(pendingAttachment.filename)}</div>`;
+      }
+      div.innerHTML = `<div class="msg-bubble" style="padding:6px">${previewHtml}${text ? `<span>${esc(text)}</span>` : ''}</div>`;
+      el.appendChild(div);
+      scrollToBottom(el);
+    }
+  } else if (pendingImageData) {
     const el = document.getElementById('chatMessages');
     if (el) {
       const div = document.createElement('div');
@@ -1509,6 +1560,16 @@
   try {
     const body = { agent_id: currentAgent.id, message: text };
     if (pendingImageData) body.image_data = pendingImageData;
+    if (pendingAttachment) {
+      if (pendingAttachment.type === 'image') {
+        body.image_data = pendingAttachment.data_url;
+      } else {
+        // Video/Audio/Doc: Pfad übergeben für Transkription/Verarbeitung
+        body.attachment_path = pendingAttachment.path;
+        body.attachment_type = pendingAttachment.type;
+        body.attachment_name = pendingAttachment.filename;
+      }
+    }
     const data = await api('/api/chat', { method: 'POST', body });
     removeThinkingIndicator();
     const reply = data.reply || data.response || data.message || '';
@@ -1520,7 +1581,7 @@
     appendSystemMsg('Error: ' + e.message);
   }
 
-  clearImageAttachment();
+  clearAttachment();
   _release();
   }
 
@@ -1781,6 +1842,19 @@
           id="telegram_chat_id" placeholder="Chat ID" value="${esc(p.chat_id||'')}">
       </div>`;
     }
+    if (p.id === 'linkedin') {
+      return `<div class="provider-row" style="flex-wrap:wrap;gap:6px">
+        <div class="provider-dot ${(p.access_token && p.member_id) ? 'ok' : 'err'}"></div>
+        <div style="flex:1;min-width:80px">
+          <div class="provider-name">💼 LinkedIn</div>
+          <div class="provider-model" style="font-size:10px">developer.linkedin.com → OAuth 2.0 → w_member_social</div>
+        </div>
+        <input class="form-input" style="font-size:11px;padding:5px 8px;flex:3;min-width:220px"
+          id="linkedin_access_token" type="password" placeholder="Access Token" value="${esc(p.access_token||'')}">
+        <input class="form-input" style="font-size:11px;padding:5px 8px;flex:1;min-width:120px"
+          id="linkedin_member_id" placeholder="Member ID (z.B. ABC123xyz)" value="${esc(p.member_id||'')}">
+      </div>`;
+    }
     return `<div class="provider-row">
       <div class="provider-dot ${p.configured ? 'ok' : 'err'}"></div>
       <div style="flex:1">
@@ -1812,6 +1886,10 @@
       const bot_token = document.getElementById('telegram_bot_token')?.value.trim();
       const chat_id = document.getElementById('telegram_chat_id')?.value.trim();
       updates.telegram = { bot_token, chat_id };
+    } else if (p.id === 'linkedin') {
+      const access_token = document.getElementById('linkedin_access_token')?.value.trim();
+      const member_id = document.getElementById('linkedin_member_id')?.value.trim();
+      updates.linkedin = { access_token, member_id };
     } else {
       const val = document.getElementById(`apikey_${p.id}`)?.value;
       if (val !== undefined) updates[p.id] = { api_key: val };
@@ -1824,6 +1902,88 @@
   } catch(e) {
     alert('Save failed: ' + e.message);
   }
+  }
+
+  // ─── MARTIN M2M Network ───────────────────────────
+  async function openM2MModal() {
+    openModal('m2mModal');
+    // Eigene Identität laden
+    try {
+      const providers = await api('/api/providers');
+      const m2m = providers.martin_m2m || {};
+      document.getElementById('m2m_node_id').value = m2m.node_id || '';
+      document.getElementById('m2m_node_name').value = m2m.node_name || '';
+      document.getElementById('m2m_public_url').value = m2m.public_url || '';
+    } catch(e) {}
+    await renderM2MNodes();
+  }
+
+  async function renderM2MNodes() {
+    const list = document.getElementById('m2mNodeList');
+    try {
+      const nodes = await api('/api/m2m/nodes');
+      if (!nodes.length) {
+        list.innerHTML = `<div style="color:var(--textdim);font-size:12px;font-family:var(--mono);text-align:center;padding:16px">Keine Peer-Nodes konfiguriert.<br>Syntax zum Ansprechen: @nodeid::AgentName</div>`;
+        return;
+      }
+      list.innerHTML = nodes.map(n => `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:8px">
+          <div style="width:8px;height:8px;border-radius:50%;background:${n.status==='online'?'#4caf50':n.status==='offline'?'#f44336':'#888'};flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600">${esc(n.node_name||n.node_id)}</div>
+            <div style="font-size:11px;color:var(--textdim);font-family:var(--mono)">
+              @${esc(n.alias||n.node_id)}:: · ${esc(n.base_url)} · ${n.agent_cache?.length||0} Agents
+            </div>
+          </div>
+          <button class="btn-secondary" style="font-size:11px;padding:4px 8px" onclick="syncM2MNode('${esc(n.node_id)}')">🔄 Sync</button>
+          <button class="btn-danger" style="font-size:11px;padding:4px 8px" onclick="deleteM2MNode('${esc(n.node_id)}')">✕</button>
+        </div>`).join('');
+    } catch(e) {
+      list.innerHTML = `<div style="color:var(--error);font-size:12px">Fehler: ${e.message}</div>`;
+    }
+  }
+
+  async function saveM2MSelf() {
+    const node_id = document.getElementById('m2m_node_id').value.trim();
+    const node_name = document.getElementById('m2m_node_name').value.trim();
+    const public_url = document.getElementById('m2m_public_url').value.trim();
+    try {
+      const providers = await api('/api/providers');
+      providers.martin_m2m = { node_id, node_name, public_url, enabled: true };
+      await api('/api/providers', { method: 'POST', body: providers });
+      showToast('Node-Identität gespeichert');
+    } catch(e) { alert('Fehler: ' + e.message); }
+  }
+
+  async function addM2MNode() {
+    const node_id = document.getElementById('m2m_peer_id').value.trim();
+    const base_url = document.getElementById('m2m_peer_url').value.trim();
+    const shared_secret = document.getElementById('m2m_peer_secret').value.trim();
+    if (!node_id || !base_url || !shared_secret) { alert('Alle Felder ausfüllen'); return; }
+    try {
+      await api('/api/m2m/nodes', { method: 'POST', body: { node_id, node_name: node_id, alias: node_id, base_url, shared_secret } });
+      document.getElementById('m2m_peer_id').value = '';
+      document.getElementById('m2m_peer_url').value = '';
+      document.getElementById('m2m_peer_secret').value = '';
+      showToast(`🔗 Node "${node_id}" verbunden`);
+      await renderM2MNodes();
+    } catch(e) { alert('Fehler: ' + e.message); }
+  }
+
+  async function syncM2MNode(nodeId) {
+    try {
+      await api(`/api/m2m/nodes/${nodeId}/sync`, { method: 'POST', body: {} });
+      showToast(`🔄 Sync gestartet für ${nodeId}`);
+      setTimeout(renderM2MNodes, 3000);
+    } catch(e) { alert('Sync fehlgeschlagen: ' + e.message); }
+  }
+
+  async function deleteM2MNode(nodeId) {
+    if (!confirm(`Node "${nodeId}" entfernen?`)) return;
+    try {
+      await api(`/api/m2m/nodes/${nodeId}`, { method: 'DELETE', body: {} });
+      await renderM2MNodes();
+    } catch(e) { alert('Fehler: ' + e.message); }
   }
 
   // ─── Agent Create / Edit ──────────────────────────
@@ -2569,63 +2729,89 @@
   // ═══════════════════════════════════════════════════
   // Image Upload
   // ═══════════════════════════════════════════════════
-  let pendingImageData = null;
+  let pendingImageData = null;   // Legacy (Bild-Edit-Modus)
+  let pendingAttachment = null;  // Universeller Anhang { type, data_url, path, filename }
+
+  async function handleUniversalUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const ext = file.name.split('.').pop().toLowerCase();
+    const isImage = /^(jpg|jpeg|png|gif|webp|bmp)$/.test(ext);
+    const isVideo = /^(mp4|mov|avi|mkv|webm|m4v)$/.test(ext);
+    const isAudio = /^(mp3|wav|m4a|aac|ogg|flac)$/.test(ext);
+    const isDoc   = /^(pdf|txt|md|csv|json)$/.test(ext);
+
+    // Dokumente mit document_memory → in Memory speichern
+    if (isDoc && currentAgent?.skills?.includes('document_memory')) {
+      appendSystemMsg(`📄 Lade ${file.name} ins Memory…`);
+      try {
+        const fd = new FormData(); fd.append('file', file);
+        const r = await fetch(`/api/memory/${currentAgent.id}/document`, { method:'POST', body: fd });
+        const d = await r.json();
+        appendSystemMsg(r.ok ? `✅ ${d.filename} im Memory gespeichert` : `❌ ${d.error}`);
+      } catch(err) { appendSystemMsg(`❌ Upload fehlgeschlagen: ${err.message}`); }
+      return;
+    }
+
+    // Universeller Upload via /api/upload
+    appendSystemMsg(`📎 Lade ${file.name} hoch…`);
+    try {
+      const fd = new FormData(); fd.append('file', file);
+      const r = await fetch('/api/upload', { method:'POST', body: fd });
+      if (!r.ok) { const d = await r.json(); appendSystemMsg(`❌ ${d.error}`); return; }
+      const data = await r.json();
+      pendingAttachment = data;
+
+      // Preview anzeigen
+      const wrap = document.getElementById('imagePreviewWrap');
+      const preview = document.getElementById('imagePreview');
+      if (isImage && preview && wrap) {
+        preview.src = data.data_url;
+        wrap.style.display = 'block';
+      } else {
+        // Generische Preview-Badge
+        const inp = document.getElementById('chatInput');
+        const badge = document.createElement('div');
+        badge.id = 'attachmentBadge';
+        badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:var(--bg-2);border-radius:8px;padding:4px 10px;font-size:12px;margin-top:4px;cursor:pointer';
+        badge.title = 'Klicken um zu entfernen';
+        badge.onclick = clearAttachment;
+        const icon = isVideo ? '🎬' : isAudio ? '🎵' : '📄';
+        badge.innerHTML = `${icon} <b>${esc(file.name)}</b> <span style="color:var(--text-muted)">${data.size_mb} MB</span> ✕`;
+        inp?.parentElement?.insertBefore(badge, inp);
+      }
+      appendSystemMsg(`✅ ${file.name} bereit (${data.size_mb} MB) — Schreibe deine Frage dazu`);
+    } catch(err) { appendSystemMsg(`❌ Upload fehlgeschlagen: ${err.message}`); }
+  }
 
   function handleImageUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    pendingImageData = ev.target.result; // data:image/...;base64,...
-    const preview = document.getElementById('imagePreview');
-    const wrap = document.getElementById('imagePreviewWrap');
-    if (preview) preview.src = pendingImageData;
-    if (wrap) wrap.style.display = 'block';
-  };
-  reader.readAsDataURL(file);
-  e.target.value = ''; // reset so same file can be picked again
-  }
-
-  async function handleDocumentUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  if (!currentAgent || !currentAgent.skills?.includes('document_memory')) {
-    alert('Document Memory skill nicht aktiv. Bitte zuerst aktivieren.');
+    // Legacy: wird noch von Edit-Modus genutzt
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      pendingImageData = ev.target.result;
+      const preview = document.getElementById('imagePreview');
+      const wrap = document.getElementById('imagePreviewWrap');
+      if (preview) preview.src = pendingImageData;
+      if (wrap) wrap.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
     e.target.value = '';
-    return;
   }
 
-  appendSystemMsg(`📄 Lade ${file.name} hoch…`);
-
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    const resp = await fetch(`/api/memory/${currentAgent.id}/document`, {
-      method: 'POST',
-      body: formData
-    });
-    
-    if (resp.ok) {
-      const data = await resp.json();
-      appendSystemMsg(`✅ ${data.filename} im Memory gespeichert`);
-    } else {
-      const err = await resp.json();
-      appendSystemMsg(`❌ Fehler: ${err.error}`);
-    }
-  } catch(err) {
-    appendSystemMsg(`❌ Upload fehlgeschlagen: ${err.message}`);
+  function clearAttachment() {
+    pendingImageData = null;
+    pendingAttachment = null;
+    const wrap = document.getElementById('imagePreviewWrap');
+    if (wrap) wrap.style.display = 'none';
+    document.getElementById('attachmentBadge')?.remove();
   }
 
-  e.target.value = '';
-  }
-
-  function clearImageAttachment() {
-  pendingImageData = null;
-  const wrap = document.getElementById('imagePreviewWrap');
-  if (wrap) wrap.style.display = 'none';
-  }
+  // Legacy alias
+  function clearImageAttachment() { clearAttachment(); }
 
   // ═══════════════════════════════════════════════════
   // TTS
