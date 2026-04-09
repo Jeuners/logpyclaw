@@ -169,13 +169,13 @@ def _render_agent_card(agent: dict):
     fav_border = "border-left: 3px solid #ffd700;" if is_fav else ""
     fav_glow = "background: linear-gradient(135deg, rgba(255,215,0,.04) 0%, transparent 60%);" if is_fav else ""
 
-    with ui.element("div").style(
+    card = ui.element("a").props(f'href="/chat/{ag_id}"').style(
         f"background: #070d08; border: 1px solid #0f2010; border-radius: 8px; "
         f"cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .1s; "
-        f"padding: 16px; {fav_border} {fav_glow}"
-    ).classes("agent-home-card").on("click", lambda _id=ag_id: ui.run_javascript(f"window.location.href='/chat/{_id}'")):
+        f"padding: 16px; text-decoration: none; display: block; {fav_border} {fav_glow}"
+    ).classes("agent-home-card")
 
-
+    with card:
         # ─── Karten-Header ─────────────────────────────────────────────────
         with ui.row().style("align-items: flex-start; gap: 12px; margin-bottom: 12px;"):
             # Avatar

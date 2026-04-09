@@ -17,9 +17,9 @@ def create_layout(page_name: str = "home"):
         "border-bottom: 1px solid #0f2010;"
     ):
         # Logo — klickbar → Home
-        with ui.element("div").style(
-            "display: flex; align-items: center; gap: 8px; cursor: pointer; flex-shrink: 0;"
-        ).on("click", lambda: ui.run_javascript("window.location.href='/'")
+        with ui.element("a").props('href="/"').style(
+            "display: flex; align-items: center; gap: 8px; cursor: pointer; "
+            "flex-shrink: 0; text-decoration: none;"
         ):
             ui.icon("precision_manufacturing").style("color: #00e676; font-size: 18px;")
             ui.html('<span class="ac-logo">AGENT CLAW</span>')

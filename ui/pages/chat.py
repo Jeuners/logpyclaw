@@ -90,11 +90,16 @@ def chat_page(agent_id: str):
                     "display: flex; flex-direction: column;"
                 )
                 _load_history(msg_col, agent_id)
-            # Scroll to bottom on load
-            ui.run_javascript(
-                "setTimeout(() => { const el = document.querySelector('#msg-scroll .q-scrollarea__container'); "
-                "if (el) el.scrollTop = el.scrollHeight; }, 200);"
-            )
+            # Scroll to bottom on load (via timer, da WebSocket beim Render noch nicht bereit)
+            def _initial_scroll():
+                try:
+                    ui.run_javascript(
+                        "const el = document.querySelector('#msg-scroll .q-scrollarea__container');"
+                        "if (el) el.scrollTop = el.scrollHeight;"
+                    )
+                except Exception:
+                    pass
+            ui.timer(0.5, _initial_scroll, once=True)
 
             # Eingabe
             _render_input_area(agent_id, msg_col, agent)
@@ -119,19 +124,21 @@ def _render_sidebar_agent(agent: dict, current_agent_id: str):
         else f"background: transparent; {border_style}"
     )
 
-    with ui.element("div").style(
+    link = ui.element("a").props(f'href="/chat/{ag_id}"').style(
         f"display: flex; align-items: center; gap: 8px; padding: 8px 8px; "
         f"border-radius: 6px; cursor: pointer; transition: background .12s; "
-        f"margin-bottom: 2px; {bg_style}"
-    ).on("click", lambda _id=ag_id: ui.run_javascript(f"window.location.href='/chat/{_id}'")):
+        f"margin-bottom: 2px; text-decoration: none; {bg_style}"
+    ).classes("ac-agent-item")
 
+    with link:
         # Avatar
-        ui.element("div").style(
+        with ui.element("div").style(
             f"width: 30px; height: 30px; border-radius: 50%; "
             f"background: {color}; display: flex; align-items: center; "
             f"justify-content: center; font-size: 11px; font-weight: 700; "
             f"color: #000; flex-shrink: 0; text-transform: uppercase;"
-        ).text = initials
+        ):
+            ui.label(initials)
 
         # Name + Model
         with ui.column().style("flex: 1; min-width: 0; gap: 0;"):
@@ -238,6 +245,10 @@ def _render_input_area(agent_id: str, msg_col, agent: dict):
     """Rendert den Eingabebereich."""
     _uploaded_image = {"data": None}
 
+    # async-Wrapper für on_click/on_keydown (NiceGUI erkennt lambda→coroutine nicht als async)
+    async def _do_send():
+        await _send(agent_id, text_input, msg_col, _uploaded_image, agent)
+
     with ui.element("div").style(
         "padding: 12px 20px 16px; border-top: 1px solid #0f2010; "
         "background: #070d08; flex-shrink: 0;"
@@ -261,16 +272,10 @@ def _render_input_area(agent_id: str, msg_col, agent: dict):
                     "flex: 1; background: #0d1a0e; border: 1px solid #182e18; "
                     "border-radius: 8px;"
                 ).props("rows=1 autogrow outlined dense")
-            text_input.on(
-                "keydown.ctrl.enter",
-                lambda: _send(agent_id, text_input, msg_col, _uploaded_image, agent)
-            )
+            text_input.on("keydown.ctrl.enter", _do_send)
 
             # Send-Button
-            ui.button(
-                icon="send",
-                on_click=lambda: _send(agent_id, text_input, msg_col, _uploaded_image, agent)
-            ).style(
+            ui.button(icon="send", on_click=_do_send).style(
                 "width: 40px; height: 40px; border-radius: 20px; "
                 "background: #00e676; color: #000; flex-shrink: 0;"
             ).props("flat dense")
