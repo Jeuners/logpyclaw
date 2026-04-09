@@ -111,4 +111,10 @@ def _register_skills(registry: SkillRegistry):
     except Exception as e:
         logger.warning("MacMail Skill nicht geladen: %s", e)
 
+    try:
+        from skills.coding_skill import CodingSkill
+        registry.register(CodingSkill())
+    except Exception as e:
+        logger.warning("Coding Skill nicht geladen: %s", e)
+
     logger.info("Skills registriert: %s", [s.id for s in registry.all()])
