@@ -1,14 +1,24 @@
 """
 ui/pages/chat.py — Chat-Interface.
 Layout: Links Agenten-Sidebar (228px) | Rechts Chat-Bereich.
+
+Architektur:
+- Alle Handler sind SYNC (kein async) → kein core.loop-Problem
+- Streaming via Background-Thread + queue.Queue + ui.timer Polling
+- Enter = senden, Shift+Enter = Zeilenumbruch (via js_handler)
+- Navigation via <a href> (kein ui.run_javascript nötig)
 """
 import logging
+import json
+import queue
+import threading
+import urllib.parse
+
 from nicegui import ui, app
 from ui.layout import create_layout
 from ui.theme import apply_theme
 
 logger = logging.getLogger(__name__)
-
 
 
 @ui.page("/chat/{agent_id}")
@@ -26,28 +36,26 @@ def chat_page(agent_id: str):
         with ui.column().classes("items-center justify-center w-full").style("height: calc(100vh - 44px)"):
             ui.icon("person_off").style("font-size: 48px; color: #3a5a3a;")
             ui.label("Agent nicht gefunden").style("color: #ef4444; font-size: 18px; margin-top: 12px;")
-            ui.button("← Zurück", on_click=lambda: ui.run_javascript("window.location.href='/'")) \
-                .props("flat").style("color: #00e676;")
+            ui.element("a").props('href="/"').style("color: #00e676; font-size: 14px; margin-top: 8px;").text = "← Zurück"
         return
 
-    # ─── 2-Spalten-Layout ────────────────────────────────────────────────────
-    # Quasar .q-page auf volle Breite/Höhe setzen
+    # ─── Quasar-Overrides ────────────────────────────────────────────────────
     ui.add_css("""
         .q-page { min-height: unset !important; }
         .q-page-container { padding-bottom: 0 !important; }
         body > div#app > div { height: 100vh; overflow: hidden; }
     """)
 
+    # ─── 2-Spalten-Layout ────────────────────────────────────────────────────
     with ui.element("div").style(
         "display: flex; width: 100%; height: calc(100vh - 44px); overflow: hidden; gap: 0;"
     ):
-        # ─── Linke Sidebar: Agenten-Liste ────────────────────────────────────
+        # ─── Linke Sidebar ───────────────────────────────────────────────────
         with ui.element("div").style(
             "width: 228px; min-width: 228px; flex-shrink: 0; "
             "background: #070d08; border-right: 1px solid #0f2010; "
             "display: flex; flex-direction: column; overflow: hidden;"
         ):
-            # Sidebar Header
             with ui.element("div").style(
                 "padding: 10px 14px 8px; font-size: 10px; font-weight: 700; "
                 "color: #3a5a3a; text-transform: uppercase; letter-spacing: 1.2px; "
@@ -61,26 +69,24 @@ def chat_page(agent_id: str):
                     .style("color: #00e676; font-size: 12px; width: 24px; height: 24px;") \
                     .tooltip("Neuer Agent")
 
-            # Agent-List
             with ui.scroll_area().style("flex: 1; min-height: 0;"):
                 with ui.column().style("padding: 4px 6px; gap: 0;"):
                     if not agents_sorted:
-                        ui.label("Noch keine Agenten") \
-                            .style("font-size: 11px; color: #3a5a3a; padding: 16px 8px; "
-                                   "text-align: center;")
+                        ui.label("Noch keine Agenten").style(
+                            "font-size: 11px; color: #3a5a3a; padding: 16px 8px; text-align: center;"
+                        )
                     for ag in agents_sorted:
                         _render_sidebar_agent(ag, agent_id)
 
-        # ─── Rechter Bereich: Chat ────────────────────────────────────────────
+        # ─── Rechter Bereich: Chat ───────────────────────────────────────────
         with ui.element("div").style(
             "flex: 1; display: flex; flex-direction: column; "
             "overflow: hidden; background: #050a06;"
         ):
-            # Chat-Topbar
             color = agent.get("color", "#00e676")
             _render_chat_topbar(agent, agent_id, color)
 
-            # Nachrichten
+            # Messages
             messages_scroll = ui.scroll_area().style(
                 "flex: 1; min-height: 0; padding: 0;"
             ).props("id=msg-scroll")
@@ -90,7 +96,8 @@ def chat_page(agent_id: str):
                     "display: flex; flex-direction: column;"
                 )
                 _load_history(msg_col, agent_id)
-            # Scroll to bottom on load (via timer, da WebSocket beim Render noch nicht bereit)
+
+            # Scroll to bottom (via timer — WebSocket ist beim Render noch nicht bereit)
             def _initial_scroll():
                 try:
                     ui.run_javascript(
@@ -101,37 +108,34 @@ def chat_page(agent_id: str):
                     pass
             ui.timer(0.5, _initial_scroll, once=True)
 
-            # Eingabe
+            # Input area
             _render_input_area(agent_id, msg_col, agent)
 
 
+# ─── Sidebar Agent ────────────────────────────────────────────────────────────
+
+
 def _render_sidebar_agent(agent: dict, current_agent_id: str):
-    """Rendert einen Agenten-Eintrag in der Sidebar."""
     ag_id = agent["id"]
     name = agent.get("name", "?")
     color = agent.get("color", "#00e676")
     model = agent.get("model", "")
     is_fav = agent.get("favorite", False)
     is_selected = ag_id == current_agent_id
-
-    # Initiale
     initials = name[:2].upper() if len(name) >= 2 else name[0].upper()
 
     border_style = "border-left: 2px solid #ffd700;" if is_fav else "border-left: 2px solid transparent;"
     bg_style = (
         f"background: rgba(0,230,118,.08); {border_style}"
-        if is_selected
-        else f"background: transparent; {border_style}"
+        if is_selected else f"background: transparent; {border_style}"
     )
 
-    link = ui.element("a").props(f'href="/chat/{ag_id}"').style(
+    with ui.element("a").props(f'href="/chat/{ag_id}"').style(
         f"display: flex; align-items: center; gap: 8px; padding: 8px 8px; "
         f"border-radius: 6px; cursor: pointer; transition: background .12s; "
         f"margin-bottom: 2px; text-decoration: none; {bg_style}"
-    ).classes("ac-agent-item")
+    ).classes("ac-agent-item"):
 
-    with link:
-        # Avatar
         with ui.element("div").style(
             f"width: 30px; height: 30px; border-radius: 50%; "
             f"background: {color}; display: flex; align-items: center; "
@@ -140,26 +144,24 @@ def _render_sidebar_agent(agent: dict, current_agent_id: str):
         ):
             ui.label(initials)
 
-        # Name + Model
         with ui.column().style("flex: 1; min-width: 0; gap: 0;"):
-            color_style = "color: #00e676;" if is_selected else "color: #b8d4b8;"
+            name_color = "color: #00e676;" if is_selected else "color: #b8d4b8;"
             ui.label(name).style(
-                f"font-size: 13px; font-weight: 500; {color_style} "
+                f"font-size: 13px; font-weight: 500; {name_color} "
                 f"overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
             )
             if model:
-                short_model = model.split(":")[-1][:12] if ":" in model else model[:12]
-                ui.label(short_model).style(
-                    "font-size: 9px; color: #3a5a3a; font-family: 'SF Mono',monospace;"
-                )
+                short = model.split(":")[-1][:12] if ":" in model else model[:12]
+                ui.label(short).style("font-size: 9px; color: #3a5a3a; font-family: 'SF Mono',monospace;")
 
-        # Fav-Stern
         if is_fav:
             ui.icon("star").style("font-size: 12px; color: #ffd700; flex-shrink: 0;")
 
 
+# ─── Chat Topbar ──────────────────────────────────────────────────────────────
+
+
 def _render_chat_topbar(agent: dict, agent_id: str, color: str):
-    """Rendert die Chat-Topbar mit Avatar, Name, Buttons."""
     name = agent.get("name", "?")
     role = agent.get("role", "")
     skills = agent.get("skills", [])
@@ -167,10 +169,8 @@ def _render_chat_topbar(agent: dict, agent_id: str, color: str):
 
     with ui.element("div").style(
         "display: flex; align-items: center; gap: 16px; padding: 0 24px; "
-        "height: 72px; background: #070d08; border-bottom: 1px solid #0f2010; "
-        "flex-shrink: 0;"
+        "height: 72px; background: #070d08; border-bottom: 1px solid #0f2010; flex-shrink: 0;"
     ):
-        # Avatar
         initials = name[:2].upper() if len(name) >= 2 else name[0].upper()
         with ui.element("div").style(
             f"width: 44px; height: 44px; border-radius: 50%; background: {color}; "
@@ -179,21 +179,14 @@ def _render_chat_topbar(agent: dict, agent_id: str, color: str):
         ):
             ui.label(initials)
 
-        # Name + Info
         with ui.column().style("gap: 2px; flex: 1; min-width: 0;"):
             with ui.row().classes("items-center gap-2"):
-                ui.label(name).style(
-                    "font-size: 16px; font-weight: 600; color: #e4f4e4;"
-                )
+                ui.label(name).style("font-size: 16px; font-weight: 600; color: #e4f4e4;")
                 if agent.get("favorite"):
                     ui.icon("star").style("font-size: 14px; color: #ffd700;")
             if role:
-                ui.label(role).style(
-                    "font-size: 12px; color: #3a5a3a; "
-                    "font-family: 'SF Mono',monospace;"
-                )
+                ui.label(role).style("font-size: 12px; color: #3a5a3a; font-family: 'SF Mono',monospace;")
 
-        # Skill-Badges
         if skills:
             with ui.row().style("gap: 4px; flex-wrap: wrap; max-width: 300px;"):
                 for sk in skills[:5]:
@@ -204,34 +197,18 @@ def _render_chat_topbar(agent: dict, agent_id: str, color: str):
                         "border: 1px solid rgba(0,230,118,0.2);"
                     )
                 if len(skills) > 5:
-                    ui.label(f"+{len(skills) - 5}").style(
-                        "font-size: 10px; color: #3a5a3a; padding: 2px 4px;"
-                    )
+                    ui.label(f"+{len(skills) - 5}").style("font-size: 10px; color: #3a5a3a;")
 
-        # Buttons
         with ui.row().style("gap: 6px; margin-left: auto; flex-shrink: 0;"):
             if model:
                 ui.label(model.split("/")[-1][:16]).style(
                     "font-size: 10px; font-family: 'SF Mono',monospace; "
                     "padding: 2px 7px; border-radius: 3px; "
-                    "background: #0f2010; color: #3a5a3a; "
-                    "border: 1px solid #182e18; align-self: center;"
+                    "background: #0f2010; color: #3a5a3a; border: 1px solid #182e18; align-self: center;"
                 )
-            _topbar_btn(
-                "delete_sweep",
-                "History",
-                lambda: _clear_history(agent_id)
-            )
-            _topbar_btn(
-                "edit",
-                "Bearbeiten",
-                lambda: _edit_agent(agent)
-            )
-            _topbar_btn(
-                "task_alt",
-                "Tasks",
-                _show_task_monitor
-            )
+            _topbar_btn("delete_sweep", "History", lambda: _clear_history(agent_id))
+            _topbar_btn("edit", "Bearbeiten", lambda: _edit_agent(agent))
+            _topbar_btn("task_alt", "Tasks", _show_task_monitor)
 
 
 def _topbar_btn(icon_name: str, tooltip_text: str, callback):
@@ -241,23 +218,193 @@ def _topbar_btn(icon_name: str, tooltip_text: str, callback):
         .tooltip(tooltip_text)
 
 
+# ─── Input Area ───────────────────────────────────────────────────────────────
+
+
 def _render_input_area(agent_id: str, msg_col, agent: dict):
-    """Rendert den Eingabebereich."""
-    _uploaded_image = {"data": None}
+    """Eingabebereich mit sync-basiertem Senden."""
+    _state = {"image": None, "sending": False}
 
-    # async-Wrapper für on_click/on_keydown (NiceGUI erkennt lambda→coroutine nicht als async)
-    async def _do_send():
-        await _send(agent_id, text_input, msg_col, _uploaded_image, agent)
+    def _do_send():
+        """SYNC handler — startet Background-Thread für Streaming."""
+        if _state["sending"]:
+            return
+        message = text_input.value.strip()
+        if not message:
+            return
 
+        logger.info("[CHAT] Sende: %s", message[:80])
+        _state["sending"] = True
+        text_input.value = ""
+        image = _state["image"]
+        _state["image"] = None
+
+        # User-Nachricht sofort anzeigen
+        with msg_col:
+            _render_message(role="user", content=message, image=image)
+
+        # Antwort-Placeholder
+        with msg_col:
+            reply_md = ui.markdown("").style(
+                "padding: 10px 14px; border-radius: 10px 10px 10px 3px; "
+                "font-size: 14px; line-height: 1.6; word-break: break-word; "
+                "background: #0d1a0e; border: 1px solid #0f2010; color: #b8d4b8; "
+                "min-width: 40px; align-self: flex-start;"
+            )
+            typing_label = ui.label("● ● ●").style(
+                "font-size: 10px; color: #3a5a3a; align-self: flex-start; "
+                "padding: 0 4px; animation: ac-pulse 1.2s ease-in-out infinite;"
+            )
+
+        # Queue für Chunks vom Background-Thread
+        chunk_q = queue.Queue()
+        accumulated = []
+        typing_removed = {"done": False}
+
+        def _stream_worker():
+            """Background-Thread: HTTP-Stream lesen, Chunks in Queue."""
+            try:
+                import httpx
+                if image:
+                    # Bild: blockierender Aufruf
+                    from services import get_services
+                    services = get_services()
+                    result = services.chat.handle_message(agent_id, message, images=[image])
+                    chunk_q.put({"_image_result": result})
+                else:
+                    # Text: SSE-Stream
+                    params = urllib.parse.urlencode({"agent_id": agent_id, "message": message})
+                    url = f"http://localhost:5050/api/chat/stream?{params}"
+                    timeout = httpx.Timeout(connect=5.0, read=360.0, write=5.0, pool=5.0)
+                    with httpx.Client(timeout=timeout) as client:
+                        with client.stream("GET", url) as resp:
+                            resp.raise_for_status()
+                            for line in resp.iter_lines():
+                                if line.startswith("data: "):
+                                    try:
+                                        data = json.loads(line[6:])
+                                        chunk_q.put(data)
+                                    except json.JSONDecodeError:
+                                        continue
+            except Exception as e:
+                logger.error("[CHAT] Stream-Error: %s", e)
+                chunk_q.put({"error": str(e)})
+            finally:
+                chunk_q.put(None)  # Sentinel: fertig
+
+        # Worker starten
+        threading.Thread(target=_stream_worker, daemon=True).start()
+
+        # Poller: liest Queue und aktualisiert UI
+        def _poll():
+            nonlocal accumulated
+            try:
+                while not chunk_q.empty():
+                    item = chunk_q.get_nowait()
+
+                    # Sentinel: Stream fertig
+                    if item is None:
+                        poll_timer.deactivate()
+                        _state["sending"] = False
+                        if not typing_removed["done"]:
+                            typing_removed["done"] = True
+                            try:
+                                typing_label.delete()
+                            except Exception:
+                                pass
+                        # Falls keine Antwort kam, Placeholder entfernen
+                        if not accumulated:
+                            try:
+                                reply_md.delete()
+                            except Exception:
+                                pass
+                        _scroll_bottom()
+                        return
+
+                    # Bild-Ergebnis (non-streaming)
+                    if "_image_result" in item:
+                        result = item["_image_result"]
+                        if not typing_removed["done"]:
+                            typing_removed["done"] = True
+                            try:
+                                typing_label.delete()
+                            except Exception:
+                                pass
+                        reply_md.content = result.get("reply", "")
+                        if result.get("image"):
+                            with msg_col:
+                                _render_message(role="assistant", content="", image=result["image"])
+                        continue
+
+                    # Fehler
+                    if item.get("error"):
+                        if not typing_removed["done"]:
+                            typing_removed["done"] = True
+                            try:
+                                typing_label.delete()
+                            except Exception:
+                                pass
+                        reply_md.content = f"**Fehler:** {item['error']}"
+                        continue
+
+                    # Stream-Ende
+                    if item.get("done"):
+                        if not typing_removed["done"]:
+                            typing_removed["done"] = True
+                            try:
+                                typing_label.delete()
+                            except Exception:
+                                pass
+                        # A2A Dispatches
+                        a2a = item.get("a2a_dispatches", [])
+                        display_reply = item.get("display_reply")
+                        if a2a:
+                            reply_md.content = display_reply if display_reply is not None else "".join(accumulated)
+                            if not display_reply and not accumulated:
+                                try:
+                                    reply_md.delete()
+                                except Exception:
+                                    pass
+                            with msg_col:
+                                for d in a2a:
+                                    _render_a2a_card(
+                                        agent.get("name", ""),
+                                        d["recipient_name"],
+                                        d["task_text"],
+                                    )
+                        continue
+
+                    # Chunk
+                    chunk = item.get("chunk", "")
+                    if chunk:
+                        if not typing_removed["done"]:
+                            typing_removed["done"] = True
+                            try:
+                                typing_label.delete()
+                            except Exception:
+                                pass
+                        accumulated.append(chunk)
+                        reply_md.content = "".join(accumulated)
+
+                # Scroll nach jedem Poll-Zyklus
+                if accumulated:
+                    _scroll_bottom()
+
+            except Exception as e:
+                logger.error("[CHAT] Poll-Error: %s", e)
+
+        poll_timer = ui.timer(0.1, _poll)
+
+    # ─── UI-Elemente ─────────────────────────────────────────────────────────
     with ui.element("div").style(
         "padding: 12px 20px 16px; border-top: 1px solid #0f2010; "
         "background: #070d08; flex-shrink: 0;"
     ):
         with ui.row().style("gap: 8px; align-items: flex-end;"):
-            # Upload als verstecktes File-Input + Icon-Button
+            # Upload
             with ui.element("div").style("position: relative; flex-shrink: 0;"):
                 ui.upload(
-                    on_upload=lambda e: _handle_upload(e, _uploaded_image),
+                    on_upload=lambda e: _handle_upload(e, _state),
                     auto_upload=True
                 ).props("flat dense accept='image/*'") \
                  .style("opacity: 0; position: absolute; width: 36px; height: 36px; cursor: pointer; z-index: 2;")
@@ -266,13 +413,26 @@ def _render_input_area(agent_id: str, msg_col, agent: dict):
                     .style("color: #3a5a3a; width: 36px; height: 36px; pointer-events: none;") \
                     .tooltip("Bild anhängen")
 
-            # Texteingabe
-            text_input = ui.textarea(placeholder="Nachricht… (Ctrl+Enter senden)") \
+            # Textarea
+            text_input = ui.textarea(placeholder="Nachricht… (Enter senden, Shift+Enter Umbruch)") \
                 .style(
-                    "flex: 1; background: #0d1a0e; border: 1px solid #182e18; "
-                    "border-radius: 8px;"
+                    "flex: 1; background: #0d1a0e; border: 1px solid #182e18; border-radius: 8px;"
                 ).props("rows=1 autogrow outlined dense")
-            text_input.on("keydown.ctrl.enter", _do_send)
+
+            # Enter = senden (js_handler filtert Shift+Enter clientseitig)
+            text_input.on(
+                "keydown",
+                _do_send,
+                [],
+                js_handler="""
+                    (e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            emit();
+                        }
+                    }
+                """,
+            )
 
             # Send-Button
             ui.button(icon="send", on_click=_do_send).style(
@@ -281,12 +441,25 @@ def _render_input_area(agent_id: str, msg_col, agent: dict):
             ).props("flat dense")
 
 
-def _handle_upload(e, uploaded_image: dict):
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+
+
+def _handle_upload(e, state: dict):
     import base64
     data = base64.b64encode(e.content.read()).decode()
     mime = e.type or "image/png"
-    uploaded_image["data"] = f"data:{mime};base64,{data}"
+    state["image"] = f"data:{mime};base64,{data}"
     ui.notify("Bild geladen", type="positive")
+
+
+def _scroll_bottom():
+    try:
+        ui.run_javascript(
+            "const el = document.querySelector('#msg-scroll .q-scrollarea__container');"
+            "if (el) el.scrollTop = el.scrollHeight;"
+        )
+    except Exception:
+        pass
 
 
 def _load_history(container, agent_id: str):
@@ -296,11 +469,10 @@ def _load_history(container, agent_id: str):
         history = services.agents.get_history(agent_id)
         with container:
             if not history:
-                ui.label("Noch keine Nachrichten. Starte eine Unterhaltung!") \
-                    .style(
-                        "color: #3a5a3a; font-size: 13px; font-style: italic; "
-                        "text-align: center; padding: 32px 0; width: 100%;"
-                    )
+                ui.label("Noch keine Nachrichten. Starte eine Unterhaltung!").style(
+                    "color: #3a5a3a; font-size: 13px; font-style: italic; "
+                    "text-align: center; padding: 32px 0; width: 100%;"
+                )
                 return
             for msg in history[-50:]:
                 _render_message(
@@ -314,8 +486,6 @@ def _load_history(container, agent_id: str):
 
 
 def _render_message(role: str, content: str, image=None, skill=None):
-    """Rendert eine einzelne Nachricht im Chat-Stil."""
-    # Leere Nachrichten überspringen
     if not content and not image:
         return
 
@@ -334,143 +504,20 @@ def _render_message(role: str, content: str, image=None, skill=None):
         f"display: flex; flex-direction: column; gap: 3px; "
         f"max-width: 820px; align-self: {align}; align-items: {align}; width: 100%;"
     ):
-        # Meta
         skill_text = f" · {skill}" if skill else ""
         ui.label(f"{role_label}{skill_text}").style(
-            "font-size: 10px; font-family: 'SF Mono',monospace; "
-            "color: #3a5a3a; padding: 0 4px;"
+            "font-size: 10px; font-family: 'SF Mono',monospace; color: #3a5a3a; padding: 0 4px;"
         )
-        # Bild
         if image:
             ui.image(image).style("max-width: 320px; border-radius: 8px; margin-bottom: 4px;")
-        # Bubble
         if content:
             ui.markdown(content).style(
                 f"padding: 10px 14px; border-radius: 10px; "
-                f"font-size: 14px; line-height: 1.6; word-break: break-word; "
-                f"{bubble_style}"
+                f"font-size: 14px; line-height: 1.6; word-break: break-word; {bubble_style}"
             )
-
-
-async def _send(agent_id: str, text_input, container, uploaded_image: dict, agent: dict):
-    """Sendet Nachricht und streamt die Antwort via SSE."""
-    import asyncio, json, urllib.parse
-
-    message = text_input.value.strip()
-    if not message:
-        return
-    text_input.value = ""
-    images = [uploaded_image["data"]] if uploaded_image.get("data") else None
-    uploaded_image["data"] = None
-
-    # User-Nachricht anzeigen
-    with container:
-        _render_message(role="user", content=message, image=images[0] if images else None)
-
-    # Antwort-Placeholder
-    with container:
-        reply_label = ui.markdown("").style(
-            "padding: 10px 14px; border-radius: 10px 10px 10px 3px; "
-            "font-size: 14px; line-height: 1.6; word-break: break-word; "
-            "background: #0d1a0e; border: 1px solid #0f2010; color: #b8d4b8; "
-            "min-width: 40px; align-self: flex-start;"
-        )
-        # Typing-Indicator
-        typing = ui.label("● ● ●").style(
-            "font-size: 10px; color: #3a5a3a; align-self: flex-start; "
-            "padding: 0 4px; animation: ac-pulse 1.2s ease-in-out infinite;"
-        )
-
-    accumulated = []
-    # Helper: scroll to bottom
-    def _scroll_bottom():
-        ui.run_javascript(
-            "const el = document.querySelector('#msg-scroll .q-scrollarea__container');"
-            "if (el) el.scrollTop = el.scrollHeight;"
-        )
-
-    try:
-        if images:
-            # Bilder → blockierender Fallback
-            loop = asyncio.get_event_loop()
-            from services import get_services
-            from core.thread_pools import CHAT_POOL
-            services = get_services()
-            result = await loop.run_in_executor(
-                CHAT_POOL,
-                lambda: services.chat.handle_message(agent_id, message, images=images)
-            )
-            typing.delete()
-            reply_label.content = result.get("reply", "")
-            if result.get("image"):
-                with container:
-                    _render_message(role="assistant", content="", image=result["image"])
-                reply_label.delete()
-        else:
-            # Text → Streaming via SSE
-            import httpx
-            params = urllib.parse.urlencode({"agent_id": agent_id, "message": message})
-            stream_url = f"http://localhost:5050/api/chat/stream?{params}"
-
-            timeout = httpx.Timeout(connect=5.0, read=360.0, write=5.0, pool=5.0)
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                async with client.stream("GET", stream_url) as resp:
-                    resp.raise_for_status()
-                    first_chunk = True
-                    async for line in resp.aiter_lines():
-                        if not line.startswith("data: "):
-                            continue
-                        raw = line[6:]
-                        try:
-                            data = json.loads(raw)
-                        except json.JSONDecodeError:
-                            continue
-
-                        if data.get("done"):
-                            typing.delete()
-                            a2a = data.get("a2a_dispatches", [])
-                            display_reply = data.get("display_reply")
-                            if a2a:
-                                if display_reply is not None:
-                                    reply_label.content = display_reply
-                                else:
-                                    reply_label.content = "".join(accumulated)
-                                if not display_reply and not accumulated:
-                                    reply_label.delete()
-                                with container:
-                                    for d in a2a:
-                                        _render_a2a_card(
-                                            agent.get("name", ""),
-                                            d["recipient_name"],
-                                            d["task_text"],
-                                        )
-                            break
-
-                        if data.get("error"):
-                            typing.delete()
-                            reply_label.content = f"**Fehler:** {data['error']}"
-                            break
-
-                        chunk = data.get("chunk", "")
-                        if chunk:
-                            if first_chunk:
-                                typing.delete()
-                                first_chunk = False
-                            accumulated.append(chunk)
-                            reply_label.content = "".join(accumulated)
-                            _scroll_bottom()
-
-    except Exception as e:
-        try:
-            typing.delete()
-        except Exception:
-            pass
-        reply_label.content = f"**Fehler:** {str(e)}"
-        logger.error("Chat-Streaming-Fehler: %s", e)
 
 
 def _render_a2a_card(sender_name: str, recipient_name: str, task_text: str):
-    """Rendert eine A2A-Delegations-Card."""
     preview = task_text[:180] + ("..." if len(task_text) > 180 else "")
     with ui.element("div").style(
         "border-left: 3px solid #00bcd4; background: rgba(0,188,212,0.06); "
@@ -484,12 +531,12 @@ def _render_a2a_card(sender_name: str, recipient_name: str, task_text: str):
             )
             ui.label("A2A").style(
                 "font-size: 9px; padding: 1px 5px; border-radius: 3px; "
-                "border: 1px solid #00bcd4; color: #00bcd4; "
-                "font-family: 'SF Mono',monospace;"
+                "border: 1px solid #00bcd4; color: #00bcd4; font-family: 'SF Mono',monospace;"
             )
-        ui.label(preview).style(
-            "font-size: 12px; color: #3a5a3a; line-height: 1.5;"
-        )
+        ui.label(preview).style("font-size: 12px; color: #3a5a3a; line-height: 1.5;")
+
+
+# ─── Dialog-Aktionen ──────────────────────────────────────────────────────────
 
 
 def _clear_history(agent_id: str):
@@ -511,15 +558,11 @@ def _show_create_dialog():
 
 
 def _show_task_monitor():
-    """Öffnet den Task-Monitor als Modal."""
     from ui.components.task_monitor import TaskMonitor
-    with ui.dialog().props("maximized").style(
-        "background: #070d08;"
-    ) as dlg:
+    with ui.dialog().props("maximized").style("background: #070d08;") as dlg:
         dlg.open()
         with ui.card().style(
-            "width: 900px; max-width: 95vw; background: #070d08; "
-            "border: 1px solid #182e18;"
+            "width: 900px; max-width: 95vw; background: #070d08; border: 1px solid #182e18;"
         ):
             with ui.row().style(
                 "align-items: center; justify-content: space-between; "
@@ -527,10 +570,7 @@ def _show_task_monitor():
             ):
                 with ui.row().style("gap: 8px; align-items: center;"):
                     ui.icon("task_alt").style("color: #00e676; font-size: 20px;")
-                    ui.label("Task Monitor").style(
-                        "font-size: 16px; font-weight: 600; color: #e4f4e4;"
-                    )
-                ui.button(icon="close", on_click=dlg.close) \
-                    .props("flat dense round").style("color: #3a5a3a;")
+                    ui.label("Task Monitor").style("font-size: 16px; font-weight: 600; color: #e4f4e4;")
+                ui.button(icon="close", on_click=dlg.close).props("flat dense round").style("color: #3a5a3a;")
             with ui.element("div").style("padding: 16px;"):
                 TaskMonitor()
