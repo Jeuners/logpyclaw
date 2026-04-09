@@ -2,19 +2,18 @@
 ui/pages/chat.py — Chat-Interface.
 Layout: Links Agenten-Sidebar (228px) | Rechts Chat-Bereich.
 
-Architektur:
-- Alle Handler sind SYNC (kein async) → kein core.loop-Problem
-- Streaming via Background-Thread + queue.Queue + ui.timer Polling
-- Enter = senden, Shift+Enter = Zeilenumbruch (via js_handler)
-- Navigation via <a href> (kein ui.run_javascript nötig)
+Architektur (v3 — full client-side):
+- Send/Streaming komplett via JavaScript fetch() + SSE
+- Kein Python Event-Handler für Send nötig (umgeht core.loop Bug)
+- NiceGUI nur für Page-Render + Layout
+- Navigation via <a href>
 """
 import logging
 import json
-import queue
-import threading
-import urllib.parse
+import html as html_mod
+import re
 
-from nicegui import ui, app
+from nicegui import ui
 from ui.layout import create_layout
 from ui.theme import apply_theme
 
@@ -36,21 +35,22 @@ def chat_page(agent_id: str):
         with ui.column().classes("items-center justify-center w-full").style("height: calc(100vh - 44px)"):
             ui.icon("person_off").style("font-size: 48px; color: #3a5a3a;")
             ui.label("Agent nicht gefunden").style("color: #ef4444; font-size: 18px; margin-top: 12px;")
-            ui.element("a").props('href="/"').style("color: #00e676; font-size: 14px; margin-top: 8px;").text = "← Zurück"
         return
 
-    # ─── Quasar-Overrides ────────────────────────────────────────────────────
+    agent_name = agent.get("name", "?")
+
+    # ─── CSS Overrides ───────────────────────────────────────────────────
     ui.add_css("""
         .q-page { min-height: unset !important; }
         .q-page-container { padding-bottom: 0 !important; }
         body > div#app > div { height: 100vh; overflow: hidden; }
     """)
 
-    # ─── 2-Spalten-Layout ────────────────────────────────────────────────────
+    # ─── 2-Spalten-Layout ────────────────────────────────────────────────
     with ui.element("div").style(
         "display: flex; width: 100%; height: calc(100vh - 44px); overflow: hidden; gap: 0;"
     ):
-        # ─── Linke Sidebar ───────────────────────────────────────────────────
+        # Linke Sidebar
         with ui.element("div").style(
             "width: 228px; min-width: 228px; flex-shrink: 0; "
             "background: #070d08; border-right: 1px solid #0f2010; "
@@ -71,45 +71,378 @@ def chat_page(agent_id: str):
 
             with ui.scroll_area().style("flex: 1; min-height: 0;"):
                 with ui.column().style("padding: 4px 6px; gap: 0;"):
-                    if not agents_sorted:
-                        ui.label("Noch keine Agenten").style(
-                            "font-size: 11px; color: #3a5a3a; padding: 16px 8px; text-align: center;"
-                        )
                     for ag in agents_sorted:
                         _render_sidebar_agent(ag, agent_id)
 
-        # ─── Rechter Bereich: Chat ───────────────────────────────────────────
+        # Rechter Bereich: Chat
         with ui.element("div").style(
-            "flex: 1; display: flex; flex-direction: column; "
-            "overflow: hidden; background: #050a06;"
+            "flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #050a06;"
         ):
-            color = agent.get("color", "#00e676")
-            _render_chat_topbar(agent, agent_id, color)
+            _render_chat_topbar(agent, agent_id, agent.get("color", "#00e676"))
 
-            # Messages
-            messages_scroll = ui.scroll_area().style(
-                "flex: 1; min-height: 0; padding: 0;"
-            ).props("id=msg-scroll")
-            with messages_scroll:
-                msg_col = ui.column().style(
-                    "padding: 16px 24px; gap: 10px; "
-                    "display: flex; flex-direction: column;"
-                )
-                _load_history(msg_col, agent_id)
+            # Messages Container
+            messages_html = _build_history_html(agent_id)
+            ui.html(
+                f'<div id="ac-scroll" style="flex:1;overflow-y:auto;min-height:0">'
+                f'<div id="ac-messages" style="padding:16px 24px;display:flex;flex-direction:column;gap:10px">'
+                f'{messages_html}'
+                f'</div></div>'
+            ).style("flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden")
 
-            # Scroll to bottom (via timer — WebSocket ist beim Render noch nicht bereit)
-            def _initial_scroll():
-                try:
-                    ui.run_javascript(
-                        "const el = document.querySelector('#msg-scroll .q-scrollarea__container');"
-                        "if (el) el.scrollTop = el.scrollHeight;"
-                    )
-                except Exception:
-                    pass
-            ui.timer(0.5, _initial_scroll, once=True)
+            # Input Area — reines HTML, Event-Handling komplett via JS
+            ui.html(f'''
+                <div style="padding:12px 20px 16px;border-top:1px solid #0f2010;background:#070d08;flex-shrink:0">
+                    <div style="display:flex;gap:8px;align-items:flex-end">
+                        <textarea id="ac-input" rows="1" placeholder="Nachricht… (Enter senden, Shift+Enter Umbruch)"
+                            style="flex:1;background:#0d1a0e;border:1px solid #182e18;border-radius:8px;
+                            color:#e4f4e4;font-size:14px;padding:10px 12px;resize:none;outline:none;
+                            font-family:inherit;line-height:1.5;min-height:40px;max-height:160px"></textarea>
+                        <button id="ac-send-btn"
+                            style="width:40px;height:40px;border-radius:20px;background:#00e676;color:#000;
+                            border:none;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">
+                            <span class="material-icons" style="font-size:20px">send</span>
+                        </button>
+                    </div>
+                </div>
+            ''').style("flex-shrink:0")
 
-            # Input area
-            _render_input_area(agent_id, msg_col, agent)
+    # ─── JavaScript: ALLES client-seitig ─────────────────────────────────
+    # Wird als <script> in den <head> injected
+    escaped_agent_id = json.dumps(agent_id)
+    escaped_agent_name = json.dumps(html_mod.escape(agent_name))
+    ui.add_head_html(f"""<script>
+    window._ac = {{
+        sending: false,
+        agentId: {escaped_agent_id},
+        agentName: {escaped_agent_name},
+
+        init: function() {{
+            // Auto-grow textarea
+            const ta = document.getElementById('ac-input');
+            if (!ta) return;
+            ta.addEventListener('input', function() {{
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+            }});
+            // Enter = send, Shift+Enter = newline
+            ta.addEventListener('keydown', function(e) {{
+                if (e.key === 'Enter' && !e.shiftKey) {{
+                    e.preventDefault();
+                    window._ac.send();
+                }}
+            }});
+            // Send-Button (onclick wird von Vue sanitisiert, daher addEventListener)
+            const btn = document.getElementById('ac-send-btn');
+            if (btn) {{
+                btn.addEventListener('click', function(e) {{
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window._ac.send();
+                }});
+            }}
+            // Scroll to bottom
+            setTimeout(() => this.scroll(), 300);
+        }},
+
+        send: function() {{
+            if (this.sending) return;
+            const ta = document.getElementById('ac-input');
+            if (!ta) return;
+            const msg = ta.value.trim();
+            if (!msg) return;
+
+            this.sending = true;
+            ta.value = '';
+            ta.style.height = 'auto';
+
+            // User-Nachricht anzeigen
+            this.addMsg('user', this.escHtml(msg));
+
+            // Typing-Indicator
+            this.addTyping();
+
+            // SSE-Stream starten
+            const url = '/api/chat/stream?agent_id=' + encodeURIComponent(this.agentId)
+                      + '&message=' + encodeURIComponent(msg);
+
+            let accumulated = '';
+            let replyStarted = false;
+
+            fetch(url).then(response => {{
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                const processStream = () => {{
+                    reader.read().then(({{ done, value }}) => {{
+                        if (done) {{
+                            this.sending = false;
+                            this.removeTyping();
+                            if (accumulated && !replyStarted) {{
+                                // Shouldn't happen, but safety
+                                this.addReply(accumulated);
+                            }}
+                            this.scroll();
+                            return;
+                        }}
+
+                        buffer += decoder.decode(value, {{ stream: true }});
+                        const lines = buffer.split('\\n');
+                        buffer = lines.pop(); // Keep incomplete line
+
+                        for (const line of lines) {{
+                            if (!line.startsWith('data: ')) continue;
+                            try {{
+                                const data = JSON.parse(line.substring(6));
+
+                                if (data.error) {{
+                                    this.removeTyping();
+                                    this.addError(data.error);
+                                    this.sending = false;
+                                    return;
+                                }}
+
+                                if (data.chunk) {{
+                                    accumulated += data.chunk;
+                                    if (!replyStarted) {{
+                                        replyStarted = true;
+                                        this.removeTyping();
+                                        this.startReply();
+                                    }}
+                                    this.updateReply(accumulated);
+                                }}
+
+                                if (data.done) {{
+                                    this.removeTyping();
+                                    const displayReply = data.display_reply || accumulated;
+                                    if (displayReply) {{
+                                        if (!replyStarted) this.startReply();
+                                        this.finishReply(displayReply);
+                                    }}
+                                    // A2A dispatches
+                                    if (data.a2a_dispatches) {{
+                                        for (const d of data.a2a_dispatches) {{
+                                            this.addA2A(this.agentName, this.escHtml(d.recipient_name), this.escHtml(d.task_text.substring(0, 180)));
+                                        }}
+                                    }}
+                                    this.sending = false;
+                                    this.scroll();
+                                }}
+                            }} catch(e) {{ /* skip parse errors */ }}
+                        }}
+
+                        processStream();
+                    }}).catch(err => {{
+                        this.sending = false;
+                        this.removeTyping();
+                        this.addError(String(err));
+                    }});
+                }};
+
+                processStream();
+            }}).catch(err => {{
+                this.sending = false;
+                this.removeTyping();
+                this.addError(String(err));
+            }});
+        }},
+
+        // ─── DOM Helpers ─────────────────────────────────────────────
+        addMsg: function(role, html, image) {{
+            const c = document.getElementById('ac-messages');
+            if (!c) return;
+            const isUser = role === 'user';
+            const align = isUser ? 'flex-end' : 'flex-start';
+            const bbl = isUser
+                ? 'background:rgba(0,230,118,.08);border:1px solid #182e18;color:#e4f4e4;border-bottom-right-radius:3px;'
+                : 'background:#0d1a0e;border:1px solid #0f2010;color:#b8d4b8;border-bottom-left-radius:3px;';
+            const label = isUser ? 'Du' : 'Assistant';
+            let h = '<div style="display:flex;flex-direction:column;gap:3px;max-width:820px;align-self:'+align+';align-items:'+align+';width:100%">';
+            h += '<span style="font-size:10px;font-family:monospace;color:#3a5a3a;padding:0 4px">'+label+'</span>';
+            if (image) h += '<img src="'+image+'" style="max-width:320px;border-radius:8px;margin-bottom:4px">';
+            if (html) h += '<div style="padding:10px 14px;border-radius:10px;font-size:14px;line-height:1.6;word-break:break-word;'+bbl+'">'+html+'</div>';
+            h += '</div>';
+            // Remove empty hint if present
+            const hint = document.getElementById('ac-empty-hint');
+            if (hint) hint.remove();
+            c.insertAdjacentHTML('beforeend', h);
+            this.scroll();
+        }},
+
+        addTyping: function() {{
+            const c = document.getElementById('ac-messages');
+            if (!c) return;
+            c.insertAdjacentHTML('beforeend',
+                '<div id="ac-typing" style="align-self:flex-start;padding:4px">' +
+                '<span style="font-size:14px;color:#3a5a3a;animation:ac-pulse 1.2s ease-in-out infinite">● ● ●</span></div>');
+            this.scroll();
+        }},
+
+        removeTyping: function() {{
+            const el = document.getElementById('ac-typing');
+            if (el) el.remove();
+        }},
+
+        startReply: function() {{
+            const c = document.getElementById('ac-messages');
+            if (!c) return;
+            c.insertAdjacentHTML('beforeend',
+                '<div id="ac-reply-wrap" style="display:flex;flex-direction:column;gap:3px;max-width:820px;align-self:flex-start;align-items:flex-start;width:100%">' +
+                '<span style="font-size:10px;font-family:monospace;color:#3a5a3a;padding:0 4px">Assistant</span>' +
+                '<div id="ac-reply" style="padding:10px 14px;border-radius:10px;font-size:14px;line-height:1.6;word-break:break-word;' +
+                'background:#0d1a0e;border:1px solid #0f2010;color:#b8d4b8;min-width:40px;white-space:pre-wrap"></div></div>');
+        }},
+
+        updateReply: function(text) {{
+            const el = document.getElementById('ac-reply');
+            if (el) {{ el.textContent = text; this.scroll(); }}
+        }},
+
+        finishReply: function(text) {{
+            const el = document.getElementById('ac-reply');
+            if (el) {{
+                el.style.whiteSpace = 'normal';
+                el.innerHTML = this.renderMd(text);
+                el.removeAttribute('id');
+            }}
+            const wrap = document.getElementById('ac-reply-wrap');
+            if (wrap) wrap.removeAttribute('id');
+            this.scroll();
+        }},
+
+        addReply: function(text) {{
+            this.startReply();
+            this.finishReply(text);
+        }},
+
+        addError: function(msg) {{
+            const c = document.getElementById('ac-messages');
+            if (!c) return;
+            c.insertAdjacentHTML('beforeend',
+                '<div style="padding:10px 14px;border-radius:10px;font-size:14px;background:rgba(239,68,68,.08);' +
+                'border:1px solid rgba(239,68,68,.3);color:#ef4444;align-self:flex-start;max-width:820px">' +
+                '<strong>Fehler:</strong> ' + this.escHtml(msg) + '</div>');
+            this.scroll();
+        }},
+
+        addA2A: function(sender, recipient, task) {{
+            const c = document.getElementById('ac-messages');
+            if (!c) return;
+            let h = '<div style="border-left:3px solid #00bcd4;background:rgba(0,188,212,0.06);border-radius:0 6px 6px 0;padding:8px 12px;align-self:flex-start;max-width:600px">';
+            h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">';
+            h += '<span class="material-icons" style="font-size:14px;color:#00bcd4">arrow_forward</span>';
+            h += '<span style="font-size:12px;font-weight:600;color:#00bcd4">'+sender+' → @'+recipient+'</span>';
+            h += '<span style="font-size:9px;padding:1px 5px;border-radius:3px;border:1px solid #00bcd4;color:#00bcd4;font-family:monospace">A2A</span>';
+            h += '</div><span style="font-size:12px;color:#3a5a3a;line-height:1.5">'+task+'</span></div>';
+            c.insertAdjacentHTML('beforeend', h);
+            this.scroll();
+        }},
+
+        scroll: function() {{
+            const el = document.getElementById('ac-scroll');
+            if (el) setTimeout(() => {{ el.scrollTop = el.scrollHeight; }}, 50);
+        }},
+
+        escHtml: function(s) {{
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }},
+
+        renderMd: function(text) {{
+            let t = this.escHtml(text);
+            // Code blocks
+            t = t.replace(/```(\\w*)\\n([\\s\\S]*?)```/g, '<pre style="background:#0a150b;padding:8px;border-radius:4px;overflow-x:auto;font-size:12px"><code>$2</code></pre>');
+            // Inline code
+            t = t.replace(/`([^`]+)`/g, '<code style="background:#0a150b;padding:1px 4px;border-radius:3px;font-size:12px">$1</code>');
+            // Bold
+            t = t.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');
+            // Italic
+            t = t.replace(/\\*(.+?)\\*/g, '<em>$1</em>');
+            // Links
+            t = t.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '<a href="$2" target="_blank" style="color:#00e676">$1</a>');
+            // Newlines
+            t = t.replace(/\\n/g, '<br>');
+            return t;
+        }}
+    }};
+
+    // Init nach DOM ready
+    if (document.readyState === 'loading') {{
+        document.addEventListener('DOMContentLoaded', () => window._ac.init());
+    }} else {{
+        setTimeout(() => window._ac.init(), 200);
+    }}
+    </script>""")
+
+
+# ─── History als HTML rendern ────────────────────────────────────────────────
+
+
+def _build_history_html(agent_id: str) -> str:
+    from services import get_services
+    try:
+        services = get_services()
+        history = services.agents.get_history(agent_id)
+        if not history:
+            return (
+                '<div id="ac-empty-hint" style="color:#3a5a3a;font-size:13px;font-style:italic;'
+                'text-align:center;padding:32px 0;width:100%">'
+                'Noch keine Nachrichten. Starte eine Unterhaltung!</div>'
+            )
+        parts = []
+        for msg in history[-50:]:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            image = msg.get("image") or msg.get("task_image")
+            skill = msg.get("skill_used")
+            if not content and not image:
+                continue
+            parts.append(_msg_to_html(role, content, image, skill))
+        return "\n".join(parts)
+    except Exception as e:
+        logger.error("History laden fehlgeschlagen: %s", e)
+        return ""
+
+
+def _msg_to_html(role: str, content: str, image=None, skill=None) -> str:
+    is_user = role == "user"
+    align = "flex-end" if is_user else "flex-start"
+    bbl = (
+        "background:rgba(0,230,118,.08);border:1px solid #182e18;color:#e4f4e4;border-bottom-right-radius:3px;"
+        if is_user else
+        "background:#0d1a0e;border:1px solid #0f2010;color:#b8d4b8;border-bottom-left-radius:3px;"
+    )
+    label = "Du" if is_user else "Assistant"
+    skill_text = f" · {html_mod.escape(skill)}" if skill else ""
+
+    h = (
+        f'<div style="display:flex;flex-direction:column;gap:3px;max-width:820px;'
+        f'align-self:{align};align-items:{align};width:100%">'
+        f'<span style="font-size:10px;font-family:monospace;color:#3a5a3a;padding:0 4px">'
+        f'{label}{skill_text}</span>'
+    )
+    if image:
+        h += f'<img src="{html_mod.escape(image)}" style="max-width:320px;border-radius:8px;margin-bottom:4px">'
+    if content:
+        rendered = _simple_md(content)
+        h += (
+            f'<div style="padding:10px 14px;border-radius:10px;font-size:14px;'
+            f'line-height:1.6;word-break:break-word;{bbl}">{rendered}</div>'
+        )
+    h += '</div>'
+    return h
+
+
+def _simple_md(text: str) -> str:
+    t = html_mod.escape(text)
+    t = re.sub(r'```(\w*)\n(.*?)```', lambda m: f'<pre style="background:#0a150b;padding:8px;border-radius:4px;overflow-x:auto;font-size:12px"><code>{m.group(2)}</code></pre>', t, flags=re.DOTALL)
+    t = re.sub(r'`([^`]+)`', r'<code style="background:#0a150b;padding:1px 4px;border-radius:3px;font-size:12px">\1</code>', t)
+    t = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', t)
+    t = re.sub(r'\*(.+?)\*', r'<em>\1</em>', t)
+    t = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" target="_blank" style="color:#00e676">\1</a>', t)
+    t = t.replace('\n', '<br>')
+    return t
 
 
 # ─── Sidebar Agent ────────────────────────────────────────────────────────────
@@ -131,19 +464,16 @@ def _render_sidebar_agent(agent: dict, current_agent_id: str):
     )
 
     with ui.element("a").props(f'href="/chat/{ag_id}"').style(
-        f"display: flex; align-items: center; gap: 8px; padding: 8px 8px; "
+        f"display: flex; align-items: center; gap: 8px; padding: 8px; "
         f"border-radius: 6px; cursor: pointer; transition: background .12s; "
         f"margin-bottom: 2px; text-decoration: none; {bg_style}"
     ).classes("ac-agent-item"):
-
         with ui.element("div").style(
-            f"width: 30px; height: 30px; border-radius: 50%; "
-            f"background: {color}; display: flex; align-items: center; "
-            f"justify-content: center; font-size: 11px; font-weight: 700; "
-            f"color: #000; flex-shrink: 0; text-transform: uppercase;"
+            f"width: 30px; height: 30px; border-radius: 50%; background: {color}; "
+            f"display: flex; align-items: center; justify-content: center; "
+            f"font-size: 11px; font-weight: 700; color: #000; flex-shrink: 0; text-transform: uppercase;"
         ):
             ui.label(initials)
-
         with ui.column().style("flex: 1; min-width: 0; gap: 0;"):
             name_color = "color: #00e676;" if is_selected else "color: #b8d4b8;"
             ui.label(name).style(
@@ -152,8 +482,7 @@ def _render_sidebar_agent(agent: dict, current_agent_id: str):
             )
             if model:
                 short = model.split(":")[-1][:12] if ":" in model else model[:12]
-                ui.label(short).style("font-size: 9px; color: #3a5a3a; font-family: 'SF Mono',monospace;")
-
+                ui.label(short).style("font-size: 9px; color: #3a5a3a; font-family: monospace;")
         if is_fav:
             ui.icon("star").style("font-size: 12px; color: #ffd700; flex-shrink: 0;")
 
@@ -185,25 +514,20 @@ def _render_chat_topbar(agent: dict, agent_id: str, color: str):
                 if agent.get("favorite"):
                     ui.icon("star").style("font-size: 14px; color: #ffd700;")
             if role:
-                ui.label(role).style("font-size: 12px; color: #3a5a3a; font-family: 'SF Mono',monospace;")
+                ui.label(role).style("font-size: 12px; color: #3a5a3a; font-family: monospace;")
 
         if skills:
             with ui.row().style("gap: 4px; flex-wrap: wrap; max-width: 300px;"):
                 for sk in skills[:5]:
                     ui.label(sk).style(
-                        "font-size: 10px; font-family: 'SF Mono',monospace; "
-                        "padding: 2px 6px; border-radius: 3px; "
-                        "background: rgba(0,230,118,0.08); color: #00e676; "
-                        "border: 1px solid rgba(0,230,118,0.2);"
+                        "font-size: 10px; font-family: monospace; padding: 2px 6px; border-radius: 3px; "
+                        "background: rgba(0,230,118,0.08); color: #00e676; border: 1px solid rgba(0,230,118,0.2);"
                     )
-                if len(skills) > 5:
-                    ui.label(f"+{len(skills) - 5}").style("font-size: 10px; color: #3a5a3a;")
 
         with ui.row().style("gap: 6px; margin-left: auto; flex-shrink: 0;"):
             if model:
                 ui.label(model.split("/")[-1][:16]).style(
-                    "font-size: 10px; font-family: 'SF Mono',monospace; "
-                    "padding: 2px 7px; border-radius: 3px; "
+                    "font-size: 10px; font-family: monospace; padding: 2px 7px; border-radius: 3px; "
                     "background: #0f2010; color: #3a5a3a; border: 1px solid #182e18; align-self: center;"
                 )
             _topbar_btn("delete_sweep", "History", lambda: _clear_history(agent_id))
@@ -218,324 +542,6 @@ def _topbar_btn(icon_name: str, tooltip_text: str, callback):
         .tooltip(tooltip_text)
 
 
-# ─── Input Area ───────────────────────────────────────────────────────────────
-
-
-def _render_input_area(agent_id: str, msg_col, agent: dict):
-    """Eingabebereich mit sync-basiertem Senden."""
-    _state = {"image": None, "sending": False}
-
-    def _do_send():
-        """SYNC handler — startet Background-Thread für Streaming."""
-        if _state["sending"]:
-            return
-        message = text_input.value.strip()
-        if not message:
-            return
-
-        logger.info("[CHAT] Sende: %s", message[:80])
-        _state["sending"] = True
-        text_input.value = ""
-        image = _state["image"]
-        _state["image"] = None
-
-        # User-Nachricht sofort anzeigen
-        with msg_col:
-            _render_message(role="user", content=message, image=image)
-
-        # Antwort-Placeholder
-        with msg_col:
-            reply_md = ui.markdown("").style(
-                "padding: 10px 14px; border-radius: 10px 10px 10px 3px; "
-                "font-size: 14px; line-height: 1.6; word-break: break-word; "
-                "background: #0d1a0e; border: 1px solid #0f2010; color: #b8d4b8; "
-                "min-width: 40px; align-self: flex-start;"
-            )
-            typing_label = ui.label("● ● ●").style(
-                "font-size: 10px; color: #3a5a3a; align-self: flex-start; "
-                "padding: 0 4px; animation: ac-pulse 1.2s ease-in-out infinite;"
-            )
-
-        # Queue für Chunks vom Background-Thread
-        chunk_q = queue.Queue()
-        accumulated = []
-        typing_removed = {"done": False}
-
-        def _stream_worker():
-            """Background-Thread: HTTP-Stream lesen, Chunks in Queue."""
-            try:
-                import httpx
-                if image:
-                    # Bild: blockierender Aufruf
-                    from services import get_services
-                    services = get_services()
-                    result = services.chat.handle_message(agent_id, message, images=[image])
-                    chunk_q.put({"_image_result": result})
-                else:
-                    # Text: SSE-Stream
-                    params = urllib.parse.urlencode({"agent_id": agent_id, "message": message})
-                    url = f"http://localhost:5050/api/chat/stream?{params}"
-                    timeout = httpx.Timeout(connect=5.0, read=360.0, write=5.0, pool=5.0)
-                    with httpx.Client(timeout=timeout) as client:
-                        with client.stream("GET", url) as resp:
-                            resp.raise_for_status()
-                            for line in resp.iter_lines():
-                                if line.startswith("data: "):
-                                    try:
-                                        data = json.loads(line[6:])
-                                        chunk_q.put(data)
-                                    except json.JSONDecodeError:
-                                        continue
-            except Exception as e:
-                logger.error("[CHAT] Stream-Error: %s", e)
-                chunk_q.put({"error": str(e)})
-            finally:
-                chunk_q.put(None)  # Sentinel: fertig
-
-        # Worker starten
-        threading.Thread(target=_stream_worker, daemon=True).start()
-
-        # Poller: liest Queue und aktualisiert UI
-        def _poll():
-            nonlocal accumulated
-            try:
-                while not chunk_q.empty():
-                    item = chunk_q.get_nowait()
-
-                    # Sentinel: Stream fertig
-                    if item is None:
-                        poll_timer.deactivate()
-                        _state["sending"] = False
-                        if not typing_removed["done"]:
-                            typing_removed["done"] = True
-                            try:
-                                typing_label.delete()
-                            except Exception:
-                                pass
-                        # Falls keine Antwort kam, Placeholder entfernen
-                        if not accumulated:
-                            try:
-                                reply_md.delete()
-                            except Exception:
-                                pass
-                        _scroll_bottom()
-                        return
-
-                    # Bild-Ergebnis (non-streaming)
-                    if "_image_result" in item:
-                        result = item["_image_result"]
-                        if not typing_removed["done"]:
-                            typing_removed["done"] = True
-                            try:
-                                typing_label.delete()
-                            except Exception:
-                                pass
-                        reply_md.content = result.get("reply", "")
-                        if result.get("image"):
-                            with msg_col:
-                                _render_message(role="assistant", content="", image=result["image"])
-                        continue
-
-                    # Fehler
-                    if item.get("error"):
-                        if not typing_removed["done"]:
-                            typing_removed["done"] = True
-                            try:
-                                typing_label.delete()
-                            except Exception:
-                                pass
-                        reply_md.content = f"**Fehler:** {item['error']}"
-                        continue
-
-                    # Stream-Ende
-                    if item.get("done"):
-                        if not typing_removed["done"]:
-                            typing_removed["done"] = True
-                            try:
-                                typing_label.delete()
-                            except Exception:
-                                pass
-                        # A2A Dispatches
-                        a2a = item.get("a2a_dispatches", [])
-                        display_reply = item.get("display_reply")
-                        if a2a:
-                            reply_md.content = display_reply if display_reply is not None else "".join(accumulated)
-                            if not display_reply and not accumulated:
-                                try:
-                                    reply_md.delete()
-                                except Exception:
-                                    pass
-                            with msg_col:
-                                for d in a2a:
-                                    _render_a2a_card(
-                                        agent.get("name", ""),
-                                        d["recipient_name"],
-                                        d["task_text"],
-                                    )
-                        continue
-
-                    # Chunk
-                    chunk = item.get("chunk", "")
-                    if chunk:
-                        if not typing_removed["done"]:
-                            typing_removed["done"] = True
-                            try:
-                                typing_label.delete()
-                            except Exception:
-                                pass
-                        accumulated.append(chunk)
-                        reply_md.content = "".join(accumulated)
-
-                # Scroll nach jedem Poll-Zyklus
-                if accumulated:
-                    _scroll_bottom()
-
-            except Exception as e:
-                logger.error("[CHAT] Poll-Error: %s", e)
-
-        poll_timer = ui.timer(0.1, _poll)
-
-    # ─── UI-Elemente ─────────────────────────────────────────────────────────
-    with ui.element("div").style(
-        "padding: 12px 20px 16px; border-top: 1px solid #0f2010; "
-        "background: #070d08; flex-shrink: 0;"
-    ):
-        with ui.row().style("gap: 8px; align-items: flex-end;"):
-            # Upload
-            with ui.element("div").style("position: relative; flex-shrink: 0;"):
-                ui.upload(
-                    on_upload=lambda e: _handle_upload(e, _state),
-                    auto_upload=True
-                ).props("flat dense accept='image/*'") \
-                 .style("opacity: 0; position: absolute; width: 36px; height: 36px; cursor: pointer; z-index: 2;")
-                ui.button(icon="attach_file") \
-                    .props("flat dense round") \
-                    .style("color: #3a5a3a; width: 36px; height: 36px; pointer-events: none;") \
-                    .tooltip("Bild anhängen")
-
-            # Textarea
-            text_input = ui.textarea(placeholder="Nachricht… (Enter senden, Shift+Enter Umbruch)") \
-                .style(
-                    "flex: 1; background: #0d1a0e; border: 1px solid #182e18; border-radius: 8px;"
-                ).props("rows=1 autogrow outlined dense")
-
-            # Enter = senden (js_handler filtert Shift+Enter clientseitig)
-            text_input.on(
-                "keydown",
-                _do_send,
-                [],
-                js_handler="""
-                    (e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            emit();
-                        }
-                    }
-                """,
-            )
-
-            # Send-Button
-            ui.button(icon="send", on_click=_do_send).style(
-                "width: 40px; height: 40px; border-radius: 20px; "
-                "background: #00e676; color: #000; flex-shrink: 0;"
-            ).props("flat dense")
-
-
-# ─── Helpers ──────────────────────────────────────────────────────────────────
-
-
-def _handle_upload(e, state: dict):
-    import base64
-    data = base64.b64encode(e.content.read()).decode()
-    mime = e.type or "image/png"
-    state["image"] = f"data:{mime};base64,{data}"
-    ui.notify("Bild geladen", type="positive")
-
-
-def _scroll_bottom():
-    try:
-        ui.run_javascript(
-            "const el = document.querySelector('#msg-scroll .q-scrollarea__container');"
-            "if (el) el.scrollTop = el.scrollHeight;"
-        )
-    except Exception:
-        pass
-
-
-def _load_history(container, agent_id: str):
-    from services import get_services
-    try:
-        services = get_services()
-        history = services.agents.get_history(agent_id)
-        with container:
-            if not history:
-                ui.label("Noch keine Nachrichten. Starte eine Unterhaltung!").style(
-                    "color: #3a5a3a; font-size: 13px; font-style: italic; "
-                    "text-align: center; padding: 32px 0; width: 100%;"
-                )
-                return
-            for msg in history[-50:]:
-                _render_message(
-                    role=msg.get("role", "user"),
-                    content=msg.get("content", ""),
-                    image=msg.get("image") or msg.get("task_image"),
-                    skill=msg.get("skill_used"),
-                )
-    except Exception as e:
-        logger.error("History laden fehlgeschlagen: %s", e)
-
-
-def _render_message(role: str, content: str, image=None, skill=None):
-    if not content and not image:
-        return
-
-    is_user = role == "user"
-    align = "flex-end" if is_user else "flex-start"
-    bubble_style = (
-        "background: rgba(0,230,118,.08); border: 1px solid #182e18; "
-        "color: #e4f4e4; border-bottom-right-radius: 3px;"
-        if is_user else
-        "background: #0d1a0e; border: 1px solid #0f2010; "
-        "color: #b8d4b8; border-bottom-left-radius: 3px;"
-    )
-    role_label = "Du" if is_user else "Assistant"
-
-    with ui.element("div").style(
-        f"display: flex; flex-direction: column; gap: 3px; "
-        f"max-width: 820px; align-self: {align}; align-items: {align}; width: 100%;"
-    ):
-        skill_text = f" · {skill}" if skill else ""
-        ui.label(f"{role_label}{skill_text}").style(
-            "font-size: 10px; font-family: 'SF Mono',monospace; color: #3a5a3a; padding: 0 4px;"
-        )
-        if image:
-            ui.image(image).style("max-width: 320px; border-radius: 8px; margin-bottom: 4px;")
-        if content:
-            ui.markdown(content).style(
-                f"padding: 10px 14px; border-radius: 10px; "
-                f"font-size: 14px; line-height: 1.6; word-break: break-word; {bubble_style}"
-            )
-
-
-def _render_a2a_card(sender_name: str, recipient_name: str, task_text: str):
-    preview = task_text[:180] + ("..." if len(task_text) > 180 else "")
-    with ui.element("div").style(
-        "border-left: 3px solid #00bcd4; background: rgba(0,188,212,0.06); "
-        "border-radius: 0 6px 6px 0; padding: 8px 12px; "
-        "align-self: flex-start; max-width: 600px;"
-    ):
-        with ui.row().style("align-items: center; gap: 6px; margin-bottom: 4px;"):
-            ui.icon("arrow_forward").style("font-size: 14px; color: #00bcd4;")
-            ui.label(f"{sender_name}  →  @{recipient_name}").style(
-                "font-size: 12px; font-weight: 600; color: #00bcd4;"
-            )
-            ui.label("A2A").style(
-                "font-size: 9px; padding: 1px 5px; border-radius: 3px; "
-                "border: 1px solid #00bcd4; color: #00bcd4; font-family: 'SF Mono',monospace;"
-            )
-        ui.label(preview).style("font-size: 12px; color: #3a5a3a; line-height: 1.5;")
-
-
 # ─── Dialog-Aktionen ──────────────────────────────────────────────────────────
 
 
@@ -543,18 +549,18 @@ def _clear_history(agent_id: str):
     from services import get_services
     services = get_services()
     services.agents.clear_history(agent_id)
-    ui.run_javascript("window.location.reload()")
-    ui.notify("History gelöscht", type="positive")
+    # Redirect via JS-freien Weg: einfach einen Link klicken lassen
+    ui.navigate.to(f"/chat/{agent_id}")
 
 
 def _edit_agent(agent: dict):
     from ui.dialogs.agent_form import AgentFormDialog
-    AgentFormDialog(agent=agent, on_save=lambda: ui.run_javascript("window.location.reload()"))
+    AgentFormDialog(agent=agent, on_save=lambda: ui.navigate.to(f"/chat/{agent['id']}"))
 
 
 def _show_create_dialog():
     from ui.dialogs.agent_form import AgentFormDialog
-    AgentFormDialog(on_save=lambda: ui.run_javascript("window.location.reload()"))
+    AgentFormDialog(on_save=lambda: ui.navigate.to("/"))
 
 
 def _show_task_monitor():
