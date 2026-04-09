@@ -36,7 +36,7 @@ EMBED_MODEL = "nomic-embed-text"
 EMBED_DIM   = 768
 
 # ── History Limits ────────────────────────────────────────────────────────────
-MAX_HISTORY_PER_AGENT = 500
+MAX_HISTORY_PER_AGENT = 30  # dev limit — erhöhen für Produktion
 MAX_CONTENT_LENGTH    = 32000   # erhöht für lange Transkriptionen (vorher 8000)
 
 

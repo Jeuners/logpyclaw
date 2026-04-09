@@ -105,3 +105,27 @@ def run_file_access(message: str, content_to_save: str = None) -> str:
         return f"❓ Kein Inhalt zum Speichern gefunden. Zieldatei wäre: `{save_m.group(1)}`"
 
     return "❓ Keine erkannte Dateioperation. Beispiele:\n- `Liste alle Dateien`\n- `Speichere als result.md`\n- `Lese Datei mein_text.txt`"
+
+
+# ── BaseSkill Wrapper ─────────────────────────────────────────────────────────
+from skills.base import BaseSkill, SkillResult
+
+
+class FileAccessSkill(BaseSkill):
+    id = "file_access"
+    name = "File Access"
+    icon = "folder_open"
+    description = "Reads and writes files in the downloads directory."
+    triggers = [
+        r"\b(datei|file|lese|lies|öffne|open|schreibe|write|speichere|save)\b.{0,30}\b(datei|file|txt|pdf|csv|json)\b",
+        r"\b(list|zeige|show)\b.{0,20}\b(dateien|files|downloads)\b",
+    ]
+    requires = []
+
+    def execute(self, agent: dict, message: str, **context) -> SkillResult:
+        content_to_save = context.get("content_to_save")
+        try:
+            result = run_file_access(message, content_to_save=content_to_save)
+            return SkillResult(text=result, skill_used=self.id)
+        except Exception as e:
+            return SkillResult(error=str(e), skill_used=self.id)

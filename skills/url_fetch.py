@@ -76,3 +76,34 @@ def fetch_url_text(url: str, max_chars: int = 4000) -> str:
         return text[:max_chars]
     except Exception as e:
         return f"[Fehler beim Laden: {e}]"
+
+
+# ── BaseSkill Wrapper ─────────────────────────────────────────────────────────
+from skills.base import BaseSkill, SkillResult
+
+
+class UrlFetchSkill(BaseSkill):
+    id = "url_fetch"
+    name = "URL Fetch"
+    icon = "link"
+    description = "Fetches and extracts text content from URLs."
+    triggers = [
+        r"https?://\S+",
+        r"\b(fetch|read|scrape|open|lade|öffne|lies|besuche)\b.{0,30}https?://",
+        r"https?://\S+.{0,30}\b(lesen|öffnen|laden|summarize|zusammenfassen)\b",
+    ]
+    requires = []
+
+    def execute(self, agent: dict, message: str, **context) -> SkillResult:
+        import re
+        urls = re.findall(r"https?://\S+", message)
+        if not urls:
+            return SkillResult(error="Keine URL gefunden", skill_used=self.id)
+        results = []
+        for url in urls[:3]:
+            if is_safe_url(url):
+                text = fetch_url_text(url)
+                results.append(f"[{url}]\n{text}")
+            else:
+                results.append(f"[{url}] - URL geblockt (SSRF-Schutz)")
+        return SkillResult(text="\n\n".join(results), skill_used=self.id)

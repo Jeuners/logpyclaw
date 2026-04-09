@@ -539,3 +539,27 @@ Mails:{mail_block}"""
 
     except Exception as e:
         return f"❌ Mac Mail Fehler: {str(e)[:300]}"
+
+
+# ── BaseSkill Wrapper ─────────────────────────────────────────────────────────
+from skills.base import BaseSkill, SkillResult
+
+
+class MacMailSkill(BaseSkill):
+    id = "mac_mail"
+    name = "macOS Mail"
+    icon = "mail"
+    description = "Reads and sends emails via macOS Mail app (AppleScript)."
+    triggers = [
+        r"\b(mail|e-mail|email)\b.{0,30}\b(lesen|lese|read|check|prüfe|inbox|posteingang)\b",
+        r"\b(mail|e-mail)\b.{0,30}\b(sende|send|schreibe|write)\b",
+    ]
+    requires = []
+
+    def execute(self, agent: dict, message: str, **context) -> SkillResult:
+        agent_id = agent.get("id", "")
+        try:
+            result = _run_mac_mail(message, agent_id=agent_id)
+            return SkillResult(text=result, skill_used=self.id)
+        except Exception as e:
+            return SkillResult(error=str(e), skill_used=self.id)

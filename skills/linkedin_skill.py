@@ -66,7 +66,50 @@ def _get_member_id(token: str, providers: dict) -> str | None:
 
 # ── Post ──────────────────────────────────────────────────────────────────────
 
-def _create_post(token: str, author_urn: str, text: str, visibility: str = "PUBLIC") -> dict:
+def _upload_image(token: str, author_urn: str, image_b64: str) -> str | None:
+    """Upload image to LinkedIn, return image URN or None on failure."""
+    import base64
+    try:
+        # Step 1: Initialize upload
+        init_resp = requests.post(
+            f"{LINKEDIN_REST}/images?action=initializeUpload",
+            headers=_get_headers(token),
+            json={"initializeUploadRequest": {"owner": author_urn}},
+            timeout=15,
+        )
+        if not init_resp.ok:
+            print(f"[LinkedIn] initializeUpload failed: {init_resp.status_code} {init_resp.text[:200]}", flush=True)
+            return None
+        data = init_resp.json().get("value", {})
+        upload_url = data.get("uploadUrl")
+        image_urn = data.get("image")
+        if not upload_url or not image_urn:
+            print(f"[LinkedIn] No uploadUrl or image URN in response: {data}", flush=True)
+            return None
+
+        # Step 2: Upload binary
+        if "," in image_b64:
+            raw_b64 = image_b64.split(",", 1)[1]
+        else:
+            raw_b64 = image_b64
+        img_bytes = base64.b64decode(raw_b64)
+        upload_headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/octet-stream",
+        }
+        up_resp = requests.put(upload_url, headers=upload_headers, data=img_bytes, timeout=60)
+        if not up_resp.ok:
+            print(f"[LinkedIn] Image upload PUT failed: {up_resp.status_code}", flush=True)
+            return None
+        print(f"[LinkedIn] Image uploaded: {image_urn}", flush=True)
+        return image_urn
+    except Exception as e:
+        print(f"[LinkedIn] _upload_image error: {e}", flush=True)
+        return None
+
+
+def _create_post(token: str, author_urn: str, text: str, visibility: str = "PUBLIC",
+                 draft: bool = False, image_urn: str = None) -> dict:
     """Erstellt einen LinkedIn-Post via neue Posts API (2023+)."""
     payload = {
         "author": author_urn,
@@ -77,9 +120,11 @@ def _create_post(token: str, author_urn: str, text: str, visibility: str = "PUBL
             "targetEntities": [],
             "thirdPartyDistributionChannels": [],
         },
-        "lifecycleState": "PUBLISHED",
+        "lifecycleState": "DRAFT" if draft else "PUBLISHED",
         "isReshareDisabledByAuthor": False,
     }
+    if image_urn:
+        payload["content"] = {"media": {"id": image_urn}}
     try:
         r = requests.post(
             f"{LINKEDIN_REST}/posts",
@@ -261,7 +306,7 @@ def _extract_post_text(message: str) -> str:
 
 # ── Hauptfunktion ─────────────────────────────────────────────────────────────
 
-def run_linkedin(message: str, providers: dict) -> str:
+def run_linkedin(message: str, providers: dict, image_b64: str = None) -> str:
     """Hauptfunktion — wird aus process_task() aufgerufen."""
     token = _get_token(providers)
     if not token:
@@ -309,12 +354,29 @@ def run_linkedin(message: str, providers: dict) -> str:
             "5. Oder: linkedin.com/in/<dein-profil>?overlay=contact-info → URL-Parameter `profileId`"
         )
 
+    is_draft = bool(re.search(r"\b(entwurf|draft|als\s+entwurf|save\s+as\s+draft)\b", message, re.IGNORECASE))
     author_urn = f"urn:li:person:{member_id}"
-    result = _create_post(token, author_urn, post_text)
+
+    # Upload image if provided
+    image_urn = None
+    if image_b64:
+        print("[LinkedIn] Uploading attached image…", flush=True)
+        image_urn = _upload_image(token, author_urn, image_b64)
+        if not image_urn:
+            print("[LinkedIn] Image upload failed, posting without image", flush=True)
+
+    result = _create_post(token, author_urn, post_text, draft=is_draft, image_urn=image_urn)
 
     if result["ok"]:
+        img_note = " 🖼️ with image" if image_urn else ""
+        if is_draft:
+            return (
+                f"📝 **LinkedIn draft saved{img_note}!**\n\n"
+                f"**Post-ID:** `{result.get('post_id', '')}`\n\n"
+                f"**Text:**\n{post_text[:500]}{'...' if len(post_text) > 500 else ''}"
+            )
         return (
-            f"✅ **LinkedIn-Post veröffentlicht!**\n\n"
+            f"✅ **LinkedIn post published{img_note}!**\n\n"
             f"**Post-ID:** `{result.get('post_id', '')}`\n\n"
             f"**Text:**\n{post_text[:500]}{'...' if len(post_text) > 500 else ''}"
         )
@@ -326,3 +388,29 @@ def run_linkedin(message: str, providers: dict) -> str:
             f"Bitte in ⚙️ Provider Settings → LinkedIn korrigieren."
         )
     return f"❌ LinkedIn-Fehler: {result['error']}"
+
+
+# ── BaseSkill Wrapper ─────────────────────────────────────────────────────────
+from skills.base import BaseSkill, SkillResult
+from storage.providers import load_providers
+
+
+class LinkedInSkill(BaseSkill):
+    id = "linkedin"
+    name = "LinkedIn"
+    icon = "business"
+    description = "Posts and schedules content on LinkedIn."
+    triggers = [
+        r"\b(linkedin|linked-in)\b",
+        r"\b(post\w*|share|teile|veröffentlich\w*)\b.{0,30}\b(linkedin|post|beitrag)\b",
+    ]
+    requires = ["linkedin"]
+
+    def execute(self, agent: dict, message: str, **context) -> SkillResult:
+        providers = load_providers()
+        image_b64 = context.get("image_b64")
+        try:
+            result = run_linkedin(message, providers, image_b64=image_b64)
+            return SkillResult(text=result, skill_used=self.id)
+        except Exception as e:
+            return SkillResult(error=str(e), skill_used=self.id)

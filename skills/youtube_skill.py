@@ -4,11 +4,29 @@ Unterstützt: Video-Download, Audio-Only, Info-Fetch (kein Download)
 """
 import os
 import re
+import shutil
 import subprocess
+import sys
 import uuid
 from datetime import datetime
 
-YTDLP_BIN = "/opt/homebrew/bin/yt-dlp"
+# yt-dlp Binary: venv > homebrew > PATH
+def _find_ytdlp() -> str:
+    # 1. Im aktuellen venv
+    venv_bin = os.path.join(os.path.dirname(sys.executable), "yt-dlp")
+    if os.path.exists(venv_bin):
+        return venv_bin
+    # 2. Im PATH (shutil.which)
+    found = shutil.which("yt-dlp")
+    if found:
+        return found
+    # 3. Homebrew Fallback
+    for p in ["/opt/homebrew/bin/yt-dlp", "/usr/local/bin/yt-dlp"]:
+        if os.path.exists(p):
+            return p
+    return "yt-dlp"  # letzter Versuch: direkt im PATH
+
+YTDLP_BIN = _find_ytdlp()
 DOWNLOADS_DIR = None  # wird in _get_downloads_dir() lazy gesetzt
 _last_download_result: dict = {}  # letztes Download-Ergebnis (filepath etc.)
 
@@ -46,39 +64,43 @@ def _get_downloads_dir() -> str:
     return base
 
 
-def _get_base_args() -> list[str]:
-    """Standardargumente für alle yt-dlp Aufrufe: JS-Runtime + Cookies."""
-    node_path = "/opt/homebrew/bin/node"
+def _get_base_args(use_cookies: bool = False) -> list[str]:
+    """Standardargumente für yt-dlp. Cookies nur wenn explizit gewünscht."""
     args = []
-    if os.path.exists(node_path):
-        args += ["--js-runtimes", f"node:{node_path}"]
-    # Chrome-Cookies für YouTube-Auth (Bot-Detection umgehen)
-    args += ["--cookies-from-browser", "chrome"]
+    # node.js Runtime für JS-Challenge-Solving (optional)
+    for node_path in ["/opt/homebrew/bin/node", "/usr/local/bin/node",
+                      shutil.which("node") or ""]:
+        if node_path and os.path.exists(node_path):
+            args += ["--extractor-args", f"youtube:player_client=default,web"]
+            break
+    if use_cookies:
+        args += ["--cookies-from-browser", "chrome"]
     return args
 
 
-def _run_yt_dlp(args: list[str], timeout: int = 120) -> tuple[str, str, int]:
-    """Führt yt-dlp aus und gibt (stdout, stderr, returncode) zurück."""
+def _run_yt_dlp(args: list[str], timeout: int = 120,
+                use_cookies: bool = False) -> tuple[str, str, int]:
+    """Führt yt-dlp aus. Versucht zuerst ohne Cookies, dann mit."""
     env = os.environ.copy()
     env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + env.get("PATH", "")
+    cmd = [YTDLP_BIN] + _get_base_args(use_cookies=use_cookies) + args
     try:
         r = subprocess.run(
-            [YTDLP_BIN] + _get_base_args() + args,
-            capture_output=True, text=True, timeout=timeout, env=env
+            cmd, capture_output=True, text=True, timeout=timeout, env=env
         )
         return r.stdout, r.stderr, r.returncode
     except subprocess.TimeoutExpired:
-        return "", "Timeout nach {}s".format(timeout), 1
+        return "", f"Timeout nach {timeout}s", 1
     except FileNotFoundError:
-        return "", "yt-dlp nicht gefunden unter " + YTDLP_BIN, 1
+        return "", f"yt-dlp nicht gefunden: {YTDLP_BIN}", 1
 
 
 def _fetch_video_info(url: str) -> dict:
     """Holt Video-Metadaten ohne Download."""
     stdout, stderr, rc = _run_yt_dlp([
         "--dump-json", "--no-playlist",
-        "--flat-playlist", url
-    ], timeout=30)
+        "--flat-playlist", "--no-warnings", url
+    ], timeout=30, use_cookies=False)
     if rc != 0 or not stdout.strip():
         return {"error": stderr or "Keine Info erhalten"}
     import json
@@ -129,10 +151,19 @@ def _download_video(url: str, audio_only: bool = False) -> dict:
         ]
 
     print(f"[YouTube] Starte {'Audio' if audio_only else 'Video'}-Download: {url[:60]}", flush=True)
-    stdout, stderr, rc = _run_yt_dlp(args, timeout=300)
+    print(f"[YouTube] yt-dlp Binary: {YTDLP_BIN}", flush=True)
+
+    # Erster Versuch: ohne Cookies (schneller, kein Keychain-Dialog)
+    stdout, stderr, rc = _run_yt_dlp(args, timeout=300, use_cookies=False)
+
+    # Zweiter Versuch: mit Chrome-Cookies (bei Bot-Detection)
+    if rc != 0 and ("Sign in" in stderr or "bot" in stderr.lower()
+                    or "cookies" in stderr.lower() or "403" in stderr):
+        print("[YouTube] Retry mit Chrome-Cookies...", flush=True)
+        stdout, stderr, rc = _run_yt_dlp(args, timeout=300, use_cookies=True)
 
     if rc != 0:
-        return {"error": f"Download fehlgeschlagen: {stderr[:300]}"}
+        return {"error": f"Download fehlgeschlagen: {stderr[:400]}"}
 
     # Dateipath aus stdout extrahieren
     filepath = ""
@@ -212,3 +243,27 @@ def run_youtube(message: str) -> str:
         f"**Pfad:** `{result['filepath']}`\n"
         f"**Quelle:** {url}"
     )
+
+
+# ── BaseSkill Wrapper ─────────────────────────────────────────────────────────
+from skills.base import BaseSkill, SkillResult
+
+
+class YouTubeSkill(BaseSkill):
+    id = "youtube"
+    name = "YouTube"
+    icon = "smart_display"
+    description = "Downloads and processes YouTube videos/audio."
+    triggers = [
+        r"youtu\.?be",
+        r"\b(youtube|yt\.com|ytdl|yt-dlp)\b",
+        r"\b(download|lade.*runter|herunterladen)\b.{0,30}\b(video|audio|youtube|yt)\b",
+    ]
+    requires = []
+
+    def execute(self, agent: dict, message: str, **context) -> SkillResult:
+        try:
+            result = run_youtube(message)
+            return SkillResult(text=result, skill_used=self.id)
+        except Exception as e:
+            return SkillResult(error=str(e), skill_used=self.id)

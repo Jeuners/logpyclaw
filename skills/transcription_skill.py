@@ -313,3 +313,33 @@ def run_transcription(message: str, attachment_path: str = None) -> str:
         "- Video hochladen über den 📎-Button\n"
         "- Pfad: `/Downloads/mein_video.mp4 transkribieren`"
     )
+
+
+# ── BaseSkill Wrapper ─────────────────────────────────────────────────────────
+from skills.base import BaseSkill, SkillResult
+
+
+class TranscriptionSkill(BaseSkill):
+    id = "transcription"
+    name = "Transcription"
+    icon = "mic"
+    description = "Transcribes audio and video files via Whisper/Ollama."
+    triggers = [
+        r"\b(transkribier\w*|transcribe|transkript\w*|verschrift\w*)\b",
+        r"\b(audio|aufnahme|recording)\b.{0,30}\b(text|transkript|transcr)\b",
+    ]
+    requires = []
+
+    def matches(self, message: str) -> bool:
+        # Nicht triggern wenn YouTube-URL vorhanden — YouTube-Skill soll zuerst laufen
+        if re.search(r"youtu(\.be|be\.com)", message, re.IGNORECASE):
+            return False
+        return super().matches(message)
+
+    def execute(self, agent: dict, message: str, **context) -> SkillResult:
+        attachment_path = context.get("attachment_path")
+        try:
+            result = run_transcription(message, attachment_path=attachment_path)
+            return SkillResult(text=result, skill_used=self.id)
+        except Exception as e:
+            return SkillResult(error=str(e), skill_used=self.id)

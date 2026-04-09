@@ -42,6 +42,7 @@ def add_inbox_item(agent_id):
         "id": str(uuid.uuid4()),
         "task": task_text,
         "added_by": data.get("added_by", "User"),
+        "sender_agent_id": data.get("sender_agent_id", ""),
         "added_at": datetime.now().isoformat(),
         "priority": int(data.get("priority", 0)),
     }

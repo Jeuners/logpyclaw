@@ -173,6 +173,13 @@ SKILLS = [
         "requires": None,
     },
     {
+        "id": "orchestrator",
+        "name": "Orchestrator",
+        "icon": "🎯",
+        "description": "Delegierungen dieses Agenten landen in der Inbox des Ziel-Agenten statt als direkter Task. Ideal für planende Agenten mit starkem LLM.",
+        "requires": None,
+    },
+    {
         "id": "youtube",
         "name": "YouTube Download",
         "icon": "📺",

@@ -100,3 +100,27 @@ Respond with this exact JSON:
     if advice:
         lines += ["", f"💡 {advice}"]
     return "\n".join(lines)
+
+
+# ── BaseSkill Wrapper ─────────────────────────────────────────────────────────
+from skills.base import BaseSkill, SkillResult
+from skills.triggers import PROMPT_OPTIMIZE_TRIGGERS
+
+
+class PromptOptimizeSkill(BaseSkill):
+    id = "prompt_optimize"
+    name = "Prompt Optimizer"
+    icon = "auto_fix_high"
+    description = "Optimizes prompts using structured frameworks (RTF, TAG, BAB, CARE, RISE)."
+    triggers = [PROMPT_OPTIMIZE_TRIGGERS.pattern]
+    requires = []
+
+    def matches(self, message: str) -> bool:
+        return bool(PROMPT_OPTIMIZE_TRIGGERS.search(message))
+
+    def execute(self, agent: dict, message: str, **context) -> SkillResult:
+        try:
+            result = optimize_prompt(message)
+            return SkillResult(text=result, skill_used=self.id)
+        except Exception as e:
+            return SkillResult(error=str(e), skill_used=self.id)

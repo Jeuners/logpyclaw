@@ -232,8 +232,8 @@ def build_z_image_turbo_workflow(prompt: str, seed: int) -> dict:
         },
         "57:29": {"inputs": {"vae_name": "ae.safetensors"}, "class_type": "VAELoader"},
         "57:33": {
-            "inputs": {"conditioning": ["57:27", 0]},
-            "class_type": "ConditioningZeroOut",
+            "inputs": {"text": IMAGE_NEGATIVE_PROMPT, "clip": ["57:30", 0]},
+            "class_type": "CLIPTextEncode",
         },
         "57:8": {
             "inputs": {"samples": ["57:3", 0], "vae": ["57:29", 0]},
@@ -266,6 +266,12 @@ def build_z_image_turbo_workflow(prompt: str, seed: int) -> dict:
         },
     }
 
+
+IMAGE_NEGATIVE_PROMPT = (
+    "text, letters, words, watermark, signature, title, caption, writing, logo, brand, "
+    "typography, font, label, banner, subtitles, overlay, stamp, badge, icon, symbol, "
+    "blurry, low quality, worst quality, deformed, distorted, ugly, duplicate"
+)
 
 WAN_VIDEO_NEGATIVE = (
     "vivid colors, overexposed, static, blurry details, subtitles, stylized, artwork, "
@@ -543,3 +549,68 @@ def run_comfyui_edit(image_b64: str, prompt: str, use_lightning: bool = True) ->
         raise RuntimeError("Keine Bilddaten in der ComfyUI-Antwort")
 
     return _download_comfyui_file(base_url, img_info, default_mime="image/png")
+
+
+# ── BaseSkill Wrapper ─────────────────────────────────────────────────────────
+from skills.base import BaseSkill, SkillResult
+from skills.triggers import IMG_TRIGGERS, VIDEO_TRIGGERS, IMAGE_EDIT_TRIGGERS
+
+
+class ImageGenSkill(BaseSkill):
+    id = "image_gen"
+    name = "Image Generation"
+    icon = "image"
+    description = "Generates images via ComfyUI."
+    triggers = [IMG_TRIGGERS.pattern]
+    requires = ["comfyui"]
+
+    def matches(self, message: str) -> bool:
+        return bool(IMG_TRIGGERS.search(message))
+
+    def execute(self, agent: dict, message: str, **context) -> SkillResult:
+        try:
+            image_b64 = run_comfyui_sync(message)
+            return SkillResult(image=image_b64, skill_used=self.id)
+        except Exception as e:
+            return SkillResult(error=str(e), skill_used=self.id)
+
+
+class VideoGenSkill(BaseSkill):
+    id = "video_gen"
+    name = "Video Generation"
+    icon = "videocam"
+    description = "Generates videos via ComfyUI."
+    triggers = [VIDEO_TRIGGERS.pattern]
+    requires = ["comfyui"]
+
+    def matches(self, message: str) -> bool:
+        return bool(VIDEO_TRIGGERS.search(message))
+
+    def execute(self, agent: dict, message: str, **context) -> SkillResult:
+        try:
+            video_b64 = run_comfyui_video(message)
+            return SkillResult(image=video_b64, skill_used=self.id)
+        except Exception as e:
+            return SkillResult(error=str(e), skill_used=self.id)
+
+
+class ImageEditSkill(BaseSkill):
+    id = "image_edit"
+    name = "Image Edit"
+    icon = "edit"
+    description = "Edits images via ComfyUI (FireRed workflow)."
+    triggers = [IMAGE_EDIT_TRIGGERS.pattern]
+    requires = ["comfyui"]
+
+    def matches(self, message: str) -> bool:
+        return bool(IMAGE_EDIT_TRIGGERS.search(message))
+
+    def execute(self, agent: dict, message: str, **context) -> SkillResult:
+        image_b64 = context.get("image_b64", "")
+        if not image_b64:
+            return SkillResult(error="Kein Bild für Bildbearbeitung übergeben", skill_used=self.id)
+        try:
+            result_b64 = run_comfyui_edit(image_b64, message)
+            return SkillResult(image=result_b64, skill_used=self.id)
+        except Exception as e:
+            return SkillResult(error=str(e), skill_used=self.id)

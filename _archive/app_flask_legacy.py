@@ -73,21 +73,7 @@ load_dotenv()
 
 # ← moved to modules (Phase 1+2): _DEBUG_LOG, dlog
 
-# ── Wenn als py2app .app-Bundle gestartet, Resources-Verzeichnis ermitteln
-if getattr(sys, "frozen", False):
-    # Contents/MacOS/AgentClaw → Contents/Resources/
-    _bundle_resources = os.path.join(
-        os.path.dirname(os.path.dirname(sys.executable)), "Resources"
-    )
-    app = Flask(
-        __name__,
-        template_folder=os.path.join(_bundle_resources, "templates"),
-        static_folder=os.path.join(_bundle_resources, "static"),
-    )
-    # Daten-Dateien liegen in Resources/
-    os.chdir(_bundle_resources)
-else:
-    app = Flask(__name__)
+app = Flask(__name__)
 
 # Flask-SocketIO for real-time WebSocket communication
 from flask_socketio import SocketIO, emit, disconnect
@@ -151,27 +137,27 @@ TERMINAL_STATES = {"completed", "failed", "canceled", "rejected"}
 # ─── A2A Communication Prompt ─────────────────────────────────────────────────
 
 A2A_COMMUNICATION_PROMPT = """
---- A2A KOMMUNIKATION ---
-Du bist Teil des AgentClaw Multi-Agent-Systems.
+--- A2A COMMUNICATION ---
+You are part of the AgentClaw multi-agent system.
 
-VERHALTENSREGELN:
-1. Prüfe IMMER zuerst, ob du eine Anfrage mit DEINEN EIGENEN SKILLS (siehe unten) lösen kannst.
-2. Delegiere NUR an andere Agents (@Mention), wenn du den benötigten Skill absolut nicht selbst besitzt.
-3. Wenn du Informationen im Gedächtnis (Memory) findest, präsentiere sie selbst, anstatt jemanden anderen zu fragen.
-4. Antworte präzise und minimal — keine langen Erklärungen.
+BEHAVIOUR RULES:
+1. ALWAYS check first if you can handle a request using YOUR OWN SKILLS (listed below).
+2. Only delegate to other agents (@Mention) if you absolutely do not have the required skill yourself.
+3. If you find information in your Memory, present it yourself — do not ask another agent.
+4. Reply precisely and minimally — no long explanations.
 
-DELEGIERUNG (@Mention) — KRITISCHE REGELN:
-  • Schreibe @AgentName gefolgt von ALLEN notwendigen Schritten — in einer einzigen @Mention!
-  • Du wirst KEIN ERGEBNIS zurückbekommen. Der andere Agent erledigt ALLES selbst bis zum Ende.
-  • Schreibe NIEMALS "Sobald ich die Ergebnisse habe..." — du bekommst keine. Der Agent macht alles.
-  • Beispiel für mehrstufig: "@Flo 1. Hole die neusten Hackernews. 2. Schreibe einen Bericht. 3. Sende den Bericht an Telegram."
-  • NIEMALS [TOOL_CALL], JSON, Funktionsaufrufe oder ähnliche Formate verwenden!
-  • NIEMALS Delegation ankündigen ("Ich delegiere...") — einfach direkt @AgentName schreiben.
-  • Falsch: "@Flo hole Hackernews" + danach selbst weitermachen
-  • Richtig: "@Flo hole Hackernews, schreibe Bericht, sende an Telegram" (alles in einer Zeile!)
+DELEGATION (@Mention) — CRITICAL RULES:
+  • Write @AgentName followed by ALL necessary steps — in a single @Mention!
+  • You will NOT receive the result back. The other agent handles EVERYTHING itself until completion.
+  • NEVER write "Once I have the results..." — you won't get any. The agent does it all.
+  • Multi-step example: "@Flo 1. Fetch latest Hacker News. 2. Write a report. 3. Send the report to Telegram."
+  • NEVER use [TOOL_CALL], JSON, function calls or similar formats!
+  • NEVER announce a delegation ("I will delegate...") — just write @AgentName directly.
+  • Wrong: "@Flo fetch Hackernews" + then continue yourself
+  • Right: "@Flo fetch Hackernews, write report, send to Telegram" (everything in one line!)
 
-WICHTIG: Nutze dein eigenes Memory, um Fragen zu Inhalten, Dokumenten oder früheren Chats zu beantworten.
---- ENDE A2A ---
+IMPORTANT: Use your own Memory to answer questions about content, documents or past conversations.
+--- END A2A ---
 """.strip()
 
 
@@ -254,6 +240,14 @@ def activity_start(agent_id: str, atype: str, label: str):
             "since": datetime.now().isoformat(),
         }
     emit_agent_activity(agent_id, atype, label, "started")
+
+
+def activity_step(agent_id: str, label: str):
+    """Update activity label without resetting the timer (step progress)."""
+    with _activity_lock:
+        if agent_id in _ACTIVITY:
+            _ACTIVITY[agent_id]["label"] = label
+    emit_agent_activity(agent_id, "task", label, "started")
 
 
 def activity_end(agent_id: str):
@@ -395,7 +389,7 @@ def process_task(task_id: str):
     HACKER_TRIGGERS = re.compile(
         r"hacker\s*news|"
         r"hackernews|"
-        r"hn\s*(news|neu|neues)?|"
+        r"\bhn\b\s*(news|neu|neues)?|"
         r"was\s*(gibt|is?)\s*(es)?\s*(neues|new|new?s)?\s*(bei)?\s*hacker|"
         r"neues?\s*(bei)?\s*hacker\s*news|"
         r"top\s*stories|"
@@ -405,11 +399,13 @@ def process_task(task_id: str):
 
     try:
         # Image Edit skill: check if we have an image to edit + trigger words
+        _aid = task["recipient_agent_id"]
         if (
             "image_edit" in skills
             and task.get("result_image")
             and IMAGE_EDIT_TRIGGERS.search(message)
         ):
+            activity_step(_aid, "🎨 Bild bearbeiten…")
             print(f"[Task] image_edit trigger detected: {message[:60]}", flush=True)
             image_b64 = task["result_image"]
             edit_prompt = _extract_img_prompt(message) or message
@@ -420,6 +416,7 @@ def process_task(task_id: str):
             task["skill_used"] = "image_edit"
         # Telegram skill: check trigger FIRST (before image_gen, since image might come from previous step)
         elif "telegram" in skills and TG_TRIGGERS.search(message):
+            activity_step(_aid, "📨 Telegram senden…")
             print(f"[Task] telegram trigger detected: {message[:60]}", flush=True)
             image_b64 = task.get(
                 "result_image"
@@ -442,6 +439,7 @@ def process_task(task_id: str):
             task["skill_used"] = "telegram"
         # Gmail skill
         elif "gmail" in skills and GMAIL_TRIGGERS.search(message):
+            activity_step(_aid, "📧 Gmail…")
             print(f"[Task] gmail trigger detected: {message[:60]}", flush=True)
             # Parse email details from message
             import re as re_module
@@ -480,6 +478,7 @@ def process_task(task_id: str):
             task["skill_used"] = "gmail"
         # Hacker News skill
         elif "hackernews" in skills and HACKER_TRIGGERS.search(message):
+            activity_step(_aid, "🎩 Hacker News laden…")
             print(f"[Task] hackernews trigger detected: {message[:60]}", flush=True)
             try:
                 import urllib.request
@@ -515,6 +514,7 @@ def process_task(task_id: str):
                 task["result_text"] = f"❌ Error fetching Hacker News: {str(e)}"
             task["skill_used"] = "hackernews"
         elif "prompt_optimize" in skills and PROMPT_OPTIMIZE_TRIGGERS.search(message):
+            activity_step(_aid, "✨ Prompt optimieren…")
             print(f"[Task] prompt_optimize trigger detected: {message[:60]}", flush=True)
             fw_id = "RTF"
             for fid in PROMPT_FRAMEWORKS:
@@ -535,6 +535,7 @@ def process_task(task_id: str):
             task["skill_used"] = "prompt_optimize"
         # Screenshot skill
         elif "screenshot" in skills and SCREENSHOT_TRIGGERS.search(message):
+            activity_step(_aid, "📸 Screenshot…")
             print(f"[Task] screenshot trigger detected: {message[:60]}", flush=True)
             # Extract URL from message
             import re as re_module
@@ -573,11 +574,13 @@ def process_task(task_id: str):
             if not task.get("result_image"):
                 task["skill_used"] = task.get("skill_used", "screenshot")
         elif "mac_mail" in skills and (MAC_MAIL_TRIGGERS.search(message) or _PENDING_MAIL_SORT.get(task["recipient_agent_id"], False)):
+            activity_step(_aid, "📬 Mac Mail…")
             _agent_pending = _PENDING_MAIL_SORT.get(task["recipient_agent_id"], False)
             print(f"[Task] mac_mail trigger detected (pending={_agent_pending}): {message[:60]}", flush=True)
             task["result_text"] = _run_mac_mail(message, task["recipient_agent_id"])
             task["skill_used"] = "mac_mail"
         elif "video_gen" in skills and (VIDEO_TRIGGERS.search(message) or only_video_gen):
+            activity_step(_aid, "🎬 Video generieren…")
             # Extend task timeout to 20 min for video generation
             task["timeout_at"] = (datetime.now() + timedelta(seconds=1210)).isoformat()
             vid_prompt = _extract_video_prompt(message) or message
@@ -586,6 +589,7 @@ def process_task(task_id: str):
             task["result_image"] = _run_comfyui_video(vid_prompt)  # stored in result_image as data URL
             task["skill_used"] = "video_gen"
         elif "image_gen" in skills and (IMG_TRIGGERS.search(message) or only_image_gen):
+            activity_step(_aid, "🖼️ Bild generieren…")
             img_prompt = _extract_img_prompt(message)
             if not img_prompt:
                 img_prompt = message
@@ -594,6 +598,7 @@ def process_task(task_id: str):
             task["result_image"] = _run_comfyui_sync(img_prompt)
             task["skill_used"] = "image_gen"
         elif "youtube" in skills and (YT_TRIGGERS.search(message) or YT_URL_RX.search(message)):
+            activity_step(_aid, "📺 YouTube Download…")
             print(f"[Task] youtube trigger: {message[:60]}", flush=True)
             import skills.youtube_skill as _yt_mod
             yt_result = _run_youtube(message)
@@ -611,6 +616,7 @@ def process_task(task_id: str):
             if "transcription" in skills and (
                 _transcribe_rx.search(message) or _transcribe_rx.search(_original_msg)
             ) and _yt_filepath:
+                activity_step(_aid, "🎙️ Transkription…")
                 print(f"[Task] Auto-Transkription nach Download: {_yt_filepath[:60]}", flush=True)
                 _trans = _run_transcription(message, attachment_path=_yt_filepath)
                 _trans_text = _trans
@@ -622,6 +628,7 @@ def process_task(task_id: str):
                     message + " " + _original_msg, re.IGNORECASE,
                 )
                 if _save_m and "file_access" in skills:
+                    activity_step(_aid, "💾 Datei speichern…")
                     _fname = _save_m.group(1)
                     _save_result = _write_downloads_file(_fname, _trans_text)
                     task["result_text"] += f"\n\n{_save_result}"
@@ -629,6 +636,7 @@ def process_task(task_id: str):
         elif "transcription" in skills and (
             TRANSCRIBE_TRIGGERS.search(message) or task.get("attachment_path")
         ):
+            activity_step(_aid, "🎙️ Transkription…")
             print(f"[Task] transcription trigger: {message[:60]}", flush=True)
             attachment = task.get("attachment_path")
             # Dateipfad aus Message extrahieren falls kein attachment
@@ -636,6 +644,13 @@ def process_task(task_id: str):
                 _pm = re.search(r"(/[\w\-./: ]+\.(?:mp4|mov|avi|mkv|webm|mp3|wav|m4a|m4v))", message, re.IGNORECASE)
                 if _pm:
                     attachment = _pm.group(1).strip()
+            # Fallback: nur Dateiname → im Downloads-Ordner suchen
+            if not attachment:
+                _fn = re.search(r"\b([0-9a-f]{6,}\.(?:mp4|mov|avi|mkv|webm|mp3|wav|m4a|m4v))\b", message, re.IGNORECASE)
+                if _fn:
+                    _candidate = os.path.expanduser(f"~/Downloads/AgentClaw/{_fn.group(1)}")
+                    if os.path.exists(_candidate):
+                        attachment = _candidate
             _trans_text = _run_transcription(message, attachment_path=attachment)
             task["result_text"] = _trans_text
             task["skill_used"] = "transcription"
@@ -650,13 +665,16 @@ def process_task(task_id: str):
                 task["result_text"] += f"\n\n{_save_result2}"
                 task["skill_used"] = "transcription+file_write"
         elif "file_access" in skills and FILE_TRIGGERS.search(message):
+            activity_step(_aid, "📁 Dateizugriff…")
             print(f"[Task] file_access trigger: {message[:60]}", flush=True)
             task["result_text"] = _run_file_access(message)
             task["skill_used"] = "file_access"
         elif "linkedin" in skills and LI_TRIGGERS.search(message):
+            activity_step(_aid, "💼 LinkedIn…")
             print(f"[Task] linkedin trigger: {message[:60]}", flush=True)
             providers = load_providers()
-            task["result_text"] = _run_linkedin(message, providers)
+            attached_img = task.get("attached_image")
+            task["result_text"] = _run_linkedin(message, providers, image_b64=attached_img)
             task["skill_used"] = "linkedin"
         else:
             if task.get("chat_mode"):
@@ -665,6 +683,7 @@ def process_task(task_id: str):
                 task["status"] = "completed"
                 task["completed_at"] = datetime.now().isoformat()
                 return
+            activity_step(_aid, "🤖 LLM verarbeitet…")
             system_suffix = (
                 f"[Task delegated by agent {task['sender_agent_name']}]\n"
                 f"Handle the following request directly and concisely. "
@@ -701,8 +720,11 @@ def process_task(task_id: str):
                                          r'\b(dann|danach|außerdem|anschließend|und dann|sende|schicke|poste)\b',
                                          message, re.IGNORECASE))
         # "youtube+transcription" bedeutet beide Schritte schon erledigt — kein Follow-up nötig
-        _already_combined = _skill_used == "youtube+transcription"
-        if _is_single_step_skill and _has_more_steps and _result_text and not task.get("chat_mode") and not _already_combined:
+        _already_combined = _skill_used in ("youtube+transcription", "youtube+transcription+file_write")
+        # A2A-Tasks vom Orchestrator: Orchestrator handled den Flow selbst — kein doppelter Follow-up
+        _is_a2a_task = task.get("sender_agent_id") not in ("user", "system", "", None)
+        if _is_single_step_skill and _has_more_steps and _result_text and not task.get("chat_mode") and not _already_combined and not _is_a2a_task:
+            activity_step(_aid, "🔄 Nächster Schritt…")
             print(f"[Task] Multi-Step: Skill {_skill_used} done, triggering LLM follow-up", flush=True)
             # Dateipfad aus Ergebnis extrahieren (z.B. nach YouTube-Download)
             _extracted_path = None
@@ -710,14 +732,14 @@ def process_task(task_id: str):
             if _path_m:
                 _extracted_path = (_path_m.group(1) or _path_m.group(2) or "").strip()
             try:
-                _path_hint = f"\nDateipfad der Datei: `{_extracted_path}`" if _extracted_path else ""
+                _path_hint = f"\nFile path: `{_extracted_path}`" if _extracted_path else ""
                 followup_system = (
                     f"[Task delegated by agent {task['sender_agent_name']}]\n"
-                    f"Du hast gerade '{_skill_used}' ausgeführt. Ergebnis:\n\n"
+                    f"You just executed '{_skill_used}'. Result:\n\n"
                     f"{_result_text[:3000]}\n\n"
-                    f"Führe jetzt die verbleibenden Schritte der ursprünglichen Aufgabe aus.{_path_hint}\n"
-                    f"Nutze deine Skills direkt (KEIN @Mention nötig wenn du den Skill hast). "
-                    f"Du bist autonom — kein User ist anwesend."
+                    f"Now execute the remaining steps of the original task.{_path_hint}\n"
+                    f"Use your skills directly (NO @Mention needed if you have the skill). "
+                    f"You are autonomous — no user is present."
                 )
                 followup_reply = call_agent_text(recipient, followup_system, message)
                 if followup_reply and _MENTION_RX.search(followup_reply):
@@ -767,26 +789,19 @@ def process_task(task_id: str):
                         }
                     )
             elif task.get("result_text"):
-                history[recipient_id].append(
-                    {
-                        "role": "assistant",
-                        "content": f"[Aufgabe von {task['sender_agent_name']}]: {task['result_text']}",
-                        "task_id": task_id,
-                        "ts": ts,
-                    }
-                )
-                if sender_id and sender_id != "system":
-                    if sender_id not in history:
-                        history[sender_id] = []
-                    history[sender_id].append(
-                        {
-                            "role": "assistant",
-                            "content": f"📬 **@{task['recipient_agent_name']}**: {task['result_text']}",
-                            "task_id": task_id,
-                            "ts": ts,
-                        }
-                    )
+                # A2A results: WebSocket only, not persisted to history
+                short = task['result_text'][:300]
+                emit_chat_message(recipient_id, "system",
+                    f"✅ **Done** (from @{task['sender_agent_name']}): {short}")
+                if sender_id and sender_id not in ("system", "inbox", ""):
+                    emit_chat_message(sender_id, "system",
+                        f"📬 **@{task['recipient_agent_name']}** → {short}")
             save_history(history)
+
+            # ── Orchestrator Continuation: nächsten Schritt triggern ──────────
+            if sender_id and sender_id not in ("system", "inbox", ""):
+                spawn_background(_maybe_continue_orchestrator, sender_id, task)
+
         emit_task_result(
             task["id"],
             task["recipient_agent_id"],
@@ -1581,7 +1596,7 @@ Return ONLY this JSON:
                 "stream": False,
                 "format": "json",
             },
-            timeout=60,
+            timeout=360,
         )
         resp.raise_for_status()
         try:
@@ -1654,16 +1669,18 @@ def chat():
 
     system_content = (
         f"[Current time: {now}]\n\n"
-        f"DEINE IDENTITÄT:\n{agent['soul']}\n\n"
-        f"DEINE SKILLS (Absolutes Vorranggebot):\n{skills_str}\n\n"
-        f"GESTALTUNGSRICHTLINIEN:\n"
-        f"- Nutze IMMER sauberes Markdown (Fett, Listen, Tabellen).\n"
-        f"- Listen sollten IMMER Zeilenumbrüche zwischen den Punkten haben.\n"
-        f"- Sei visuell ansprechend und strukturiert.\n\n"
-        f"REGELN FÜR DIE AUFGABENERFÜLLUNG:\n"
-        f"1. Besitzt du einen der oben genannten Skills? Dann MUSST du ihn selbst nutzen. Es ist dir UNTERSAGT, Aufgaben, die zu DEINEN SKILLS passen, an andere Agents (@Mention) zu delegieren.\n"
-        f"2. Wenn nach 'Ereignissen heute' oder 'was passiert ist' gefragt wird, prüfe ZUERST dein Memory auf systeminterne Events und Dokumente.\n"
-        f"3. Delegiere NUR an andere Agents, wenn du den Skill NICHT besitzt und das Memory keine Antwort liefert.\n\n"
+        f"YOUR IDENTITY:\n{agent['soul']}\n\n"
+        f"YOUR SKILLS (absolute priority — always use these yourself):\n{skills_str}\n\n"
+        f"FORMATTING GUIDELINES:\n"
+        f"- Always use clean Markdown (bold, lists, tables).\n"
+        f"- Lists must always have line breaks between items.\n"
+        f"- Be visually structured and clear.\n\n"
+        f"TASK EXECUTION RULES:\n"
+        f"1. If a task matches one of YOUR skills above, you MUST execute it yourself. You are FORBIDDEN from delegating tasks that match your own skills to other agents.\n"
+        f"2. If asked about 'today's events' or 'what happened', check your Memory first for internal events and documents.\n"
+        f"3. Only delegate to other agents if you do NOT have the required skill and Memory has no answer.\n"
+        + (f"4. [ORCHESTRATOR MODE] You have the Orchestrator skill. This means: make ALL decisions yourself. NEVER ask the user for input, preferences or options during an active workflow. Choose independently, act immediately — no explanations, no menus.\n" if "orchestrator" in agent_skills_list else "")
+        + "\n"
         f"{agent_directory}"
         f"{codebase_ctx}"
     )
@@ -1870,7 +1887,7 @@ def chat():
                 f"{OPENROUTER_BASE_URL}/chat/completions",
                 headers=or_headers,
                 json=payload,
-                timeout=60,
+                timeout=360,
             )
             # Some models (e.g. Gemma via Google AI Studio) don't support system role —
             # retry by merging system prompt into first user message
@@ -1898,7 +1915,7 @@ def chat():
                                 "messages": msgs_no_sys,
                                 "stream": False,
                             },
-                            timeout=60,
+                            timeout=360,
                         )
                 except Exception:
                     pass
@@ -1962,7 +1979,7 @@ def chat():
                         else {}
                     ),
                 },
-                timeout=60,
+                timeout=360,
             )
             if resp.status_code == 400:
                 # Fallback to /api/generate for base/vision models (e.g. StarCoder2, moondream)
@@ -2537,6 +2554,145 @@ def _dispatch_remote_mention(sender_agent: dict, node_alias: str, agent_name: st
     spawn_background(_send_remote_task, node, agent_name, local_task)
 
 
+MAX_ORCHESTRATOR_STEPS = 15
+
+
+def _maybe_continue_orchestrator(sender_id: str, completed_task: dict):
+    """Prüft ob der Sender ein Orchestrator ist und triggert den nächsten Schritt."""
+    agents = load_agents()
+    orchestrator = next((a for a in agents if a["id"] == sender_id), None)
+    if not orchestrator:
+        return
+    if "orchestrator" not in set(orchestrator.get("skills", [])):
+        return
+
+    step_num = completed_task.get("orchestrator_step", 1)
+    if step_num >= MAX_ORCHESTRATOR_STEPS:
+        print(f"[Orchestrator] Max {MAX_ORCHESTRATOR_STEPS} steps reached — stopping.", flush=True)
+        emit_chat_message(sender_id, "assistant", f"⚠️ Orchestrator stopped after {MAX_ORCHESTRATOR_STEPS} steps.")
+        return
+
+    original_goal = completed_task.get("original_goal", completed_task.get("message", ""))
+    result_text_full = (completed_task.get("result_text") or "")
+    recipient_name = completed_task.get("recipient_agent_name", "Agent")
+    skill_used = completed_task.get("skill_used", "llm")
+
+    # Track completed steps for deduplication
+    completed_steps = list(completed_task.get("completed_steps", []))
+    step_summary = f"Step {step_num} (@{recipient_name} via {skill_used}): {result_text_full[:120]}"
+    completed_steps.append(step_summary)
+
+    # Carry image forward for LinkedIn/post steps
+    last_image = completed_task.get("result_image") or completed_task.get("attached_image")
+
+    # Extract file path from result (e.g. YouTube download → transcription)
+    _fp_m = re.search(r"\*\*Pfad:\*\*\s*`([^`]+)`|Pfad:\s*`([^`]+)`", result_text_full)
+    last_filepath = (_fp_m.group(1) or _fp_m.group(2)).strip() if _fp_m else None
+
+    completed_steps_str = "\n".join(f"  {i+1}. {s}" for i, s in enumerate(completed_steps))
+
+    def _make_continuation_system(result_excerpt: str) -> str:
+        filepath_hint = f"\nDownloaded file path: `{last_filepath}` — use this exact path in your delegation." if last_filepath else ""
+        return (
+            f"You are an orchestrator. Goal: {original_goal[:300]}\n\n"
+            f"Completed steps:\n{completed_steps_str}\n\n"
+            f"Last result (@{recipient_name}):\n{result_excerpt}\n\n"
+            + ("An image is attached to the next task.\n\n" if last_image else "")
+            + filepath_hint + "\n\n"
+            "Reply with EXACTLY ONE of:\n"
+            "  @AgentName task description\n"
+            "  DONE (only if the original goal is fully achieved — not just one step done)\n\n"
+            "RULES:\n"
+            "- Only say DONE when ALL steps of the original goal are complete.\n"
+            "- If goal includes transcription/posting/saving after a download, those still need to happen.\n"
+            "- If next step needs a file, include the FULL file path in the task description.\n"
+            "- If next step needs content, include the FULL text from the last result.\n"
+            "No other text. No explanation."
+        )
+
+    print(f"[Orchestrator] Step {step_num} done (@{recipient_name}) — triggering continuation", flush=True)
+
+    try:
+        reply = None
+        for attempt in range(3):
+            # Each retry uses shorter excerpt to help small models focus
+            limit = [2000, 800, 300][attempt]
+            excerpt = result_text_full[:limit] + ("…" if len(result_text_full) > limit else "")
+            continuation_system = _make_continuation_system(excerpt)
+            reply = call_agent_text(orchestrator, continuation_system, "What is the next step?")
+            if not reply:
+                continue
+            if _MENTION_RX.search(reply) or "DONE" in reply.upper() or "FERTIG" in reply.upper():
+                break
+            print(f"[Orchestrator] Attempt {attempt + 1}: no @Mention in reply — retrying with shorter context", flush=True)
+
+        if not reply:
+            print(f"[Orchestrator] No reply after retries — aborting.", flush=True)
+            return
+
+        confirm = f"🔄 **Step {step_num} ✅** (@{recipient_name})\n_{reply[:200]}_"
+        try:
+            emit_chat_message(orchestrator["id"], "assistant", confirm)
+        except Exception:
+            pass
+
+        if "DONE" in reply.upper() or "FERTIG" in reply.upper() or not _MENTION_RX.search(reply):
+            done_msg = f"✅ **Plan complete** after {step_num} step(s)."
+            try:
+                emit_chat_message(orchestrator["id"], "assistant", done_msg)
+            except Exception:
+                pass
+            print(f"[Orchestrator] Plan complete after {step_num} steps.", flush=True)
+            return
+
+        next_extra = {
+            "orchestrator_step": step_num + 1,
+            "original_goal": original_goal,
+            "completed_steps": completed_steps,
+            "attached_image": last_image,
+        }
+        if last_filepath:
+            next_extra["attachment_path"] = last_filepath
+        _dispatch_mentions_from_reply(orchestrator, reply, extra_task_fields=next_extra)
+    except Exception as e:
+        print(f"[Orchestrator] Continuation error: {e}", flush=True)
+
+
+def _route_to_inbox(sender_agent: dict, target_agent: dict, task_text: str, extra_fields: dict = None):
+    """Orchestrator-Routing: Task in Inbox des Ziel-Agenten statt direktem _TASKS-Dispatch."""
+    agents = load_agents()
+    idx = next((i for i, a in enumerate(agents) if a["id"] == target_agent["id"]), None)
+    if idx is None:
+        print(f"[Inbox] _route_to_inbox: Agent {target_agent['name']} nicht gefunden", flush=True)
+        return
+    item = {
+        "id": str(uuid.uuid4()),
+        "task": task_text,
+        "added_by": sender_agent["name"],
+        "sender_agent_id": sender_agent["id"],
+        "added_at": datetime.now().isoformat(),
+        "priority": 0,
+        "orchestrator_step": (extra_fields or {}).get("orchestrator_step", 1),
+        "original_goal": (extra_fields or {}).get("original_goal", task_text),
+        "completed_steps": (extra_fields or {}).get("completed_steps", []),
+        "attached_image": (extra_fields or {}).get("attached_image"),
+    }
+    agents[idx].setdefault("inbox", []).append(item)
+    save_agents(agents)
+    print(f"[Inbox] @{sender_agent['name']} → Inbox @{target_agent['name']}: '{task_text[:80]}'", flush=True)
+    try:
+        emit_agent_activity(target_agent["id"], "inbox", f"Neuer Task von @{sender_agent['name']}", "queued")
+        ws_emit("inbox_updated", {"agent_id": target_agent["id"], "inbox": agents[idx]["inbox"]}, broadcast=True)
+    except Exception as _e:
+        print(f"[Inbox] WS emit error: {_e}", flush=True)
+    # A2A-Sichtbarkeit nur via WebSocket (nicht in history.json persistieren)
+    confirm_msg = f"📤 → **@{target_agent['name']}**: _{task_text[:120]}_"
+    try:
+        emit_chat_message(sender_agent["id"], "system", confirm_msg)
+    except Exception:
+        pass
+
+
 def _dispatch_mentions_from_reply(sender_agent: dict, reply: str, sender_task: dict = None, extra_task_fields: dict = None):
     """Scan reply for @AgentName mentions and enqueue tasks.
 
@@ -2641,6 +2797,12 @@ def _dispatch_mentions_from_reply(sender_agent: dict, reply: str, sender_task: d
         }
         if extra_task_fields:
             task.update(extra_task_fields)
+
+        # ── Orchestrator-Routing: Tasks in Inbox statt direkten _TASKS ───────
+        if "orchestrator" in set(sender_agent.get("skills", [])):
+            _route_to_inbox(sender_agent, target, combined_msg, extra_fields=extra_task_fields)
+            continue
+
         queued, pos = _enqueue_task(task)
         if queued:
             eta_min = pos * 2
@@ -2969,9 +3131,10 @@ def tick_inbox():
 
         now = datetime.now()
         task_id = str(uuid.uuid4())
+        sender_id = item.get("sender_agent_id", "inbox")
         task = {
             "id": task_id,
-            "sender_agent_id": "inbox",
+            "sender_agent_id": sender_id,
             "sender_agent_name": item.get("added_by", "User"),
             "recipient_agent_id": agent_id,
             "recipient_agent_name": agent["name"],
@@ -2986,11 +3149,30 @@ def tick_inbox():
             "completed_at": None,
             "timeout_at": (now + timedelta(seconds=1210)).isoformat(),
             "inbox_item_id": item["id"],
+            "delegation_depth": 1,
+            "chain": [sender_id, agent_id],
+            "orchestrator_step": item.get("orchestrator_step", 1),
+            "original_goal": item.get("original_goal", item["task"]),
+            "completed_steps": item.get("completed_steps", []),
+            "attached_image": item.get("attached_image"),
         }
         with _tasks_lock:
             _TASKS[task_id] = task
-        print(f"[Inbox] dispatching to {agent['name']}: {item['task'][:60]}", flush=True)
+        print(f"[Inbox] dispatching to {agent['name']} (from {item.get('added_by','?')}): {item['task'][:60]}", flush=True)
+        activity_start(agent_id, "task", f"← @{item.get('added_by','?')}: {item['task'][:50]}")
         spawn_background(process_task, task_id)
+        # UI über verkleinerte Inbox informieren
+        try:
+            ws_emit("inbox_updated", {"agent_id": agent_id, "inbox": agent["inbox"]}, broadcast=True)
+        except Exception:
+            pass
+        # A2A-Sichtbarkeit: Empfänger-Chat zeigt eingehenden Task
+        try:
+            sender_label = item.get("added_by", "?")
+            short_task = item["task"][:120]
+            emit_chat_message(agent_id, "system", f"📨 **@{sender_label}** → `{short_task}`")
+        except Exception:
+            pass
 
     if changed:
         save_agents(agents)
@@ -3033,24 +3215,28 @@ def tick_task_queue():
 
 def scheduler_loop():
     print("[Scheduler] Watchdog-Scheduler gestartet", flush=True)
+    _slow_tick_counter = 0
     while True:
         try:
-            tick_watchdogs()
-            tick_heartbeats()
-            # tick_telegram()  # Polling deaktiviert — nur Senden aktiv
+            # Fast loop: Inbox + Queue every 5s for responsive A2A chaining
             tick_inbox()
             tick_task_queue()
-            tick_m2m_peers()
-            # LinkedIn: geplante Posts prüfen
-            try:
-                _process_linkedin_scheduled(load_providers())
-            except Exception as _le:
-                print(f"[LinkedIn/Scheduler] {_le}", flush=True)
-            activity_cleanup()
-            _cleanup_old_tasks()
+
+            # Slow loop: expensive ops every 60s (every 12th fast tick)
+            if _slow_tick_counter % 12 == 0:
+                tick_watchdogs()
+                tick_heartbeats()
+                tick_m2m_peers()
+                try:
+                    _process_linkedin_scheduled(load_providers())
+                except Exception as _le:
+                    print(f"[LinkedIn/Scheduler] {_le}", flush=True)
+                activity_cleanup()
+                _cleanup_old_tasks()
         except Exception as e:
             print(f"[Scheduler] Fehler: {e}", flush=True)
-        time.sleep(60)  # tick every minute
+        _slow_tick_counter += 1
+        time.sleep(5)  # fast tick every 5s
 
 
 def live_reload_loop():
@@ -3333,6 +3519,8 @@ def update_agent_settings(agent_id):
                 agents[i]["color"] = data["color"]
             if "avatar" in data:
                 agents[i]["avatar"] = data["avatar"]  # base64 data URL or ""
+            if "orchestrator" in data:
+                agents[i]["orchestrator"] = bool(data["orchestrator"])
 
             try:
                 save_agents(agents)

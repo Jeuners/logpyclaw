@@ -1,0 +1,56 @@
+# AgentClaw v2 — Abhängigkeiten
+# Installation: pip install -r requirements_new.txt
+
+# ── Core Framework ─────────────────────────────────────────────────────────────
+nicegui>=2.0.0              # UI-Framework (FastAPI + Vue/Quasar, native Desktop-Modus)
+fastapi>=0.111.0            # REST-API (intern von NiceGUI verwendet + eigene Router)
+uvicorn[standard]>=0.29.0   # ASGI-Server
+python-multipart>=0.0.9     # File-Upload Support (FastAPI UploadFile)
+
+# ── HTTP / Async ───────────────────────────────────────────────────────────────
+httpx>=0.27.0               # Async HTTP Client (API Layer, TTS, Health Checks)
+requests>=2.31.0            # Sync HTTP (Skills, LLM-Calls, Heartbeat)
+
+# ── Config / Validation ────────────────────────────────────────────────────────
+pydantic>=2.0.0             # Daten-Validierung
+pydantic-settings>=2.0.0    # BaseSettings + .env Support
+python-dotenv>=1.0.0        # .env Laden
+
+# ── Storage / Cache ────────────────────────────────────────────────────────────
+redis>=5.0.0                # A2A Event-Log (optional — App startet auch ohne Redis)
+
+# ── AI / LLM ──────────────────────────────────────────────────────────────────
+openai>=1.30.0              # OpenAI/OpenRouter-kompatibler Client
+
+# ── Image / Video ─────────────────────────────────────────────────────────────
+Pillow>=10.0.0              # Bild-Thumbnails, MIME-Erkennung (ComfyUI Skills)
+yt-dlp>=2024.1.1            # YouTube-Download Skill
+
+# ── Vector Memory ─────────────────────────────────────────────────────────────
+qdrant-client>=1.9.0        # Qdrant Vektor-Datenbank (semantische Memory)
+
+# ── Security ──────────────────────────────────────────────────────────────────
+cryptography>=42.0.0        # Verschlüsselung, API-Key-Masking
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+python-json-logger>=2.0.0   # Strukturiertes JSON-Logging (optional)
+
+# ── Optional: Rate Limiting ───────────────────────────────────────────────────
+# slowapi>=0.1.9             # Rate Limiting für FastAPI (Produktions-Deploy)
+
+# ── Optional: PDF-Verarbeitung ────────────────────────────────────────────────
+# PyPDF2>=3.0.0              # PDF-Text-Extraktion für Memory-Uploads
+
+# ── Optional: Web-Screenshots ─────────────────────────────────────────────────
+# playwright>=1.44.0         # Browser-Automatisierung für /api/screenshot
+# Einrichtung: playwright install chromium
+
+# ── Optional: macOS Integration ───────────────────────────────────────────────
+# pyobjc-framework-Cocoa>=10.0  # Native macOS Benachrichtigungen (nur macOS)
+
+# ── Dev / Testing ─────────────────────────────────────────────────────────────
+# pytest>=8.0.0
+# pytest-asyncio>=0.23.0
+# pytest-httpx>=0.31.0
+# black>=24.0.0
+# mypy>=1.8.0

@@ -89,3 +89,27 @@ def run_telegram(message: str, image_base64: str = None) -> str:
                 return f"❌ Telegram-Fehler: {resp.json().get('description', resp.text[:100])}"
         except Exception as e:
             return f"❌ Telegram-Fehler: {str(e)[:100]}"
+
+
+# ── BaseSkill Wrapper ─────────────────────────────────────────────────────────
+from skills.base import BaseSkill, SkillResult
+
+
+class TelegramSkill(BaseSkill):
+    id = "telegram"
+    name = "Telegram"
+    icon = "send"
+    description = "Sends messages and images via Telegram."
+    triggers = [
+        r"\b(telegram|send|sende|schicke|nachricht)\b.{0,30}\b(telegram|message|nachricht)\b",
+        r"\b(sende|schick|send)\b.{0,50}\b(telegram)\b",
+    ]
+    requires = ["telegram"]
+
+    def execute(self, agent: dict, message: str, **context) -> SkillResult:
+        image_b64 = context.get("image_b64")
+        try:
+            result = run_telegram(message, image_b64)
+            return SkillResult(text=result, skill_used=self.id)
+        except Exception as e:
+            return SkillResult(error=str(e), skill_used=self.id)

@@ -99,3 +99,26 @@ def run_gmail(action: str, params: dict) -> str:
             return f"❌ IMAP-Fehler: {str(e)[:100]}"
 
     return "❌ Unbekannte Aktion"
+
+
+# ── BaseSkill Wrapper ─────────────────────────────────────────────────────────
+from skills.base import BaseSkill, SkillResult
+
+
+class GmailSkill(BaseSkill):
+    id = "gmail"
+    name = "Gmail"
+    icon = "email"
+    description = "Reads and sends emails via Gmail."
+    triggers = [
+        r"\b(gmail|email|e-mail|mail)\b",
+        r"\b(sende|schreibe|read|lies|check|prüfe)\b.{0,30}\b(mail|email|gmail)\b",
+    ]
+    requires = ["gmail"]
+
+    def execute(self, agent: dict, message: str, **context) -> SkillResult:
+        try:
+            result = run_gmail("auto", {"message": message})
+            return SkillResult(text=result, skill_used=self.id)
+        except Exception as e:
+            return SkillResult(error=str(e), skill_used=self.id)

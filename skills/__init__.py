@@ -1,4 +1,13 @@
-# Skills package — re-exports for backwards compatibility in app.py
+"""
+skills/__init__.py — Skill-Package.
+Exportiert Trigger-Patterns für Backward Compatibility mit app.py.
+Neue Skills werden über skills.base.BaseSkill + skills.registry.SkillRegistry eingebunden.
+"""
+# Neue Skill-Infrastruktur (Kern)
+from .base import BaseSkill, SkillResult
+from .registry import SkillRegistry
+
+# Trigger-Patterns für Backward Compatibility (für altes app.py)
 from .triggers import (
     IMG_TRIGGERS,
     VIDEO_TRIGGERS,
@@ -6,6 +15,8 @@ from .triggers import (
     PROMPT_OPTIMIZE_TRIGGERS,
     PROMPT_FRAMEWORKS,
 )
+
+# Bestehende Skill-Funktionen (privat mit Underscore für Legacy)
 from .comfyui import (
     extract_img_prompt as _extract_img_prompt,
     extract_video_prompt as _extract_video_prompt,
@@ -41,3 +52,16 @@ from .linkedin_skill import (
     process_scheduled_posts as _process_linkedin_scheduled,
     LI_TRIGGERS,
 )
+
+__all__ = [
+    # Neue Infrastruktur
+    "BaseSkill",
+    "SkillResult",
+    "SkillRegistry",
+    # Trigger-Patterns (Backward Compatibility)
+    "IMG_TRIGGERS",
+    "VIDEO_TRIGGERS",
+    "IMAGE_EDIT_TRIGGERS",
+    "PROMPT_OPTIMIZE_TRIGGERS",
+    "PROMPT_FRAMEWORKS",
+]

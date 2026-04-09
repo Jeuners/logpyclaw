@@ -48,7 +48,7 @@ def call_agent_text(agent, system_suffix, user_prompt, retries: int = 2):
                         "stream": False,
                         **({"max_tokens": agent["max_tokens"]} if agent.get("max_tokens") else {}),
                     },
-                    timeout=60,
+                    timeout=360,
                 )
                 resp.raise_for_status()
                 return (resp.json()["choices"][0]["message"].get("content") or "").strip()
@@ -62,7 +62,7 @@ def call_agent_text(agent, system_suffix, user_prompt, retries: int = 2):
                         "stream": False,
                         **({"options": {"num_predict": agent["max_tokens"]}} if agent.get("max_tokens") else {}),
                     },
-                    timeout=60,
+                    timeout=360,
                 )
                 resp.raise_for_status()
                 result = resp.json()
