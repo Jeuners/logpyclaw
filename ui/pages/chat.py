@@ -83,13 +83,18 @@ def chat_page(agent_id: str):
             # Nachrichten
             messages_scroll = ui.scroll_area().style(
                 "flex: 1; min-height: 0; padding: 0;"
-            )
+            ).props("id=msg-scroll")
             with messages_scroll:
                 msg_col = ui.column().style(
                     "padding: 16px 24px; gap: 10px; "
                     "display: flex; flex-direction: column;"
                 )
                 _load_history(msg_col, agent_id)
+            # Scroll to bottom on load
+            ui.run_javascript(
+                "setTimeout(() => { const el = document.querySelector('#msg-scroll .q-scrollarea__container'); "
+                "if (el) el.scrollTop = el.scrollHeight; }, 200);"
+            )
 
             # Eingabe
             _render_input_area(agent_id, msg_col, agent)
@@ -372,6 +377,12 @@ async def _send(agent_id: str, text_input, container, uploaded_image: dict, agen
         )
 
     accumulated = []
+    # Helper: scroll to bottom
+    def _scroll_bottom():
+        ui.run_javascript(
+            "const el = document.querySelector('#msg-scroll .q-scrollarea__container');"
+            "if (el) el.scrollTop = el.scrollHeight;"
+        )
 
     try:
         if images:
@@ -442,6 +453,7 @@ async def _send(agent_id: str, text_input, container, uploaded_image: dict, agen
                                 first_chunk = False
                             accumulated.append(chunk)
                             reply_label.content = "".join(accumulated)
+                            _scroll_bottom()
 
     except Exception as e:
         try:

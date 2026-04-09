@@ -16,7 +16,8 @@ def home_page():
 
     with ui.element("div").style(
         "height: calc(100vh - 44px); overflow-y: auto; "
-        "background: #050a06; padding: 24px;"
+        "background: #050a06; padding: 24px; "
+        "width: 100%; box-sizing: border-box;"
     ):
         # ─── Header ──────────────────────────────────────────────────────────
         with ui.row().style(

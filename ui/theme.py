@@ -130,7 +130,6 @@ def apply_theme():
             width: 100% !important;
             max-width: 100% !important;
             min-height: unset !important;
-            overflow: hidden;
         }}
 
         /* NiceGUI root-Container */
