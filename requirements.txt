@@ -15,6 +15,7 @@ requests>=2.31.0            # Sync HTTP (Skills, LLM-Calls, Heartbeat)
 pydantic>=2.0.0             # Daten-Validierung
 pydantic-settings>=2.0.0    # BaseSettings + .env Support
 python-dotenv>=1.0.0        # .env Laden
+sqlmodel>=0.0.8             # SQLAlchemy + Pydantic ORM (storage/database.py)
 
 # ── Storage / Cache ────────────────────────────────────────────────────────────
 redis>=5.0.0                # A2A Event-Log (optional — App startet auch ohne Redis)

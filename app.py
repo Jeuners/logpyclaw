@@ -154,30 +154,29 @@ async def handle_generic_error(request: Request, exc: Exception):
 
 
 # ── Lifecycle ──────────────────────────────────────────────────────────────────
-@app.on_event("startup")
-async def startup():
-    logger.info("=== AGENTCLAW v2 STARTUP ===")
+from contextlib import asynccontextmanager
 
-    # SQLite initialisieren + JSON-Daten migrieren (einmalig, idempotent)
+
+@asynccontextmanager
+async def lifespan(_app):
+    # Startup
+    logger.info("=== AGENTCLAW v2 STARTUP ===")
     try:
         from storage.database import run_migrations
         run_migrations()
     except Exception as e:
         logger.warning("DB-Migration übersprungen: %s", e)
-
-    # Event-Replay: letzte 60min Events nach Restart verfügbar machen
     try:
         container.events.replay_from_disk(max_age_minutes=60)
     except Exception as e:
         logger.warning("Event-Replay übersprungen: %s", e)
-
     from core.scheduler import start_scheduler
     await start_scheduler()
     logger.info("Scheduler gestartet. Bereit auf %s:%d", settings.HOST, settings.PORT)
 
+    yield  # App läuft
 
-@app.on_event("shutdown")
-async def shutdown():
+    # Shutdown
     logger.info("=== AGENTCLAW v2 SHUTDOWN ===")
     try:
         from core.scheduler import stop_scheduler
@@ -186,12 +185,15 @@ async def shutdown():
         pass
     try:
         from core.thread_pools import shutdown_all
-        shutdown_all(wait=False)  # Nicht blockieren beim Shutdown
+        shutdown_all(wait=False)
     except Exception:
         pass
     container.tasks.save_pending()
     container.cleanup()
     logger.info("Shutdown abgeschlossen")
+
+
+app.router.lifespan_context = lifespan
 
 
 # ── Einfacher Health-Endpunkt (wird auch von health_api abgedeckt) ─────────────
