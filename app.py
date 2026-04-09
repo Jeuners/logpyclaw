@@ -1,5 +1,5 @@
 """
-app_new.py — AgentClaw v2 Einstiegspunkt.
+app.py — AgentClaw v2 Einstiegspunkt.
 NiceGUI + FastAPI. Ersetzt app.py + templates/index.html.
 
 Architektur:
@@ -28,8 +28,8 @@ if _MISSING:
     print()
     print("  python -m venv .venv")
     print("  source .venv/bin/activate")
-    print("  pip install -r requirements_new.txt")
-    print("  python app_new.py")
+    print("  pip install -r requirements.txt")
+    print("  python app.py")
     print("=" * 60)
     sys.exit(1)
 

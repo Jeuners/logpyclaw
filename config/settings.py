@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     PORT: int = 5050
     HOST: str = "0.0.0.0"
     DEBUG: bool = False
-    NATIVE_MODE: bool = True
+    NATIVE_MODE: bool = False
     SECRET_KEY: str = "change-me-in-production"
 
     # CORS Configuration

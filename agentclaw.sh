@@ -4,7 +4,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV="$SCRIPT_DIR/.venv"
-APP="$SCRIPT_DIR/app_new.py"
+APP="$SCRIPT_DIR/app.py"
 PIDFILE="$SCRIPT_DIR/.agentclaw.pid"
 LOGFILE="$SCRIPT_DIR/agentclaw.log"
 PYTHON="$VENV/bin/python"
@@ -22,7 +22,7 @@ _check_venv() {
         echo -e "${YELLOW}Einmalig ausführen:${NC}"
         echo "  python -m venv .venv"
         echo "  source .venv/bin/activate"
-        echo "  pip install -r requirements_new.txt"
+        echo "  pip install -r requirements.txt"
         exit 1
     fi
 }
@@ -58,7 +58,7 @@ _start() {
     sleep 2
     if kill -0 "$pid" 2>/dev/null; then
         echo -e "${GREEN}✓ AgentClaw gestartet (PID $pid)${NC}"
-        echo -e "  URL:   http://localhost:5001"
+        echo -e "  URL:   http://localhost:5050"
         echo -e "  Logs:  ./agentclaw.sh logs"
     else
         rm -f "$PIDFILE"
@@ -109,7 +109,7 @@ _status() {
         local pid
         pid=$(cat "$PIDFILE")
         echo -e "  Status:  ${GREEN}● läuft${NC} (PID $pid)"
-        echo -e "  URL:     http://localhost:5001"
+        echo -e "  URL:     http://localhost:5050"
         echo -e "  Log:     $LOGFILE"
         local uptime
         uptime=$(ps -o etime= -p "$pid" 2>/dev/null | tr -d ' ')
