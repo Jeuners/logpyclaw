@@ -123,6 +123,24 @@ import ui.pages.settings  # noqa: F401 — registriert @ui.page("/settings")
 from nicegui import ui    # Re-import: lokales ui/-Paket hat nicegui.ui überschrieben
 logger.info("NiceGUI Pages registriert")
 
+# ── /chat Redirect (HTTP 302 statt NiceGUI-Page) ──────────────────────────────
+from fastapi.responses import RedirectResponse
+
+@app.get("/chat")
+def chat_redirect_http():
+    """Leitet /chat zum ersten Agenten weiter (HTTP 302)."""
+    try:
+        agents = container.agents.list_all()
+        agents_sorted = sorted(
+            agents,
+            key=lambda a: (not a.get("favorite"), a.get("name", "").lower())
+        )
+        if agents_sorted:
+            return RedirectResponse(url=f"/chat/{agents_sorted[0]['id']}", status_code=302)
+    except Exception:
+        pass
+    return RedirectResponse(url="/", status_code=302)
+
 # ── Error Handler ──────────────────────────────────────────────────────────────
 from core.errors import AgentClawError
 
@@ -148,7 +166,7 @@ async def handle_generic_error(request: Request, exc: Exception):
         status_code=500,
         content={
             "error": "Interner Fehler",
-            "message": str(exc) if settings.DEBUG else "Interner Fehler",
+            "message": str(exc),  # DEBUG: immer zeigen
         },
     )
 

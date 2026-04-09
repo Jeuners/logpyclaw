@@ -10,20 +10,9 @@ from ui.theme import apply_theme
 logger = logging.getLogger(__name__)
 
 
-@ui.page("/chat")
-def chat_redirect():
-    """Chat ohne Agent-ID → zum ersten Agenten."""
-    from services import get_services
-    services = get_services()
-    agents = services.agents.list_all()
-    if agents:
-        ui.navigate.to(f"/chat/{agents[0]['id']}")
-    else:
-        ui.navigate.to("/")
-
 
 @ui.page("/chat/{agent_id}")
-async def chat_page(agent_id: str):
+def chat_page(agent_id: str):
     apply_theme()
     create_layout("chat")
 
@@ -37,12 +26,20 @@ async def chat_page(agent_id: str):
         with ui.column().classes("items-center justify-center w-full").style("height: calc(100vh - 44px)"):
             ui.icon("person_off").style("font-size: 48px; color: #3a5a3a;")
             ui.label("Agent nicht gefunden").style("color: #ef4444; font-size: 18px; margin-top: 12px;")
-            ui.button("← Zurück", on_click=lambda: ui.navigate.to("/")).props("flat").style("color: #00e676;")
+            ui.button("← Zurück", on_click=lambda: ui.run_javascript("window.location.href='/'")) \
+                .props("flat").style("color: #00e676;")
         return
 
     # ─── 2-Spalten-Layout ────────────────────────────────────────────────────
+    # Quasar .q-page auf volle Breite/Höhe setzen
+    ui.add_css("""
+        .q-page { min-height: unset !important; }
+        .q-page-container { padding-bottom: 0 !important; }
+        body > div#app > div { height: 100vh; overflow: hidden; }
+    """)
+
     with ui.element("div").style(
-        "display: flex; height: calc(100vh - 44px); overflow: hidden; gap: 0;"
+        "display: flex; width: 100%; height: calc(100vh - 44px); overflow: hidden; gap: 0;"
     ):
         # ─── Linke Sidebar: Agenten-Liste ────────────────────────────────────
         with ui.element("div").style(
@@ -121,7 +118,8 @@ def _render_sidebar_agent(agent: dict, current_agent_id: str):
         f"display: flex; align-items: center; gap: 8px; padding: 8px 8px; "
         f"border-radius: 6px; cursor: pointer; transition: background .12s; "
         f"margin-bottom: 2px; {bg_style}"
-    ).on("click", lambda _id=ag_id: ui.navigate.to(f"/chat/{_id}")):
+    ).on("click", lambda _id=ag_id: ui.run_javascript(f"window.location.href='/chat/{_id}'")):
+
         # Avatar
         ui.element("div").style(
             f"width: 30px; height: 30px; border-radius: 50%; "
@@ -240,13 +238,17 @@ def _render_input_area(agent_id: str, msg_col, agent: dict):
         "background: #070d08; flex-shrink: 0;"
     ):
         with ui.row().style("gap: 8px; align-items: flex-end;"):
-            # Upload
-            ui.upload(
-                on_upload=lambda e: _handle_upload(e, _uploaded_image),
-                auto_upload=True
-            ).props("flat dense accept='image/*' hide-upload-btn").style(
-                "width: 32px;"
-            ).tooltip("Bild anhängen")
+            # Upload als verstecktes File-Input + Icon-Button
+            with ui.element("div").style("position: relative; flex-shrink: 0;"):
+                ui.upload(
+                    on_upload=lambda e: _handle_upload(e, _uploaded_image),
+                    auto_upload=True
+                ).props("flat dense accept='image/*'") \
+                 .style("opacity: 0; position: absolute; width: 36px; height: 36px; cursor: pointer; z-index: 2;")
+                ui.button(icon="attach_file") \
+                    .props("flat dense round") \
+                    .style("color: #3a5a3a; width: 36px; height: 36px; pointer-events: none;") \
+                    .tooltip("Bild anhängen")
 
             # Texteingabe
             text_input = ui.textarea(placeholder="Nachricht… (Ctrl+Enter senden)") \
@@ -303,6 +305,10 @@ def _load_history(container, agent_id: str):
 
 def _render_message(role: str, content: str, image=None, skill=None):
     """Rendert eine einzelne Nachricht im Chat-Stil."""
+    # Leere Nachrichten überspringen
+    if not content and not image:
+        return
+
     is_user = role == "user"
     align = "flex-end" if is_user else "flex-start"
     bubble_style = (
@@ -316,7 +322,7 @@ def _render_message(role: str, content: str, image=None, skill=None):
 
     with ui.element("div").style(
         f"display: flex; flex-direction: column; gap: 3px; "
-        f"max-width: 820px; align-self: {align}; align-items: {align};"
+        f"max-width: 820px; align-self: {align}; align-items: {align}; width: 100%;"
     ):
         # Meta
         skill_text = f" · {skill}" if skill else ""
@@ -473,18 +479,18 @@ def _clear_history(agent_id: str):
     from services import get_services
     services = get_services()
     services.agents.clear_history(agent_id)
-    ui.navigate.reload()
+    ui.run_javascript("window.location.reload()")
     ui.notify("History gelöscht", type="positive")
 
 
 def _edit_agent(agent: dict):
     from ui.dialogs.agent_form import AgentFormDialog
-    AgentFormDialog(agent=agent, on_save=lambda: ui.navigate.reload())
+    AgentFormDialog(agent=agent, on_save=lambda: ui.run_javascript("window.location.reload()"))
 
 
 def _show_create_dialog():
     from ui.dialogs.agent_form import AgentFormDialog
-    AgentFormDialog(on_save=lambda: ui.navigate.reload())
+    AgentFormDialog(on_save=lambda: ui.run_javascript("window.location.reload()"))
 
 
 def _show_task_monitor():

@@ -119,7 +119,25 @@ def apply_theme():
         }}
 
         /* ─── Layout ─────────────────────────────────────── */
-        .q-page-container {{ padding-top: 44px !important; }}
+        .q-page-container {{
+            padding-top: 44px !important;
+            padding-bottom: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+        }}
+
+        .q-page {{
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: unset !important;
+            overflow: hidden;
+        }}
+
+        /* NiceGUI root-Container */
+        #app, #app > div, .q-layout {{
+            width: 100% !important;
+            max-width: 100% !important;
+        }}
 
         .ac-layout {{
             display: flex;

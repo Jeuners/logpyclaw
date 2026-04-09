@@ -172,7 +172,8 @@ def _render_agent_card(agent: dict):
         f"background: #070d08; border: 1px solid #0f2010; border-radius: 8px; "
         f"cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .1s; "
         f"padding: 16px; {fav_border} {fav_glow}"
-    ).classes("agent-home-card").on("click", lambda _id=ag_id: ui.navigate.to(f"/chat/{_id}")):
+    ).classes("agent-home-card").on("click", lambda _id=ag_id: ui.run_javascript(f"window.location.href='/chat/{_id}'")):
+
 
         # ─── Karten-Header ─────────────────────────────────────────────────
         with ui.row().style("align-items: flex-start; gap: 12px; margin-bottom: 12px;"):
@@ -256,4 +257,4 @@ def _render_agent_card(agent: dict):
 
 def _show_create_dialog():
     from ui.dialogs.agent_form import AgentFormDialog
-    AgentFormDialog(on_save=lambda: ui.navigate.reload())
+    AgentFormDialog(on_save=lambda: ui.run_javascript("window.location.reload()"))
