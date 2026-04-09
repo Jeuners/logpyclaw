@@ -18,6 +18,9 @@ server.log
 # Backups (Laufzeit-generiert)
 backups/
 
+# Uploads (Laufzeit-generiert, können groß sein)
+static/uploads/
+
 # py2app Build-Artefakte
 build/
 dist/
