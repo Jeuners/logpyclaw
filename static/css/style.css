@@ -1376,13 +1376,22 @@ input.color-custom {
   padding: 3px 9px;
   border-radius: 5px;
   border: 1px solid var(--cyan);
-  background: transparent;
+  background: rgba(0,188,212,0.07);
   color: var(--cyan);
   font-size: 11px;
   font-family: var(--mono);
   cursor: pointer;
-  animation: blink 0.7s infinite;
+  transition: background .15s, border-color .15s, color .15s;
+  animation: blink 1s ease-in-out infinite;
+  flex-shrink: 0;
 }
+.tts-stop-btn:hover {
+  background: rgba(239,68,68,0.12);
+  border-color: #ef4444;
+  color: #ef4444;
+  animation: none;
+}
+/* wird via JS style.display gesetzt — .active bleibt als Fallback */
 .tts-stop-btn.active { display: flex; }
 
 

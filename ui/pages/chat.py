@@ -311,6 +311,10 @@ def chat_page(agent_id: str):
                                     </button>
                                 </div>
                                 <div class="ac-composer-right">
+                                    <button id="ac-tts-stop" class="tts-stop-btn" title="Audio-Ausgabe stoppen" style="display:none">
+                                        <span class="material-icons" style="font-size:13px">stop_circle</span>
+                                        Stopp
+                                    </button>
                                     {model_chip}
                                     <button id="ac-send-btn">
                                         <span class="material-icons" style="font-size:14px">arrow_upward</span>
@@ -354,7 +358,17 @@ def chat_page(agent_id: str):
     livelog_script = f'<script src="/static/js/livelog.js?v={_v}"></script>' if settings.LIVELOG else ''
     ui.add_head_html(f"""<script>window._acConfig = {{ agentId: {escaped_agent_id}, agentName: {escaped_agent_name}, agentVoice: {escaped_agent_voice} }};</script>
 <script src="/static/js/chat.js?v={_v}"></script>
-{livelog_script}""")
+{livelog_script}
+<script>
+document.addEventListener('DOMContentLoaded', function() {{
+    var stopBtn = document.getElementById('ac-tts-stop');
+    if (stopBtn) {{
+        stopBtn.addEventListener('click', function() {{
+            if (window._acTts) window._acTts.stop();
+        }});
+    }}
+}});
+</script>""")
 
 
 # ─── History als HTML rendern ────────────────────────────────────────────────

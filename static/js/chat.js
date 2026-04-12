@@ -14,6 +14,34 @@ const _agentId = _cfg.agentId || '';
 const _agentName = _cfg.agentName || '';
 const _agentVoice = _cfg.agentVoice || '';
 
+// ─── Globaler TTS-Controller — stoppt alle Audio-Ausgaben auf einmal ─────────
+window._acTts = (function() {
+    let _speaking = false;
+    let _audio = null;   // laufendes Audio-Element (Server-TTS)
+
+    function _setSpeaking(on) {
+        _speaking = on;
+        const btn = document.getElementById('ac-tts-stop');
+        if (btn) btn.style.display = on ? 'flex' : 'none';
+    }
+
+    function stop() {
+        // Web Speech API stoppen
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        // Server-Audio stoppen
+        if (_audio) { _audio.pause(); _audio = null; }
+        _setSpeaking(false);
+    }
+
+    return {
+        stop,
+        setSpeaking: _setSpeaking,
+        get speaking() { return _speaking; },
+        get audio() { return _audio; },
+        set audio(a) { _audio = a; },
+    };
+})();
+
 // ─── TTS via Web Speech API (nur für mac:-Stimmen) ───────────────────────────
 window._acSpeak = (function() {
     // Gecachte Stimmen-Liste (wird nach onvoiceschanged befüllt)
@@ -24,45 +52,37 @@ window._acSpeak = (function() {
     }
 
     if (window.speechSynthesis) {
-        // Stimmen können verzögert verfügbar sein → onvoiceschanged abonnieren
         window.speechSynthesis.onvoiceschanged = _loadVoices;
         _loadVoices();
     }
 
     return function speakText(text, voiceName) {
         if (!window.speechSynthesis || !text) return;
-        // Markdown-Syntax entfernen
         const clean = text
-            .replace(/```[\s\S]*?```/g, '')       // Code-Blöcke komplett entfernen
-            .replace(/`[^`]*`/g, '')               // Inline-Code entfernen
-            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Links → nur Linktext
-            .replace(/[#*_~>|\\]/g, '')            // Sonderzeichen
-            .replace(/\s{2,}/g, ' ')               // Mehrfach-Leerzeichen
+            .replace(/```[\s\S]*?```/g, '')
+            .replace(/`[^`]*`/g, '')
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+            .replace(/[#*_~>|\\]/g, '')
+            .replace(/\s{2,}/g, ' ')
             .trim();
         if (!clean) return;
-        // Auf 500 Zeichen kürzen (speechSynthesis-Limit beachten)
         const short = clean.length > 500 ? clean.substring(0, 497) + '...' : clean;
         const utter = new SpeechSynthesisUtterance(short);
-        // Stimme suchen — falls Voices noch nicht geladen, nochmal versuchen
         if (_voices.length === 0) _loadVoices();
         const match = _voices.find(v => v.name === voiceName);
-        if (match) {
-            utter.voice = match;
-            utter.lang = match.lang || 'de-DE';
-        } else {
-            utter.lang = 'de-DE';
-        }
+        if (match) { utter.voice = match; utter.lang = match.lang || 'de-DE'; }
+        else { utter.lang = 'de-DE'; }
         utter.rate = 1.0;
-        window.speechSynthesis.cancel(); // Laufende Ausgabe abbrechen
+        utter.onend   = () => window._acTts.setSpeaking(false);
+        utter.onerror = () => window._acTts.setSpeaking(false);
+        window.speechSynthesis.cancel();
+        window._acTts.setSpeaking(true);
         window.speechSynthesis.speak(utter);
     };
 })();
 
 // ─── Server-TTS (Mistral Voxtral / Google Cloud) ─────────────────────────────
 window._acServerSpeak = (function() {
-    let _currentAudio = null;
-
-    // Markdown-Syntax entfernen (gleiche Logik wie _acSpeak)
     function _cleanText(text) {
         return text
             .replace(/```[\s\S]*?```/g, '')
@@ -78,10 +98,7 @@ window._acServerSpeak = (function() {
         const clean = _cleanText(text);
         if (!clean) return;
         // Laufende Wiedergabe stoppen
-        if (_currentAudio) {
-            _currentAudio.pause();
-            _currentAudio = null;
-        }
+        window._acTts.stop();
         try {
             const resp = await fetch('/api/tts', {
                 method: 'POST',
@@ -91,11 +108,14 @@ window._acServerSpeak = (function() {
             if (!resp.ok || resp.status === 204) return;
             const blob = await resp.blob();
             const url = URL.createObjectURL(blob);
-            _currentAudio = new Audio(url);
-            _currentAudio.onended = () => URL.revokeObjectURL(url);
-            _currentAudio.play().catch(() => {});
+            const audio = new Audio(url);
+            audio.onended = () => { URL.revokeObjectURL(url); window._acTts.setSpeaking(false); };
+            audio.onerror = () => { URL.revokeObjectURL(url); window._acTts.setSpeaking(false); };
+            window._acTts.audio = audio;
+            window._acTts.setSpeaking(true);
+            audio.play().catch(() => window._acTts.setSpeaking(false));
         } catch(e) {
-            // TTS-Fehler still ignorieren — Chat läuft trotzdem
+            window._acTts.setSpeaking(false);
         }
     };
 })();
