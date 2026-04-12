@@ -101,8 +101,10 @@ class ChatService:
         except Exception:
             pass
 
-        # 5. A2A-Mentions dispatchen + Display-Reply bereinigen
-        dispatches = self._dispatch_mentions(agent, reply)
+        # 5. A2A-Mentions dispatchen + Display-Reply bereinigen (images/attachment weitergeben)
+        dispatches = self._dispatch_mentions(agent, reply,
+                                             images=images,
+                                             attachment_path=attachment_path)
         from core.a2a_protocol import strip_a2a_for_display
         display_reply = strip_a2a_for_display(reply) if dispatches else reply
 
@@ -128,24 +130,31 @@ class ChatService:
         """
         Dispatcher-Interface für TaskService:
         Prüft zuerst Skill-Match, fällt sonst auf LLM zurück mit vollständigem Kontext.
+        Bilder und Attachment-Pfade aus dem Task werden an Skill und LLM weitergegeben.
         Gibt SkillResult oder dict zurück.
         """
         from storage.providers import load_providers as _lp
         providers = _lp()
         message = task.get("message", "")
 
-        # Skill-Check
-        skill_result = self._try_skill(agent, message, None, None, providers)
+        # Bilder aus Task oder context_image zusammensammeln
+        images: list[str] | None = task.get("images") or None
+        if not images and task.get("context_image"):
+            images = [task["context_image"]]
+        attachment_path: str | None = task.get("attachment_path") or None
+
+        # Skill-Check (mit images + attachment_path aus dem Task)
+        skill_result = self._try_skill(agent, message, images, attachment_path, providers)
         if skill_result:
             return skill_result
 
-        # LLM mit vollständigem Kontext (Agent-Directory, Skills, History)
+        # LLM mit vollständigem Kontext (Agent-Directory, Skills, History, Bilder)
         from storage.history import load_history
         history_data = load_history()
         agent_history = history_data.get(agent["id"], [])
-        reply = self._call_llm(agent, message, agent_history, None, providers)
+        reply = self._call_llm(agent, message, agent_history, images, providers)
 
-        # A2A-Delegates aus der Antwort dispatchen (mit korrekter Depth)
+        # A2A-Delegates aus der Antwort dispatchen (Bilder/Attachments weitergeben)
         self._dispatch_mentions(agent, reply, current_task=task)
         return {"result_text": reply, "skill_used": "llm"}
 
@@ -229,9 +238,13 @@ class ChatService:
         save_history(history)
 
     def _dispatch_mentions(self, sender_agent, reply: str,
-                           current_task: dict | None = None) -> list:
+                           current_task: dict | None = None,
+                           images: list | None = None,
+                           attachment_path: str | None = None) -> list:
         """
         @AgentName-Mentions aus Reply als A2A-Tasks dispatchen.
+        images + attachment_path werden an alle Dispatches weitergegeben,
+        damit Dateianhänge des Users auch beim Ziel-Agenten ankommen.
         Gibt die Liste der A2ADispatch-Objekte zurück (für Display-Bereinigung).
         """
         if not self._task_service:
@@ -239,14 +252,28 @@ class ChatService:
         from core.a2a_protocol import parse_a2a_dispatches
         all_agents = load_agents()
         sender_depth = current_task.get("delegation_depth", 0) if current_task else 0
+
+        # Bilder aus dem aktuellen Task-Kontext übernehmen (falls keine expliziten images)
+        if not images and current_task:
+            images = current_task.get("images") or []
+            if not images and current_task.get("context_image"):
+                images = [current_task["context_image"]]
+        if not attachment_path and current_task:
+            attachment_path = current_task.get("attachment_path", "")
+
         dispatches = parse_a2a_dispatches(reply, sender_agent, all_agents,
                                           sender_delegation_depth=sender_depth)
         for dispatch in dispatches:
+            if images:
+                dispatch.images = list(images)
+            if attachment_path:
+                dispatch.attachment_path = attachment_path
             task = dispatch.to_task_dict()
             dispatch.metadata["task_id"] = task["id"]   # task_id für Rückverfolgung
             self._task_service.enqueue(task)
-            logger.info("A2A-Task dispatched: @%s ← '%s...'",
-                        dispatch.recipient_name, dispatch.task_text[:60])
+            logger.info("A2A-Task dispatched: @%s ← '%s...' (images=%d, attachment=%s)",
+                        dispatch.recipient_name, dispatch.task_text[:60],
+                        len(dispatch.images), bool(dispatch.attachment_path))
         return dispatches
 
     def _detect_and_dispatch_chain(self, agent: dict, message: str) -> dict | None:

@@ -37,12 +37,14 @@ class A2ADispatch:
     priority: int = 5           # 0=niedrig, 10=kritisch; User-Chat=8, Heartbeat=3
     delegation_depth: int = 1
     timeout_secs: int = 1210
+    images: list = field(default_factory=list)        # base64-Bilder weitergeben
+    attachment_path: str = ""                          # Dateipfad weitergeben
     metadata: dict = field(default_factory=dict)
 
     def to_task_dict(self) -> dict:
         """Konvertiert zu Task-Dict kompatibel mit TaskService.enqueue()."""
         now = datetime.now()
-        return {
+        d = {
             "id": str(uuid.uuid4()),
             "sender_agent_id": self.sender_id,
             "sender_agent_name": self.sender_name,
@@ -59,6 +61,11 @@ class A2ADispatch:
             "delegation_depth": self.delegation_depth,
             "priority": self.priority,
         }
+        if self.images:
+            d["images"] = self.images
+        if self.attachment_path:
+            d["attachment_path"] = self.attachment_path
+        return d
 
 
 def parse_a2a_dispatches(
