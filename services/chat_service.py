@@ -618,27 +618,43 @@ class ChatService:
                 pass
 
             # A2A-Dispatchen + Display bereinigen
-            dispatches = self._dispatch_mentions(agent, reply)
-            from core.a2a_protocol import strip_a2a_for_display
-            display_reply = strip_a2a_for_display(reply) if dispatches else reply
-
-            if display_reply:
-                self._events.emit_chat_message(agent_id, "assistant", display_reply)
-            for d in dispatches:
-                self._events.emit_a2a_dispatch(
-                    agent["id"], agent["name"],
-                    d.recipient_name, d.task_text,
-                )
-
-            # Sentinel für die API: a2a_dispatches + display_reply
-            yield {
-                "__a2a__": True,
-                "display_reply": display_reply,
-                "a2a_dispatches": [
-                    {"recipient_name": d.recipient_name, "task_text": d.task_text, "task_id": d.metadata.get("task_id", "")}
-                    for d in dispatches
-                ],
-            }
+            # TASKLIST hat Vorrang vor @Mentions
+            from core.task_list import has_task_list, strip_task_list
+            if has_task_list(reply):
+                tl_dispatches = self._dispatch_task_list(agent, reply)
+                display_reply = strip_task_list(reply)
+                if display_reply:
+                    self._events.emit_chat_message(agent_id, "assistant", display_reply)
+                for item in tl_dispatches:
+                    self._events.emit_a2a_dispatch(
+                        agent["id"], agent["name"], item.recipient_name, item.task_text,
+                    )
+                yield {
+                    "__a2a__": True,
+                    "display_reply": display_reply,
+                    "a2a_dispatches": [
+                        {"recipient_name": i.recipient_name, "task_text": i.task_text}
+                        for i in tl_dispatches
+                    ],
+                }
+            else:
+                dispatches = self._dispatch_mentions(agent, reply)
+                from core.a2a_protocol import strip_a2a_for_display
+                display_reply = strip_a2a_for_display(reply) if dispatches else reply
+                if display_reply:
+                    self._events.emit_chat_message(agent_id, "assistant", display_reply)
+                for d in dispatches:
+                    self._events.emit_a2a_dispatch(
+                        agent["id"], agent["name"], d.recipient_name, d.task_text,
+                    )
+                yield {
+                    "__a2a__": True,
+                    "display_reply": display_reply,
+                    "a2a_dispatches": [
+                        {"recipient_name": d.recipient_name, "task_text": d.task_text, "task_id": d.metadata.get("task_id", "")}
+                        for d in dispatches
+                    ],
+                }
 
     def _build_messages(
         self,
