@@ -359,10 +359,10 @@ class ChatService:
         if not attachment_path and current_task:
             attachment_path = current_task.get("attachment_path", "")
 
-        # Lokale ID → System-Task-ID Mapping (für depends_on Auflösung)
-        local_to_system: dict[str, str] = {}
+        # line_index → System-Task-ID (für [after: N] Auflösung)
+        line_to_task_id: dict[int, str] = {}
 
-        # Für implizite Sequenzierung: letzter Task pro Empfänger
+        # Letzter Task-ID pro Empfänger (für implizite Sequenzierung)
         last_per_recipient: dict[str, str] = {}
 
         enqueued: list = []
@@ -375,32 +375,37 @@ class ChatService:
             item.sender_id = sender_agent.get("id", "")
             item.sender_name = sender_agent.get("name", "")
 
-            # Abhängigkeiten auflösen
             depends_on: list[str] = []
 
-            # Explizite "after"-Abhängigkeit
-            if item.after and item.after in local_to_system:
-                depends_on.append(local_to_system[item.after])
+            # Explizit: [after: N] → wartet auf Task an Zeile N
+            if item.after_line >= 0:
+                prev_id = line_to_task_id.get(item.after_line)
+                if prev_id:
+                    depends_on.append(prev_id)
+                else:
+                    logger.warning(
+                        "TASKLIST: [after: %d] nicht auflösbar (Zeile noch nicht verarbeitet)",
+                        item.after_line,
+                    )
 
-            # Implizite Sequenzierung: selber Agent ohne explicit after + nicht parallel
-            if not item.after and not item.parallel:
-                prev = last_per_recipient.get(item.recipient_id)
-                if prev:
-                    depends_on.append(prev)
+            # Implizit: kein after + nicht parallel → wartet auf letzten Task desselben Agenten
+            elif not item.parallel:
+                prev_id = last_per_recipient.get(item.recipient_id)
+                if prev_id:
+                    depends_on.append(prev_id)
 
             task_id = str(__import__("uuid").uuid4())
             task = item.to_task_dict(system_task_id=task_id, depends_on=depends_on)
 
-            # System-Task-ID registrieren für spätere "after"-Referenzen
-            local_to_system[item.local_id] = task_id
+            line_to_task_id[item.line_index] = task_id
             last_per_recipient[item.recipient_id] = task_id
 
             self._task_service.enqueue(task)
             enqueued.append(item)
             logger.info(
-                "TASKLIST dispatched: @%s ← '%s...' (depends_on=%s)",
-                item.recipient_name, item.task_text[:60],
-                [d[:8] for d in depends_on],
+                "TASKLIST dispatched: @%s ← '%s...' (line=%d, depends_on=%s)",
+                item.recipient_name, item.task_text[:50],
+                item.line_index, [d[:8] for d in depends_on],
             )
 
         return enqueued
