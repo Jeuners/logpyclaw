@@ -8,9 +8,31 @@ from nicegui import ui
 logger = logging.getLogger(__name__)
 
 
+_QDRANT_DOT_JS = """
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const r = await fetch('/api/health');
+    const data = await r.json();
+    const dot = document.getElementById('qdrant-status-dot');
+    if (!dot) return;
+    if (data.qdrant === 'ok') {
+      dot.style.background = '#00e676';
+      dot.title = 'Qdrant: erreichbar';
+    } else {
+      dot.style.background = '#ef4444';
+      dot.title = 'Qdrant: nicht erreichbar';
+    }
+  } catch(e) {}
+});
+</script>
+"""
+
+
 def create_layout(page_name: str = "home"):
     """Erstellt den Header. Muss am Anfang jeder Page aufgerufen werden."""
     ui.dark_mode(True)
+    ui.add_head_html(_QDRANT_DOT_JS)
 
     with ui.header().classes("items-center justify-between px-3 py-0").style(
         "height: 44px; min-height: 44px; background: #070d08; "
@@ -33,6 +55,12 @@ def create_layout(page_name: str = "home"):
 
         # Rechte Seite
         with ui.row().classes("items-center gap-1 ml-auto shrink-0"):
+            ui.html(
+                '<span id="qdrant-status-dot" title="Qdrant Memory: prüfe..." '
+                'style="width:8px;height:8px;border-radius:50%;background:#3a5a3a;'
+                'display:inline-block;margin-right:2px;flex-shrink:0;'
+                'transition:background .4s;cursor:default"></span>'
+            )
             _icon_link("memory",  "/memory",  "Memory")
             _icon_link("backup",  "/backup",  "Backup")
             _icon_link("hub",     "/network", "M2M Netzwerk")

@@ -34,68 +34,214 @@ def settings_page():
 
 def _render_providers():
     from services import get_services
-    from storage.providers import save_providers
     services = get_services()
     providers = services.agents.get_providers()
 
+    CHECKABLE = {"ollama", "mistral", "openrouter", "qdrant"}
+
     provider_configs = [
-        ("ollama", "Ollama", [("url", "Server URL", "http://localhost:11434")]),
-        ("openrouter", "OpenRouter", [("api_key", "API Key", "sk-or-...")]),
-        ("mistral", "Mistral AI", [("api_key", "API Key", "...")]),
-        ("google_api", "Google API", [("api_key", "API Key", "...")]),
-        ("telegram", "Telegram", [
+        ("ollama",     "Ollama",           "🖥",  [("url",          "Server URL",   "http://localhost:11434")]),
+        ("openrouter", "OpenRouter",        "🔀",  [("api_key",      "API Key",      "sk-or-...")]),
+        ("mistral",    "Mistral AI",        "⚡",  [("api_key",      "API Key",      "...")]),
+        ("google_api", "Google API",        "🔍",  [("api_key",      "API Key",      "...")]),
+        ("telegram",   "Telegram",          "✈",  [
             ("bot_token", "Bot Token", "123456:ABC..."),
-            ("chat_id", "Chat ID", "-100..."),
+            ("chat_id",   "Chat ID",   "-100..."),
         ]),
-        ("gmail", "Gmail", [
-            ("email", "E-Mail", "user@gmail.com"),
-            ("app_password", "App-Passwort", "xxxx xxxx xxxx xxxx"),
+        ("gmail",      "Gmail",             "📧",  [
+            ("email",        "E-Mail",        "user@gmail.com"),
+            ("app_password", "App-Passwort",  "xxxx xxxx xxxx xxxx"),
         ]),
-        ("comfyui", "ComfyUI", [
-            ("url", "Server URL", "http://localhost:8188"),
-            ("model", "Modell", "flux2pro"),
+        ("comfyui",    "ComfyUI",           "🎨",  [
+            ("url",   "Server URL", "http://localhost:8188"),
+            ("model", "Modell",     "flux2pro"),
         ]),
-        ("qdrant", "Qdrant (Memory)", [("url", "Server URL", "http://localhost:6333")]),
+        ("qdrant",     "Qdrant (Memory)",   "🧠",  [("url", "Server URL", "http://localhost:6333")]),
     ]
 
-    for provider_id, title, fields in provider_configs:
+    # Gesamte Provider-UI als HTML — kein NiceGUI on_click nötig
+    S = "background:#0a1a0c;color:#b8d4b8;border:1px solid #182e18;border-radius:6px;padding:8px 12px;font-size:13px;width:100%;box-sizing:border-box"
+
+    cards_html = '<div style="display:flex;flex-direction:column;gap:12px">'
+    for provider_id, title, icon, fields in provider_configs:
         cfg = providers.get(provider_id, {})
-        with ui.expansion(title).classes("w-full"):
-            with ui.column().classes("w-full gap-3 p-2"):
-                inputs = {}
-                for field_id, label, placeholder in fields:
-                    is_secret = "key" in field_id.lower() or "password" in field_id.lower() or "token" in field_id.lower()
-                    val = cfg.get(field_id, "")
-                    inp = ui.input(
-                        label=label,
-                        value=val,
-                        placeholder=placeholder,
-                        password=is_secret,
-                        password_toggle_button=is_secret,
-                    ).classes("w-full")
-                    inputs[field_id] = inp
+        checkable = provider_id in CHECKABLE
 
-                def save_provider(pid=provider_id, inp_refs=inputs):
-                    p = services.agents.get_providers()
-                    if pid not in p:
-                        p[pid] = {}
-                    for fid, inp_ref in inp_refs.items():
-                        p[pid][fid] = inp_ref.value
-                    save_providers(p)
-                    ui.notify(f"{title} gespeichert", type="positive")
+        status_html = ""
+        if checkable:
+            status_html = (
+                f'<span id="pstatus-{provider_id}" style="display:inline-flex;align-items:center;'
+                f'gap:5px;font-size:11px;color:#3a5a3a;margin-left:auto">'
+                f'<span style="width:7px;height:7px;border-radius:50%;background:#3a5a3a;display:inline-block"></span>'
+                f'prüfe…</span>'
+            )
 
-                ui.button("Speichern", on_click=save_provider) \
-                    .props("flat").classes("text-[#00e676] mt-2")
+        fields_html = ""
+        for field_id, label, placeholder in fields:
+            is_secret = any(k in field_id.lower() for k in ("key", "password", "token"))
+            val = cfg.get(field_id, "")
+            input_type = "password" if is_secret else "text"
+            toggle = (
+                f'<button type="button" onclick="togglePwd(this)" '
+                f'style="position:absolute;right:10px;top:50%;transform:translateY(-50%);'
+                f'background:none;border:none;color:#3a5a3a;cursor:pointer;font-size:13px">👁</button>'
+            ) if is_secret else ""
+            fields_html += f"""
+              <div style="margin-bottom:10px">
+                <label style="font-size:11px;font-weight:700;color:#b8d4b8;
+                    text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">
+                  {label}
+                </label>
+                <div style="position:relative">
+                  <input id="pf-{provider_id}-{field_id}" type="{input_type}"
+                    value="{val}" placeholder="{placeholder}"
+                    style="{S}{';padding-right:36px' if is_secret else ''}">
+                  {toggle}
+                </div>
+              </div>"""
+
+        cards_html += f"""
+        <details style="border:1px solid #182e18;border-radius:10px;overflow:hidden">
+          <summary style="display:flex;align-items:center;gap:10px;padding:12px 16px;
+              cursor:pointer;background:#0a1a0c;list-style:none;user-select:none;
+              font-size:14px;font-weight:600;color:#b8d4b8">
+            <span style="font-size:18px">{icon}</span>
+            {title}
+            {status_html}
+          </summary>
+          <div style="padding:16px;background:#070d08;border-top:1px solid #182e18">
+            {fields_html}
+            <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
+              <button onclick="saveProvider('{provider_id}')"
+                  style="padding:7px 20px;border-radius:6px;background:#00e676;color:#000;
+                      font-size:13px;font-weight:600;border:none;cursor:pointer">
+                Speichern
+              </button>
+              <span id="pmsg-{provider_id}" style="font-size:12px;color:#3a5a3a"></span>
+            </div>
+          </div>
+        </details>"""
+
+    cards_html += "</div>"
+    ui.html(cards_html)
+
+    ui.add_head_html("""<script>
+function togglePwd(btn) {
+    var inp = btn.previousElementSibling;
+    if (!inp) return;
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+    btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
+function saveProvider(pid) {
+    // Alle Felder dieses Providers einsammeln
+    var data = {};
+    document.querySelectorAll('[id^="pf-' + pid + '-"]').forEach(function(inp) {
+        var fieldId = inp.id.replace('pf-' + pid + '-', '');
+        data[fieldId] = inp.value;
+    });
+
+    var msg = document.getElementById('pmsg-' + pid);
+    if (msg) { msg.textContent = 'Speichere…'; msg.style.color = '#3a5a3a'; }
+
+    fetch('/api/providers', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({[pid]: data})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function() {
+        if (msg) { msg.textContent = '✓ Gespeichert'; msg.style.color = '#00e676'; }
+        setTimeout(function() { if (msg) msg.textContent = ''; }, 3000);
+        loadProviderStatus();
+    })
+    .catch(function(e) {
+        if (msg) { msg.textContent = '✗ Fehler: ' + e.message; msg.style.color = '#ef4444'; }
+    });
+}
+
+function loadProviderStatus() {
+    fetch('/api/providers/status')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        Object.keys(data).forEach(function(pid) {
+            var el = document.getElementById('pstatus-' + pid);
+            if (!el) return;
+            var info = data[pid];
+            var ok = info.ok;
+            var noKey = !ok && info.info && info.info.indexOf('Kein') !== -1;
+            var color = ok ? '#00e676' : (noKey ? '#ffa726' : '#ef4444');
+            var label = ok ? 'verbunden' : (noKey ? 'kein Key' : 'nicht erreichbar');
+            if (info.info) label += ' — ' + info.info;
+            var dot = el.querySelector('span');
+            if (dot) dot.style.background = color;
+            el.style.color = color;
+            el.childNodes[1] && (el.childNodes[1].textContent = ' ' + label);
+            el.lastChild.textContent = label;
+        });
+    })
+    .catch(function() {});
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(loadProviderStatus, 500);
+});
+</script>""")
 
 
 def _render_app_settings():
     from config.settings import settings
-    with ui.column().classes("gap-4"):
-        ui.label(f"Port: {settings.PORT}").classes("text-gray-400")
-        ui.label(f"Native Mode: {settings.NATIVE_MODE}").classes("text-gray-400")
-        ui.label(f"Debug: {settings.DEBUG}").classes("text-gray-400")
+    from ui.theme import list_themes
+
+    # Theme-Picker
+    ui.label("Theme").style("font-size:14px;font-weight:700;color:#b8d4b8;margin-bottom:8px")
+    themes = list_themes()
+
+    theme_html_parts = []
+    for t in themes:
+        active_style = "border:2px solid " + t["primary"] + ";" if t["active"] else "border:2px solid #182e18;"
+        active_label = " ✓" if t["active"] else ""
+        theme_html_parts.append(
+            f'<button onclick="setTheme(\'{t["id"]}\')" '
+            f'style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 16px;'
+            f'border-radius:10px;background:{t["bg"]};{active_style}cursor:pointer;'
+            f'min-width:120px;transition:border-color .2s" id="theme-btn-{t["id"]}">'
+            f'<div style="width:32px;height:32px;border-radius:50%;background:{t["primary"]}"></div>'
+            f'<span style="font-size:12px;color:#b8d4b8;font-weight:500">{t["name"]}{active_label}</span>'
+            f'</button>'
+        )
+
+    ui.html(
+        '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:24px">'
+        + "".join(theme_html_parts) +
+        '</div>'
+        '<div id="theme-msg" style="font-size:12px;color:#3a5a3a;margin-bottom:16px"></div>'
+    )
+
+    ui.add_head_html("""<script>
+function setTheme(name) {
+    fetch('/api/themes/' + name, {method: 'PUT'})
+        .then(function(r) { return r.json(); })
+        .then(function() {
+            document.getElementById('theme-msg').textContent = 'Theme gespeichert — Seite neu laden zum Anwenden.';
+            document.getElementById('theme-msg').style.color = '#00e676';
+        })
+        .catch(function() {
+            document.getElementById('theme-msg').textContent = 'Fehler beim Speichern.';
+            document.getElementById('theme-msg').style.color = '#ef4444';
+        });
+}
+</script>""")
+
+    ui.separator().classes("my-4")
+    ui.label("App-Konfiguration").style("font-size:14px;font-weight:700;color:#b8d4b8;margin-bottom:8px")
+    with ui.column().classes("gap-2"):
+        ui.label(f"Port: {settings.PORT}").style("color:#6b7280;font-size:13px")
+        ui.label(f"Native Mode: {settings.NATIVE_MODE}").style("color:#6b7280;font-size:13px")
+        ui.label(f"Debug: {settings.DEBUG}").style("color:#6b7280;font-size:13px")
+        ui.label(f"Livelog: {settings.LIVELOG}").style("color:#6b7280;font-size:13px")
         ui.label("Konfiguration über .env Datei im Projektordner ändern.") \
-            .classes("text-gray-500 text-sm italic")
+            .style("color:#3a5a3a;font-size:12px;font-style:italic;margin-top:4px")
 
 
 def _render_debug():

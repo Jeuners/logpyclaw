@@ -84,6 +84,70 @@ def list_tasks(status: str | None = None):
     return {"tasks": tasks, "count": len(tasks)}
 
 
+class ChainStepRequest(BaseModel):
+    agent_id: str
+    message: str
+
+
+class ChainRequest(BaseModel):
+    sender_agent_id: str = Field(default="user")
+    sender_agent_name: str = Field(default="User")
+    steps: list[ChainStepRequest] = Field(..., min_length=2)
+
+
+@router.post("/a2a/chain", status_code=202)
+def dispatch_chain(req: ChainRequest):
+    """
+    Erstellt eine sequentielle Task-Chain: Schritt i+1 wartet auf Schritt i.
+    Das Ergebnis von Schritt i wird automatisch als Kontext an Schritt i+1 übergeben.
+    """
+    services = get_services()
+    now = datetime.now()
+    task_ids = []
+    chain_steps = []
+
+    for i, step in enumerate(req.steps):
+        agent = services.agents.get(step.agent_id)
+        if not agent:
+            raise HTTPException(404, f"Agent {step.agent_id} nicht gefunden (Schritt {i+1})")
+
+        task_id = str(uuid.uuid4())
+        depends_on = [task_ids[-1]] if task_ids else []
+        task = {
+            "id": task_id,
+            "sender_agent_id": req.sender_agent_id,
+            "sender_agent_name": req.sender_agent_name,
+            "recipient_agent_id": agent["id"],
+            "recipient_agent_name": agent["name"],
+            "message": step.message,
+            "skill_used": None,
+            "result_text": None,
+            "result_image": None,
+            "error": None,
+            "created_at": now.isoformat(),
+            "completed_at": None,
+            "timeout_at": (now + timedelta(seconds=1800)).isoformat(),
+            "delegation_depth": 0,
+            "depends_on": depends_on,
+            "chain_index": i,
+            "chain_total": len(req.steps),
+        }
+        services.tasks.enqueue(task)
+        task_ids.append(task_id)
+        chain_steps.append({
+            "step": i + 1,
+            "task_id": task_id,
+            "agent_name": agent["name"],
+            "message": step.message,
+        })
+
+    return {
+        "chain_length": len(req.steps),
+        "task_ids": task_ids,
+        "steps": chain_steps,
+    }
+
+
 @router.post("/a2a/tasks/{task_id}/cancel", status_code=204)
 def cancel_task(task_id: str):
     services = get_services()
@@ -97,6 +161,34 @@ def get_events(since: int = 0):
     services = get_services()
     events = services.events.get_since(since)
     return {"events": events}
+
+
+@router.get("/logs/stream")
+async def stream_logs(since: int = 0):
+    """SSE-Stream für Live-Log Events. Pollt alle 1s den EventService."""
+    from config.settings import settings
+    if not settings.LIVELOG:
+        raise HTTPException(403, "Livelog ist deaktiviert")
+
+    async def event_stream():
+        last_version = since
+        while True:
+            services = get_services()
+            events = services.events.get_since(last_version)
+            for ev in events:
+                last_version = ev.get("v", last_version)
+                yield f"data: {json.dumps(ev, default=str)}\n\n"
+            await asyncio.sleep(1)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 # ── A2A Erweiterte Task-Endpunkte ─────────────────────────────────────────────
@@ -119,20 +211,35 @@ async def subscribe_to_task(task_id: str):
         yield f"data: {json.dumps({'task': current})}\n\n"
 
         last_status = current.get("status")
+        # Schon terminal → finalen State direkt senden
+        if last_status in TERMINAL_STATES:
+            with _tasks_lock:
+                final = dict(_TASKS.get(task_id, task))
+            yield f"data: {json.dumps({'task': final})}\n\n"
+            return
+
+        keepalive_counter = 0
         while last_status not in TERMINAL_STATES:
             await asyncio.sleep(1)
+            keepalive_counter += 1
+
             with _tasks_lock:
                 current = _TASKS.get(task_id)
             if not current:
                 break
+
             new_status = current.get("status")
             if new_status != last_status:
                 last_status = new_status
                 yield f"data: {json.dumps({'statusUpdate': {'state': new_status}})}\n\n"
 
-        # Finaler State senden
+            # Keepalive-Ping alle 15s damit Browser-Verbindung offen bleibt
+            if keepalive_counter % 15 == 0:
+                yield f": keepalive\n\n"
+
+        # Finaler State mit vollem Task (inkl. result_image)
         with _tasks_lock:
-            final = _TASKS.get(task_id, {})
+            final = dict(_TASKS.get(task_id, {}))
         yield f"data: {json.dumps({'task': final})}\n\n"
 
     return StreamingResponse(

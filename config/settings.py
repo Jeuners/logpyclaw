@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # Task Management
     TASK_TTL_SECONDS: int = 3600
     TASK_TIMEOUT_SECONDS: int = 1210
-    MAX_HISTORY_PER_AGENT: int = 30
+    MAX_HISTORY_PER_AGENT: int = 100
 
     # Content & API Limits
     MAX_CONTENT_LENGTH: int = 32000
@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
     LOG_FILE: str = "agentclaw.log"
+    LIVELOG: bool = True  # Live-Log Panel im Chat (Toggle via UI)
 
     # A2A Delegation
     A2A_OPENROUTER_REFERER: str = "http://localhost:5050"

@@ -1,0 +1,24 @@
+{
+  "name": "Amber Terminal",
+  "colors": {
+    "bg":      "#0a0800",
+    "bg2":     "#100e00",
+    "bg3":     "#1a1500",
+    "bg4":     "#201a00",
+    "bghov":   "#252000",
+    "b1":      "#2a2000",
+    "b2":      "#3d3000",
+    "green":   "#ffb300",
+    "gg":      "rgba(255,179,0,.08)",
+    "gm":      "rgba(255,179,0,.18)",
+    "text":    "#d4b870",
+    "textbr":  "#ffe082",
+    "textdim": "#5a4a00",
+    "mono":    "'SF Mono','Fira Code','Consolas',monospace",
+    "orange":  "#ff6d00",
+    "odim":    "rgba(255,109,0,.14)",
+    "purple":  "#ce93d8",
+    "red":     "#ef5350",
+    "cyan":    "#80deea"
+  }
+}

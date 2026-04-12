@@ -8,6 +8,7 @@ from datetime import datetime
 
 import httpx
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import JSONResponse
 
 from core.config import BASE_DIR
 from core.memory import collection_name, get_qdrant
@@ -31,7 +32,7 @@ def _store_document_vector(agent_id: str, filename: str, text: str, embedding: l
     """Speichert Dokument-Embedding in Qdrant und Datei auf Disk."""
     client = get_qdrant()
     if not client:
-        return
+        raise RuntimeError("Qdrant nicht verfügbar")
 
     file_path = ""
     if file_data:
@@ -82,7 +83,10 @@ async def get_activity():
 async def memory_info(agent_id: str):
     client = get_qdrant()
     if not client:
-        return {"error": "Qdrant nicht verfügbar", "count": 0}
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Qdrant nicht verfügbar", "count": 0},
+        )
     try:
         name = collection_name(agent_id)
         existing = [c.name for c in client.get_collections().collections]
@@ -91,7 +95,10 @@ async def memory_info(agent_id: str):
         info = client.get_collection(name)
         return {"count": info.points_count}
     except Exception as e:
-        return {"error": str(e), "count": 0}
+        return JSONResponse(
+            status_code=503,
+            content={"error": str(e), "count": 0},
+        )
 
 
 @router.delete("/memory/{agent_id}")
@@ -131,6 +138,11 @@ async def memory_upload_document(agent_id: str, file: UploadFile = File(...)):
     google_key = providers.get("google_api", {}).get("api_key", "")
 
     try:
+        # Qdrant-Verfügbarkeit vorab prüfen
+        from core.memory import get_qdrant
+        if get_qdrant() is None:
+            raise HTTPException(status_code=503, detail="Qdrant nicht verfügbar")
+
         embedding = None
 
         if google_key and is_pdf:
@@ -186,6 +198,8 @@ async def memory_upload_document(agent_id: str, file: UploadFile = File(...)):
 
     except HTTPException:
         raise
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         logger.exception("Memory upload failed for agent %s", agent_id)
         raise HTTPException(status_code=500, detail=str(e))

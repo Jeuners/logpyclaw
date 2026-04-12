@@ -27,6 +27,7 @@ class ServiceContainer:
 
         # Cross-references für bidirektionale Dependencies
         self.chat.set_task_service(self.tasks)
+        self.tasks.set_dispatcher(self.chat)   # Skill-Check + LLM-Fallback für A2A-Tasks
         self.heartbeat.set_task_service(self.tasks)
 
         logger.info("ServiceContainer initialisiert")
@@ -116,5 +117,11 @@ def _register_skills(registry: SkillRegistry):
         registry.register(CodingSkill())
     except Exception as e:
         logger.warning("Coding Skill nicht geladen: %s", e)
+
+    try:
+        from skills.screenshot_skill import ScreenshotSkill
+        registry.register(ScreenshotSkill())
+    except Exception as e:
+        logger.warning("Screenshot Skill nicht geladen: %s", e)
 
     logger.info("Skills registriert: %s", [s.id for s in registry.all()])

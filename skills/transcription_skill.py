@@ -15,7 +15,13 @@ FFMPEG_BIN = "/opt/homebrew/bin/ffmpeg"
 FFPROBE_BIN = "/opt/homebrew/bin/ffprobe"
 OLLAMA_URL = "http://localhost:11434"
 WHISPER_CLI = "/opt/homebrew/bin/whisper-cli"
-WHISPER_MODEL = os.path.expanduser("~/Downloads/AgentClaw/ggml-large-v3-turbo.bin")
+_WHISPER_CANDIDATES = [
+    os.path.expanduser("~/Downloads/AgentClaw/ggml-small.bin"),
+    os.path.expanduser("~/Downloads/AgentClaw/ggml-large-v3-turbo.bin"),
+    os.path.expanduser("~/Downloads/AgentClaw/ggml-base.bin"),
+]
+WHISPER_MODEL = next((p for p in _WHISPER_CANDIDATES if os.path.exists(p)),
+                     os.path.expanduser("~/Downloads/AgentClaw/ggml-small.bin"))
 
 # Bevorzugte Modelle (in Reihenfolge — erstes verfügbares wird genutzt)
 TRANSCRIPTION_MODELS = ["gemma4:e4b", "gemma3:latest", "moondream:latest", "llava:latest"]

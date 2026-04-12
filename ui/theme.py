@@ -1,67 +1,152 @@
 """
-ui/theme.py — AgentClaw Dark-Theme für NiceGUI.
-Orientiert sich 1:1 am alten static/css/style.css Design.
+ui/theme.py — AgentClaw Theme-System.
+
+Themes liegen als JSON in themes/<name>.json.
+Aktives Theme: themes/active (enthält nur den Theme-Namen).
+Fehlende Farb-Keys fallen auf das Default-Theme zurück.
 """
+import json
+import logging
+import os
 from nicegui import ui
 
-COLORS = {
-    "bg":          "#050a06",
-    "bg2":         "#070d08",
-    "bg3":         "#0d1a0e",
-    "bg4":         "#111f12",
-    "bghov":       "#141f14",
-    "b1":          "#0f2010",
-    "b2":          "#182e18",
-    "green":       "#00e676",
-    "gg":          "rgba(0,230,118,.08)",
-    "gm":          "rgba(0,230,118,.18)",
-    "text":        "#b8d4b8",
-    "textbr":      "#e4f4e4",
-    "textdim":     "#3a5a3a",
-    "mono":        "'SF Mono','Fira Code','Consolas',monospace",
-    "orange":      "#ff6b35",
-    "odim":        "rgba(255,107,53,.14)",
-    "purple":      "#8b5cf6",
-    "red":         "#ef4444",
-    "cyan":        "#00bcd4",
+logger = logging.getLogger(__name__)
+
+_THEMES_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "themes")
+
+# Default-Farben (Fallback wenn Theme-Key fehlt oder Datei kaputt)
+_DEFAULTS = {
+    "bg":      "#050a06",
+    "bg2":     "#070d08",
+    "bg3":     "#0d1a0e",
+    "bg4":     "#111f12",
+    "bghov":   "#141f14",
+    "b1":      "#0f2010",
+    "b2":      "#182e18",
+    "green":   "#00e676",
+    "gg":      "rgba(0,230,118,.08)",
+    "gm":      "rgba(0,230,118,.18)",
+    "text":    "#b8d4b8",
+    "textbr":  "#e4f4e4",
+    "textdim": "#3a5a3a",
+    "mono":    "'SF Mono','Fira Code','Consolas',monospace",
+    "orange":  "#ff6b35",
+    "odim":    "rgba(255,107,53,.14)",
+    "purple":  "#8b5cf6",
+    "red":     "#ef4444",
+    "cyan":    "#00bcd4",
 }
 
 
+def _active_theme_name() -> str:
+    active_file = os.path.join(_THEMES_DIR, "active")
+    try:
+        return open(active_file).read().strip() or "default"
+    except Exception:
+        return "default"
+
+
+def _load_theme(name: str) -> dict:
+    """Theme laden und mit Defaults mergen. Unbekannte Keys werden ignoriert."""
+    path = os.path.join(_THEMES_DIR, f"{name}.json")
+    colors = dict(_DEFAULTS)
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        overrides = data.get("colors", {})
+        # Nur bekannte Keys übernehmen (Struktur bleibt stabil)
+        for key in _DEFAULTS:
+            if key in overrides:
+                colors[key] = overrides[key]
+    except FileNotFoundError:
+        logger.warning("Theme '%s' nicht gefunden — Default wird verwendet", name)
+    except Exception as e:
+        logger.warning("Theme '%s' fehlerhaft (%s) — Default wird verwendet", name, e)
+    return colors
+
+
+def load_colors() -> dict:
+    """Aktive Theme-Farben laden (mit Fallback auf Defaults)."""
+    return _load_theme(_active_theme_name())
+
+
+def list_themes() -> list[dict]:
+    """Alle verfügbaren Themes auflisten."""
+    active = _active_theme_name()
+    themes = []
+    try:
+        for fname in sorted(os.listdir(_THEMES_DIR)):
+            if not fname.endswith(".json"):
+                continue
+            name = fname[:-5]
+            try:
+                with open(os.path.join(_THEMES_DIR, fname), encoding="utf-8") as f:
+                    data = json.load(f)
+                themes.append({
+                    "id": name,
+                    "name": data.get("name", name),
+                    "active": name == active,
+                    "primary": data.get("colors", {}).get("green", _DEFAULTS["green"]),
+                    "bg": data.get("colors", {}).get("bg", _DEFAULTS["bg"]),
+                })
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return themes
+
+
+def set_active_theme(name: str) -> bool:
+    """Aktives Theme setzen. Gibt True zurück wenn Theme existiert."""
+    path = os.path.join(_THEMES_DIR, f"{name}.json")
+    if not os.path.exists(path):
+        return False
+    try:
+        with open(os.path.join(_THEMES_DIR, "active"), "w") as f:
+            f.write(name)
+        return True
+    except Exception as e:
+        logger.error("Theme setzen fehlgeschlagen: %s", e)
+        return False
+
+
 def apply_theme():
-    """AgentClaw Dark-Theme auf NiceGUI anwenden."""
+    """Aktives Theme auf NiceGUI anwenden."""
+    C = load_colors()
+
     ui.colors(
-        primary=COLORS["green"],
-        secondary="#00a854",
-        accent=COLORS["green"],
-        dark=COLORS["bg"],
-        positive="#00e676",
-        negative="#ef4444",
-        info="#64b5f6",
-        warning="#ffc107",
+        primary=C["green"],
+        secondary=C["green"],
+        accent=C["green"],
+        dark=C["bg"],
+        positive=C["green"],
+        negative=C["red"],
+        info=C["cyan"],
+        warning=C["orange"],
     )
 
     ui.add_css(f"""
         /* ─── CSS Variables ──────────────────────────────── */
         :root {{
-            --bg:      {COLORS["bg"]};
-            --bg2:     {COLORS["bg2"]};
-            --bg3:     {COLORS["bg3"]};
-            --bg4:     {COLORS["bg4"]};
-            --bghov:   {COLORS["bghov"]};
-            --b1:      {COLORS["b1"]};
-            --b2:      {COLORS["b2"]};
-            --green:   {COLORS["green"]};
-            --gg:      {COLORS["gg"]};
-            --gm:      {COLORS["gm"]};
-            --text:    {COLORS["text"]};
-            --textbr:  {COLORS["textbr"]};
-            --textdim: {COLORS["textdim"]};
-            --mono:    {COLORS["mono"]};
-            --orange:  {COLORS["orange"]};
-            --odim:    {COLORS["odim"]};
-            --purple:  {COLORS["purple"]};
-            --red:     {COLORS["red"]};
-            --cyan:    {COLORS["cyan"]};
+            --bg:      {C["bg"]};
+            --bg2:     {C["bg2"]};
+            --bg3:     {C["bg3"]};
+            --bg4:     {C["bg4"]};
+            --bghov:   {C["bghov"]};
+            --b1:      {C["b1"]};
+            --b2:      {C["b2"]};
+            --green:   {C["green"]};
+            --gg:      {C["gg"]};
+            --gm:      {C["gm"]};
+            --text:    {C["text"]};
+            --textbr:  {C["textbr"]};
+            --textdim: {C["textdim"]};
+            --mono:    {C["mono"]};
+            --orange:  {C["orange"]};
+            --odim:    {C["odim"]};
+            --purple:  {C["purple"]};
+            --red:     {C["red"]};
+            --cyan:    {C["cyan"]};
         }}
 
         /* ─── Base ───────────────────────────────────────── */
@@ -132,7 +217,6 @@ def apply_theme():
             min-height: unset !important;
         }}
 
-        /* NiceGUI root-Container */
         #app, #app > div, .q-layout {{
             width: 100% !important;
             max-width: 100% !important;
@@ -442,9 +526,9 @@ def apply_theme():
             font-family: var(--mono);
             padding: 2px 6px;
             border-radius: 3px;
-            background: rgba(0, 230, 118, 0.08);
+            background: var(--gg);
             color: var(--green);
-            border: 1px solid rgba(0, 230, 118, 0.2);
+            border: 1px solid var(--gm);
         }}
 
         /* ─── Agent Cards (Home) ─────────────────────────── */
@@ -458,13 +542,13 @@ def apply_theme():
 
         .ac-card:hover {{
             border-color: var(--green) !important;
-            box-shadow: 0 0 20px rgba(0, 230, 118, 0.08) !important;
+            box-shadow: 0 0 20px var(--gg) !important;
             transform: translateY(-1px);
         }}
 
         .ac-card.selected {{
             border-color: var(--green) !important;
-            box-shadow: 0 0 16px rgba(0, 230, 118, 0.15) !important;
+            box-shadow: 0 0 16px var(--gm) !important;
         }}
 
         /* ─── Quasar overrides ───────────────────────────── */

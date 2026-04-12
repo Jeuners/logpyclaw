@@ -45,6 +45,7 @@ async def _fetch_tagesschau(category: str = "top", limit: int = 10) -> list:
 
 class ScreenshotRequest(BaseModel):
     url: str
+    delay: int = 1500  # ms Wartezeit nach domcontentloaded (max 10s)
 
 
 class ImageEditRequest(BaseModel):
@@ -73,6 +74,8 @@ async def take_screenshot(body: ScreenshotRequest):
             detail="Playwright nicht installiert. Führe aus: pip install playwright && playwright install chromium",
         )
 
+    delay_ms = max(0, min(body.delay, 10000))  # 0–10s
+
     try:
         # Playwright ist sync — in threadpool ausführen
         import asyncio
@@ -86,8 +89,9 @@ async def take_screenshot(body: ScreenshotRequest):
                     user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
                 )
                 page = ctx.new_page()
-                page.goto(url, wait_until="domcontentloaded", timeout=20000)
-                page.wait_for_timeout(1500)
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                if delay_ms > 0:
+                    page.wait_for_timeout(delay_ms)
                 img_bytes = page.screenshot(type="jpeg", quality=80, full_page=False)
                 ctx.close()
                 browser.close()

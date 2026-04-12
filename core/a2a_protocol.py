@@ -65,6 +65,7 @@ def parse_a2a_dispatches(
     reply: str,
     sender_agent: dict,
     all_agents: list[dict],
+    sender_delegation_depth: int = 0,
 ) -> list[A2ADispatch]:
     """
     Parsed alle @Mentions aus einem LLM-Reply zu strukturierten A2A-Dispatches.
@@ -135,7 +136,7 @@ def parse_a2a_dispatches(
             sender_id=sender_id,
             sender_name=sender_agent.get("name", ""),
             priority=5,
-            delegation_depth=1,
+            delegation_depth=sender_delegation_depth + 1,
         )
         dispatches.append(dispatch)
         seen_recipients.add(target["id"])

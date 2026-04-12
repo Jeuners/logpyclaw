@@ -33,13 +33,14 @@ def home_page():
                     "font-family: 'SF Mono',monospace;"
                 )
 
-            ui.button("+ Neuer Agent", icon="add", on_click=_show_create_dialog) \
-                .style(
-                    "height: 36px; padding: 0 16px; border-radius: 18px; "
-                    "background: rgba(0,230,118,0.1); color: #00e676; "
-                    "border: 1px solid rgba(0,230,118,0.3); font-size: 13px; "
-                    "font-weight: 500;"
-                ).props("flat no-caps")
+            ui.html('''<a href="/agent/new" style="height:36px;padding:0 16px;border-radius:18px;
+                background:rgba(0,230,118,0.1);color:#00e676;
+                border:1px solid rgba(0,230,118,0.3);font-size:13px;
+                font-weight:500;text-decoration:none;display:inline-flex;
+                align-items:center;gap:6px">
+                <span class="material-icons" style="font-size:16px">add</span>
+                + Neuer Agent
+            </a>''')
 
         # ─── Stats-Zeile ──────────────────────────────────────────────────────
         stats_row = ui.row().style("gap: 12px; margin-bottom: 24px; flex-wrap: wrap;")
@@ -227,7 +228,7 @@ def _render_agent_card(agent: dict):
                         "font-size: 10px; color: #3a5a3a; padding: 2px 4px;"
                     )
 
-        # ─── Footer: Model + Chat-Button ───────────────────────────────────
+        # ─── Footer: Model + Buttons ───────────────────────────────────────
         with ui.row().style(
             "align-items: center; justify-content: space-between; "
             "border-top: 1px solid #0f2010; padding-top: 10px; margin-top: 4px;"
@@ -241,10 +242,21 @@ def _render_agent_card(agent: dict):
             else:
                 ui.element("div")  # Spacer
 
-            ui.label("Chat →").style(
-                "font-size: 11px; color: #00e676; font-weight: 600; "
-                "letter-spacing: 0.3px;"
-            )
+            with ui.row().style("align-items: center; gap: 10px;"):
+                ui.html(f'''<a href="/agent/new?clone={ag_id}"
+                    onclick="event.stopPropagation()"
+                    title="Agent duplizieren"
+                    style="display:inline-flex;align-items:center;color:#3a5a3a;
+                           text-decoration:none;font-size:14px;line-height:1;
+                           transition:color .15s"
+                    onmouseover="this.style.color=\'#00e676\'"
+                    onmouseout="this.style.color=\'#3a5a3a\'">
+                    <span class="material-icons" style="font-size:15px">content_copy</span>
+                </a>''')
+                ui.label("Chat →").style(
+                    "font-size: 11px; color: #00e676; font-weight: 600; "
+                    "letter-spacing: 0.3px;"
+                )
 
     # Hover-Effekt via injected CSS
     ui.add_css("""
@@ -257,5 +269,5 @@ def _render_agent_card(agent: dict):
 
 
 def _show_create_dialog():
-    from ui.dialogs.agent_form import AgentFormDialog
-    AgentFormDialog(on_save=lambda: ui.run_javascript("window.location.reload()"))
+    # Navigation statt Dialog (core.loop Bug v1.89)
+    ui.navigate.to("/agent/new")

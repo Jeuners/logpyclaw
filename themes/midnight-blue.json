@@ -1,0 +1,24 @@
+{
+  "name": "Midnight Blue",
+  "colors": {
+    "bg":      "#050810",
+    "bg2":     "#070c18",
+    "bg3":     "#0d1425",
+    "bg4":     "#111a2e",
+    "bghov":   "#141f38",
+    "b1":      "#0f1a35",
+    "b2":      "#1a2a50",
+    "green":   "#4d9fff",
+    "gg":      "rgba(77,159,255,.08)",
+    "gm":      "rgba(77,159,255,.18)",
+    "text":    "#a8c0e8",
+    "textbr":  "#e0eeff",
+    "textdim": "#3a5080",
+    "mono":    "'SF Mono','Fira Code','Consolas',monospace",
+    "orange":  "#ff9f4d",
+    "odim":    "rgba(255,159,77,.14)",
+    "purple":  "#a78bfa",
+    "red":     "#f87171",
+    "cyan":    "#38bdf8"
+  }
+}

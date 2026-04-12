@@ -16,6 +16,7 @@ import re
 from nicegui import ui
 from ui.layout import create_layout
 from ui.theme import apply_theme
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,179 @@ def chat_page(agent_id: str):
         .q-page { min-height: unset !important; }
         .q-page-container { padding-bottom: 0 !important; }
         body > div#app > div { height: 100vh; overflow: hidden; }
+
+        /* ── Composer ── */
+        .ac-composer-wrap {
+            padding: 8px 16px 22px;
+            border-top: 1px solid #0f2010;
+            background: #070d08;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .ac-composer-border {
+            border-radius: 12px;
+            padding: 1.5px;
+            background: linear-gradient(135deg, #1a3a1a 0%, #0f2010 50%, #1a3a1a 100%);
+            transition: background .3s;
+        }
+        .ac-composer-border:focus-within {
+            background: linear-gradient(135deg, #00e676 0%, #00bcd4 50%, #8b5cf6 100%);
+        }
+        .ac-composer-inner {
+            background: #080f09;
+            border-radius: 11px;
+            overflow: hidden;
+        }
+        #ac-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #e4f4e4;
+            font-size: 14px;
+            padding: 12px 16px 4px;
+            resize: none;
+            font-family: inherit;
+            line-height: 1.6;
+            min-height: 44px;
+            max-height: 180px;
+            box-sizing: border-box;
+            display: block;
+        }
+        #ac-input::placeholder { color: #2a4a2a; }
+        .ac-composer-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 8px 8px;
+        }
+        .ac-composer-left { display: flex; align-items: center; gap: 4px; }
+        .ac-composer-right { display: flex; align-items: center; gap: 6px; }
+
+        /* Quick-Action Chips */
+        .ac-chip {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 9px; border-radius: 6px;
+            font-size: 11px; font-weight: 600;
+            cursor: pointer; border: 1px solid transparent;
+            transition: all .15s; white-space: nowrap;
+            font-family: monospace; letter-spacing: .3px;
+        }
+        .ac-chip .material-icons { font-size: 12px; }
+        .ac-chip-mic  { color: #00e676; border-color: #00e67633; background: rgba(0,230,118,.06); }
+        .ac-chip-mic:hover  { background: rgba(0,230,118,.14); border-color: #00e676; }
+        .ac-chip-shot { color: #00bcd4; border-color: #00bcd433; background: rgba(0,188,212,.06); }
+        .ac-chip-shot:hover { background: rgba(0,188,212,.14); border-color: #00bcd4; }
+        .ac-chip-img  { color: #ab47bc; border-color: #ab47bc33; background: rgba(171,71,188,.06); }
+        .ac-chip-img:hover  { background: rgba(171,71,188,.14); border-color: #ab47bc; }
+        .ac-chip-web  { color: #ff9800; border-color: #ff980033; background: rgba(255,152,0,.06); }
+        .ac-chip-web:hover  { background: rgba(255,152,0,.14); border-color: #ff9800; }
+        .ac-chip-fav  { color: #ffd700; border-color: #ffd70033; background: rgba(255,215,0,.06); }
+        .ac-chip-fav:hover  { background: rgba(255,215,0,.14); border-color: #ffd700; }
+        .ac-chip-fav.has-text { color: #ffd700; border-color: #ffd700; background: rgba(255,215,0,.12); }
+
+        /* Favoriten-Panel */
+        #ac-fav-panel {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 16px;
+            width: 340px;
+            max-height: 280px;
+            background: #080f09;
+            border: 1px solid #1a3a1a;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,.6);
+            z-index: 800;
+            overflow: hidden;
+            flex-direction: column;
+        }
+        #ac-fav-panel.open { display: flex; }
+        .ac-fav-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 12px; border-bottom: 1px solid #0f2010;
+            font-size: 11px; font-weight: 700; color: #3a5a3a;
+            text-transform: uppercase; letter-spacing: .5px; font-family: monospace;
+            flex-shrink: 0;
+        }
+        .ac-fav-list {
+            flex: 1; overflow-y: auto; padding: 6px;
+        }
+        .ac-fav-item {
+            display: flex; align-items: center; gap: 6px;
+            padding: 7px 10px; border-radius: 8px; cursor: pointer;
+            transition: background .12s; margin-bottom: 3px;
+            border: 1px solid transparent;
+        }
+        .ac-fav-item:hover { background: rgba(255,215,0,.06); border-color: #ffd70033; }
+        .ac-fav-item-text {
+            flex: 1; font-size: 12px; color: #b8d4b8;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .ac-fav-del {
+            font-size: 13px; color: #2a4a2a; cursor: pointer;
+            background: none; border: none; padding: 2px;
+            line-height: 1; flex-shrink: 0; transition: color .15s;
+        }
+        .ac-fav-del:hover { color: #ef4444; }
+        .ac-fav-empty {
+            font-size: 12px; color: #2a4a2a; text-align: center;
+            padding: 24px 12px; font-style: italic;
+        }
+
+        /* Mic recording state */
+        #ac-mic-btn.recording {
+            background: rgba(239,68,68,.12) !important;
+            color: #ef4444 !important;
+            border-color: rgba(239,68,68,.5) !important;
+        }
+        .ac-mic-waves {
+            display: none; align-items: center; gap: 2px; height: 12px;
+        }
+        .ac-mic-waves span {
+            display: inline-block; width: 2px; height: 3px;
+            background: #ef4444; border-radius: 1px;
+            animation: ac-wave 0.8s ease-in-out infinite;
+        }
+        .ac-mic-waves span:nth-child(2) { animation-delay: .15s; }
+        .ac-mic-waves span:nth-child(3) { animation-delay: .3s; }
+        .ac-mic-waves span:nth-child(4) { animation-delay: .45s; }
+        .ac-mic-waves span:nth-child(5) { animation-delay: .6s; }
+        @keyframes ac-wave {
+            0%, 100% { height: 2px; opacity: .4; }
+            50% { height: 11px; opacity: 1; }
+        }
+        #ac-mic-btn.recording .ac-mic-waves { display: flex; }
+        #ac-mic-btn.recording .ac-mic-icon { display: none; }
+
+        /* Model-Chip */
+        .ac-model-chip {
+            font-size: 10px; font-family: monospace;
+            color: #1a3a1a; padding: 2px 7px;
+            border-radius: 5px;
+            border: 1px solid #0f2010;
+            white-space: nowrap;
+        }
+
+        /* Send-Button */
+        #ac-send-btn {
+            display: flex; align-items: center; gap: 4px;
+            padding: 6px 14px; border-radius: 8px;
+            background: linear-gradient(135deg, #00e676, #00c853);
+            color: #000; border: none; cursor: pointer;
+            font-size: 12px; font-weight: 700;
+            box-shadow: 0 2px 10px rgba(0,230,118,.25);
+            transition: all .2s;
+        }
+        #ac-send-btn:hover {
+            box-shadow: 0 4px 20px rgba(0,230,118,.45);
+            transform: translateY(-1px);
+        }
+        #ac-send-btn:active { transform: translateY(0); }
+        #ac-send-btn.busy {
+            background: #0f2010; color: #3a5a3a;
+            box-shadow: none; cursor: default;
+        }
     """)
 
     # ─── 2-Spalten-Layout ────────────────────────────────────────────────
@@ -64,10 +238,12 @@ def chat_page(agent_id: str):
                 "align-items: center; justify-content: space-between;"
             ):
                 ui.label("Agenten")
-                ui.button(icon="add", on_click=_show_create_dialog) \
-                    .props("flat dense round") \
-                    .style("color: #00e676; font-size: 12px; width: 24px; height: 24px;") \
-                    .tooltip("Neuer Agent")
+                ui.html('''<a href="/agent/new" title="Neuer Agent"
+                    style="color:#00e676;width:24px;height:24px;display:inline-flex;
+                    align-items:center;justify-content:center;border-radius:50%;
+                    text-decoration:none">
+                    <span class="material-icons" style="font-size:16px">add</span>
+                </a>''')
 
             with ui.scroll_area().style("flex: 1; min-height: 0;"):
                 with ui.column().style("padding: 4px 6px; gap: 0;"):
@@ -76,7 +252,7 @@ def chat_page(agent_id: str):
 
         # Rechter Bereich: Chat
         with ui.element("div").style(
-            "flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #050a06;"
+            "flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #050a06; position: relative;"
         ):
             _render_chat_topbar(agent, agent_id, agent.get("color", "#00e676"))
 
@@ -89,291 +265,96 @@ def chat_page(agent_id: str):
                 f'</div></div>'
             ).style("flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden")
 
-            # Input Area — reines HTML, Event-Handling komplett via JS
+            # Input Area — Composer 2029
+            model_short = html_mod.escape(agent.get("model", "").split("/")[-1][:18])
+            model_chip = f'<span class="ac-model-chip">{model_short}</span>' if model_short else ''
             ui.html(f'''
-                <div style="padding:12px 20px 16px;border-top:1px solid #0f2010;background:#070d08;flex-shrink:0">
-                    <div style="display:flex;gap:8px;align-items:flex-end">
-                        <textarea id="ac-input" rows="1" placeholder="Nachricht… (Enter senden, Shift+Enter Umbruch)"
-                            style="flex:1;background:#0d1a0e;border:1px solid #182e18;border-radius:8px;
-                            color:#e4f4e4;font-size:14px;padding:10px 12px;resize:none;outline:none;
-                            font-family:inherit;line-height:1.5;min-height:40px;max-height:160px"></textarea>
-                        <button id="ac-send-btn"
-                            style="width:40px;height:40px;border-radius:20px;background:#00e676;color:#000;
-                            border:none;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">
-                            <span class="material-icons" style="font-size:20px">send</span>
-                        </button>
+                <div class="ac-composer-wrap">
+                    <div id="ac-fav-panel">
+                        <div class="ac-fav-head">
+                            <span>⭐ Favoriten</span>
+                            <button id="ac-fav-close" style="background:none;border:none;color:#3a5a3a;cursor:pointer;font-size:14px;line-height:1;padding:0">✕</button>
+                        </div>
+                        <div class="ac-fav-list" id="ac-fav-list">
+                            <div class="ac-fav-empty">Noch keine Favoriten gespeichert.</div>
+                        </div>
+                    </div>
+                    <div class="ac-composer-border">
+                        <div class="ac-composer-inner">
+                            <textarea id="ac-input" rows="1"
+                                placeholder="Nachricht an {html_mod.escape(agent_name)}…"></textarea>
+                            <div class="ac-composer-bar">
+                                <div class="ac-composer-left">
+                                    <button id="ac-mic-btn" class="ac-chip ac-chip-mic" title="Spracheingabe">
+                                        <div class="ac-mic-waves">
+                                            <span></span><span></span><span></span>
+                                            <span></span><span></span>
+                                        </div>
+                                        <span class="material-icons ac-mic-icon">mic</span>
+                                        <span class="ac-mic-label">Sprache</span>
+                                    </button>
+                                    <button id="ac-chip-fav" class="ac-chip ac-chip-fav" title="Prompt speichern / Favoriten">
+                                        <span class="material-icons" style="font-size:12px">star</span>
+                                        <span class="ac-fav-label">Favoriten</span>
+                                    </button>
+                                    <button class="ac-chip ac-chip-shot" id="ac-chip-shot" title="Screenshot einer URL">
+                                        <span class="material-icons">photo_camera</span>
+                                        Shot
+                                    </button>
+                                    <button class="ac-chip ac-chip-img" id="ac-chip-img" title="Bild generieren">
+                                        <span class="material-icons">auto_awesome</span>
+                                        Bild
+                                    </button>
+                                    <button class="ac-chip ac-chip-web" id="ac-chip-web" title="Web-Suche">
+                                        <span class="material-icons">travel_explore</span>
+                                        Web
+                                    </button>
+                                </div>
+                                <div class="ac-composer-right">
+                                    {model_chip}
+                                    <button id="ac-send-btn">
+                                        <span class="material-icons" style="font-size:14px">arrow_upward</span>
+                                        Senden
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             ''').style("flex-shrink:0")
 
-    # ─── JavaScript: ALLES client-seitig ─────────────────────────────────
-    # Wird als <script> in den <head> injected
+            # Livelog-Panel (overlay, initial hidden)
+            if settings.LIVELOG:
+                ui.html('''<div id="ac-livelog" style="display:none;flex-direction:column;
+                    position:absolute;bottom:80px;right:20px;width:480px;max-height:320px;
+                    background:#070d08;border:1px solid #1a3a1a;border-radius:10px;
+                    box-shadow:0 8px 32px rgba(0,0,0,0.6);z-index:900;overflow:hidden">
+                    <div style="display:flex;align-items:center;justify-content:space-between;
+                        padding:8px 12px;background:#0a150b;border-bottom:1px solid #0f2010;flex-shrink:0">
+                        <span style="font-size:11px;font-weight:700;color:#3a5a3a;text-transform:uppercase;
+                            letter-spacing:0.8px;font-family:monospace">
+                            <span class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;color:#00e676">terminal</span>
+                            Live-Log
+                            <span id="ac-livelog-count" style="margin-left:6px;color:#00e676;font-weight:400">0</span>
+                        </span>
+                        <button id="ac-livelog-clear" style="font-size:10px;color:#3a5a3a;background:transparent;
+                            border:1px solid #182e18;border-radius:4px;padding:2px 8px;cursor:pointer;
+                            font-family:monospace">clear</button>
+                    </div>
+                    <div id="ac-livelog-body" style="flex:1;overflow-y:auto;padding:6px 10px;
+                        font-family:'SF Mono','Fira Code',monospace;min-height:0"></div>
+                </div>''')
+
+    # ─── JavaScript: Config injizieren + externe Datei laden ─────────────
     escaped_agent_id = json.dumps(agent_id)
     escaped_agent_name = json.dumps(html_mod.escape(agent_name))
-    ui.add_head_html(f"""<script>
-    window._ac = {{
-        sending: false,
-        agentId: {escaped_agent_id},
-        agentName: {escaped_agent_name},
-
-        init: function() {{
-            // Auto-grow textarea
-            const ta = document.getElementById('ac-input');
-            if (!ta) return;
-            ta.addEventListener('input', function() {{
-                this.style.height = 'auto';
-                this.style.height = Math.min(this.scrollHeight, 160) + 'px';
-            }});
-            // Enter = send, Shift+Enter = newline
-            ta.addEventListener('keydown', function(e) {{
-                if (e.key === 'Enter' && !e.shiftKey) {{
-                    e.preventDefault();
-                    window._ac.send();
-                }}
-            }});
-            // Send-Button (onclick wird von Vue sanitisiert, daher addEventListener)
-            const btn = document.getElementById('ac-send-btn');
-            if (btn) {{
-                btn.addEventListener('click', function(e) {{
-                    e.preventDefault();
-                    e.stopPropagation();
-                    window._ac.send();
-                }});
-            }}
-            // Scroll to bottom
-            setTimeout(() => this.scroll(), 300);
-        }},
-
-        send: function() {{
-            if (this.sending) return;
-            const ta = document.getElementById('ac-input');
-            if (!ta) return;
-            const msg = ta.value.trim();
-            if (!msg) return;
-
-            this.sending = true;
-            ta.value = '';
-            ta.style.height = 'auto';
-
-            // User-Nachricht anzeigen
-            this.addMsg('user', this.escHtml(msg));
-
-            // Typing-Indicator
-            this.addTyping();
-
-            // SSE-Stream starten
-            const url = '/api/chat/stream?agent_id=' + encodeURIComponent(this.agentId)
-                      + '&message=' + encodeURIComponent(msg);
-
-            let accumulated = '';
-            let replyStarted = false;
-
-            fetch(url).then(response => {{
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-
-                const processStream = () => {{
-                    reader.read().then(({{ done, value }}) => {{
-                        if (done) {{
-                            this.sending = false;
-                            this.removeTyping();
-                            if (accumulated && !replyStarted) {{
-                                // Shouldn't happen, but safety
-                                this.addReply(accumulated);
-                            }}
-                            this.scroll();
-                            return;
-                        }}
-
-                        buffer += decoder.decode(value, {{ stream: true }});
-                        const lines = buffer.split('\\n');
-                        buffer = lines.pop(); // Keep incomplete line
-
-                        for (const line of lines) {{
-                            if (!line.startsWith('data: ')) continue;
-                            try {{
-                                const data = JSON.parse(line.substring(6));
-
-                                if (data.error) {{
-                                    this.removeTyping();
-                                    this.addError(data.error);
-                                    this.sending = false;
-                                    return;
-                                }}
-
-                                if (data.chunk) {{
-                                    accumulated += data.chunk;
-                                    if (!replyStarted) {{
-                                        replyStarted = true;
-                                        this.removeTyping();
-                                        this.startReply();
-                                    }}
-                                    this.updateReply(accumulated);
-                                }}
-
-                                if (data.done) {{
-                                    this.removeTyping();
-                                    const displayReply = data.display_reply || accumulated;
-                                    if (displayReply) {{
-                                        if (!replyStarted) this.startReply();
-                                        this.finishReply(displayReply);
-                                    }}
-                                    // A2A dispatches
-                                    if (data.a2a_dispatches) {{
-                                        for (const d of data.a2a_dispatches) {{
-                                            this.addA2A(this.agentName, this.escHtml(d.recipient_name), this.escHtml(d.task_text.substring(0, 180)));
-                                        }}
-                                    }}
-                                    this.sending = false;
-                                    this.scroll();
-                                }}
-                            }} catch(e) {{ /* skip parse errors */ }}
-                        }}
-
-                        processStream();
-                    }}).catch(err => {{
-                        this.sending = false;
-                        this.removeTyping();
-                        this.addError(String(err));
-                    }});
-                }};
-
-                processStream();
-            }}).catch(err => {{
-                this.sending = false;
-                this.removeTyping();
-                this.addError(String(err));
-            }});
-        }},
-
-        // ─── DOM Helpers ─────────────────────────────────────────────
-        addMsg: function(role, html, image) {{
-            const c = document.getElementById('ac-messages');
-            if (!c) return;
-            const isUser = role === 'user';
-            const align = isUser ? 'flex-end' : 'flex-start';
-            const bbl = isUser
-                ? 'background:rgba(0,230,118,.08);border:1px solid #182e18;color:#e4f4e4;border-bottom-right-radius:3px;'
-                : 'background:#0d1a0e;border:1px solid #0f2010;color:#b8d4b8;border-bottom-left-radius:3px;';
-            const label = isUser ? 'Du' : 'Assistant';
-            let h = '<div style="display:flex;flex-direction:column;gap:3px;max-width:820px;align-self:'+align+';align-items:'+align+';width:100%">';
-            h += '<span style="font-size:10px;font-family:monospace;color:#3a5a3a;padding:0 4px">'+label+'</span>';
-            if (image) h += '<img src="'+image+'" style="max-width:320px;border-radius:8px;margin-bottom:4px">';
-            if (html) h += '<div style="padding:10px 14px;border-radius:10px;font-size:14px;line-height:1.6;word-break:break-word;'+bbl+'">'+html+'</div>';
-            h += '</div>';
-            // Remove empty hint if present
-            const hint = document.getElementById('ac-empty-hint');
-            if (hint) hint.remove();
-            c.insertAdjacentHTML('beforeend', h);
-            this.scroll();
-        }},
-
-        addTyping: function() {{
-            const c = document.getElementById('ac-messages');
-            if (!c) return;
-            c.insertAdjacentHTML('beforeend',
-                '<div id="ac-typing" style="align-self:flex-start;padding:4px">' +
-                '<span style="font-size:14px;color:#3a5a3a;animation:ac-pulse 1.2s ease-in-out infinite">● ● ●</span></div>');
-            this.scroll();
-        }},
-
-        removeTyping: function() {{
-            const el = document.getElementById('ac-typing');
-            if (el) el.remove();
-        }},
-
-        startReply: function() {{
-            const c = document.getElementById('ac-messages');
-            if (!c) return;
-            c.insertAdjacentHTML('beforeend',
-                '<div id="ac-reply-wrap" style="display:flex;flex-direction:column;gap:3px;max-width:820px;align-self:flex-start;align-items:flex-start;width:100%">' +
-                '<span style="font-size:10px;font-family:monospace;color:#3a5a3a;padding:0 4px">Assistant</span>' +
-                '<div id="ac-reply" style="padding:10px 14px;border-radius:10px;font-size:14px;line-height:1.6;word-break:break-word;' +
-                'background:#0d1a0e;border:1px solid #0f2010;color:#b8d4b8;min-width:40px;white-space:pre-wrap"></div></div>');
-        }},
-
-        updateReply: function(text) {{
-            const el = document.getElementById('ac-reply');
-            if (el) {{ el.textContent = text; this.scroll(); }}
-        }},
-
-        finishReply: function(text) {{
-            const el = document.getElementById('ac-reply');
-            if (el) {{
-                el.style.whiteSpace = 'normal';
-                el.innerHTML = this.renderMd(text);
-                el.removeAttribute('id');
-            }}
-            const wrap = document.getElementById('ac-reply-wrap');
-            if (wrap) wrap.removeAttribute('id');
-            this.scroll();
-        }},
-
-        addReply: function(text) {{
-            this.startReply();
-            this.finishReply(text);
-        }},
-
-        addError: function(msg) {{
-            const c = document.getElementById('ac-messages');
-            if (!c) return;
-            c.insertAdjacentHTML('beforeend',
-                '<div style="padding:10px 14px;border-radius:10px;font-size:14px;background:rgba(239,68,68,.08);' +
-                'border:1px solid rgba(239,68,68,.3);color:#ef4444;align-self:flex-start;max-width:820px">' +
-                '<strong>Fehler:</strong> ' + this.escHtml(msg) + '</div>');
-            this.scroll();
-        }},
-
-        addA2A: function(sender, recipient, task) {{
-            const c = document.getElementById('ac-messages');
-            if (!c) return;
-            let h = '<div style="border-left:3px solid #00bcd4;background:rgba(0,188,212,0.06);border-radius:0 6px 6px 0;padding:8px 12px;align-self:flex-start;max-width:600px">';
-            h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">';
-            h += '<span class="material-icons" style="font-size:14px;color:#00bcd4">arrow_forward</span>';
-            h += '<span style="font-size:12px;font-weight:600;color:#00bcd4">'+sender+' → @'+recipient+'</span>';
-            h += '<span style="font-size:9px;padding:1px 5px;border-radius:3px;border:1px solid #00bcd4;color:#00bcd4;font-family:monospace">A2A</span>';
-            h += '</div><span style="font-size:12px;color:#3a5a3a;line-height:1.5">'+task+'</span></div>';
-            c.insertAdjacentHTML('beforeend', h);
-            this.scroll();
-        }},
-
-        scroll: function() {{
-            const el = document.getElementById('ac-scroll');
-            if (el) setTimeout(() => {{ el.scrollTop = el.scrollHeight; }}, 50);
-        }},
-
-        escHtml: function(s) {{
-            const d = document.createElement('div');
-            d.textContent = s;
-            return d.innerHTML;
-        }},
-
-        renderMd: function(text) {{
-            let t = this.escHtml(text);
-            // Code blocks
-            t = t.replace(/```(\\w*)\\n([\\s\\S]*?)```/g, '<pre style="background:#0a150b;padding:8px;border-radius:4px;overflow-x:auto;font-size:12px"><code>$2</code></pre>');
-            // Inline code
-            t = t.replace(/`([^`]+)`/g, '<code style="background:#0a150b;padding:1px 4px;border-radius:3px;font-size:12px">$1</code>');
-            // Bold
-            t = t.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');
-            // Italic
-            t = t.replace(/\\*(.+?)\\*/g, '<em>$1</em>');
-            // Links
-            t = t.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '<a href="$2" target="_blank" style="color:#00e676">$1</a>');
-            // Newlines
-            t = t.replace(/\\n/g, '<br>');
-            return t;
-        }}
-    }};
-
-    // Init nach DOM ready
-    if (document.readyState === 'loading') {{
-        document.addEventListener('DOMContentLoaded', () => window._ac.init());
-    }} else {{
-        setTimeout(() => window._ac.init(), 200);
-    }}
-    </script>""")
+    escaped_agent_voice = json.dumps(agent.get("voice", ""))
+    import time as _time
+    _v = int(_time.time())
+    livelog_script = f'<script src="/static/js/livelog.js?v={_v}"></script>' if settings.LIVELOG else ''
+    ui.add_head_html(f"""<script>window._acConfig = {{ agentId: {escaped_agent_id}, agentName: {escaped_agent_name}, agentVoice: {escaped_agent_voice} }};</script>
+<script src="/static/js/chat.js?v={_v}"></script>
+{livelog_script}""")
 
 
 # ─── History als HTML rendern ────────────────────────────────────────────────
@@ -423,7 +404,10 @@ def _msg_to_html(role: str, content: str, image=None, skill=None) -> str:
         f'{label}{skill_text}</span>'
     )
     if image:
-        h += f'<img src="{html_mod.escape(image)}" style="max-width:320px;border-radius:8px;margin-bottom:4px">'
+        if image.startswith("data:video"):
+            h += f'<video src="{html_mod.escape(image)}" controls style="max-width:480px;border-radius:8px;margin-bottom:4px"></video>'
+        else:
+            h += f'<img src="{html_mod.escape(image)}" style="max-width:320px;border-radius:8px;margin-bottom:4px">'
     if content:
         rendered = _simple_md(content)
         h += (
@@ -530,53 +514,79 @@ def _render_chat_topbar(agent: dict, agent_id: str, color: str):
                     "font-size: 10px; font-family: monospace; padding: 2px 7px; border-radius: 3px; "
                     "background: #0f2010; color: #3a5a3a; border: 1px solid #182e18; align-self: center;"
                 )
-            _topbar_btn("delete_sweep", "History", lambda: _clear_history(agent_id))
-            _topbar_btn("edit", "Bearbeiten", lambda: _edit_agent(agent))
-            _topbar_btn("task_alt", "Tasks", _show_task_monitor)
+            # History-Button + Inline-Confirm (kein alert/confirm — modernes UI)
+            ui.html('''<div style="position:relative;display:inline-flex">
+                <button id="ac-clear-btn" title="History löschen"
+                    style="color:#3a5a3a;width:32px;height:32px;display:inline-flex;
+                    align-items:center;justify-content:center;border-radius:50%;
+                    font-size:18px;background:transparent;border:none;cursor:pointer">
+                    <span class="material-icons" style="font-size:18px">delete_sweep</span>
+                </button>
+                <div id="ac-clear-confirm" style="display:none;position:absolute;top:38px;right:0;
+                    background:#0f1a10;border:1px solid #1a3a1a;border-radius:10px;padding:12px 16px;
+                    box-shadow:0 8px 24px rgba(0,0,0,0.5);z-index:999;white-space:nowrap;min-width:200px">
+                    <div style="font-size:13px;color:#e4f4e4;margin-bottom:10px">History löschen?</div>
+                    <div style="display:flex;gap:8px;justify-content:flex-end">
+                        <button id="ac-clear-no" style="padding:5px 14px;border-radius:6px;
+                            background:transparent;color:#3a5a3a;border:1px solid #182e18;
+                            font-size:12px;cursor:pointer">Abbrechen</button>
+                        <button id="ac-clear-yes" style="padding:5px 14px;border-radius:6px;
+                            background:#ef4444;color:#fff;border:none;
+                            font-size:12px;cursor:pointer;font-weight:600">Löschen</button>
+                    </div>
+                </div>
+            </div>''')
+            ui.add_head_html(f'''<script>
+            document.addEventListener('DOMContentLoaded', function() {{
+                var btn = document.getElementById('ac-clear-btn');
+                var popup = document.getElementById('ac-clear-confirm');
+                var yesBtn = document.getElementById('ac-clear-yes');
+                var noBtn = document.getElementById('ac-clear-no');
+                if (!btn || !popup) return;
+                btn.addEventListener('click', function() {{
+                    popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+                }});
+                noBtn.addEventListener('click', function() {{ popup.style.display = 'none'; }});
+                yesBtn.addEventListener('click', function() {{
+                    yesBtn.textContent = 'Lösche...';
+                    yesBtn.disabled = true;
+                    fetch('/api/history/{agent_id}', {{method: 'DELETE'}})
+                        .then(function() {{ window.location.reload(); }});
+                }});
+                document.addEventListener('click', function(e) {{
+                    if (!btn.contains(e.target) && !popup.contains(e.target)) {{
+                        popup.style.display = 'none';
+                    }}
+                }});
+            }});
+            </script>''')
+            # Edit als HTML-Link (core.loop Bug — on_click→navigate funktioniert nicht)
+            ui.html(f'''<a href="/agent/edit/{agent_id}" title="Bearbeiten"
+                style="color:#3a5a3a;width:32px;height:32px;display:inline-flex;
+                align-items:center;justify-content:center;border-radius:50%;
+                text-decoration:none;font-size:18px"
+                onmouseover="this.style.background='rgba(255,255,255,0.05)'"
+                onmouseout="this.style.background='transparent'">
+                <span class="material-icons" style="font-size:18px">edit</span>
+            </a>''')
+            # Tasks als HTML-Link (core.loop Bug — on_click→Dialog funktioniert nicht)
+            ui.html('''<a href="/tasks" title="Tasks"
+                style="color:#3a5a3a;width:32px;height:32px;display:inline-flex;
+                align-items:center;justify-content:center;border-radius:50%;
+                text-decoration:none;font-size:18px"
+                onmouseover="this.style.background='rgba(255,255,255,0.05)'"
+                onmouseout="this.style.background='transparent'">
+                <span class="material-icons" style="font-size:18px">task_alt</span>
+            </a>''')
+            # Livelog-Toggle (nur wenn in Config aktiviert)
+            if settings.LIVELOG:
+                ui.html('''<button id="ac-livelog-btn" title="Live-Log"
+                    style="color:#3a5a3a;width:32px;height:32px;display:inline-flex;
+                    align-items:center;justify-content:center;border-radius:50%;
+                    background:transparent;border:none;cursor:pointer;font-size:18px"
+                    onmouseover="this.style.background='rgba(255,255,255,0.05)'"
+                    onmouseout="this.style.background='transparent'">
+                    <span class="material-icons" style="font-size:18px">terminal</span>
+                </button>''')
 
 
-def _topbar_btn(icon_name: str, tooltip_text: str, callback):
-    ui.button(icon=icon_name, on_click=callback) \
-        .props("flat dense round") \
-        .style("color: #3a5a3a; width: 32px; height: 32px;") \
-        .tooltip(tooltip_text)
-
-
-# ─── Dialog-Aktionen ──────────────────────────────────────────────────────────
-
-
-def _clear_history(agent_id: str):
-    from services import get_services
-    services = get_services()
-    services.agents.clear_history(agent_id)
-    # Redirect via JS-freien Weg: einfach einen Link klicken lassen
-    ui.navigate.to(f"/chat/{agent_id}")
-
-
-def _edit_agent(agent: dict):
-    from ui.dialogs.agent_form import AgentFormDialog
-    AgentFormDialog(agent=agent, on_save=lambda: ui.navigate.to(f"/chat/{agent['id']}"))
-
-
-def _show_create_dialog():
-    from ui.dialogs.agent_form import AgentFormDialog
-    AgentFormDialog(on_save=lambda: ui.navigate.to("/"))
-
-
-def _show_task_monitor():
-    from ui.components.task_monitor import TaskMonitor
-    with ui.dialog().props("maximized").style("background: #070d08;") as dlg:
-        dlg.open()
-        with ui.card().style(
-            "width: 900px; max-width: 95vw; background: #070d08; border: 1px solid #182e18;"
-        ):
-            with ui.row().style(
-                "align-items: center; justify-content: space-between; "
-                "padding: 16px 20px; border-bottom: 1px solid #0f2010;"
-            ):
-                with ui.row().style("gap: 8px; align-items: center;"):
-                    ui.icon("task_alt").style("color: #00e676; font-size: 20px;")
-                    ui.label("Task Monitor").style("font-size: 16px; font-weight: 600; color: #e4f4e4;")
-                ui.button(icon="close", on_click=dlg.close).props("flat dense round").style("color: #3a5a3a;")
-            with ui.element("div").style("padding: 16px;"):
-                TaskMonitor()

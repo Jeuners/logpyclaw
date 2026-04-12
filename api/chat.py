@@ -79,13 +79,18 @@ async def chat_stream(
 
     async def event_generator():
         a2a_dispatches: list = []
+        chain_steps: list = []
         display_reply: str | None = None
         try:
             async for chunk in services.chat.stream_message(agent_id, message):
-                # Sentinel-Dict vom Ende des Generators → A2A-Info extrahieren
-                if isinstance(chunk, dict) and chunk.get("__a2a__"):
-                    a2a_dispatches = chunk.get("a2a_dispatches", [])
-                    display_reply = chunk.get("display_reply")
+                # Sentinel-Dict vom Ende des Generators
+                if isinstance(chunk, dict):
+                    if chunk.get("__a2a__"):
+                        a2a_dispatches = chunk.get("a2a_dispatches", [])
+                        display_reply = chunk.get("display_reply")
+                    elif chunk.get("__chain__"):
+                        chain_steps = chunk.get("chain_steps", [])
+                        display_reply = chunk.get("reply")
                     continue
                 payload = json.dumps({"chunk": chunk}, ensure_ascii=False)
                 yield f"data: {payload}\n\n"
@@ -97,8 +102,10 @@ async def chat_stream(
         finally:
             done_payload = {"done": True}
             if a2a_dispatches:
-                # Sender-Name aus erstem Dispatch bekannt (agent_id = sender)
                 done_payload["a2a_dispatches"] = a2a_dispatches
+                done_payload["display_reply"] = display_reply
+            if chain_steps:
+                done_payload["chain_steps"] = chain_steps
                 done_payload["display_reply"] = display_reply
             yield f"data: {json.dumps(done_payload, ensure_ascii=False)}\n\n"
 

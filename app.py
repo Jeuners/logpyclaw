@@ -95,9 +95,11 @@ from api import inbox as inbox_api
 from api import memory as memory_api
 from api import content as content_api
 from api import tts as tts_api
+from api import transcribe as transcribe_api
 from api import stats as stats_api
 from api import watchdogs as watchdogs_api
 from api import comfyui as comfyui_api
+from api import themes as themes_api
 
 for _router in [
     providers_api.router,
@@ -107,19 +109,25 @@ for _router in [
     memory_api.router,
     content_api.router,
     tts_api.router,
+    transcribe_api.router,
     stats_api.router,
     watchdogs_api.router,   # /api/watchdogs*, /api/watchdog/*
     comfyui_api.router,     # /api/comfyui/*
+    themes_api.router,      # /api/themes
 ]:
     app.include_router(_router)
 
-logger.info("Alle FastAPI-Router registriert (%d Stück)", 15)
+logger.info("Alle FastAPI-Router registriert (%d Stück)", 16)
 
 # ── NiceGUI Pages registrieren ────────────────────────────────────────────────
-import ui.pages.home      # noqa: F401 — registriert @ui.page("/")
-import ui.pages.chat      # noqa: F401 — registriert @ui.page("/chat/{agent_id}")
-import ui.pages.tasks     # noqa: F401 — registriert @ui.page("/tasks")
-import ui.pages.settings  # noqa: F401 — registriert @ui.page("/settings")
+import ui.pages.home        # noqa: F401 — registriert @ui.page("/")
+import ui.pages.chat        # noqa: F401 — registriert @ui.page("/chat/{agent_id}")
+import ui.pages.tasks       # noqa: F401 — registriert @ui.page("/tasks")
+import ui.pages.settings    # noqa: F401 — registriert @ui.page("/settings")
+import ui.pages.agent_edit  # noqa: F401 — registriert /agent/edit/{id} + /agent/new
+import ui.pages.memory      # noqa: F401 — registriert @ui.page("/memory")
+import ui.pages.backup      # noqa: F401 — registriert @ui.page("/backup")
+import ui.pages.network     # noqa: F401 — registriert @ui.page("/network")
 from nicegui import ui    # Re-import: lokales ui/-Paket hat nicegui.ui überschrieben
 logger.info("NiceGUI Pages registriert")
 
@@ -192,6 +200,18 @@ async def lifespan(_app):
     await start_scheduler()
     logger.info("Scheduler gestartet. Bereit auf %s:%d", settings.HOST, settings.PORT)
 
+    # Qdrant-Status beim Startup prüfen
+    try:
+        from core.memory import get_qdrant, QDRANT_AVAILABLE
+        if not QDRANT_AVAILABLE:
+            logger.warning("⚠ qdrant_client nicht installiert — Memory deaktiviert")
+        elif get_qdrant() is None:
+            logger.warning("⚠ Qdrant nicht erreichbar (http://localhost:6333) — Memory deaktiviert")
+        else:
+            logger.info("Qdrant: erreichbar ✓")
+    except Exception as e:
+        logger.warning("Qdrant-Check fehlgeschlagen: %s", e)
+
     yield  # App läuft
 
     # Shutdown
@@ -236,7 +256,7 @@ if __name__ == "__main__":
             native=settings.NATIVE_MODE,
             reload=settings.DEBUG,
             storage_secret=settings.SECRET_KEY,
-            show=not settings.NATIVE_MODE,
+            show=False,
             favicon="🤖",
         )
     except KeyboardInterrupt:

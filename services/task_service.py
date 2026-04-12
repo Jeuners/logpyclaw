@@ -32,6 +32,7 @@ A2A_TASK_STATES = {
     "failed": "Task failed with error",
     "canceled": "Task was canceled by client",
     "queued": "Task is queued (agent busy)",
+    "waiting": "Task waiting for dependencies to complete",
 }
 
 TERMINAL_STATES = {"completed", "failed", "canceled", "rejected"}
@@ -53,11 +54,39 @@ class TaskService:
         """
         Task einreihen. Gibt (queued, position) zurück.
         Setzt Default-Priority 5 wenn nicht angegeben.
+        Tasks mit `depends_on` warten bis alle Abhängigkeiten completed sind.
         """
         agent_id = task["recipient_agent_id"]
         # Default-Priority sicherstellen
         task.setdefault("priority", 5)
+        # Circuit Breaker: Delegation-Tiefe prüfen
+        if task.get("delegation_depth", 0) >= MAX_DELEGATION_DEPTH:
+            task["status"] = "rejected"
+            task["error"] = f"Max delegation depth ({MAX_DELEGATION_DEPTH}) erreicht"
+            task["completed_at"] = datetime.now().isoformat()
+            with _tasks_lock:
+                _TASKS[task["id"]] = task
+            self._save()
+            logger.warning(
+                "Task %s abgelehnt: Delegation-Tiefe %d >= %d",
+                task.get("id", "?")[:8], task["delegation_depth"], MAX_DELEGATION_DEPTH
+            )
+            return (False, 0)
         with _tasks_lock:
+            # Dependency-Check: Falls Abhängigkeiten vorhanden und noch nicht alle completed
+            depends_on = task.get("depends_on", [])
+            if depends_on:
+                all_done = all(
+                    _TASKS.get(dep_id, {}).get("status") == "completed"
+                    for dep_id in depends_on
+                )
+                if not all_done:
+                    task["status"] = "waiting"
+                    _TASKS[task["id"]] = task
+                    self._save()
+                    logger.info("Task %s wartet auf %d Abhängigkeiten", task["id"][:8], len(depends_on))
+                    return (False, 0)
+
             busy = any(
                 t.get("recipient_agent_id") == agent_id
                 and t.get("status") in ("submitted", "working", "queued")
@@ -85,7 +114,7 @@ class TaskService:
 
     def tick_queue(self):
         """
-        Queued Tasks starten wenn Agent frei wird.
+        Queued + Waiting Tasks starten wenn Agent frei wird / Abhängigkeiten erfüllt.
         Sortiert nach: priority DESC (höher = wichtiger), dann queued_at ASC (FIFO).
         Prioritäten: User-Chat=8, A2A-User=5, Heartbeat=3
         """
@@ -96,7 +125,46 @@ class TaskService:
                 if t.get("status") in ("submitted", "working")
             }
             to_start = []
-            # Priority-Queue: höhere priority zuerst, bei Gleichstand FIFO
+
+            # Waiting Tasks: prüfen ob Abhängigkeiten jetzt erfüllt sind
+            for task in list(_TASKS.values()):
+                if task.get("status") != "waiting":
+                    continue
+                depends_on = task.get("depends_on", [])
+                all_done = all(
+                    _TASKS.get(dep_id, {}).get("status") == "completed"
+                    for dep_id in depends_on
+                )
+                if not all_done:
+                    continue
+                # Alle Deps completed: Kumulativen Kontext aller Schritte aufbauen
+                if depends_on:
+                    last_dep = _TASKS.get(depends_on[-1], {})
+                    prev_chain = last_dep.get("context_chain", [])
+                    ctx_text = last_dep.get("result_text") or ""
+                    ctx_image = last_dep.get("result_image")
+                    ctx_agent = last_dep.get("recipient_agent_name", "")
+                    new_chain = list(prev_chain)
+                    if ctx_text or ctx_image:
+                        new_chain.append({
+                            "text": ctx_text,
+                            "image": ctx_image,
+                            "agent_name": ctx_agent,
+                        })
+                    if new_chain:
+                        task["context_chain"] = new_chain
+                        task["context_from_prev"] = new_chain[-1]  # Rückwärtskompatibilität
+                # Normalen Queue-Flow fortsetzen
+                agent_id = task["recipient_agent_id"]
+                if agent_id not in agents_working:
+                    task["status"] = "submitted"
+                    agents_working.add(agent_id)
+                    to_start.append(task["id"])
+                else:
+                    task["status"] = "queued"
+                    task["queued_at"] = datetime.now().isoformat()
+
+            # Queued Tasks: Priority-Queue, höhere priority zuerst, FIFO
             queued = [t for t in _TASKS.values() if t.get("status") == "queued"]
             queued.sort(key=lambda x: (-x.get("priority", 5), x.get("queued_at", "")))
             for task in queued:
@@ -104,6 +172,7 @@ class TaskService:
                     task["status"] = "submitted"
                     agents_working.add(task["recipient_agent_id"])
                     to_start.append(task["id"])
+
         for tid in to_start:
             spawn_background(self.process, tid)
 
@@ -154,6 +223,36 @@ class TaskService:
 
         task["status"] = "working"
         self._save()
+
+        # Kumulativen Kontext aller vorherigen Chain-Schritte injizieren
+        context_chain = task.get("context_chain", [])
+        if context_chain:
+            chain_parts = []
+            for entry in context_chain:
+                if entry.get("text"):
+                    chain_parts.append(f"[@{entry.get('agent_name', '?')}]:\n{entry['text']}")
+            if chain_parts:
+                task["message"] = (
+                    f"[Ergebnisse vorheriger Schritte]:\n"
+                    + "\n\n".join(chain_parts)
+                    + f"\n\n---\nDeine Aufgabe: {task['message']}"
+                )
+            last_ctx = context_chain[-1]
+            if last_ctx.get("image") and not task.get("images"):
+                task["context_image"] = last_ctx["image"]
+        elif task.get("context_from_prev"):
+            # Fallback (Rückwärtskompatibilität für ältere Tasks)
+            ctx = task["context_from_prev"]
+            ctx_text = ctx.get("text", "")
+            ctx_agent = ctx.get("agent_name", "vorheriger Schritt")
+            if ctx_text:
+                task["message"] = (
+                    f"[Ergebnis von @{ctx_agent}]:\n{ctx_text}\n\n"
+                    f"---\nDeine Aufgabe: {task['message']}"
+                )
+            if ctx.get("image") and not task.get("images"):
+                task["context_image"] = ctx["image"]
+
         logger.info("Task %s gestartet: %s", task_id, task["message"][:60])
 
         agent = self._agents.get(task["recipient_agent_id"])
@@ -193,6 +292,20 @@ class TaskService:
             task["status"], task.get("error")
         )
 
+        # Bild/Ergebnis als chat_message für den SENDER emittieren
+        # → Chat-UI des Senders zeigt das Bild automatisch an
+        if task["status"] == "completed":
+            sender_id = task.get("sender_agent_id")
+            result_image = task.get("result_image")
+            result_text = task.get("result_text") or ""
+            recipient_name = task.get("recipient_agent_name", "Agent")
+            if sender_id and (result_image or result_text):
+                prefix = f"[@{recipient_name}]:"
+                display_text = f"{prefix} {result_text}".strip() if result_text else prefix
+                self._events.emit_chat_message(
+                    sender_id, "assistant", display_text, image=result_image
+                )
+
         # Callback-URL: Ergebnis aktiv zurück zum Sender senden (optional)
         self._maybe_callback(task)
 
@@ -201,22 +314,25 @@ class TaskService:
         from skills.base import SkillResult
         if isinstance(result, SkillResult):
             if result.error:
-                task["error"] = result.error
-            else:
-                task["result_text"] = result.text
-                task["result_image"] = result.image
-                task["skill_used"] = result.skill_used
+                logger.error("Skill-Fehler in Task %s: %s", task["id"], result.error)
+                raise RuntimeError(result.error)   # → landet in _fail()
+            task["result_text"] = result.text
+            task["result_image"] = result.image
+            task["skill_used"] = result.skill_used
         elif isinstance(result, dict):
             task.update(result)
 
     def _complete(self, task):
-        """Task als completed markieren."""
+        """Task als completed markieren. Triggert Dependency-Queue für Folgetasks."""
         task["status"] = "completed"
         task["completed_at"] = datetime.now().isoformat()
         logger.info("Task %s abgeschlossen via %s", task["id"], task.get("skill_used"))
         # History-Eintrag
         if not task.get("chat_mode"):
             self._save_to_history(task)
+        # Folgetasks aus "waiting" in Queue promoten
+        self._save()
+        self.tick_queue()
 
     def _fail(self, task, error: str):
         """Task als failed markieren."""
@@ -233,20 +349,43 @@ class TaskService:
     def _save_to_history(self, task):
         """Task-Ergebnis in Chat-History beider Agenten speichern."""
         try:
+            from storage.history import load_history, save_history
             ts = datetime.now().isoformat()
-            recipient_id = task["recipient_agent_id"]
-            sender_id = task.get("sender_agent_id", "")
-            result_text = task.get("result_text", "")
-            if result_text:
-                self._events.emit_chat_message(
-                    recipient_id, "system",
-                    f"✅ **Done** (von @{task['sender_agent_name']}): {result_text[:300]}"
-                )
-                if sender_id and sender_id not in ("system", "inbox", "user", ""):
-                    self._events.emit_chat_message(
-                        sender_id, "system",
-                        f"📬 **@{task['recipient_agent_name']}** → {result_text[:300]}"
-                    )
+            recipient_id  = task["recipient_agent_id"]
+            sender_id     = task.get("sender_agent_id", "")
+            result_text   = task.get("result_text") or ""
+            result_image  = task.get("result_image")   # base64 oder None
+            recipient_name = task.get("recipient_agent_name", "Agent")
+            sender_name    = task.get("sender_agent_name", "?")
+
+            if not result_text and not result_image:
+                return
+
+            history = load_history()
+
+            # Beim Empfänger-Agenten speichern
+            history.setdefault(recipient_id, [])
+            history[recipient_id].append({
+                "role": "assistant",
+                "content": result_text or f"[Task von @{sender_name} abgeschlossen]",
+                "image": result_image,
+                "skill_used": task.get("skill_used"),
+                "ts": ts,
+            })
+
+            # Beim Sender-Agenten speichern (nur wenn echter Agent, nicht User/System)
+            if sender_id and sender_id not in ("system", "inbox", "user", ""):
+                history.setdefault(sender_id, [])
+                history[sender_id].append({
+                    "role": "assistant",
+                    "content": result_text or f"[@{recipient_name} hat den Task abgeschlossen]",
+                    "image": result_image,
+                    "skill_used": task.get("skill_used"),
+                    "ts": ts,
+                })
+
+            save_history(history)
+
         except Exception as e:
             logger.warning("History-Save fehlgeschlagen: %s", e)
 
@@ -295,7 +434,7 @@ class TaskService:
         with _tasks_lock:
             to_remove = [
                 tid for tid, t in _TASKS.items()
-                if t.get("status") in ("completed", "failed", "cancelled")
+                if t.get("status") in TERMINAL_STATES
                 and (t.get("completed_at") or "9999") < cutoff
             ]
             for tid in to_remove:

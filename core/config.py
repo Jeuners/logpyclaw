@@ -1,6 +1,9 @@
 """
 core/config.py — Pfad-Konstanten, URLs, Hilfsfunktionen.
 Importiert nur core/state.py (für _DEBUG_LOG).
+
+Werte-Duplikate werden aus config.settings bezogen (Single Source of Truth).
+Diese Datei bleibt als Fassade bestehen, damit alle bestehenden Imports weiter funktionieren.
 """
 import os
 import sys
@@ -8,6 +11,7 @@ import json
 import threading
 
 from core.state import _DEBUG_LOG
+from config.settings import settings
 
 # ── Pfad-Konfiguration ────────────────────────────────────────────────────────
 # Im py2app-Bundle zeigt __file__ auf die .zip — CWD nutzen (gesetzt durch chdir in main_app.py)
@@ -25,19 +29,19 @@ TASKS_FILE     = os.path.join(BASE_DIR, "tasks.json")
 NODES_FILE     = os.path.join(BASE_DIR, "nodes.json")
 BACKUP_DIR     = os.path.join(BASE_DIR, "backups")
 
-# ── API URLs ──────────────────────────────────────────────────────────────────
-MISTRAL_TTS_URL    = "https://api.mistral.ai/v1/audio/speech"
-MISTRAL_VOICES_URL = "https://api.mistral.ai/v1/audio/voices"
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-GOOGLE_TTS_URL     = "https://texttospeech.googleapis.com/v1/text:synthesize"
+# ── API URLs — aus config.settings (Single Source of Truth) ──────────────────
+MISTRAL_TTS_URL     = settings.MISTRAL_TTS_URL
+MISTRAL_VOICES_URL  = settings.MISTRAL_VOICES_URL
+OPENROUTER_BASE_URL = settings.OPENROUTER_BASE_URL
+GOOGLE_TTS_URL      = settings.GOOGLE_TTS_URL
 
-# ── Embedding Config ──────────────────────────────────────────────────────────
-EMBED_MODEL = "nomic-embed-text"
-EMBED_DIM   = 768
+# ── Embedding Config — aus config.settings ────────────────────────────────────
+EMBED_MODEL = settings.EMBED_MODEL
+EMBED_DIM   = settings.EMBED_DIM
 
-# ── History Limits ────────────────────────────────────────────────────────────
-MAX_HISTORY_PER_AGENT = 30  # dev limit — erhöhen für Produktion
-MAX_CONTENT_LENGTH    = 32000   # erhöht für lange Transkriptionen (vorher 8000)
+# ── History Limits — aus config.settings ──────────────────────────────────────
+MAX_HISTORY_PER_AGENT = settings.MAX_HISTORY_PER_AGENT
+MAX_CONTENT_LENGTH    = settings.MAX_CONTENT_LENGTH
 
 
 # ── Debug Logging ─────────────────────────────────────────────────────────────
