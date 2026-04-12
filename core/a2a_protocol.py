@@ -109,7 +109,7 @@ def parse_a2a_dispatches(
     sender_id = sender_agent.get("id", "")
 
     dispatches: list[A2ADispatch] = []
-    seen_recipients: set[str] = set()  # Keine doppelten Tasks an gleichen Agenten
+    seen_self_refs: set[str] = set()  # nur für Selbstreferenz-Schutz
 
     for i, m in enumerate(matches):
         raw_name = m.group(1).strip().rstrip(",.;:!?")
@@ -122,11 +122,6 @@ def parse_a2a_dispatches(
         # Selbstreferenz ignorieren
         if target.get("id") == sender_id:
             logger.debug("A2A: Selbstreferenz ignoriert für '%s'", raw_name)
-            continue
-
-        # Duplikat-Check (gleicher Empfänger schon geplant)
-        if target["id"] in seen_recipients:
-            logger.debug("A2A: Duplikat-Dispatch für '%s' ignoriert", target["name"])
             continue
 
         # Task-Text: von nach dem @Mention bis vor der nächsten Mention oder Ende
@@ -155,7 +150,6 @@ def parse_a2a_dispatches(
             delegation_depth=sender_delegation_depth + 1,
         )
         dispatches.append(dispatch)
-        seen_recipients.add(target["id"])
         logger.info(
             "A2A-Dispatch geplant: @%s ← '%s...'",
             target["name"], task_text[:60]

@@ -263,17 +263,36 @@ class ChatService:
 
         dispatches = parse_a2a_dispatches(reply, sender_agent, all_agents,
                                           sender_delegation_depth=sender_depth)
+
+        # Gleiche Empfänger sequenziell ketten: jeder Task wartet auf den vorherigen
+        # Beispiel: @Picasso Bild 1 → @Picasso Bild 2 → @Picasso Bild 3
+        # → Task 2 depends_on Task 1, Task 3 depends_on Task 2, etc.
+        last_task_id_per_recipient: dict[str, str] = {}
+
         for dispatch in dispatches:
             if images:
                 dispatch.images = list(images)
             if attachment_path:
                 dispatch.attachment_path = attachment_path
             task = dispatch.to_task_dict()
-            dispatch.metadata["task_id"] = task["id"]   # task_id für Rückverfolgung
+            dispatch.metadata["task_id"] = task["id"]
+
+            # Kette: falls gleicher Agent bereits einen Task hat → depends_on setzen
+            prev_id = last_task_id_per_recipient.get(dispatch.recipient_id)
+            if prev_id:
+                task["depends_on"] = [prev_id]
+                task["status"] = "waiting"
+                logger.info(
+                    "A2A-Kette: @%s Task %s wartet auf %s",
+                    dispatch.recipient_name, task["id"][:8], prev_id[:8],
+                )
+
+            last_task_id_per_recipient[dispatch.recipient_id] = task["id"]
             self._task_service.enqueue(task)
-            logger.info("A2A-Task dispatched: @%s ← '%s...' (images=%d, attachment=%s)",
+            logger.info("A2A-Task dispatched: @%s ← '%s...' (images=%d, attachment=%s, seq=%d)",
                         dispatch.recipient_name, dispatch.task_text[:60],
-                        len(dispatch.images), bool(dispatch.attachment_path))
+                        len(dispatch.images), bool(dispatch.attachment_path),
+                        list(last_task_id_per_recipient.values()).count(task["id"]))
         return dispatches
 
     def _detect_and_dispatch_chain(self, agent: dict, message: str) -> dict | None:
