@@ -26,19 +26,41 @@ You are part of the AgentClaw multi-agent system.
 
 BEHAVIOUR RULES:
 1. ALWAYS check first if you can handle a request using YOUR OWN SKILLS (listed below).
-2. Only delegate to other agents (@Mention) if you absolutely do not have the required skill yourself.
+2. Only delegate to other agents if you absolutely do not have the required skill yourself.
 3. If you find information in your Memory, present it yourself — do not ask another agent.
 4. Reply precisely and minimally — no long explanations.
 
-DELEGATION (@Mention) — CRITICAL RULES:
-  • Write ONLY: @AgentName [complete task instructions]
-  • Include ALL necessary steps in a single @Mention!
-  • You will NOT receive the result back. The other agent handles EVERYTHING itself.
-  • NEVER add confirmation text like "Delegating to...", "Task sent to...", "I will inform..."
-  • NEVER use [TOOL_CALL], JSON, function calls or similar formats!
-  • The system handles all confirmation and status display automatically.
-  • Wrong: "@Flo fetch Hackernews" then add "I am delegating this..."
-  • Right: "@Flo fetch Hackernews, write report, send to Telegram"
+SINGLE DELEGATION (@Mention):
+  Use for ONE task to ONE agent:
+  @AgentName [complete task instructions]
+
+MULTI-TASK DELEGATION (TASKLIST):
+  Use when you need to delegate MULTIPLE tasks — especially sequential ones (e.g. generate 4 images, multi-step pipelines).
+  Write a [TASKLIST] block with a JSON array:
+
+  [TASKLIST]
+  [
+    {"to": "Picasso", "task": "Generate image 1: [full detailed description]", "id": "img1"},
+    {"to": "Picasso", "task": "Generate image 2: [full detailed description]", "after": "img1", "id": "img2"},
+    {"to": "Picasso", "task": "Generate image 3: [full detailed description]", "after": "img2", "id": "img3"},
+    {"to": "Jan",     "task": "Fetch references for X", "parallel": true}
+  ]
+  [/TASKLIST]
+
+  Fields:
+    to       (required) Agent name
+    task     (required) Full task description — ALWAYS include ALL context (character descriptions, style, etc.)!
+    id       (optional) Local reference ID
+    after    (optional) Local ID of the task to wait for (sequential chain)
+    priority (optional) 1-10, default 5
+    parallel (optional) true = start immediately without waiting for previous same-agent task
+
+  RULES:
+  • Each task MUST be self-contained — include ALL necessary information (never assume the agent remembers previous tasks)
+  • For image series: repeat the FULL character description in EVERY task
+  • Tasks with "after" wait for the referenced task to complete before starting
+  • Tasks without "after" to the same agent run sequentially automatically
+  • NEVER mix TASKLIST and @Mentions in the same reply
 --- END A2A ---
 """.strip()
 
@@ -101,7 +123,25 @@ class ChatService:
         except Exception:
             pass
 
-        # 5. A2A-Mentions dispatchen + Display-Reply bereinigen (images/attachment weitergeben)
+        # 5a. TASKLIST zuerst prüfen (strukturiert, hat Vorrang vor @Mentions)
+        from core.task_list import has_task_list, strip_task_list
+        if has_task_list(reply):
+            tl_dispatches = self._dispatch_task_list(agent, reply, images=images,
+                                                     attachment_path=attachment_path)
+            display_reply = strip_task_list(reply)
+            if display_reply:
+                self._events.emit_chat_message(agent_id, "assistant", display_reply)
+            for item in tl_dispatches:
+                self._events.emit_a2a_dispatch(
+                    agent["id"], agent["name"], item.recipient_name, item.task_text,
+                )
+            return {
+                "reply": display_reply,
+                "a2a_dispatches": [{"recipient_name": i.recipient_name, "task_text": i.task_text} for i in tl_dispatches],
+                "skill": None, "image": None, "agent_id": agent_id,
+            }
+
+        # 5b. @Mentions dispatchen + Display-Reply bereinigen (images/attachment weitergeben)
         dispatches = self._dispatch_mentions(agent, reply,
                                              images=images,
                                              attachment_path=attachment_path)
@@ -154,8 +194,12 @@ class ChatService:
         agent_history = history_data.get(agent["id"], [])
         reply = self._call_llm(agent, message, agent_history, images, providers)
 
-        # A2A-Delegates aus der Antwort dispatchen (Bilder/Attachments weitergeben)
-        self._dispatch_mentions(agent, reply, current_task=task)
+        # TASKLIST hat Vorrang, dann @Mentions
+        from core.task_list import has_task_list
+        if has_task_list(reply):
+            self._dispatch_task_list(agent, reply, current_task=task)
+        else:
+            self._dispatch_mentions(agent, reply, current_task=task)
         return {"result_text": reply, "skill_used": "llm"}
 
     def _try_skill(self, agent, message, images, attachment_path, providers) -> object | None:
@@ -294,6 +338,83 @@ class ChatService:
                         len(dispatch.images), bool(dispatch.attachment_path),
                         list(last_task_id_per_recipient.values()).count(task["id"]))
         return dispatches
+
+    def _dispatch_task_list(self, sender_agent: dict, reply: str,
+                            images: list | None = None,
+                            attachment_path: str | None = None,
+                            current_task: dict | None = None) -> list:
+        """
+        Parsed einen [TASKLIST]-Block und erstellt korrekt verkettete Tasks.
+
+        Abhängigkeiten (after) werden über depends_on im TaskService aufgelöst.
+        Mehrere Tasks an denselben Agenten ohne explicit 'after' werden automatisch
+        sequenziell gekettet (wie bei @Mentions).
+        Gibt die Liste der TaskItem-Objekte zurück.
+        """
+        if not self._task_service:
+            return []
+        from core.task_list import parse_task_list
+        from storage.agents import load_agents
+        all_agents = load_agents()
+        depth = current_task.get("delegation_depth", 0) if current_task else 0
+
+        items = parse_task_list(reply, sender_agent, all_agents, delegation_depth=depth)
+        if not items:
+            return []
+
+        # Bilder/Attachment aus Kontext übernehmen
+        if not images and current_task:
+            images = current_task.get("images") or []
+            if not images and current_task.get("context_image"):
+                images = [current_task["context_image"]]
+        if not attachment_path and current_task:
+            attachment_path = current_task.get("attachment_path", "")
+
+        # Lokale ID → System-Task-ID Mapping (für depends_on Auflösung)
+        local_to_system: dict[str, str] = {}
+
+        # Für implizite Sequenzierung: letzter Task pro Empfänger
+        last_per_recipient: dict[str, str] = {}
+
+        enqueued: list = []
+
+        for item in items:
+            if images:
+                item.images = list(images)
+            if attachment_path:
+                item.attachment_path = attachment_path
+            item.sender_id = sender_agent.get("id", "")
+            item.sender_name = sender_agent.get("name", "")
+
+            # Abhängigkeiten auflösen
+            depends_on: list[str] = []
+
+            # Explizite "after"-Abhängigkeit
+            if item.after and item.after in local_to_system:
+                depends_on.append(local_to_system[item.after])
+
+            # Implizite Sequenzierung: selber Agent ohne explicit after + nicht parallel
+            if not item.after and not item.parallel:
+                prev = last_per_recipient.get(item.recipient_id)
+                if prev:
+                    depends_on.append(prev)
+
+            task_id = str(__import__("uuid").uuid4())
+            task = item.to_task_dict(system_task_id=task_id, depends_on=depends_on)
+
+            # System-Task-ID registrieren für spätere "after"-Referenzen
+            local_to_system[item.local_id] = task_id
+            last_per_recipient[item.recipient_id] = task_id
+
+            self._task_service.enqueue(task)
+            enqueued.append(item)
+            logger.info(
+                "TASKLIST dispatched: @%s ← '%s...' (depends_on=%s)",
+                item.recipient_name, item.task_text[:60],
+                [d[:8] for d in depends_on],
+            )
+
+        return enqueued
 
     def _detect_and_dispatch_chain(self, agent: dict, message: str) -> dict | None:
         """
