@@ -75,12 +75,14 @@ def parse_a2a_dispatches(
     - Task-Text geht bis zur nächsten Mention (kein 500-char-Limit)
     - Fuzzy-Matching für Namen mit Umlauten/Sonderzeichen
     - Selbstreferenz wird ignoriert
-    - Leere Task-Texte werden mit vollständigem Reply befüllt (Fallback)
+    - Markdown-Tabellenzellen und Code-Blöcke werden IGNORIERT
+    - Kein Fallback auf ganzen Reply wenn task_text zu kurz (→ Skip statt falscher Task)
 
     Args:
         reply: Vollständiger LLM-Reply-Text
         sender_agent: Der Agent der die Antwort gegeben hat
         all_agents: Liste aller bekannten Agenten
+        sender_delegation_depth: Aktuelle Delegationstiefe des Senders
 
     Returns:
         Liste von A2ADispatch-Objekten (ohne Duplikate)
@@ -88,7 +90,10 @@ def parse_a2a_dispatches(
     if not reply or not all_agents:
         return []
 
-    matches = list(_MENTION_RX.finditer(reply))
+    # Tabellenzellen + Code-Blöcke maskieren, damit @Mentions darin nicht dispatcht werden
+    safe_reply = _mask_table_and_code(reply)
+
+    matches = list(_MENTION_RX.finditer(safe_reply))
     if not matches:
         return []
 
@@ -119,15 +124,19 @@ def parse_a2a_dispatches(
 
         # Task-Text: von nach dem @Mention bis vor der nächsten Mention oder Ende
         task_start = m.end()
-        task_end = matches[i + 1].start() if i + 1 < len(matches) else len(reply)
-        task_text = reply[task_start:task_end].strip()
-
-        # Fallback: wenn zu kurz, ganzen Reply als Task-Text verwenden
-        if len(task_text) < 10:
-            task_text = reply.strip()
+        task_end = matches[i + 1].start() if i + 1 < len(matches) else len(safe_reply)
+        task_text = safe_reply[task_start:task_end].strip()
 
         # Führende Satzzeichen/Bindestriche entfernen
-        task_text = re.sub(r"^[\s:,\-–—]+", "", task_text).strip()
+        task_text = re.sub(r"^[\s:,\-–—|]+", "", task_text).strip()
+
+        # KEIN Fallback auf ganzen Reply — zu kurzer Task-Text = falscher Trigger → überspringen
+        if len(task_text) < 10:
+            logger.debug(
+                "A2A: Zu kurzer Task-Text (%d Zeichen) für '@%s' — kein Dispatch",
+                len(task_text), raw_name,
+            )
+            continue
 
         dispatch = A2ADispatch(
             recipient_id=target["id"],
@@ -146,6 +155,33 @@ def parse_a2a_dispatches(
         )
 
     return dispatches
+
+
+def _mask_table_and_code(text: str) -> str:
+    """
+    Ersetzt Markdown-Tabellenzellen und Code-Block-Inhalte durch Leerzeichen
+    gleicher Länge, damit @Mentions darin NICHT als Dispatches erkannt werden.
+    Positionen bleiben erhalten (wichtig für m.start()/m.end() der Regex-Matches).
+    """
+    lines = text.splitlines(keepends=True)
+    result: list[str] = []
+    in_code = False
+    for line in lines:
+        stripped = line.strip()
+        # Code-Block toggle
+        if stripped.startswith("```"):
+            in_code = not in_code
+            # Die ``` Zeile selbst maskieren (Länge beibehalten)
+            eol = "\n" if line.endswith("\n") else ""
+            result.append(" " * (len(line) - len(eol)) + eol)
+            continue
+        # Code-Block-Inhalt oder Markdown-Tabellenzelle → alles maskieren
+        if in_code or stripped.startswith("|"):
+            eol = "\n" if line.endswith("\n") else ""
+            result.append(" " * (len(line) - len(eol)) + eol)
+        else:
+            result.append(line)
+    return "".join(result)
 
 
 def _build_name_map(agents: list[dict]) -> dict[str, dict]:
