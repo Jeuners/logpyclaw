@@ -20,8 +20,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-A2A_COMMUNICATION_PROMPT = """
---- A2A COMMUNICATION ---
+def _build_a2a_prompt() -> str:
+    """System-Prompt Block für A2A + Tools — bezieht Tool-Beschreibungen aus der API."""
+    from api.tools import get_tool_prompt_block
+    tool_block = get_tool_prompt_block()
+    return f"""--- A2A COMMUNICATION ---
 You are part of the AgentClaw multi-agent system.
 
 BEHAVIOUR RULES:
@@ -34,35 +37,21 @@ SINGLE DELEGATION (@Mention):
   Use for ONE task to ONE agent:
   @AgentName [complete task instructions]
 
-MULTI-TASK DELEGATION (TASKLIST):
-  Use when you need to delegate MULTIPLE tasks — especially sequential ones (e.g. generate 4 images, multi-step pipelines).
-  Write a [TASKLIST] block with a JSON array:
+MULTI-TASK DELEGATION → use the tasklist tool (see below).
 
-  [TASKLIST]
-  [
-    {"to": "Picasso", "task": "Generate image 1: [full detailed description]", "id": "img1"},
-    {"to": "Picasso", "task": "Generate image 2: [full detailed description]", "after": "img1", "id": "img2"},
-    {"to": "Picasso", "task": "Generate image 3: [full detailed description]", "after": "img2", "id": "img3"},
-    {"to": "Jan",     "task": "Fetch references for X", "parallel": true}
-  ]
-  [/TASKLIST]
+{tool_block}
+--- END A2A ---""".strip()
 
-  Fields:
-    to       (required) Agent name
-    task     (required) Full task description — ALWAYS include ALL context (character descriptions, style, etc.)!
-    id       (optional) Local reference ID
-    after    (optional) Local ID of the task to wait for (sequential chain)
-    priority (optional) 1-10, default 5
-    parallel (optional) true = start immediately without waiting for previous same-agent task
 
-  RULES:
-  • Each task MUST be self-contained — include ALL necessary information (never assume the agent remembers previous tasks)
-  • For image series: repeat the FULL character description in EVERY task
-  • Tasks with "after" wait for the referenced task to complete before starting
-  • Tasks without "after" to the same agent run sequentially automatically
-  • NEVER mix TASKLIST and @Mentions in the same reply
---- END A2A ---
-""".strip()
+# Gecacht beim ersten Aufruf (ändert sich nicht zur Laufzeit)
+_A2A_PROMPT_CACHE: str | None = None
+
+
+def get_a2a_prompt() -> str:
+    global _A2A_PROMPT_CACHE
+    if _A2A_PROMPT_CACHE is None:
+        _A2A_PROMPT_CACHE = _build_a2a_prompt()
+    return _A2A_PROMPT_CACHE
 
 
 class ChatService:
@@ -674,7 +663,7 @@ class ChatService:
         _codebase = f"\n\n{_get_codebase_context()}" if "codebase_read" in _agent_skills else ""
         system_content = (
             f"[Aktuelle Zeit: {now}]\n\n{agent['soul']}\n\n"
-            f"{A2A_COMMUNICATION_PROMPT}\n\n"
+            f"{get_a2a_prompt()}\n\n"
             f"{agent_directory}{_codebase}"
         )
 

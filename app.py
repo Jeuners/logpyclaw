@@ -100,6 +100,7 @@ from api import stats as stats_api
 from api import watchdogs as watchdogs_api
 from api import comfyui as comfyui_api
 from api import themes as themes_api
+from api import tools as tools_api
 
 for _router in [
     providers_api.router,
@@ -114,10 +115,11 @@ for _router in [
     watchdogs_api.router,   # /api/watchdogs*, /api/watchdog/*
     comfyui_api.router,     # /api/comfyui/*
     themes_api.router,      # /api/themes
+    tools_api.router,       # /api/tools/*
 ]:
     app.include_router(_router)
 
-logger.info("Alle FastAPI-Router registriert (%d Stück)", 16)
+logger.info("Alle FastAPI-Router registriert (%d Stück)", 17)
 
 # ── NiceGUI Pages registrieren ────────────────────────────────────────────────
 import ui.pages.home        # noqa: F401 — registriert @ui.page("/")
