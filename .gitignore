@@ -30,3 +30,13 @@ dist/
 venv/
 *.zip
 dump.rdb
+
+# Claude Code Konfiguration (privat)
+.claude/
+
+# Laufzeit-generierte Event-Logs (können sehr groß werden)
+events.jsonl
+
+# Backup-Dateien
+*.bak
+*.json.bak

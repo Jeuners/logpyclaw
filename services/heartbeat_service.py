@@ -3,6 +3,7 @@ services/heartbeat_service.py — Heartbeat und Dream-Zyklen.
 Extrahiert aus app.py: run_heartbeat(), tick_heartbeats(), run_dream_for_agent().
 """
 import logging
+import re
 import random
 import subprocess
 from datetime import datetime, timedelta
@@ -20,9 +21,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_MENTION_RX = __import__('re').compile(
+_MENTION_RX = re.compile(
     r"@([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9_\- ]{1,40}?)(?=\s|$|[,.:!?])",
-    __import__('re').UNICODE
+    re.UNICODE
 )
 
 
@@ -98,7 +99,6 @@ class HeartbeatService:
                 })
             else:
                 from core.llm import call_agent_text
-                import re
                 prompt_for_llm = _MENTION_RX.sub("", prompt).strip()
                 reply = call_agent_text(agent, "[Heartbeat]", prompt_for_llm)
                 short = reply[:120]
