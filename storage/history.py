@@ -1,5 +1,5 @@
 """
-storage/history.py — Chat-History laden und speichern (kein Cache).
+storage/history.py — Chat-History laden und speichern.
 """
 import json
 import os
@@ -7,17 +7,31 @@ import os
 from core.config import HISTORY_FILE, MAX_HISTORY_PER_AGENT, MAX_CONTENT_LENGTH
 from core.state import _history_lock
 
+# ── In-Memory Cache ───────────────────────────────────────────────────────────
+_history_cache: dict | None = None
+
+
+def _invalidate_history_cache():
+    global _history_cache
+    _history_cache = None
+
 
 def load_history() -> dict:
-    """Liest history.json direkt von Disk — kein Cache (verhindert Stale-State nach Reset)."""
+    """Liest history.json — gecacht, Invalidierung bei jedem save_history()."""
+    global _history_cache
     with _history_lock:
+        if _history_cache is not None:
+            return _history_cache
         if not os.path.exists(HISTORY_FILE):
-            return {}
+            _history_cache = {}
+            return _history_cache
         try:
             with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                _history_cache = json.load(f)
+                return _history_cache
         except Exception:
-            return {}
+            _history_cache = {}
+            return _history_cache
 
 
 def save_history(history: dict):
@@ -38,6 +52,7 @@ def save_history(history: dict):
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(history, f, ensure_ascii=False, indent=2)
             os.replace(tmp, HISTORY_FILE)
+            _history_cache = dict(history)  # Cache direkt aktualisieren statt invalidieren
         except Exception as e:
             print(f"[History] save_history Fehler: {e}", flush=True)
             try:

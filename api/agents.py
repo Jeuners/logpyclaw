@@ -6,7 +6,9 @@ Ersetzt Flask-Routen aus app.py:
   /api/agents/<id>/settings, /api/agents/<id>/skills, /api/agents/<id>/voice
 """
 import logging
+import os
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from services import get_services
@@ -40,6 +42,7 @@ class UpdateAgentRequest(BaseModel):
     max_tokens: int | None = Field(default=None, ge=128, le=32768)
     favorite: bool | None = None
     voice: str | None = None
+    web_search: bool | None = None
     heartbeat: dict | None = None
     dream: dict | None = None
 
@@ -214,6 +217,7 @@ class AgentSettingsRequest(BaseModel):
     color: str | None = None
     avatar: str | None = None  # base64 data URL oder ""
     orchestrator: bool | None = None
+    web_search: bool | None = None
 
 
 @router.put("/agents/{agent_id}/settings")
@@ -259,3 +263,21 @@ def update_agent_voice(agent_id: str, req: AgentVoiceRequest):
     services.agents.update(agent_id, {"voice": req.voice})
     services.events.emit("agent_updated", {"id": agent_id})
     return {"ok": True, "voice": req.voice}
+
+
+@router.get("/agents/{agent_id}/avatar")
+def get_avatar(agent_id: str):
+    """Avatar-Bild für einen Agenten liefern (aus Datei)."""
+    from core.config import BASE_DIR
+    services = get_services()
+    agent = services.agents.get(agent_id)
+    if not agent:
+        raise HTTPException(404, "Agent nicht gefunden")
+    avatar = agent.get("avatar", "")
+    if avatar and avatar.startswith("file:"):
+        path = avatar[5:]
+        if not os.path.isabs(path):
+            path = os.path.join(BASE_DIR, path)
+        if os.path.exists(path):
+            return FileResponse(path)
+    raise HTTPException(404, "Kein Avatar vorhanden")

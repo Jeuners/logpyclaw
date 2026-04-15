@@ -461,7 +461,9 @@ window._ac = {
                   + '&message=' + encodeURIComponent(msg);
 
         let accumulated = '';
+        let accumulatedThinking = '';
         let replyStarted = false;
+        let thinkingStarted = false;
 
         fetch(url).then(response => {
             const reader = response.body.getReader();
@@ -497,8 +499,22 @@ window._ac = {
                                 return;
                             }
 
+                            if (data.thinking) {
+                                accumulatedThinking += data.thinking;
+                                if (!thinkingStarted) {
+                                    thinkingStarted = true;
+                                    this.removeTyping();
+                                    this.startThinking();
+                                }
+                                this.updateThinking(accumulatedThinking);
+                            }
+
                             if (data.chunk) {
                                 accumulated += data.chunk;
+                                if (thinkingStarted) {
+                                    this.finishThinking();
+                                    thinkingStarted = false;
+                                }
                                 if (!replyStarted) {
                                     replyStarted = true;
                                     this.removeTyping();
@@ -509,6 +525,10 @@ window._ac = {
 
                             if (data.done) {
                                 this.removeTyping();
+                                if (thinkingStarted) {
+                                    this.finishThinking();
+                                    thinkingStarted = false;
+                                }
                                 const displayReply = data.display_reply || accumulated;
                                 if (displayReply) {
                                     if (!replyStarted) this.startReply();
@@ -594,6 +614,36 @@ window._ac = {
     removeTyping: function() {
         const el = document.getElementById('ac-typing');
         if (el) el.remove();
+    },
+
+    // ─── Thinking-Panel (Chain-of-Thought von Reasoning-Modellen) ─────────────
+    startThinking: function() {
+        const c = document.getElementById('ac-messages');
+        if (!c) return;
+        c.insertAdjacentHTML('beforeend',
+            '<details id="ac-thinking-wrap" open style="max-width:820px;align-self:flex-start;width:100%;' +
+            'background:rgba(120,90,200,.06);border:1px solid rgba(120,90,200,.25);border-radius:10px;' +
+            'padding:6px 12px;font-size:12px;color:#9a86c4">' +
+            '<summary style="cursor:pointer;user-select:none;font-family:monospace;font-size:11px;' +
+            'color:#8a76b4;outline:none">💭 <span id="ac-thinking-label">denkt …</span></summary>' +
+            '<div id="ac-thinking" style="margin-top:6px;white-space:pre-wrap;line-height:1.5;' +
+            'font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#b5a5d8;' +
+            'max-height:220px;overflow-y:auto"></div></details>');
+    },
+
+    updateThinking: function(text) {
+        const el = document.getElementById('ac-thinking');
+        if (el) { el.textContent = text; el.scrollTop = el.scrollHeight; this.scroll(); }
+    },
+
+    finishThinking: function() {
+        const lbl = document.getElementById('ac-thinking-label');
+        if (lbl) lbl.textContent = 'Gedanken';
+        const wrap = document.getElementById('ac-thinking-wrap');
+        if (wrap) { wrap.open = false; wrap.removeAttribute('id'); }
+        const el = document.getElementById('ac-thinking');
+        if (el) el.removeAttribute('id');
+        if (lbl) lbl.removeAttribute('id');
     },
 
     startReply: function() {
@@ -1081,6 +1131,109 @@ window._ac = {
     });
 })();
 
+// ─── Topbar-Logik (Delete-Confirm, Edit-Button) ──────────────────────────────
+function _initTopbar() {
+    // Delete-Confirm Popup
+    var btn = document.getElementById('ac-clear-btn');
+    var popup = document.getElementById('ac-clear-confirm');
+    var yesBtn = document.getElementById('ac-clear-yes');
+    var noBtn = document.getElementById('ac-clear-no');
+    if (btn && popup) {
+        btn.addEventListener('click', function() {
+            popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+        });
+        if (noBtn) noBtn.addEventListener('click', function() { popup.style.display = 'none'; });
+        if (yesBtn) yesBtn.addEventListener('click', function() {
+            yesBtn.textContent = 'Lösche...';
+            yesBtn.disabled = true;
+            // agentId dynamisch aus _acConfig — funktioniert auch nach Agent-Switch
+            fetch('/api/history/' + (window._acConfig && window._acConfig.agentId || ''), {method: 'DELETE'})
+                .then(function() {
+                    document.getElementById('ac-messages').innerHTML =
+                        '<div style="color:#3a5a3a;font-size:13px;font-style:italic;text-align:center;padding:32px 0;width:100%">Noch keine Nachrichten. Starte eine Unterhaltung!</div>';
+                    popup.style.display = 'none';
+                    yesBtn.textContent = 'Löschen';
+                    yesBtn.disabled = false;
+                });
+        });
+        document.addEventListener('click', function(e) {
+            if (btn && popup && !btn.contains(e.target) && !popup.contains(e.target)) {
+                popup.style.display = 'none';
+            }
+        });
+    }
+    // Edit-Button — navigiert dynamisch zum aktuellen Agenten
+    var editBtn = document.getElementById('ac-edit-btn');
+    if (editBtn) {
+        editBtn.addEventListener('click', function() {
+            var agId = window._acConfig && window._acConfig.agentId;
+            if (agId) window.location.href = '/agent/edit/' + agId;
+        });
+    }
+}
+
+// ─── SPA Agent-Switch — kein Page-Reload beim Agentenwechsel ─────────────────
+function _switchAgent(agentId) {
+    // Sidebar: aktiven Agenten visuell markieren
+    document.querySelectorAll('[data-agent-id]').forEach(function(el) {
+        var isActive = el.dataset.agentId === agentId;
+        el.style.background = isActive ? 'rgba(0,230,118,.08)' : 'transparent';
+    });
+
+    // Placeholder + Config sofort updaten (optimistic)
+    var input = document.getElementById('ac-input');
+
+    fetch('/api/chat/context/' + agentId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            // Messages austauschen
+            var msgs = document.getElementById('ac-messages');
+            if (msgs) msgs.innerHTML = data.messages_html;
+
+            // Topbar austauschen
+            var topbar = document.getElementById('ac-topbar');
+            if (topbar && data.topbar_html) {
+                topbar.outerHTML = data.topbar_html;
+                _initTopbar();  // Event-Listener neu binden
+            }
+
+            // Config updaten
+            if (window._acConfig) {
+                window._acConfig.agentId = data.agent.id;
+                window._acConfig.agentName = data.agent.name;
+                window._acConfig.agentVoice = data.agent.voice || '';
+            }
+
+            // Textarea Placeholder
+            if (input) input.placeholder = 'Nachricht an ' + data.agent.name + '\u2026';
+
+            // URL ohne Page-Reload aktualisieren
+            history.pushState({agentId: agentId}, '', '/chat/' + agentId);
+
+            // Scroll to bottom
+            var scroll = document.getElementById('ac-scroll');
+            if (scroll) scroll.scrollTop = scroll.scrollHeight;
+        })
+        .catch(function(e) { console.error('Agent-Switch Fehler:', e); });
+}
+
+// Sidebar-Klicks abfangen
+document.addEventListener('click', function(e) {
+    var link = e.target.closest('[data-agent-id]');
+    if (!link) return;
+    var agentId = link.dataset.agentId;
+    if (!agentId) return;
+    if (agentId === (window._acConfig && window._acConfig.agentId)) return;
+    e.preventDefault();
+    _switchAgent(agentId);
+});
+
+// Browser Zurück/Vor nach pushState
+window.addEventListener('popstate', function(e) {
+    var agentId = e.state && e.state.agentId;
+    if (agentId) _switchAgent(agentId);
+});
+
 // ─── Initialisierung nach DOM ready ──────────────────────────────────────────
 // Vue rendert verzögert — mit Retry bis #ac-input im DOM ist
 (function initWhenReady() {
@@ -1090,6 +1243,7 @@ window._ac = {
         tries++;
         if (document.getElementById('ac-input')) {
             window._ac.init();
+            _initTopbar();
         } else if (tries < MAX_TRIES) {
             setTimeout(tryInit, 100);
         }

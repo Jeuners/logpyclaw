@@ -113,6 +113,23 @@ class BaseSkill(ABC):
             re.search(trigger, message, re.IGNORECASE) for trigger in self.triggers
         )
 
+    def longest_match(self, message: str) -> int:
+        """
+        Gibt die Länge des längsten Trigger-Matches zurück.
+        Wird von SkillRegistry.find_matching() genutzt um den spezifischsten Skill zu wählen.
+
+        Returns:
+            Länge des längsten Matches, 0 wenn kein Trigger passt.
+        """
+        if not self.triggers:
+            return 0
+        best = 0
+        for trigger in self.triggers:
+            m = re.search(trigger, message, re.IGNORECASE)
+            if m:
+                best = max(best, len(m.group(0)))
+        return best
+
     def is_available(self, providers: dict) -> bool:
         """
         Check if all required providers are configured.

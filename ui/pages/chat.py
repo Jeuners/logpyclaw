@@ -28,8 +28,8 @@ def chat_page(agent_id: str):
 
     from services import get_services
     services = get_services()
-    agent = services.agents.get(agent_id)
-    agents = services.agents.list_all()
+    agents = services.agents.list_all()  # einmal laden, agent daraus ableiten
+    agent = next((a for a in agents if a["id"] == agent_id), None)
     agents_sorted = sorted(agents, key=lambda a: (not a.get("favorite"), a.get("name", "").lower()))
 
     if not agent:
@@ -461,7 +461,7 @@ def _render_sidebar_agent(agent: dict, current_agent_id: str):
         if is_selected else f"background: transparent; {border_style}"
     )
 
-    with ui.element("a").props(f'href="/chat/{ag_id}"').style(
+    with ui.element("a").props(f'href="/chat/{ag_id}" data-agent-id="{ag_id}"').style(
         f"display: flex; align-items: center; gap: 8px; padding: 8px; "
         f"border-radius: 6px; cursor: pointer; transition: background .12s; "
         f"margin-bottom: 2px; text-decoration: none; {bg_style}"
@@ -488,119 +488,92 @@ def _render_sidebar_agent(agent: dict, current_agent_id: str):
 # ─── Chat Topbar ──────────────────────────────────────────────────────────────
 
 
-def _render_chat_topbar(agent: dict, agent_id: str, color: str):
+def _build_topbar_html(agent: dict, agent_id: str, color: str) -> str:
+    """Topbar als reiner HTML-String — wird sowohl beim initialen Render als auch
+    vom /api/chat/context Endpoint für den JS-basierten Agentenwechsel genutzt."""
     name = agent.get("name", "?")
     role = agent.get("role", "")
     skills = agent.get("skills", [])
     model = agent.get("model", "")
+    is_fav = agent.get("favorite", False)
+    initials = html_mod.escape((name[:2] if len(name) >= 2 else name[:1]).upper())
+    safe_name = html_mod.escape(name)
+    safe_role = html_mod.escape(role)
+    safe_model = html_mod.escape(model.split("/")[-1][:16]) if model else ""
+    safe_color = html_mod.escape(color)
 
-    with ui.element("div").style(
-        "display: flex; align-items: center; gap: 16px; padding: 0 24px; "
-        "height: 72px; background: #070d08; border-bottom: 1px solid #0f2010; flex-shrink: 0;"
-    ):
-        initials = name[:2].upper() if len(name) >= 2 else name[0].upper()
-        with ui.element("div").style(
-            f"width: 44px; height: 44px; border-radius: 50%; background: {color}; "
-            f"display: flex; align-items: center; justify-content: center; "
-            f"font-size: 18px; font-weight: 700; color: #000; flex-shrink: 0;"
-        ):
-            ui.label(initials)
+    skill_chips = "".join(
+        f'<span style="font-size:10px;font-family:monospace;padding:2px 6px;border-radius:3px;'
+        f'background:rgba(0,230,118,0.08);color:#00e676;border:1px solid rgba(0,230,118,0.2)">'
+        f'{html_mod.escape(sk)}</span>'
+        for sk in skills[:5]
+    )
 
-        with ui.column().style("gap: 2px; flex: 1; min-width: 0;"):
-            with ui.row().classes("items-center gap-2"):
-                ui.label(name).style("font-size: 16px; font-weight: 600; color: #e4f4e4;")
-                if agent.get("favorite"):
-                    ui.icon("star").style("font-size: 14px; color: #ffd700;")
-            if role:
-                ui.label(role).style("font-size: 12px; color: #3a5a3a; font-family: monospace;")
+    star_html = '<span class="material-icons" style="font-size:14px;color:#ffd700">star</span>' if is_fav else ""
+    role_html = f'<div style="font-size:12px;color:#3a5a3a;font-family:monospace">{safe_role}</div>' if role else ""
+    model_html = (
+        f'<span style="font-size:10px;font-family:monospace;padding:2px 7px;border-radius:3px;'
+        f'background:#0f2010;color:#3a5a3a;border:1px solid #182e18;align-self:center">'
+        f'{safe_model}</span>'
+    ) if safe_model else ""
 
-        if skills:
-            with ui.row().style("gap: 4px; flex-wrap: wrap; max-width: 300px;"):
-                for sk in skills[:5]:
-                    ui.label(sk).style(
-                        "font-size: 10px; font-family: monospace; padding: 2px 6px; border-radius: 3px; "
-                        "background: rgba(0,230,118,0.08); color: #00e676; border: 1px solid rgba(0,230,118,0.2);"
-                    )
+    return (
+        f'<div id="ac-topbar" style="display:flex;align-items:center;gap:16px;padding:0 24px;'
+        f'height:72px;background:#070d08;border-bottom:1px solid #0f2010;flex-shrink:0">'
 
-        with ui.row().style("gap: 6px; margin-left: auto; flex-shrink: 0;"):
-            if model:
-                ui.label(model.split("/")[-1][:16]).style(
-                    "font-size: 10px; font-family: monospace; padding: 2px 7px; border-radius: 3px; "
-                    "background: #0f2010; color: #3a5a3a; border: 1px solid #182e18; align-self: center;"
-                )
-            # History-Button + Inline-Confirm (kein alert/confirm — modernes UI)
-            ui.html('''<div style="position:relative;display:inline-flex">
-                <button id="ac-clear-btn" title="History löschen"
-                    style="color:#3a5a3a;width:32px;height:32px;display:inline-flex;
-                    align-items:center;justify-content:center;border-radius:50%;
-                    font-size:18px;background:transparent;border:none;cursor:pointer">
-                    <span class="material-icons" style="font-size:18px">delete_sweep</span>
-                </button>
-                <div id="ac-clear-confirm" style="display:none;position:absolute;top:38px;right:0;
-                    background:#0f1a10;border:1px solid #1a3a1a;border-radius:10px;padding:12px 16px;
-                    box-shadow:0 8px 24px rgba(0,0,0,0.5);z-index:999;white-space:nowrap;min-width:200px">
-                    <div style="font-size:13px;color:#e4f4e4;margin-bottom:10px">History löschen?</div>
-                    <div style="display:flex;gap:8px;justify-content:flex-end">
-                        <button id="ac-clear-no" style="padding:5px 14px;border-radius:6px;
-                            background:transparent;color:#3a5a3a;border:1px solid #182e18;
-                            font-size:12px;cursor:pointer">Abbrechen</button>
-                        <button id="ac-clear-yes" style="padding:5px 14px;border-radius:6px;
-                            background:#ef4444;color:#fff;border:none;
-                            font-size:12px;cursor:pointer;font-weight:600">Löschen</button>
-                    </div>
-                </div>
-            </div>''')
-            ui.add_head_html(f'''<script>
-            document.addEventListener('DOMContentLoaded', function() {{
-                var btn = document.getElementById('ac-clear-btn');
-                var popup = document.getElementById('ac-clear-confirm');
-                var yesBtn = document.getElementById('ac-clear-yes');
-                var noBtn = document.getElementById('ac-clear-no');
-                if (!btn || !popup) return;
-                btn.addEventListener('click', function() {{
-                    popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
-                }});
-                noBtn.addEventListener('click', function() {{ popup.style.display = 'none'; }});
-                yesBtn.addEventListener('click', function() {{
-                    yesBtn.textContent = 'Lösche...';
-                    yesBtn.disabled = true;
-                    fetch('/api/history/{agent_id}', {{method: 'DELETE'}})
-                        .then(function() {{ window.location.reload(); }});
-                }});
-                document.addEventListener('click', function(e) {{
-                    if (!btn.contains(e.target) && !popup.contains(e.target)) {{
-                        popup.style.display = 'none';
-                    }}
-                }});
-            }});
-            </script>''')
-            # Edit als HTML-Link (core.loop Bug — on_click→navigate funktioniert nicht)
-            ui.html(f'''<a href="/agent/edit/{agent_id}" title="Bearbeiten"
-                style="color:#3a5a3a;width:32px;height:32px;display:inline-flex;
-                align-items:center;justify-content:center;border-radius:50%;
-                text-decoration:none;font-size:18px"
-                onmouseover="this.style.background='rgba(255,255,255,0.05)'"
-                onmouseout="this.style.background='transparent'">
-                <span class="material-icons" style="font-size:18px">edit</span>
-            </a>''')
-            # Tasks als HTML-Link (core.loop Bug — on_click→Dialog funktioniert nicht)
-            ui.html('''<a href="/tasks" title="Tasks"
-                style="color:#3a5a3a;width:32px;height:32px;display:inline-flex;
-                align-items:center;justify-content:center;border-radius:50%;
-                text-decoration:none;font-size:18px"
-                onmouseover="this.style.background='rgba(255,255,255,0.05)'"
-                onmouseout="this.style.background='transparent'">
-                <span class="material-icons" style="font-size:18px">task_alt</span>
-            </a>''')
-            # Livelog-Toggle (nur wenn in Config aktiviert)
-            if settings.LIVELOG:
-                ui.html('''<button id="ac-livelog-btn" title="Live-Log"
-                    style="color:#3a5a3a;width:32px;height:32px;display:inline-flex;
-                    align-items:center;justify-content:center;border-radius:50%;
-                    background:transparent;border:none;cursor:pointer;font-size:18px"
-                    onmouseover="this.style.background='rgba(255,255,255,0.05)'"
-                    onmouseout="this.style.background='transparent'">
-                    <span class="material-icons" style="font-size:18px">terminal</span>
-                </button>''')
+        # Avatar
+        f'<div style="width:44px;height:44px;border-radius:50%;background:{safe_color};'
+        f'display:flex;align-items:center;justify-content:center;'
+        f'font-size:18px;font-weight:700;color:#000;flex-shrink:0">{initials}</div>'
+
+        # Name + Role
+        f'<div style="gap:2px;flex:1;min-width:0;display:flex;flex-direction:column">'
+        f'<div style="display:flex;align-items:center;gap:8px">'
+        f'<span style="font-size:16px;font-weight:600;color:#e4f4e4">{safe_name}</span>'
+        f'{star_html}</div>'
+        f'{role_html}</div>'
+
+        # Skills
+        f'<div style="display:flex;gap:4px;flex-wrap:wrap;max-width:300px">{skill_chips}</div>'
+
+        # Actions
+        f'<div style="display:flex;gap:6px;margin-left:auto;flex-shrink:0;align-items:center">'
+        f'{model_html}'
+        # Delete
+        f'<div style="position:relative;display:inline-flex">'
+        f'<button id="ac-clear-btn" title="History löschen"'
+        f' style="color:#3a5a3a;width:32px;height:32px;display:inline-flex;'
+        f'align-items:center;justify-content:center;border-radius:50%;'
+        f'background:transparent;border:none;cursor:pointer">'
+        f'<span class="material-icons" style="font-size:18px">delete_sweep</span></button>'
+        f'<div id="ac-clear-confirm" style="display:none;position:absolute;top:38px;right:0;'
+        f'background:#0f1a10;border:1px solid #1a3a1a;border-radius:10px;padding:12px 16px;'
+        f'box-shadow:0 8px 24px rgba(0,0,0,0.5);z-index:999;white-space:nowrap;min-width:200px">'
+        f'<div style="font-size:13px;color:#e4f4e4;margin-bottom:10px">History löschen?</div>'
+        f'<div style="display:flex;gap:8px;justify-content:flex-end">'
+        f'<button id="ac-clear-no" style="padding:5px 14px;border-radius:6px;'
+        f'background:transparent;color:#3a5a3a;border:1px solid #182e18;font-size:12px;cursor:pointer">Abbrechen</button>'
+        f'<button id="ac-clear-yes" style="padding:5px 14px;border-radius:6px;'
+        f'background:#ef4444;color:#fff;border:none;font-size:12px;cursor:pointer;font-weight:600">Löschen</button>'
+        f'</div></div></div>'
+        # Edit — JS-basiert, damit es nach Agent-Switch zum richtigen Agenten geht
+        f'<button id="ac-edit-btn" title="Bearbeiten"'
+        f' style="color:#3a5a3a;width:32px;height:32px;display:inline-flex;'
+        f'align-items:center;justify-content:center;border-radius:50%;'
+        f'background:transparent;border:none;cursor:pointer">'
+        f'<span class="material-icons" style="font-size:18px">edit</span></button>'
+        # Tasks
+        f'<a href="/tasks" title="Tasks"'
+        f' style="color:#3a5a3a;width:32px;height:32px;display:inline-flex;'
+        f'align-items:center;justify-content:center;border-radius:50%;text-decoration:none">'
+        f'<span class="material-icons" style="font-size:18px">task_alt</span></a>'
+        f'</div>'  # actions
+        f'</div>'  # topbar
+    )
+
+
+def _render_chat_topbar(agent: dict, agent_id: str, color: str):
+    """Rendert die Topbar als NiceGUI-Element (initial page render)."""
+    ui.html(_build_topbar_html(agent, agent_id, color))
 
 

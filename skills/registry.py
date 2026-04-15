@@ -73,35 +73,43 @@ class SkillRegistry:
         message: str,
     ) -> Optional[BaseSkill]:
         """
-        Find the first skill matching agent config and message triggers.
+        Find the BEST matching skill for agent and message.
 
-        Checks:
-        1. Skill is in agent's skill list (or agent has no skill restrictions)
-        2. Skill triggers match the message
+        Statt beim ersten Treffer zu stoppen (first-match), werden alle
+        passenden Skills gesammelt und der mit dem LÄNGSTEN Regex-Match
+        zurückgegeben. Längerer Match = spezifischere Regel = bessere Wahl.
+
+        Beispiel: chrome_browser matched "https://linkedin.com/in/hgod" mit
+        Länge 28, url_fetch nur "https://" mit Länge 8 → chrome_browser gewinnt.
 
         Args:
             agent: Agent configuration dictionary.
             message: User message to match against triggers.
 
         Returns:
-            First matching BaseSkill or None if no match found.
+            Best matching BaseSkill or None if no match found.
         """
-        # Get agent's enabled skills (empty list = all skills allowed)
         enabled_skill_ids = agent.get("skills", [])
+        if not enabled_skill_ids:
+            return None  # Agent hat keine Skills konfiguriert
+        best_skill: Optional[BaseSkill] = None
+        best_match_len = 0
 
         for skill in self._skills.values():
-            # If agent has skill restrictions, check if this skill is enabled
             if enabled_skill_ids and skill.id not in enabled_skill_ids:
                 continue
 
-            # Check if skill triggers match the message
-            if skill.matches(message):
-                logger.debug(
-                    f"Found matching skill: {skill.id} for message: {message[:50]}"
-                )
-                return skill
+            match_len = skill.longest_match(message)
+            if match_len > 0 and match_len >= best_match_len:
+                best_match_len = match_len
+                best_skill = skill
 
-        return None
+        if best_skill:
+            logger.debug(
+                "Best skill match: %s (match_len=%d) for: %s",
+                best_skill.id, best_match_len, message[:50]
+            )
+        return best_skill
 
     def available_for(
         self,

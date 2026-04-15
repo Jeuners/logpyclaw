@@ -83,17 +83,29 @@ async def chat_stream(
         display_reply: str | None = None
         try:
             async for chunk in services.chat.stream_message(agent_id, message):
-                # Sentinel-Dict vom Ende des Generators
                 if isinstance(chunk, dict):
+                    # Sentinel-Dicts vom Ende des Generators
                     if chunk.get("__a2a__"):
                         a2a_dispatches = chunk.get("a2a_dispatches", [])
                         display_reply = chunk.get("display_reply")
-                    elif chunk.get("__chain__"):
+                        continue
+                    if chunk.get("__chain__"):
                         chain_steps = chunk.get("chain_steps", [])
                         display_reply = chunk.get("reply")
-                    continue
-                payload = json.dumps({"chunk": chunk}, ensure_ascii=False)
-                yield f"data: {payload}\n\n"
+                        continue
+                    # Reguläre Stream-Chunks: content oder thinking
+                    if "thinking" in chunk:
+                        payload = json.dumps({"thinking": chunk["thinking"]}, ensure_ascii=False)
+                        yield f"data: {payload}\n\n"
+                        continue
+                    if "content" in chunk:
+                        payload = json.dumps({"chunk": chunk["content"]}, ensure_ascii=False)
+                        yield f"data: {payload}\n\n"
+                        continue
+                else:
+                    # Backwards-compat: plain-string chunks
+                    payload = json.dumps({"chunk": chunk}, ensure_ascii=False)
+                    yield f"data: {payload}\n\n"
         except AgentNotFoundError as e:
             yield f"data: {json.dumps({'error': e.message})}\n\n"
         except Exception as e:
@@ -118,3 +130,27 @@ async def chat_stream(
             "Connection": "keep-alive",
         },
     )
+
+
+@router.get("/chat/context/{agent_id}")
+def get_chat_context(agent_id: str):
+    """SPA-Agentenwechsel: Agent-Daten + History-HTML ohne Page-Reload."""
+    import html as html_mod
+    from ui.pages.chat import _build_history_html, _build_topbar_html
+    services = get_services()
+    agents = services.agents.list_all()
+    agent = next((a for a in agents if a["id"] == agent_id), None)
+    if not agent:
+        raise HTTPException(404, f"Agent {agent_id} nicht gefunden")
+
+    messages_html = _build_history_html(agent_id)
+    topbar_html = _build_topbar_html(agent, agent_id, agent.get("color", "#00e676"))
+    agent_light = {
+        "id": agent["id"],
+        "name": agent.get("name", ""),
+        "voice": agent.get("voice", ""),
+        "color": agent.get("color", "#00e676"),
+        "model": agent.get("model", ""),
+        "role": agent.get("role", ""),
+    }
+    return {"agent": agent_light, "messages_html": messages_html, "topbar_html": topbar_html}

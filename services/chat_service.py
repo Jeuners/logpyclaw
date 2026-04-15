@@ -23,7 +23,11 @@ logger = logging.getLogger(__name__)
 def _build_a2a_prompt() -> str:
     """System-Prompt Block für A2A + Tools — bezieht Tool-Beschreibungen aus der API."""
     from api.tools import get_tool_prompt_block
+    from core.routing import build_routing_table_for_prompt
+    from storage.agents import load_agents
     tool_block = get_tool_prompt_block()
+    all_agents = load_agents()
+    routing_table = build_routing_table_for_prompt(all_agents)
     return f"""--- A2A COMMUNICATION ---
 You are part of the AgentClaw multi-agent system.
 
@@ -32,26 +36,36 @@ BEHAVIOUR RULES:
 2. Only delegate to other agents if you absolutely do not have the required skill yourself.
 3. If you find information in your Memory, present it yourself — do not ask another agent.
 4. Reply precisely and minimally — no long explanations.
+5. STRICTLY follow the ROUTING TABLE below — never guess, always use the listed agent.
+
+MARKDOWN RULES (STRICT):
+- Horizontal lines ONLY with --- (three dashes), NEVER with a lone * on its own line
+- NEVER place a * directly next to a word (e.g. "word*" or "*word") — asterisks are ONLY valid inside **bold** or *italic* spans
+- Never write words together that belong apart (e.g. "diespolitischen" → "die politischen")
 
 SINGLE DELEGATION (@Mention):
-  Use for ONE task to ONE agent:
+  Use ONLY for exactly ONE task to ONE agent:
   @AgentName [complete task instructions]
 
-MULTI-TASK DELEGATION → use the tasklist tool (see below).
+MULTI-TASK DELEGATION → ALWAYS use the [tasklist] tool when:
+  - The user wants MULTIPLE images/videos (e.g. "3 Bilder", "6 Porträts")
+  - The user describes multiple separate tasks in one message
+  - Each image/video MUST be a separate line in the [tasklist]
+  CRITICAL: NEVER send "Generiere 3 Bilder" as ONE @Mention — split into 3 tasklist lines!
+
+{routing_table}
 
 {tool_block}
 --- END A2A ---""".strip()
 
 
-# Gecacht beim ersten Aufruf (ändert sich nicht zur Laufzeit)
+# Kein Cache mehr — Routing-Tabelle enthält Agentenliste die sich ändern kann
 _A2A_PROMPT_CACHE: str | None = None
 
 
 def get_a2a_prompt() -> str:
-    global _A2A_PROMPT_CACHE
-    if _A2A_PROMPT_CACHE is None:
-        _A2A_PROMPT_CACHE = _build_a2a_prompt()
-    return _A2A_PROMPT_CACHE
+    # Jedes Mal neu aufbauen — enthält Routing-Tabelle mit aktueller Agentenliste
+    return _build_a2a_prompt()
 
 
 class ChatService:
@@ -85,7 +99,15 @@ class ChatService:
 
         # 2. Skill-Shortcut prüfen
         skill_result = self._try_skill(agent, message, images, attachment_path, providers)
-        if skill_result:
+        # Passthrough: Skill hat bewusst NICHT geantwortet → LLM soll antworten
+        is_passthrough = (
+            skill_result
+            and not skill_result.text
+            and not skill_result.image
+            and not skill_result.error
+            and skill_result.metadata.get("passthrough")
+        )
+        if skill_result and not is_passthrough:
             reply = skill_result.text or (f"⚠ {skill_result.error}" if skill_result.error else "")
             image = skill_result.image
             # History speichern
@@ -97,6 +119,14 @@ class ChatService:
         history_data = load_history()
         agent_history = history_data.get(agent_id, [])
         reply = self._call_llm(agent, message, agent_history, images, providers)
+
+        # 3b. Skill-Call aus LLM-Antwort parsen — [skill_id] → Skill direkt ausführen
+        skill_result = self._try_skill_from_reply(agent, reply, message, providers)
+        if skill_result:
+            result_text = skill_result.text or (f"⚠ {skill_result.error}" if skill_result.error else "")
+            self._save_history(agent_id, message, result_text, skill=skill_result.skill_used)
+            self._events.emit_chat_message(agent_id, "assistant", result_text)
+            return {"reply": result_text, "skill": skill_result.skill_used, "image": skill_result.image, "agent_id": agent_id}
 
         # 4. History speichern (Original mit @Mentions — für LLM-Kontext)
         self._save_history(agent_id, message, reply)
@@ -131,10 +161,23 @@ class ChatService:
             }
 
         # 5b. @Mentions dispatchen + Display-Reply bereinigen (images/attachment weitergeben)
+        # Deterministisches Routing: Falls LLM keine @Mention geliefert hat, selbst ermitteln
+        from core.a2a_protocol import strip_a2a_for_display, _MENTION_RX
+        if not _MENTION_RX.search(reply):
+            from core.routing import find_target_agent
+            all_agents = load_agents()
+            routed = find_target_agent(message, all_agents)
+            if routed and routed.get("id") != agent.get("id"):
+                # LLM hat nicht selbst geroutet → deterministisch überschreiben
+                logger.info(
+                    "DeterministicRouter überschreibt LLM-Reply: @%s ← '%s...'",
+                    routed["name"], message[:60]
+                )
+                reply = f"@{routed['name']} {message}"
+
         dispatches = self._dispatch_mentions(agent, reply,
                                              images=images,
                                              attachment_path=attachment_path)
-        from core.a2a_protocol import strip_a2a_for_display
         display_reply = strip_a2a_for_display(reply) if dispatches else reply
 
         # 6. Chat-Event nur für Nicht-@Mention-Text emittieren
@@ -191,11 +234,70 @@ class ChatService:
             self._dispatch_mentions(agent, reply, current_task=task)
         return {"result_text": reply, "skill_used": "llm"}
 
+    def _try_skill_from_reply(self, agent: dict, reply: str, original_message: str, providers: dict):
+        """Parst LLM-Antwort auf [skill_id] — führt den Skill aus falls gefunden."""
+        if not self._registry or '[' not in reply:
+            return None
+        agent_skill_ids = set(agent.get("skills", []))
+        match = re.search(r'\[([a-z_]+)\]', reply)
+        if not match:
+            return None
+        skill_id = match.group(1)
+        if skill_id not in agent_skill_ids:
+            return None
+        skill = self._registry.get(skill_id)
+        if not skill:
+            return None
+        if not skill.is_available(providers):
+            return None
+        logger.info("LLM hat Skill '%s' aufgerufen via [%s]", skill.name, skill_id)
+        try:
+            return skill.execute(agent, original_message)
+        except Exception as e:
+            logger.error("Skill '%s' Fehler: %s", skill_id, e)
+            return None
+
+    def _build_skills_prompt(self, agent: dict) -> str:
+        """Baut einen Skills-Block für den System-Prompt — direkt aus dem Registry.
+        Der LLM sieht welche Skills er hat und kann sie via [skill_id] aufrufen.
+        """
+        if not self._registry:
+            return ""
+        agent_skill_ids = agent.get("skills", [])
+        if not agent_skill_ids:
+            return ""
+        lines = ["--- DEINE SKILLS ---",
+                 "Nutze diese Skills direkt indem du [skill_id] in deine Antwort schreibst.",
+                 "Entscheide selbst welchen Skill du für die Anfrage brauchst.",
+                 ""]
+        for skill_id in agent_skill_ids:
+            skill = self._registry.get(skill_id)
+            if skill:
+                lines.append(f"[{skill.id}] — {skill.name}: {skill.description}")
+        lines.append("--- ENDE SKILLS ---")
+        return "\n".join(lines)
+
     def _try_skill(self, agent, message, images, attachment_path, providers) -> object | None:
-        """Versucht einen Skill direkt auszuführen."""
+        """Versucht einen Skill direkt auszuführen.
+
+        Logik:
+        1. Trigger-Match → bester passender Skill
+        2. Fallback: Agent hat genau 1 Skill → direkt ausführen (kein Trigger nötig)
+           z.B. Picasso hat nur image_gen — jeder Task an ihn IST ein Bild-Auftrag.
+        """
         if not self._registry:
             return None
         skill = self._registry.find_matching(agent, message)
+
+        # Fallback: Agent hat genau 1 Skill → immer diesen nutzen
+        if not skill:
+            agent_skill_ids = agent.get("skills", [])
+            if len(agent_skill_ids) == 1:
+                skill = self._registry.get(agent_skill_ids[0])
+                if skill:
+                    logger.info("Single-Skill Fallback: Agent %s hat nur '%s' → direkt ausführen",
+                                agent["name"], skill.id)
+
         if not skill:
             return None
         logger.info("Skill '%s' matcht für Agent %s", skill.id, agent["name"])
@@ -240,20 +342,24 @@ class ChatService:
             resp.raise_for_status()
             return (resp.json()["choices"][0]["message"].get("content") or "").strip()
         else:
+            from core.model_capabilities import supports_thinking, split_thinking_and_content
             ollama_url = providers.get("ollama", {}).get("url", "http://localhost:11434")
-            resp = req.post(
-                f"{ollama_url}/api/chat",
-                json={
-                    "model": model,
-                    "messages": messages,
-                    "stream": False,
-                    **({"options": {"num_predict": max_tokens}} if max_tokens else {}),
-                },
-                timeout=360,
-            )
+            think = supports_thinking(model, provider="ollama", ollama_url=ollama_url)
+            payload = {
+                "model": model,
+                "messages": messages,
+                "stream": False,
+                **({"options": {"num_predict": max_tokens}} if max_tokens else {}),
+            }
+            if think:
+                payload["think"] = True
+            resp = req.post(f"{ollama_url}/api/chat", json=payload, timeout=360)
             resp.raise_for_status()
             result = resp.json()
-            return result.get("message", {}).get("content", result.get("response", "")).strip()
+            content = result.get("message", {}).get("content", result.get("response", ""))
+            # <think>-Tags aus Content entfernen (ältere Modelle)
+            _, cleaned = split_thinking_and_content(content)
+            return cleaned.strip()
 
     def _save_history(self, agent_id, user_msg, assistant_msg, image=None, skill=None):
         """Chat-History speichern."""
@@ -300,6 +406,7 @@ class ChatService:
         # Gleiche Empfänger sequenziell ketten: jeder Task wartet auf den vorherigen
         # Beispiel: @Picasso Bild 1 → @Picasso Bild 2 → @Picasso Bild 3
         # → Task 2 depends_on Task 1, Task 3 depends_on Task 2, etc.
+        # AUSNAHME: parallel-safe Agents (ComfyUI) brauchen keine Kette — externe Queue regelt
         last_task_id_per_recipient: dict[str, str] = {}
 
         for dispatch in dispatches:
@@ -310,14 +417,26 @@ class ChatService:
             task = dispatch.to_task_dict()
             dispatch.metadata["task_id"] = task["id"]
 
+            # Prüfe ob Empfänger-Agent parallel-safe Skills hat (ComfyUI etc.)
+            from services.task_service import PARALLEL_SAFE_SKILLS
+            recipient_agent = next((a for a in all_agents if a.get("id") == dispatch.recipient_id), {})
+            recipient_skills = set(recipient_agent.get("skills", []))
+            is_parallel_safe = bool(recipient_skills & PARALLEL_SAFE_SKILLS)
+
             # Kette: falls gleicher Agent bereits einen Task hat → depends_on setzen
+            # ABER: parallel-safe Agents überspringen die Kette
             prev_id = last_task_id_per_recipient.get(dispatch.recipient_id)
-            if prev_id:
+            if prev_id and not is_parallel_safe:
                 task["depends_on"] = [prev_id]
                 task["status"] = "waiting"
                 logger.info(
                     "A2A-Kette: @%s Task %s wartet auf %s",
                     dispatch.recipient_name, task["id"][:8], prev_id[:8],
+                )
+            elif prev_id and is_parallel_safe:
+                logger.info(
+                    "A2A-Parallel: @%s Task %s läuft parallel (parallel-safe skill)",
+                    dispatch.recipient_name, task["id"][:8],
                 )
 
             last_task_id_per_recipient[dispatch.recipient_id] = task["id"]
@@ -377,6 +496,12 @@ class ChatService:
 
             depends_on: list[str] = []
 
+            # Prüfe ob Empfänger-Agent parallel-safe Skills hat (ComfyUI etc.)
+            from services.task_service import PARALLEL_SAFE_SKILLS
+            recipient_agent = next((a for a in all_agents if a.get("id") == item.recipient_id), {})
+            recipient_skills = set(recipient_agent.get("skills", []))
+            is_parallel_safe = bool(recipient_skills & PARALLEL_SAFE_SKILLS)
+
             # Explizit: [after: N] → wartet auf Task an Zeile N
             if item.after_line >= 0:
                 prev_id = line_to_task_id.get(item.after_line)
@@ -389,7 +514,8 @@ class ChatService:
                     )
 
             # Implizit: kein after + nicht parallel → wartet auf letzten Task desselben Agenten
-            elif not item.parallel:
+            # ABER: parallel-safe Agents (ComfyUI) brauchen keine Kette — externe Queue regelt
+            elif not item.parallel and not is_parallel_safe:
                 prev_id = last_per_recipient.get(item.recipient_id)
                 if prev_id:
                     depends_on.append(prev_id)
@@ -397,6 +523,7 @@ class ChatService:
             task_id = str(__import__("uuid").uuid4())
             task = item.to_task_dict(system_task_id=task_id, depends_on=depends_on)
 
+            item.task_id = task_id  # für SSE-Response
             line_to_task_id[item.line_index] = task_id
             last_per_recipient[item.recipient_id] = task_id
 
@@ -569,9 +696,17 @@ class ChatService:
         skill_result = await asyncio.get_event_loop().run_in_executor(
             None, lambda: self._try_skill(agent, message, images, None, providers)
         )
-        if skill_result:
+        # Passthrough: Skill hat bewusst NICHT geantwortet → LLM soll streamen
+        is_passthrough = (
+            skill_result
+            and not skill_result.text
+            and not skill_result.image
+            and not skill_result.error
+            and skill_result.metadata.get("passthrough")
+        )
+        if skill_result and not is_passthrough:
             reply = skill_result.text or (f"⚠ {skill_result.error}" if skill_result.error else "")
-            yield reply
+            yield {"content": reply}
             # History + Event (nach dem Yield)
             self._save_history(agent_id, message, reply,
                                image=skill_result.image, skill=skill_result.skill_used)
@@ -583,20 +718,39 @@ class ChatService:
         agent_history = history_data.get(agent_id, [])
         messages = self._build_messages(agent, message, agent_history, images, providers)
 
-        # LLM streamen
+        # LLM streamen (dicts {"content": ...} | {"thinking": ...})
         full_reply = []
+        full_thinking = []
         try:
             async for chunk in stream_llm(agent, messages, providers):
-                full_reply.append(chunk)
-                yield chunk
+                if isinstance(chunk, dict):
+                    if "content" in chunk:
+                        full_reply.append(chunk["content"])
+                        yield chunk  # {"content": "..."}
+                    elif "thinking" in chunk:
+                        full_thinking.append(chunk["thinking"])
+                        yield chunk  # {"thinking": "..."}
+                else:
+                    # Backwards-compat: plain string
+                    full_reply.append(chunk)
+                    yield {"content": chunk}
         except Exception as e:
             error_msg = f"[Streaming-Fehler: {e}]"
             logger.error("stream_message Fehler: %s", e)
-            yield error_msg
+            yield {"content": error_msg}
             return
 
         reply = "".join(full_reply).strip()
         if reply:
+            # Skill-Call aus LLM-Antwort parsen — [skill_id] → Skill ausführen
+            skill_result = self._try_skill_from_reply(agent, reply, message, providers)
+            if skill_result:
+                result_text = skill_result.text or (f"⚠ {skill_result.error}" if skill_result.error else "")
+                self._save_history(agent_id, message, result_text, skill=skill_result.skill_used)
+                self._events.emit_chat_message(agent_id, "assistant", result_text)
+                yield {"content": result_text, "__skill__": skill_result.skill_used}
+                return
+
             # History mit Original-Reply (inkl. @Mentions — für LLM-Kontext)
             self._save_history(agent_id, message, reply)
 
@@ -627,7 +781,7 @@ class ChatService:
                     "__a2a__": True,
                     "display_reply": display_reply,
                     "a2a_dispatches": [
-                        {"recipient_name": i.recipient_name, "task_text": i.task_text}
+                        {"recipient_name": i.recipient_name, "task_text": i.task_text, "task_id": i.task_id}
                         for i in tl_dispatches
                     ],
                 }
@@ -666,9 +820,11 @@ class ChatService:
         agent_directory = _build_agent_directory(agent.get("id"))
         _agent_skills = set(agent.get("skills", []))
         _codebase = f"\n\n{_get_codebase_context()}" if "codebase_read" in _agent_skills else ""
+        _skills_block = self._build_skills_prompt(agent)
         system_content = (
             f"[Aktuelle Zeit: {now}]\n\n{agent['soul']}\n\n"
             f"{get_a2a_prompt()}\n\n"
+            f"{_skills_block}\n\n"
             f"{agent_directory}{_codebase}"
         )
 

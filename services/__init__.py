@@ -59,24 +59,6 @@ def _register_skills(registry: SkillRegistry):
         logger.warning("ComfyUI Skills nicht geladen: %s", e)
 
     try:
-        from skills.youtube_skill import YouTubeSkill
-        registry.register(YouTubeSkill())
-    except Exception as e:
-        logger.warning("YouTube Skill nicht geladen: %s", e)
-
-    try:
-        from skills.telegram_skill import TelegramSkill
-        registry.register(TelegramSkill())
-    except Exception as e:
-        logger.warning("Telegram Skill nicht geladen: %s", e)
-
-    try:
-        from skills.gmail_skill import GmailSkill
-        registry.register(GmailSkill())
-    except Exception as e:
-        logger.warning("Gmail Skill nicht geladen: %s", e)
-
-    try:
         from skills.transcription_skill import TranscriptionSkill
         registry.register(TranscriptionSkill())
     except Exception as e:
@@ -119,9 +101,21 @@ def _register_skills(registry: SkillRegistry):
         logger.warning("Coding Skill nicht geladen: %s", e)
 
     try:
-        from skills.screenshot_skill import ScreenshotSkill
-        registry.register(ScreenshotSkill())
+        from skills.chrome_browser import ChromeBrowserSkill
+        registry.register(ChromeBrowserSkill())
     except Exception as e:
-        logger.warning("Screenshot Skill nicht geladen: %s", e)
+        logger.warning("ChromeBrowser Skill nicht geladen: %s", e)
+
+    try:
+        from skills.hacker_news import HackerNewsSkill
+        registry.register(HackerNewsSkill())
+    except Exception as e:
+        logger.warning("HackerNews Skill nicht geladen: %s", e)
+
+    try:
+        from skills.tagesschau import TagesschauSkill
+        registry.register(TagesschauSkill())
+    except Exception as e:
+        logger.warning("Tagesschau Skill nicht geladen: %s", e)
 
     logger.info("Skills registriert: %s", [s.id for s in registry.all()])

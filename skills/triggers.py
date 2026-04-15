@@ -2,9 +2,14 @@
 import re
 
 IMG_TRIGGERS = re.compile(
-    r"\b(generier\w*|mal\w*|zeichn\w*|illustrier\w*|"
-    r"generate|draw|paint|illustrate|"
-    r"bild|foto|image|picture|photo|wallpaper|artwork|illustration|zeichnung|gemälde)\b",
+    r"\b(generier\w*|mal\w*|zeichn\w*|illustrier\w*|erstell\w*|erzeug\w*|"
+    r"generate|draw|paint|illustrate|create|render|"
+    r"bild\w*|foto\w*|image|picture|photo\w*|wallpaper|artwork|illustration|"
+    r"zeichnung|gemälde\w*|portr[äa]\w*|szene\w*|"
+    r"fotorealistisch\w*|photorealistic|cinematic|"
+    r"[öo]lgem[äa]lde\w*|aquarell\w*|watercolor|"
+    r"hochdetailliert|highly.detailed|hyperrealistic|"
+    r"digital.art|concept.art|3d.render)\b",
     re.IGNORECASE,
 )
 
@@ -17,8 +22,9 @@ VIDEO_TRIGGERS = re.compile(
 IMAGE_EDIT_TRIGGERS = re.compile(
     # explicit edit verbs (DE)
     r"\b(bearbeit|änder|editier|modifizier|verände|verwandl|transformier|konvertier|anpass|korrigier)\w*\b|"
-    # common short DE verbs
-    r"\b(mach|mache|machen|färb|farb|setz|setze|wechsel|tausch|entfern|füg|passe)\w*\b|"
+    # common short DE verbs — NUR mit Bild-Kontext (bild/image/foto muss im Text sein)
+    r"\b(bild|image|foto|photo|picture)\b.{0,60}\b(mach|mache|färb|farb|setz|setze|wechsel|tausch|entfern|füg|passe)\w*\b|"
+    r"\b(mach|mache|färb|farb|setz|setze|wechsel|tausch|entfern|füg|passe)\w*\b.{0,60}\b(bild|image|foto|photo|picture)\b|"
     # compound DE words containing edit intent
     r"\b(bildbearbeitung|bildkorrektur|farbkorrektur|retusche|retouch)\w*\b|"
     # explicit edit verbs (EN)

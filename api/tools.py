@@ -42,18 +42,20 @@ TOOLS: dict[str, dict] = {
             "[priority: N]": "Priorität 1–10, Standard 5",
         },
         "rules": [
-            "Jede Zeile ist genau ein Task",
-            "Tasks ohne [after:] zum selben Agenten laufen automatisch sequenziell",
+            "Jede Zeile ist genau ein Task — EIN Bild pro Zeile!",
+            "Bild-Tasks an Picasso laufen automatisch parallel (ComfyUI Queue)",
             "Jeder Task muss vollständig sein — kein 'wie zuvor' oder 'siehe oben'",
             "Für Bildserien: Charakter-/Stil-Beschreibung in JEDEM Task wiederholen",
+            "NIEMALS 'Generiere 3 Bilder' als einen Task — immer 3 separate Zeilen!",
         ],
         "example": (
             "[tasklist]\n"
-            "Picasso: Schmetterling Bild 1 — Monarchfalter, Flügel ausgebreitet, "
-            "sitzt auf roter Blume, sonnige Wiese, fotorealistisch\n"
-            "Picasso: Schmetterling Bild 2 — gleicher Monarchfalter im Flug, "
-            "Flügel in Bewegung, Bokeh-Hintergrund [after: 0]\n"
-            "Jan: Suche Referenzbilder 'Monarchfalter Fotografie' [parallel]\n"
+            "Picasso: Porträt von Albert Einstein, lachend im Arbeitszimmer, "
+            "Ölgemälde-Stil, hochdetailliert, fotorealistisch\n"
+            "Picasso: Porträt von Marie Curie im Labor, konzentriert bei der Arbeit, "
+            "historisches Schwarz-Weiß-Foto, fotorealistisch\n"
+            "Picasso: Porträt von Nikola Tesla mit Blitzen, epische Beleuchtung, "
+            "dramatischer Stil, hochdetailliert, fotorealistisch\n"
             "[/tasklist]"
         ),
     },

@@ -121,32 +121,45 @@ class EventService:
         except Exception as e:
             logger.warning("Event-Replay fehlgeschlagen: %s", e)
 
-    def rotate_log(self, max_age_hours: int = 24):
+    def rotate_log(self, max_age_hours: int = 6):
         """
         Altes Event-Log rotieren — Events älter als N Stunden entfernen.
-        Läuft im Slow-Tick des Schedulers (alle 60s, aber nur nötig einmal täglich).
+        Streaming-Implementierung: kein vollständiges RAM-Laden großer Files.
         """
         log_path = _get_event_log_path()
         if not os.path.exists(log_path):
             return
+        if os.path.getsize(log_path) == 0:
+            return
         cutoff = (datetime.now() - timedelta(hours=max_age_hours)).isoformat()
+        tmp = log_path + ".tmp"
+        kept = 0
+        total = 0
         try:
             with _event_log_lock:
-                with open(log_path, "r", encoding="utf-8") as f:
-                    lines = f.readlines()
-                kept = [
-                    l for l in lines
-                    if not l.strip() or
-                    json.loads(l).get("ts", "") >= cutoff
-                ]
-                if len(kept) < len(lines):
-                    tmp = log_path + ".tmp"
-                    with open(tmp, "w", encoding="utf-8") as f:
-                        f.writelines(kept)
-                    os.replace(tmp, log_path)
-                    logger.info("Event-Log rotiert: %d → %d Einträge", len(lines), len(kept))
+                with open(log_path, "r", encoding="utf-8") as src, \
+                     open(tmp, "w", encoding="utf-8") as dst:
+                    for line in src:
+                        total += 1
+                        stripped = line.strip()
+                        if not stripped:
+                            continue
+                        try:
+                            ts = json.loads(stripped).get("ts", "")
+                            if ts >= cutoff:
+                                dst.write(line)
+                                kept += 1
+                        except json.JSONDecodeError:
+                            continue
+                os.replace(tmp, log_path)
+            if kept < total:
+                logger.info("Event-Log rotiert: %d → %d Einträge", total, kept)
         except Exception as e:
             logger.warning("Event-Log-Rotation fehlgeschlagen: %s", e)
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
 
     def activity_start(self, agent_id: str, atype: str, label: str):
         """Activity für Agent starten."""
