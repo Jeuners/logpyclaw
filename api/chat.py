@@ -154,3 +154,31 @@ def get_chat_context(agent_id: str):
         "role": agent.get("role", ""),
     }
     return {"agent": agent_light, "messages_html": messages_html, "topbar_html": topbar_html}
+
+
+@router.get("/whatsapp/events")
+async def whatsapp_events():
+    """SSE-Stream für eingehende WhatsApp-Nachrichten (reaktiv via DB-Watcher)."""
+    import queue as q_mod
+    from services.whatsapp_watcher import add_subscriber, remove_subscriber
+
+    client_q: q_mod.SimpleQueue = q_mod.SimpleQueue()
+    add_subscriber(client_q)
+
+    async def event_stream():
+        try:
+            while True:
+                try:
+                    event = client_q.get_nowait()
+                    yield f"data: {json.dumps(event)}\n\n"
+                except q_mod.Empty:
+                    yield ": keepalive\n\n"
+                await asyncio.sleep(1)
+        finally:
+            remove_subscriber(client_q)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

@@ -435,6 +435,37 @@ window._ac = {
         }
         // Zum Ende scrollen
         setTimeout(() => this.scroll(), 300);
+        // WhatsApp Echtzeit-Eingang
+        this._initWhatsAppStream();
+    },
+
+    _initWhatsAppStream: function() {
+        if (this._waEs) { this._waEs.close(); this._waEs = null; }
+        const es = new EventSource('/api/whatsapp/events');
+        es.onmessage = (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                if (data.type === 'whatsapp_incoming') this._showWhatsAppMsg(data);
+            } catch(_) {}
+        };
+        es.onerror = () => { /* keepalive-Kommentare ignorieren */ };
+        this._waEs = es;
+    },
+
+    _showWhatsAppMsg: function(data) {
+        const c = document.getElementById('ac-messages');
+        if (!c) return;
+        const html = `<div class="msg-row" style="justify-content:flex-start;margin-bottom:14px">
+            <div style="max-width:80%;background:#0d1f0d;border-left:3px solid #25d366;
+                        border-radius:0 8px 8px 0;padding:10px 14px">
+                <div style="font-size:11px;color:#25d366;font-weight:600;margin-bottom:5px">
+                    📱 WhatsApp · ${data.sender} · ${data.ts}
+                </div>
+                <div style="font-size:13px;color:#c8e6c9;line-height:1.5">${this.renderMd(data.text)}</div>
+            </div>
+        </div>`;
+        c.insertAdjacentHTML('beforeend', html);
+        this.scroll();
     },
 
     send: function() {

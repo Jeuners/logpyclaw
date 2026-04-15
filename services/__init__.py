@@ -10,6 +10,7 @@ from services.heartbeat_service import HeartbeatService
 from services.watchdog_service import WatchdogService
 from services.m2m_service import M2MService
 from services.event_service import EventService
+from services.whatsapp_watcher import WhatsAppWatcherService
 from skills.registry import SkillRegistry
 
 logger = logging.getLogger(__name__)
@@ -24,11 +25,15 @@ class ServiceContainer:
         self.heartbeat = HeartbeatService(self.agents, self.events, self.registry)
         self.watchdog = WatchdogService(self.agents, self.events)
         self.m2m = M2MService(self.agents, self.events)
+        self.whatsapp_watcher = WhatsAppWatcherService()
 
         # Cross-references für bidirektionale Dependencies
         self.chat.set_task_service(self.tasks)
         self.tasks.set_dispatcher(self.chat)   # Skill-Check + LLM-Fallback für A2A-Tasks
         self.heartbeat.set_task_service(self.tasks)
+
+        # WhatsApp Watcher starten
+        self.whatsapp_watcher.start()
 
         logger.info("ServiceContainer initialisiert")
 
@@ -117,5 +122,11 @@ def _register_skills(registry: SkillRegistry):
         registry.register(TagesschauSkill())
     except Exception as e:
         logger.warning("Tagesschau Skill nicht geladen: %s", e)
+
+    try:
+        from skills.whatsapp import WhatsAppSkill
+        registry.register(WhatsAppSkill())
+    except Exception as e:
+        logger.warning("WhatsApp Skill nicht geladen: %s", e)
 
     logger.info("Skills registriert: %s", [s.id for s in registry.all()])
