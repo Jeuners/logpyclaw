@@ -1,68 +1,17 @@
 """
 skills/__init__.py — Skill-Package.
-Exportiert Trigger-Patterns für Backward Compatibility mit app.py.
-Neue Skills werden über skills.base.BaseSkill + skills.registry.SkillRegistry eingebunden.
+
+Öffentliche API: BaseSkill, SkillResult, SkillRegistry.
+Konkrete Skills werden über ihre Submodule importiert:
+
+    from skills.comfyui import run_comfyui_sync
+    from skills.registry import SkillRegistry
+    from skills.base import BaseSkill
+
+Alle früheren Legacy-Aliasse mit Unterstrich (_run_*, _make_*, FILE_TRIGGERS etc.)
+wurden entfernt — keine aktive Call-Site benutzt sie mehr.
 """
-# Neue Skill-Infrastruktur (Kern)
 from .base import BaseSkill, SkillResult
 from .registry import SkillRegistry
 
-# Trigger-Patterns für Backward Compatibility (für altes app.py)
-from .triggers import (
-    IMG_TRIGGERS,
-    VIDEO_TRIGGERS,
-    IMAGE_EDIT_TRIGGERS,
-    PROMPT_OPTIMIZE_TRIGGERS,
-    PROMPT_FRAMEWORKS,
-)
-
-# Bestehende Skill-Funktionen (privat mit Underscore für Legacy)
-from .comfyui import (
-    extract_img_prompt as _extract_img_prompt,
-    extract_video_prompt as _extract_video_prompt,
-    prepare_video_prompt as _prepare_video_prompt,
-    optimize_prompt_for_image as _optimize_prompt_for_image,
-    upload_image_to_comfyui as _upload_image_to_comfyui,
-    build_firered_edit_workflow,
-    build_wan_video_workflow as _build_wan_video_workflow,
-    build_z_image_turbo_workflow,
-    run_comfyui_sync as _run_comfyui_sync,
-    run_comfyui_video as _run_comfyui_video,
-    run_comfyui_edit as _run_comfyui_edit,
-    make_thumbnail as _make_thumbnail,
-    WAN_VIDEO_NEGATIVE,
-)
-from .url_fetch import is_safe_url as _is_safe_url, fetch_url_text
-from .prompt_optimize import optimize_prompt as _optimize_prompt
-from .transcription_skill import (
-    run_transcription as _run_transcription,
-    transcribe_uploaded_video as _transcribe_uploaded_video,
-    TRANSCRIBE_TRIGGERS,
-)
-from .file_skill import (
-    run_file_access as _run_file_access,
-)
-# Legacy-Kompat: FILE_TRIGGERS und write_file
-FILE_TRIGGERS = None  # Nicht mehr als Pattern-Konstante — Skill nutzt jetzt BaseSkill triggers
-
-def _write_downloads_file(filename: str, content: str) -> str:
-    from .file_skill import write_file, DOWNLOADS_DIR
-    return write_file(DOWNLOADS_DIR, filename, content, wiki_mode=False)
-from .linkedin_skill import (
-    run_linkedin as _run_linkedin,
-    process_scheduled_posts as _process_linkedin_scheduled,
-    LI_TRIGGERS,
-)
-
-__all__ = [
-    # Neue Infrastruktur
-    "BaseSkill",
-    "SkillResult",
-    "SkillRegistry",
-    # Trigger-Patterns (Backward Compatibility)
-    "IMG_TRIGGERS",
-    "VIDEO_TRIGGERS",
-    "IMAGE_EDIT_TRIGGERS",
-    "PROMPT_OPTIMIZE_TRIGGERS",
-    "PROMPT_FRAMEWORKS",
-]
+__all__ = ["BaseSkill", "SkillResult", "SkillRegistry"]
