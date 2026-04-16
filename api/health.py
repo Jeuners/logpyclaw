@@ -7,7 +7,7 @@ from fastapi import APIRouter
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["health"])
+router = APIRouter(prefix="/api", tags=["health"])
 
 
 @router.get("/health")

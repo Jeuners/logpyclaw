@@ -72,54 +72,42 @@ container.chat.set_task_service(container.tasks)
 container.heartbeat.set_task_service(container.tasks)
 
 # ── FastAPI Router registrieren ────────────────────────────────────────────────
-# Router ohne eigenen Prefix → werden unter /api/ eingebunden
-from api import agents as agents_api
-from api import chat as chat_api
-from api import tasks as tasks_api
-from api import skills as skills_api
-from api import health as health_api
+# Konvention: JEDER Router definiert seinen eigenen prefix (meist "/api").
+# Ausnahme: api/m2m.py hat keinen Prefix (Root-Level /.well-known/...).
+from api import (
+    agents as _agents_api,
+    chat as _chat_api,
+    tasks as _tasks_api,
+    skills as _skills_api,
+    health as _health_api,
+    m2m as _m2m_api,
+    providers as _providers_api,
+    backup as _backup_api,
+    upload as _upload_api,
+    inbox as _inbox_api,
+    memory as _memory_api,
+    content as _content_api,
+    tts as _tts_api,
+    transcribe as _transcribe_api,
+    stats as _stats_api,
+    watchdogs as _watchdogs_api,
+    comfyui as _comfyui_api,
+    themes as _themes_api,
+    tools as _tools_api,
+    chrome_ws as _chrome_ws_api,
+)
 
-for _router in [agents_api.router, chat_api.router, tasks_api.router,
-                skills_api.router, health_api.router]:
-    app.include_router(_router, prefix="/api")
+_API_MODULES = (
+    _agents_api, _chat_api, _tasks_api, _skills_api, _health_api,
+    _m2m_api,
+    _providers_api, _backup_api, _upload_api, _inbox_api, _memory_api,
+    _content_api, _tts_api, _transcribe_api, _stats_api, _watchdogs_api,
+    _comfyui_api, _themes_api, _tools_api, _chrome_ws_api,
+)
+for _mod in _API_MODULES:
+    app.include_router(_mod.router)
 
-# M2M Discovery Endpoint (Root-Level: /.well-known/...)
-from api import m2m as m2m_api
-app.include_router(m2m_api.router)
-
-# Router mit eigenem Prefix (direkt einbinden, kein extra prefix="/api")
-from api import providers as providers_api
-from api import backup as backup_api
-from api import upload as upload_api
-from api import inbox as inbox_api
-from api import memory as memory_api
-from api import content as content_api
-from api import tts as tts_api
-from api import transcribe as transcribe_api
-from api import stats as stats_api
-from api import watchdogs as watchdogs_api
-from api import comfyui as comfyui_api
-from api import themes as themes_api
-from api import tools as tools_api
-
-for _router in [
-    providers_api.router,
-    backup_api.router,
-    upload_api.router,
-    inbox_api.router,
-    memory_api.router,
-    content_api.router,
-    tts_api.router,
-    transcribe_api.router,
-    stats_api.router,
-    watchdogs_api.router,   # /api/watchdogs*, /api/watchdog/*
-    comfyui_api.router,     # /api/comfyui/*
-    themes_api.router,      # /api/themes
-    tools_api.router,       # /api/tools/*
-]:
-    app.include_router(_router)
-
-logger.info("Alle FastAPI-Router registriert (%d Stück)", 17)
+logger.info("Alle FastAPI-Router registriert (%d Stück)", len(_API_MODULES))
 
 # ── NiceGUI Pages registrieren ────────────────────────────────────────────────
 import ui.pages.home        # noqa: F401 — registriert @ui.page("/")
@@ -130,6 +118,7 @@ import ui.pages.agent_edit  # noqa: F401 — registriert /agent/edit/{id} + /age
 import ui.pages.memory      # noqa: F401 — registriert @ui.page("/memory")
 import ui.pages.backup      # noqa: F401 — registriert @ui.page("/backup")
 import ui.pages.network     # noqa: F401 — registriert @ui.page("/network")
+import ui.pages.insights    # noqa: F401 — registriert @ui.page("/insights")
 from nicegui import ui    # Re-import: lokales ui/-Paket hat nicegui.ui überschrieben
 logger.info("NiceGUI Pages registriert")
 

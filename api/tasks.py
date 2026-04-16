@@ -19,7 +19,7 @@ from core.errors import AgentNotFoundError
 from core.state import _TASKS, _tasks_lock
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["tasks"])
+router = APIRouter(prefix="/api", tags=["tasks"])
 
 TERMINAL_STATES = {"completed", "failed", "canceled", "rejected", "input-required"}
 

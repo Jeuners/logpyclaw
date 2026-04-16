@@ -15,7 +15,7 @@ from services import get_services
 from core.errors import AgentNotFoundError, ValidationError
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["agents"])
+router = APIRouter(prefix="/api", tags=["agents"])
 
 
 class CreateAgentRequest(BaseModel):

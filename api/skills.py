@@ -10,7 +10,7 @@ from fastapi import APIRouter
 from services import get_services
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["skills"])
+router = APIRouter(prefix="/api", tags=["skills"])
 
 
 @router.get("/skills")

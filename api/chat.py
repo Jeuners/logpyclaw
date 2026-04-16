@@ -15,7 +15,7 @@ from core.errors import AgentNotFoundError
 from core.thread_pools import CHAT_POOL
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["chat"])
+router = APIRouter(prefix="/api", tags=["chat"])
 
 
 class ChatRequest(BaseModel):
