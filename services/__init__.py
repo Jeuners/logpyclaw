@@ -53,80 +53,37 @@ def get_services() -> ServiceContainer:
         raise RuntimeError("Services nicht initialisiert — init_services() zuerst aufrufen")
     return _container
 
+# Skill-Definitionen: (label, module_path, class_name).
+# Reihenfolge = Lade-Reihenfolge. Fehler wird soft geloggt — einzelner
+# Skill-Fehler soll App-Startup nicht blockieren.
+_SKILL_DEFS: list[tuple[str, str, str]] = [
+    ("ComfyUI/ImageGen",  "skills.comfyui",             "ImageGenSkill"),
+    ("ComfyUI/VideoGen",  "skills.comfyui",             "VideoGenSkill"),
+    ("ComfyUI/ImageEdit", "skills.comfyui",             "ImageEditSkill"),
+    ("Transcription",     "skills.transcription_skill", "TranscriptionSkill"),
+    ("FileAccess",        "skills.file_skill",          "FileAccessSkill"),
+    ("LinkedIn",          "skills.linkedin_skill",      "LinkedInSkill"),
+    ("PromptOptimize",    "skills.prompt_optimize",     "PromptOptimizeSkill"),
+    ("UrlFetch",          "skills.url_fetch",           "UrlFetchSkill"),
+    ("MacMail",           "mac_mail.skill",             "MacMailSkill"),
+    ("Coding",            "skills.coding_skill",        "CodingSkill"),
+    ("ChromeBrowser",     "skills.chrome_browser",      "ChromeBrowserSkill"),
+    ("HackerNews",        "skills.hacker_news",         "HackerNewsSkill"),
+    ("Tagesschau",        "skills.tagesschau",          "TagesschauSkill"),
+    ("WhatsApp",          "skills.whatsapp",            "WhatsAppSkill"),
+]
+
+
 def _register_skills(registry: SkillRegistry):
-    """Alle Skill-Instanzen im Registry registrieren."""
-    try:
-        from skills.comfyui import ImageGenSkill, VideoGenSkill, ImageEditSkill
-        registry.register(ImageGenSkill())
-        registry.register(VideoGenSkill())
-        registry.register(ImageEditSkill())
-    except Exception as e:
-        logger.warning("ComfyUI Skills nicht geladen: %s", e)
+    """Alle Skills ins Registry registrieren (soft-fail pro Skill)."""
+    import importlib
 
-    try:
-        from skills.transcription_skill import TranscriptionSkill
-        registry.register(TranscriptionSkill())
-    except Exception as e:
-        logger.warning("Transcription Skill nicht geladen: %s", e)
-
-    try:
-        from skills.file_skill import FileAccessSkill
-        registry.register(FileAccessSkill())
-    except Exception as e:
-        logger.warning("File Skill nicht geladen: %s", e)
-
-    try:
-        from skills.linkedin_skill import LinkedInSkill
-        registry.register(LinkedInSkill())
-    except Exception as e:
-        logger.warning("LinkedIn Skill nicht geladen: %s", e)
-
-    try:
-        from skills.prompt_optimize import PromptOptimizeSkill
-        registry.register(PromptOptimizeSkill())
-    except Exception as e:
-        logger.warning("PromptOptimize Skill nicht geladen: %s", e)
-
-    try:
-        from skills.url_fetch import UrlFetchSkill
-        registry.register(UrlFetchSkill())
-    except Exception as e:
-        logger.warning("UrlFetch Skill nicht geladen: %s", e)
-
-    try:
-        from mac_mail.skill import MacMailSkill
-        registry.register(MacMailSkill())
-    except Exception as e:
-        logger.warning("MacMail Skill nicht geladen: %s", e)
-
-    try:
-        from skills.coding_skill import CodingSkill
-        registry.register(CodingSkill())
-    except Exception as e:
-        logger.warning("Coding Skill nicht geladen: %s", e)
-
-    try:
-        from skills.chrome_browser import ChromeBrowserSkill
-        registry.register(ChromeBrowserSkill())
-    except Exception as e:
-        logger.warning("ChromeBrowser Skill nicht geladen: %s", e)
-
-    try:
-        from skills.hacker_news import HackerNewsSkill
-        registry.register(HackerNewsSkill())
-    except Exception as e:
-        logger.warning("HackerNews Skill nicht geladen: %s", e)
-
-    try:
-        from skills.tagesschau import TagesschauSkill
-        registry.register(TagesschauSkill())
-    except Exception as e:
-        logger.warning("Tagesschau Skill nicht geladen: %s", e)
-
-    try:
-        from skills.whatsapp import WhatsAppSkill
-        registry.register(WhatsAppSkill())
-    except Exception as e:
-        logger.warning("WhatsApp Skill nicht geladen: %s", e)
+    for label, module_path, class_name in _SKILL_DEFS:
+        try:
+            module = importlib.import_module(module_path)
+            skill_cls = getattr(module, class_name)
+            registry.register(skill_cls())
+        except Exception as e:
+            logger.warning("%s Skill nicht geladen: %s", label, e)
 
     logger.info("Skills registriert: %s", [s.id for s in registry.all()])
