@@ -41,9 +41,13 @@ from .transcription_skill import (
 )
 from .file_skill import (
     run_file_access as _run_file_access,
-    write_file as _write_downloads_file,
-    FILE_TRIGGERS,
 )
+# Legacy-Kompat: FILE_TRIGGERS und write_file
+FILE_TRIGGERS = None  # Nicht mehr als Pattern-Konstante — Skill nutzt jetzt BaseSkill triggers
+
+def _write_downloads_file(filename: str, content: str) -> str:
+    from .file_skill import write_file, DOWNLOADS_DIR
+    return write_file(DOWNLOADS_DIR, filename, content, wiki_mode=False)
 from .linkedin_skill import (
     run_linkedin as _run_linkedin,
     process_scheduled_posts as _process_linkedin_scheduled,

@@ -21,12 +21,15 @@ BASE_DIR = (
     else os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 )
 
-AGENTS_FILE    = os.path.join(BASE_DIR, "agents.json")
-HISTORY_FILE   = os.path.join(BASE_DIR, "history.json")
-PROVIDERS_FILE = os.path.join(BASE_DIR, "providers.json")
-WATCHDOGS_FILE = os.path.join(BASE_DIR, "watchdogs.json")
-TASKS_FILE     = os.path.join(BASE_DIR, "tasks.json")
-NODES_FILE     = os.path.join(BASE_DIR, "nodes.json")
+# DATA_DIR kann via env überschrieben werden (Tests, alternative Deployments)
+DATA_DIR       = os.environ.get("AGENTCLAW_DATA_DIR") or os.path.join(BASE_DIR, "data")
+os.makedirs(DATA_DIR, exist_ok=True)  # Beim ersten Start automatisch anlegen
+AGENTS_FILE    = os.path.join(DATA_DIR, "agents.json")
+HISTORY_FILE   = os.path.join(DATA_DIR, "history.json")
+PROVIDERS_FILE = os.path.join(DATA_DIR, "providers.json")
+WATCHDOGS_FILE = os.path.join(DATA_DIR, "watchdogs.json")
+TASKS_FILE     = os.path.join(DATA_DIR, "tasks.json")
+NODES_FILE     = os.path.join(DATA_DIR, "nodes.json")
 BACKUP_DIR     = os.path.join(BASE_DIR, "backups")
 
 # ── API URLs — aus config.settings (Single Source of Truth) ──────────────────
