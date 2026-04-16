@@ -1,6 +1,10 @@
 """
-skills/file_skill.py — Datei-Lesen/Schreiben im Downloads-Ordner
-Agenten können Dateien im ~/Downloads/AgentClaw Ordner lesen, schreiben und auflisten.
+skills/file_skill.py — Datei-Lesen/Schreiben
+
+Unterstützt zwei Modi:
+  1. Wiki-Modus: Agent hat wiki_dir gesetzt → arbeitet im konfigurierten Wiki-Verzeichnis
+                 Subdirectories erlaubt (pages/, etc.)
+  2. Downloads-Modus: Fallback → ~/Downloads/AgentClaw (kein Subdirectory)
 """
 import os
 import re
@@ -8,69 +12,102 @@ from datetime import datetime
 
 DOWNLOADS_DIR = os.path.expanduser("~/Downloads/AgentClaw")
 
-FILE_TRIGGERS = re.compile(
-    r"speichere?\s+(?:als?|in|die|den|das)\s+\S+|"
-    r"schreib\w*\s+(?:in\s+)?datei|"
-    r"als?\s+datei\s+speichern|"
-    r"save\s+(?:as\s+)?\S+\.(?:md|txt|json|csv)|"
-    r"write\s+to\s+file|"
-    r"liste\s+(?:alle?\s+)?(?:dateien|files)|"
-    r"zeig\w*\s+(?:alle?\s+)?(?:dateien|files)|"
-    r"lese?\s+datei\s+\S+|"
-    r"öffne?\s+datei\s+\S+",
-    re.IGNORECASE,
-)
 
-
-def _get_downloads_dir() -> str:
+def _get_base_dir(agent: dict = None) -> tuple[str, bool]:
+    """Gibt (base_dir, wiki_mode) zurück."""
+    if agent:
+        wiki_dir = agent.get("wiki_dir", "").strip()
+        if wiki_dir:
+            expanded = os.path.expanduser(wiki_dir)
+            os.makedirs(expanded, exist_ok=True)
+            return expanded, True
     os.makedirs(DOWNLOADS_DIR, exist_ok=True)
-    return DOWNLOADS_DIR
+    return DOWNLOADS_DIR, False
 
 
-def list_downloads() -> str:
-    """Listet alle Dateien im AgentClaw Downloads-Ordner."""
-    dl_dir = _get_downloads_dir()
+def _safe_path(base_dir: str, filename: str, wiki_mode: bool) -> str | None:
+    """
+    Gibt sicheren absoluten Pfad zurück, oder None bei Path-Traversal.
+    Im Wiki-Modus sind Subdirectories erlaubt (z.B. pages/topic.md).
+    Im Downloads-Modus nur Dateinamen ohne Pfad.
+    """
+    if wiki_mode:
+        # Subdirectories erlaubt, aber kein .. Traversal
+        clean = os.path.normpath(filename)
+        if clean.startswith(".."):
+            return None
+        full = os.path.join(base_dir, clean)
+        if not os.path.abspath(full).startswith(os.path.abspath(base_dir)):
+            return None
+        return full
+    else:
+        # Nur basename, kein Subdir
+        safe_name = os.path.basename(filename)
+        if not safe_name:
+            return None
+        return os.path.join(base_dir, safe_name)
+
+
+def list_files(base_dir: str, wiki_mode: bool, subdir: str = None) -> str:
+    """Listet Dateien im Verzeichnis (wiki: rekursiv, downloads: flach)."""
+    target = os.path.join(base_dir, subdir) if subdir and wiki_mode else base_dir
+    if not os.path.isdir(target):
+        return f"📂 Verzeichnis nicht gefunden: `{target}`"
     try:
-        files = []
-        for f in sorted(os.listdir(dl_dir), key=lambda x: os.path.getmtime(os.path.join(dl_dir, x)), reverse=True):
-            fp = os.path.join(dl_dir, f)
-            size_mb = os.path.getsize(fp) / 1024 / 1024
-            mtime = datetime.fromtimestamp(os.path.getmtime(fp)).strftime("%Y-%m-%d %H:%M")
-            files.append(f"- `{f}` ({size_mb:.1f} MB, {mtime})")
-        if not files:
-            return f"📂 Downloads-Ordner ist leer: `{dl_dir}`"
-        return f"📂 **Dateien in `{dl_dir}`:**\n\n" + "\n".join(files[:50])
+        if wiki_mode:
+            lines = []
+            for root, dirs, files in os.walk(target):
+                dirs.sort()
+                rel_root = os.path.relpath(root, base_dir)
+                for f in sorted(files):
+                    rel = os.path.join(rel_root, f) if rel_root != "." else f
+                    fp = os.path.join(root, f)
+                    size_kb = os.path.getsize(fp) / 1024
+                    mtime = datetime.fromtimestamp(os.path.getmtime(fp)).strftime("%Y-%m-%d %H:%M")
+                    lines.append(f"- `{rel}` ({size_kb:.1f} KB, {mtime})")
+            if not lines:
+                return f"📂 Wiki-Verzeichnis leer: `{base_dir}`"
+            return f"📂 **Wiki `{base_dir}`:**\n\n" + "\n".join(lines[:100])
+        else:
+            files = []
+            for f in sorted(os.listdir(target), key=lambda x: os.path.getmtime(os.path.join(target, x)), reverse=True):
+                fp = os.path.join(target, f)
+                if os.path.isfile(fp):
+                    size_mb = os.path.getsize(fp) / 1024 / 1024
+                    mtime = datetime.fromtimestamp(os.path.getmtime(fp)).strftime("%Y-%m-%d %H:%M")
+                    files.append(f"- `{f}` ({size_mb:.1f} MB, {mtime})")
+            if not files:
+                return f"📂 Downloads-Ordner leer: `{target}`"
+            return f"📂 **Dateien in `{target}`:**\n\n" + "\n".join(files[:50])
     except Exception as e:
         return f"❌ Fehler beim Lesen des Ordners: {e}"
 
 
-def read_file(filename: str) -> str:
-    """Liest eine Datei aus dem Downloads-Ordner."""
-    dl_dir = _get_downloads_dir()
-    # Sicherheitsprüfung: nur innerhalb des Downloads-Ordners
-    filepath = os.path.join(dl_dir, os.path.basename(filename))
+def read_file(base_dir: str, filename: str, wiki_mode: bool) -> str:
+    """Liest eine Datei."""
+    filepath = _safe_path(base_dir, filename, wiki_mode)
+    if not filepath:
+        return f"❌ Ungültiger Dateipfad: `{filename}`"
     if not os.path.exists(filepath):
         return f"❌ Datei nicht gefunden: `{filepath}`"
     try:
         size_mb = os.path.getsize(filepath) / 1024 / 1024
         if size_mb > 10:
-            return f"❌ Datei zu groß zum Lesen ({size_mb:.1f} MB). Max: 10 MB"
+            return f"❌ Datei zu groß ({size_mb:.1f} MB, max 10 MB)"
         with open(filepath, "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
-        return f"📄 **{filename}** ({size_mb:.2f} MB):\n\n```\n{content[:8000]}\n```"
+        return f"📄 **{filename}**:\n\n{content[:12000]}"
     except Exception as e:
         return f"❌ Fehler beim Lesen: {e}"
 
 
-def write_file(filename: str, content: str) -> str:
-    """Schreibt Inhalt in eine Datei im Downloads-Ordner."""
-    dl_dir = _get_downloads_dir()
-    # Sicherheitsprüfung: nur innerhalb des Downloads-Ordners, kein Path-Traversal
-    safe_name = os.path.basename(filename)
-    if not safe_name:
-        return "❌ Ungültiger Dateiname"
-    filepath = os.path.join(dl_dir, safe_name)
+def write_file(base_dir: str, filename: str, content: str, wiki_mode: bool) -> str:
+    """Schreibt Inhalt in eine Datei. Erstellt Subdirectories im Wiki-Modus."""
+    filepath = _safe_path(base_dir, filename, wiki_mode)
+    if not filepath:
+        return f"❌ Ungültiger Dateipfad: `{filename}`"
     try:
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(content)
         size_kb = os.path.getsize(filepath) / 1024
@@ -79,32 +116,84 @@ def write_file(filename: str, content: str) -> str:
         return f"❌ Fehler beim Schreiben: {e}"
 
 
-def run_file_access(message: str, content_to_save: str = None) -> str:
-    """Hauptfunktion: Erkennt und führt Dateioperationen aus."""
-    msg_lower = message.lower()
+def append_file(base_dir: str, filename: str, content: str, wiki_mode: bool) -> str:
+    """Hängt Inhalt an eine bestehende Datei an (für Wiki-Log etc.)."""
+    filepath = _safe_path(base_dir, filename, wiki_mode)
+    if not filepath:
+        return f"❌ Ungültiger Dateipfad: `{filename}`"
+    try:
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        with open(filepath, "a", encoding="utf-8") as f:
+            f.write(content)
+        return f"📝 **Angehängt:** `{filepath}`"
+    except Exception as e:
+        return f"❌ Fehler beim Anhängen: {e}"
 
-    # Liste anzeigen
-    if re.search(r"liste|liste\s+dateien|zeig\w*\s+dateien|list\s+files", msg_lower):
-        return list_downloads()
+
+def run_file_access(message: str, content_to_save: str = None, agent: dict = None) -> str | None:
+    """Hauptfunktion: Erkennt und führt Dateioperationen aus."""
+    base_dir, wiki_mode = _get_base_dir(agent)
 
     # Datei lesen
-    read_m = re.search(r"(?:lese?|öffne?|read|open)\s+datei\s+(\S+)", message, re.IGNORECASE)
-    if read_m:
-        return read_file(read_m.group(1))
-
-    # Datei schreiben / speichern
-    save_m = re.search(
-        r"(?:speichere?|schreib\w*|save|write)\s+.*?(\w[\w.\-]+\.(?:md|txt|json|csv|log|html))",
+    read_m = re.search(
+        r"(?:lese?|lies|öffne?|read|open|zeige?|show|cat)\s+"
+        r"(?:die\s+|den\s+|das\s+|the\s+)?(?:datei\s+|file\s+|seite\s+|page\s+)?"
+        r"([\w\-./]+\.(?:md|txt|json|csv|log|html|py|js|ts|yaml|yml|toml|ini|cfg))",
         message, re.IGNORECASE,
     )
+    if read_m:
+        return read_file(base_dir, read_m.group(1), wiki_mode)
+
+    # Datei anhängen
+    append_m = re.search(
+        r"(?:append|hänge?\s+an|füge?\s+(?:an|hinzu))\s+"
+        r"[^.\n]{0,60}?([\w\-./]+\.(?:md|txt|log|json))",
+        message, re.IGNORECASE,
+    )
+    if append_m and content_to_save:
+        return append_file(base_dir, append_m.group(1), content_to_save, wiki_mode)
+
+    # Datei schreiben / speichern
+    save_rx = re.compile(
+        r"(?:speichere?|schreib\w*|save|write|erstell\w*|create|als?|unter|in)\s+"
+        r"[^.\n]{0,80}?([\w\-./]+\.(?:md|txt|json|csv|log|html|py|js|ts|yaml|yml))",
+        re.IGNORECASE,
+    )
+    save_m = save_rx.search(message) or (save_rx.search(content_to_save) if content_to_save else None)
     if save_m and content_to_save:
-        filename = save_m.group(1)
-        return write_file(filename, content_to_save)
-
+        return write_file(base_dir, save_m.group(1), content_to_save, wiki_mode)
     if save_m and not content_to_save:
-        return f"❓ Kein Inhalt zum Speichern gefunden. Zieldatei wäre: `{save_m.group(1)}`"
+        # Kein Inhalt → passthrough: LLM soll erst Inhalt generieren
+        return None
 
-    return "❓ Keine erkannte Dateioperation. Beispiele:\n- `Liste alle Dateien`\n- `Speichere als result.md`\n- `Lese Datei mein_text.txt`"
+    # Generisches Speichern (als markdown/datei ohne Namen)
+    generic_save = re.search(
+        r"(?:als|in|zu)\s+(?:eine[r]?\s+)?(md|markdown|txt|text|datei)\b|"
+        r"schreib\w*\s+(?:die\s+)?datei|"
+        r"(?:speichere?|save)\s+(?:das|die|den|the\s+file)\b",
+        message, re.IGNORECASE,
+    )
+    if generic_save and content_to_save:
+        ext_map = {"md": "md", "markdown": "md", "txt": "txt", "text": "txt", "datei": "md"}
+        ext = ext_map.get((generic_save.group(1) or "md").lower(), "md")
+        title_m = re.search(r"^\s*#+\s*(.+)$", content_to_save, re.MULTILINE)
+        title = title_m.group(1) if title_m else next(
+            (ln.strip() for ln in content_to_save.splitlines() if ln.strip()), "datei"
+        )
+        slug = re.sub(r"[^\w\s-]", "", title.lower())
+        slug = re.sub(r"\s+", "-", slug).strip("-")[:50] or "datei"
+        filename = f"pages/{slug}.{ext}" if wiki_mode else f"{slug}.{ext}"
+        return write_file(base_dir, filename, content_to_save, wiki_mode)
+
+    # Verzeichnis auflisten
+    if re.search(
+        r"\b(liste[nt]?|list|zeig\w*|show|was|welche|which|display|anzeig\w*|ls)\b"
+        r".{0,40}\b(datei|file|download|ordner|folder|verzeichnis|directory|inhalt|wiki)\w*\b",
+        message, re.IGNORECASE,
+    ):
+        return list_files(base_dir, wiki_mode)
+
+    return None
 
 
 # ── BaseSkill Wrapper ─────────────────────────────────────────────────────────
@@ -115,17 +204,31 @@ class FileAccessSkill(BaseSkill):
     id = "file_access"
     name = "File Access"
     icon = "folder_open"
-    description = "Reads and writes files in the downloads directory."
+    description = (
+        "Liest und schreibt Dateien. Im Wiki-Modus: arbeitet im konfigurierten wiki_dir "
+        "mit Subdirectory-Support (pages/, etc.). Fallback: ~/Downloads/AgentClaw."
+    )
     triggers = [
-        r"\b(datei|file|lese|lies|öffne|open|schreibe|write|speichere|save)\b.{0,30}\b(datei|file|txt|pdf|csv|json)\b",
-        r"\b(list|zeige|show)\b.{0,20}\b(dateien|files|downloads)\b",
+        r"\b(?:datei|file|lese|lies|öffne|open|schreibe|write|speichere|save|append|hänge\s+an)\b"
+        r".{0,30}\b(?:datei|file|txt|md|csv|json|log)\b",
+        r"\bliste[nt]?\s+(?:dateien|files|downloads|wiki|alle)\b",
+        r"\b(?:zeige|show|ls)\b.{0,20}\b(?:dateien|files|downloads|wiki)\b",
+        r"\bspeichere?\s+(?:als?|in|die|den)\b",
+        r"\bschreibe?\s+(?:die\s+)?(?:datei|seite|page)\b",
+        r"\berstelle?\s+(?:eine?\s+)?(?:datei|seite|page)\b",
+        r"\b(?:lese?|lies|read|open)\s+(?:index|log|pages/[\w\-]+)\.md\b",
+        r"\bindex\.md\b",
+        r"\bpages/[\w\-]+\.md\b",
+        r"\blog\.md\b",
     ]
     requires = []
 
     def execute(self, agent: dict, message: str, **context) -> SkillResult:
         content_to_save = context.get("content_to_save")
         try:
-            result = run_file_access(message, content_to_save=content_to_save)
+            result = run_file_access(message, content_to_save=content_to_save, agent=agent)
+            if result is None:
+                return SkillResult(text=None, skill_used=self.id, metadata={"passthrough": True})
             return SkillResult(text=result, skill_used=self.id)
         except Exception as e:
             return SkillResult(error=str(e), skill_used=self.id)

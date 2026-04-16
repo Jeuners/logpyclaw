@@ -424,6 +424,8 @@ window._ac = {
     agentId: _agentId,
     agentName: _agentName,
     agentVoice: _agentVoice,
+    _attachedImageB64: null,   // Aktuell angehängtes Bild (Base64)
+    _attachedImageName: '',
 
     init: function() {
         // Panel injizieren (Favoriten-Overlay) — nur DOM, keine Listener
@@ -433,10 +435,60 @@ window._ac = {
             const mb = document.getElementById('ac-mic-btn');
             if (mb) mb.style.visibility = 'hidden';
         }
+        // File-Input Listener (Bilder + Audio)
+        const fileInput = document.getElementById('ac-file-input');
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const isAudio = file.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|aac)$/i.test(file.name);
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const preview = document.getElementById('ac-attach-preview');
+                    const thumb = document.getElementById('ac-attach-thumb');
+                    const audioIcon = document.getElementById('ac-attach-audio-icon');
+                    const nameEl = document.getElementById('ac-attach-name');
+                    const chip = document.getElementById('ac-chip-attach');
+                    if (isAudio) {
+                        this._attachedAudioB64 = ev.target.result;
+                        this._attachedAudioName = file.name;
+                        this._attachedImageB64 = null;
+                        if (thumb) thumb.style.display = 'none';
+                        if (audioIcon) audioIcon.style.display = 'inline';
+                    } else {
+                        this._attachedImageB64 = ev.target.result;
+                        this._attachedImageName = file.name;
+                        this._attachedAudioB64 = null;
+                        if (thumb) { thumb.src = ev.target.result; thumb.style.display = 'block'; }
+                        if (audioIcon) audioIcon.style.display = 'none';
+                    }
+                    if (preview) preview.classList.add('visible');
+                    if (nameEl) nameEl.textContent = file.name;
+                    if (chip) chip.classList.add('has-image');
+                };
+                reader.readAsDataURL(file);
+                fileInput.value = '';
+            });
+        }
         // Zum Ende scrollen
         setTimeout(() => this.scroll(), 300);
         // WhatsApp Echtzeit-Eingang
         this._initWhatsAppStream();
+    },
+
+    clearAttachment: function() {
+        this._attachedImageB64 = null;
+        this._attachedImageName = '';
+        this._attachedAudioB64 = null;
+        this._attachedAudioName = '';
+        const preview = document.getElementById('ac-attach-preview');
+        const thumb = document.getElementById('ac-attach-thumb');
+        const audioIcon = document.getElementById('ac-attach-audio-icon');
+        const chip = document.getElementById('ac-chip-attach');
+        if (preview) preview.classList.remove('visible');
+        if (thumb) { thumb.src = ''; thumb.style.display = 'none'; }
+        if (audioIcon) audioIcon.style.display = 'none';
+        if (chip) chip.classList.remove('has-image');
     },
 
     _initWhatsAppStream: function() {
@@ -481,22 +533,57 @@ window._ac = {
         const sendBtn = document.getElementById('ac-send-btn');
         if (sendBtn) sendBtn.classList.add('busy');
 
-        // User-Nachricht anzeigen
-        this.addMsg('user', this.escHtml(msg));
+        // Anhang sichern + UI zurücksetzen
+        const imageb64 = this._attachedImageB64;
+        const audiob64 = this._attachedAudioB64;
+        const audioName = this._attachedAudioName;
+        this.clearAttachment();
+
+        // User-Nachricht anzeigen (mit Vorschau wenn vorhanden)
+        if (imageb64) {
+            this.addMsg('user',
+                '<img src="' + imageb64 + '" style="max-width:200px;max-height:150px;border-radius:6px;display:block;margin-bottom:6px">' +
+                this.escHtml(msg)
+            );
+        } else if (audiob64) {
+            this.addMsg('user',
+                '<div style="font-size:11px;color:#64b5f6;margin-bottom:4px">🎵 ' + this.escHtml(audioName) + '</div>' +
+                '<audio controls src="' + audiob64 + '" style="max-width:280px;display:block;margin-bottom:6px"></audio>' +
+                this.escHtml(msg)
+            );
+        } else {
+            this.addMsg('user', this.escHtml(msg));
+        }
 
         // Typing-Indicator einblenden
         this.addTyping();
 
-        // SSE-Stream starten
-        const url = '/api/chat/stream?agent_id=' + encodeURIComponent(this.agentId)
-                  + '&message=' + encodeURIComponent(msg);
+        // SSE-Stream starten — POST wenn Anhang dabei, GET sonst
+        const thinkFlag = localStorage.getItem('ac_think') === '0' ? 0 : 1;
+
+        let fetchPromise;
+        if (imageb64 || audiob64) {
+            const body = { agent_id: this.agentId, message: msg, think: thinkFlag };
+            if (imageb64) body.images = [imageb64];
+            if (audiob64) body.audio = [audiob64];
+            fetchPromise = fetch('/api/chat/stream', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+        } else {
+            const url = '/api/chat/stream?agent_id=' + encodeURIComponent(this.agentId)
+                      + '&message=' + encodeURIComponent(msg)
+                      + '&think=' + thinkFlag;
+            fetchPromise = fetch(url);
+        }
 
         let accumulated = '';
         let accumulatedThinking = '';
         let replyStarted = false;
         let thinkingStarted = false;
 
-        fetch(url).then(response => {
+        fetchPromise.then(response => {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
@@ -552,6 +639,11 @@ window._ac = {
                                     this.startReply();
                                 }
                                 this.updateReply(accumulated);
+                            }
+
+                            if (data.image) {
+                                // Skill-Bild direkt nach dem Text anhängen
+                                this.appendSkillImage(data.image);
                             }
 
                             if (data.done) {
@@ -716,6 +808,19 @@ window._ac = {
     addReply: function(text) {
         this.startReply();
         this.finishReply(text);
+    },
+
+    appendSkillImage: function(imageSrc) {
+        const c = document.getElementById('ac-messages');
+        if (!c) return;
+        const wrap = document.getElementById('ac-reply-wrap') || c.lastElementChild;
+        if (!wrap) return;
+        const isVideo = imageSrc.startsWith('data:video') || imageSrc.includes('.mp4');
+        const mediaHtml = isVideo
+            ? '<video src="' + imageSrc + '" controls style="max-width:480px;border-radius:8px;margin-top:6px;display:block" preload="metadata"></video>'
+            : '<img src="' + imageSrc + '" style="max-width:480px;border-radius:8px;margin-top:6px;display:block">';
+        wrap.insertAdjacentHTML('beforeend', mediaHtml);
+        this.scroll();
     },
 
     addError: function(msg) {
@@ -921,13 +1026,19 @@ window._ac = {
             es.onmessage = function(e) {
                 try {
                     const data = JSON.parse(e.data);
-                    if (data.status) setStepStatus(data.status);
-                    if (data.status === 'completed') {
-                        showStepResult(data.result_text || '', data.result_image, false);
-                        done = true; es.close();
-                    } else if (data.status === 'failed') {
-                        showStepResult(data.error || 'Unbekannter Fehler', null, true);
-                        done = true; es.close();
+                    // statusUpdate: intermediate state change
+                    if (data.statusUpdate) setStepStatus(data.statusUpdate.state);
+                    // task: initial or final state
+                    const task = data.task;
+                    if (task) {
+                        setStepStatus(task.status);
+                        if (task.status === 'completed') {
+                            showStepResult(task.result_text || '', task.result_image || null, false);
+                            done = true; es.close();
+                        } else if (task.status === 'failed') {
+                            showStepResult(task.error || 'Unbekannter Fehler', null, true);
+                            done = true; es.close();
+                        }
                     }
                 } catch(e) {}
                 self.scroll();
@@ -1123,6 +1234,16 @@ window._ac = {
             window._acFav && window._acFav.close();
             return;
         }
+        if (t.closest('#ac-chip-attach')) {
+            e.preventDefault(); e.stopPropagation();
+            document.getElementById('ac-file-input') && document.getElementById('ac-file-input').click();
+            return;
+        }
+        if (t.closest('#ac-attach-clear')) {
+            e.preventDefault(); e.stopPropagation();
+            window._ac && window._ac.clearAttachment();
+            return;
+        }
         if (t.closest('#ac-chip-shot')) {
             e.preventDefault(); e.stopPropagation();
             _chipPrefix(document.getElementById('ac-input'), 'screenshot ');
@@ -1199,6 +1320,21 @@ function _initTopbar() {
         editBtn.addEventListener('click', function() {
             var agId = window._acConfig && window._acConfig.agentId;
             if (agId) window.location.href = '/agent/edit/' + agId;
+        });
+    }
+    // Thinking-Toggle
+    var thinkBtn = document.getElementById('ac-think-btn');
+    if (thinkBtn) {
+        function applyThinkState() {
+            var on = localStorage.getItem('ac_think') !== '0';  // default: an
+            thinkBtn.style.color = on ? '#b794f4' : '#3a5a3a';
+            thinkBtn.title = on ? 'Thinking AN — klicken zum Deaktivieren' : 'Thinking AUS — klicken zum Aktivieren';
+        }
+        applyThinkState();
+        thinkBtn.addEventListener('click', function() {
+            var on = localStorage.getItem('ac_think') !== '0';
+            localStorage.setItem('ac_think', on ? '0' : '1');
+            applyThinkState();
         });
     }
 }

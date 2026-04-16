@@ -23,6 +23,12 @@ logger = logging.getLogger(__name__)
 
 MAX_DELEGATION_DEPTH = 5
 
+# Skills die parallel laufen dürfen — externe Queue (ComfyUI) verwaltet Reihenfolge selbst
+PARALLEL_SAFE_SKILLS = {"image_gen", "video_gen", "image_edit"}
+
+# Separater Lock für Disk-Save — verhindert Race Condition beim Schreiben von tasks.json.tmp
+_save_lock = threading.Lock()
+
 _MENTION_RX = re.compile(r"@([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9_\- ]{1,40}?)(?=\s|$|[,.:!?])", re.UNICODE)
 
 A2A_TASK_STATES = {
@@ -72,6 +78,9 @@ class TaskService:
                 task.get("id", "?")[:8], task["delegation_depth"], MAX_DELEGATION_DEPTH
             )
             return (False, 0)
+        is_waiting = False
+        start_immediately = False
+        queue_pos = 0
         with _tasks_lock:
             # Dependency-Check: Falls Abhängigkeiten vorhanden und noch nicht alle completed
             depends_on = task.get("depends_on", [])
@@ -83,31 +92,43 @@ class TaskService:
                 if not all_done:
                     task["status"] = "waiting"
                     _TASKS[task["id"]] = task
-                    self._save()
-                    logger.info("Task %s wartet auf %d Abhängigkeiten", task["id"][:8], len(depends_on))
-                    return (False, 0)
+                    is_waiting = True
 
-            busy = any(
-                t.get("recipient_agent_id") == agent_id
-                and t.get("status") in ("submitted", "working", "queued")
-                for t in _TASKS.values()
-            )
-            if busy:
-                task["status"] = "queued"
-                task["queued_at"] = datetime.now().isoformat()
-                # Queue-Position nach Priorität
-                queue_pos = sum(
-                    1 for t in _TASKS.values()
-                    if t.get("recipient_agent_id") == agent_id
-                    and t.get("status") == "queued"
-                    and t.get("priority", 5) >= task["priority"]
+            if not is_waiting:
+                # Prüfe ob Agent parallel-safe Skills hat (ComfyUI etc.)
+                agent_data = self._agents.get(agent_id) or {}
+                agent_skills = set(agent_data.get("skills", []))
+                is_parallel_safe = bool(agent_skills & PARALLEL_SAFE_SKILLS)
+
+                busy = any(
+                    t.get("recipient_agent_id") == agent_id
+                    and t.get("status") in ("submitted", "working", "queued")
+                    for t in _TASKS.values()
                 )
-            else:
-                task["status"] = "submitted"
-                queue_pos = 0
-            _TASKS[task["id"]] = task
+                if busy and not is_parallel_safe:
+                    task["status"] = "queued"
+                    task["queued_at"] = datetime.now().isoformat()
+                    # Queue-Position nach Priorität
+                    queue_pos = sum(
+                        1 for t in _TASKS.values()
+                        if t.get("recipient_agent_id") == agent_id
+                        and t.get("status") == "queued"
+                        and t.get("priority", 5) >= task["priority"]
+                    )
+                else:
+                    task["status"] = "submitted"
+                    queue_pos = 0
+                    start_immediately = True
+                _TASKS[task["id"]] = task
+
+        # _save() IMMER außerhalb des Locks aufrufen — sonst Deadlock!
         self._save()
-        if not busy:
+
+        if is_waiting:
+            logger.info("Task %s wartet auf %d Abhängigkeiten", task["id"][:8], len(depends_on))
+            return (False, 0)
+
+        if start_immediately:
             spawn_background(self.process, task["id"])
             return (False, 0)
         return (True, queue_pos + 1)
@@ -131,6 +152,17 @@ class TaskService:
                 if task.get("status") != "waiting":
                     continue
                 depends_on = task.get("depends_on", [])
+                # Cascade-Fail: Wenn eine Dependency failed/canceled → Task auch failen
+                any_failed = any(
+                    _TASKS.get(dep_id, {}).get("status") in ("failed", "canceled", "rejected")
+                    for dep_id in depends_on
+                )
+                if any_failed:
+                    task["status"] = "failed"
+                    task["error"] = "Abhängiger Task fehlgeschlagen"
+                    task["completed_at"] = datetime.now().isoformat()
+                    logger.warning("Task %s failed (dependency failed)", task["id"][:8])
+                    continue
                 all_done = all(
                     _TASKS.get(dep_id, {}).get("status") == "completed"
                     for dep_id in depends_on
@@ -154,6 +186,8 @@ class TaskService:
                     if new_chain:
                         task["context_chain"] = new_chain
                         task["context_from_prev"] = new_chain[-1]  # Rückwärtskompatibilität
+                # Timeout neu setzen — Task lag in "waiting", alter timeout könnte abgelaufen sein
+                task["timeout_at"] = (datetime.now() + timedelta(seconds=1800)).isoformat()
                 # Normalen Queue-Flow fortsetzen
                 agent_id = task["recipient_agent_id"]
                 if agent_id not in agents_working:
@@ -214,7 +248,12 @@ class TaskService:
             return
 
         # Timeout-Check
-        if datetime.now().isoformat() > task.get("timeout_at", "9999"):
+        try:
+            timeout_at = datetime.fromisoformat(task.get("timeout_at", "9999-12-31T23:59:59"))
+            timed_out = datetime.now() > timeout_at
+        except (ValueError, TypeError):
+            timed_out = True  # Ungültiges Format → sicherheitshalber failen
+        if timed_out:
             task["status"] = "failed"
             task["error"] = "Timeout vor Ausführungsstart"
             task["completed_at"] = datetime.now().isoformat()
@@ -294,7 +333,10 @@ class TaskService:
 
         # Bild/Ergebnis als chat_message für den SENDER emittieren
         # → Chat-UI des Senders zeigt das Bild automatisch an
-        if task["status"] == "completed":
+        # AUSNAHME: Chain-Tasks (chain_index gesetzt) werden via Chain-Karte im UI angezeigt
+        #           → kein separates emit, sonst erscheint jedes Ergebnis doppelt
+        is_chain_task = "chain_index" in task
+        if task["status"] == "completed" and not is_chain_task:
             sender_id = task.get("sender_agent_id")
             result_image = task.get("result_image")
             result_text = task.get("result_text") or ""
@@ -392,25 +434,87 @@ class TaskService:
     # ── Persistence ───────────────────────────────────────────────────────────
 
     def _save(self):
-        """Tasks zu Disk speichern."""
-        tmp = TASKS_FILE + ".tmp"
+        """
+        Tasks persistent speichern.
+        1. SQLite (primary — crash-sicher, transaktional)
+        2. tasks.json (Backup — human-readable)
+        Beide Operationen sind außerhalb des _tasks_lock.
+        """
         with _tasks_lock:
             tasks_list = list(_TASKS.values())
+
+        # SQLite: primary source
+        self._save_to_sqlite(tasks_list)
+
+        # JSON: backup
+        self._save_json_backup(tasks_list)
+
+    def _save_to_sqlite(self, tasks_list: list):
+        """Write-Through aller Tasks in SQLite."""
         try:
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(tasks_list, f, ensure_ascii=False, indent=2)
-            os.replace(tmp, TASKS_FILE)
+            from storage.database import upsert_tasks_bulk
+            upsert_tasks_bulk(tasks_list)
         except Exception as e:
-            logger.error("Tasks-Save fehlgeschlagen: %s", e)
+            logger.error("SQLite tasks-save fehlgeschlagen: %s", e)
+
+    def _save_json_backup(self, tasks_list: list):
+        """JSON-Backup (nicht-kritisch)."""
+        with _save_lock:
+            tmp = TASKS_FILE + ".tmp"
             try:
-                os.remove(tmp)
-            except OSError:
-                pass
+                with open(tmp, "w", encoding="utf-8") as f:
+                    json.dump(tasks_list, f, ensure_ascii=False, indent=2)
+                os.replace(tmp, TASKS_FILE)
+            except Exception as e:
+                logger.warning("tasks.json Backup fehlgeschlagen (nicht kritisch): %s", e)
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
 
     def load_from_disk(self):
-        """Beim Start: offene Tasks von Disk laden."""
+        """
+        Beim Start: offene Tasks wiederherstellen.
+        1. SQLite (primary — vollständig und transaktional)
+        2. tasks.json Fallback (falls SQLite leer)
+        """
+        recovered = self._load_from_sqlite()
+        if not recovered:
+            recovered = self._load_from_json()
+        if recovered:
+            logger.info("%d offene Tasks wiederhergestellt", recovered)
+
+    def _load_from_sqlite(self) -> int:
+        """Lädt offene Tasks aus SQLite. Gibt Anzahl geladener Tasks zurück."""
+        try:
+            from storage.database import load_open_tasks
+            open_tasks = load_open_tasks()
+            if not open_tasks:
+                return 0
+            recovered = 0
+            with _tasks_lock:
+                for t in open_tasks:
+                    if t.get("status") == "working":
+                        t["status"] = "failed"
+                        t["error"] = "Neustart während Ausführung"
+                        # Status in SQLite aktualisieren
+                        try:
+                            from storage.database import upsert_task
+                            upsert_task(t)
+                        except Exception:
+                            pass
+                    if t.get("status") not in TERMINAL_STATES:
+                        _TASKS[t["id"]] = t
+                        recovered += 1
+            return recovered
+        except Exception as e:
+            logger.error("SQLite task-load fehlgeschlagen: %s", e)
+            return 0
+
+    def _load_from_json(self) -> int:
+        """Fallback: Tasks aus tasks.json laden (falls SQLite leer)."""
         if not os.path.exists(TASKS_FILE):
-            return
+            return 0
         try:
             with open(TASKS_FILE, "r", encoding="utf-8") as f:
                 tasks = json.load(f)
@@ -424,14 +528,19 @@ class TaskService:
                         _TASKS[t["id"]] = t
                         recovered += 1
             if recovered:
-                logger.info("%d offene Tasks von Disk geladen", recovered)
+                logger.info("tasks.json Fallback: %d Tasks geladen", recovered)
+                # Direkt in SQLite schreiben
+                self._save_to_sqlite(list(_TASKS.values()))
+            return recovered
         except Exception as e:
-            logger.error("Task-Load fehlgeschlagen: %s", e)
+            logger.error("tasks.json load fehlgeschlagen: %s", e)
+            return 0
 
     def cleanup_old(self):
-        """Tasks älter als TTL aus Memory entfernen."""
+        """Tasks älter als TTL aus Memory + SQLite entfernen + Hard-Limit 500."""
         cutoff = (datetime.now() - timedelta(seconds=_TASK_TTL_SECONDS)).isoformat()
         with _tasks_lock:
+            # 1. Abgelaufene Terminal-Tasks aus Memory entfernen
             to_remove = [
                 tid for tid, t in _TASKS.items()
                 if t.get("status") in TERMINAL_STATES
@@ -439,8 +548,30 @@ class TaskService:
             ]
             for tid in to_remove:
                 del _TASKS[tid]
+
+            # 2. Hard-Limit: max 500 Tasks, älteste abgeschlossene zuerst entfernen
+            if len(_TASKS) > 500:
+                terminal = [
+                    (tid, t.get("completed_at") or "")
+                    for tid, t in _TASKS.items()
+                    if t.get("status") in TERMINAL_STATES
+                ]
+                terminal.sort(key=lambda x: x[1])
+                excess = len(_TASKS) - 500
+                for tid, _ in terminal[:excess]:
+                    del _TASKS[tid]
+                    to_remove.append(tid)
+
         if to_remove:
-            logger.info("Cleanup: %d alte Tasks entfernt", len(to_remove))
+            logger.info("Cleanup: %d alte Tasks aus Memory entfernt", len(to_remove))
+            # SQLite bereinigen
+            try:
+                from storage.database import delete_old_tasks
+                db_removed = delete_old_tasks(cutoff)
+                if db_removed:
+                    logger.debug("Cleanup SQLite: %d alte Tasks gelöscht", db_removed)
+            except Exception as e:
+                logger.warning("SQLite task-cleanup fehlgeschlagen: %s", e)
             self._save()
 
     def save_pending(self):

@@ -50,17 +50,10 @@ class ChromeBrowserSkill(BaseSkill):
         "Syntax: 'chrome <command> [args]' oder 'chrome_browser: {\"command\": \"...\", ...}'"
     )
     triggers = [
-        r"\bchrome\s+(?:screenshot|navigate|click|fill|get[_\s]?content|eval|js|open|snap|capture|read|text)\b",
+        # Nur noch explizite chrome-Befehle — kein URL-Catch-all mehr
+        r"\bchrome\s+(?:navigate|click|fill|get[_\s]?content|eval|js|open|read|text)\b",
         r"\bchrome_browser\s*:",
-        r"\bbrowser\s+(?:screenshot|navigate|click|fill|get[_\s]?content)\b",
-        r"\btake\s+(?:a\s+)?browser\s+screenshot\b",
-        r"\bopen\s+(?:chrome|browser)\s+(?:and\s+)?(?:go\s+to\s+|navigate\s+to\s+)?https?://",
-        # Lange spezifische Trigger → schlagen url_fetch (kürzere Matches) per best-match Logik
-        r"\b(?:lies|lese|lad|lade|öffne|fetch|analysier|bewerte|schau|sieh)\b.{0,60}https?://\S{5,}",
-        r"https?://(?:www\.)?linkedin\.com\S*",
-        r"\bwebseite\b.{0,40}https?://\S{5,}",
         r"\bNutze\s+`?chrome_browser`?\b",
-        r"https?://\S{10,}",  # Lange URLs → chrome_browser bevorzugt
     ]
 
     def execute(self, agent: dict, message: str, **context) -> SkillResult:
@@ -182,19 +175,37 @@ class ChromeBrowserSkill(BaseSkill):
                      chrome fill_form "#search" "suchbegriff"
                      chrome evaluate_js "document.title"
         """
-        # Format 1: JSON-Block
-        json_m = re.search(
-            r'chrome(?:_browser)?\s*:\s*(\{[^}]+\})', message, re.IGNORECASE | re.DOTALL
-        )
-        if json_m:
-            try:
-                data = json.loads(json_m.group(1))
-                cmd = data.pop("command", None)
-                if cmd in VALID_COMMANDS or cmd in _COMMAND_ALIASES:
-                    cmd = _COMMAND_ALIASES.get(cmd, cmd)
-                    return cmd, data
-            except json.JSONDecodeError:
-                pass
+        # Bei A2A-Tasks nur den Teil nach dem Separator verwenden
+        task_sep = re.search(r"---\s*\nDeine Aufgabe:\s*(.+)", message, re.DOTALL)
+        message = task_sep.group(1).strip() if task_sep else message
+
+        # Format 1: JSON-Block — verschachtelte {} korrekt parsen
+        json_start = re.search(r'chrome(?:_browser)?\s*:\s*(\{)', message, re.IGNORECASE)
+        if json_start:
+            start_idx = json_start.start(1)
+            depth = 0
+            end_idx = None
+            for i, ch in enumerate(message[start_idx:], start_idx):
+                if ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        end_idx = i + 1
+                        break
+            if end_idx:
+                try:
+                    data = json.loads(message[start_idx:end_idx])
+                    cmd = data.pop("command", None)
+                    # "args" als flache params auspacken falls vorhanden
+                    if "args" in data and isinstance(data["args"], dict):
+                        params = data.pop("args")
+                        data.update(params)
+                    if cmd in VALID_COMMANDS or cmd in _COMMAND_ALIASES:
+                        cmd = _COMMAND_ALIASES.get(cmd, cmd)
+                        return cmd, data
+                except json.JSONDecodeError:
+                    pass
 
         # Format 2: Natürliche Sprache mit chrome/browser Prefix
         m = re.search(
@@ -205,7 +216,7 @@ class ChromeBrowserSkill(BaseSkill):
             # Format 3: URL ohne chrome-Prefix — auto read_url
             url_m = re.search(r'https?://\S+', message)
             if url_m:
-                return "read_url", {"url": url_m.group(0).rstrip(".,;)")}
+                return "read_url", {"url": url_m.group(0).rstrip(".,;\"')}]")}
             return None, {}
 
         cmd_raw = m.group(1).lower().replace("_", "").replace(" ", "")

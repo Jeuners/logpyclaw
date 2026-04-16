@@ -1,12 +1,14 @@
 """
-skills/screenshot_skill.py — Screenshot-Skill: Webpage-Screenshots via Playwright.
+skills/screenshot_skill.py — Playwright-Screenshot einer URL.
 
-Delegiert an den existierenden POST /api/screenshot Endpoint.
-Keine Playwright-Logik hier — der Endpoint übernimmt alles inklusive
-SSRF-Schutz, Playwright-Import-Check und Fehlerbehandlung.
+Einfach, zuverlässig, kein Chrome-DevTools nötig.
+Triggert auf: "screenshot https://...", "mach einen screenshot von ...", etc.
+Optional: "screenshot https://... als dateiname.png" → speichert PNG zusätzlich auf Disk.
 """
-import re
+import base64
 import logging
+import os
+import re
 
 import requests
 
@@ -15,101 +17,102 @@ from skills.base import BaseSkill, SkillResult
 logger = logging.getLogger(__name__)
 
 _SCREENSHOT_API = "http://localhost:5050/api/screenshot"
-_TIMEOUT = 30  # Sekunden (Playwright braucht Zeit)
+_TIMEOUT = 45
 
-# Regex zum Extrahieren einer URL aus der Nachricht
-_URL_RE = re.compile(
-    r"(https?://[^\s]+)"
-    r"|([a-zA-Z0-9][a-zA-Z0-9\-]+\.[a-zA-Z]{2,}[^\s]*)",
-    re.IGNORECASE,
-)
+
+def _extract_url(message: str) -> str | None:
+    # Bei A2A-Tasks: nur den Teil NACH dem Separator "Deine Aufgabe:" verwenden
+    # damit Kontext-URLs aus vorherigen Schritten nicht fälschlich genutzt werden
+    task_sep = re.search(r"---\s*\nDeine Aufgabe:\s*(.+)", message, re.DOTALL)
+    search_text = task_sep.group(1).strip() if task_sep else message
+
+    m = re.search(r"https?://\S+", search_text)
+    if m:
+        return m.group(0).rstrip(".,;\"')}]")
+    # Domain ohne Protokoll: "screenshot example.com"
+    m = re.search(
+        r"\b((?:[a-z0-9-]+\.)+(?:com|de|org|net|io|ai|app|dev|co|uk|ch|at|eu)\S*)",
+        search_text, re.IGNORECASE
+    )
+    if m:
+        return "https://" + m.group(1).rstrip(".,;\"')")
+    return None
 
 
 class ScreenshotSkill(BaseSkill):
     id = "screenshot"
     name = "Screenshot"
-    icon = "📸"
-    description = "Macht einen Screenshot einer Webseite via Playwright."
+    icon = "photo_camera"
+    description = "Erstellt einen Playwright-Screenshot einer Webseite. Syntax: 'screenshot https://...'"
     triggers = [
-        r"\bscreenshot\b",
-        r"\bscreenshot\s+(von|of)\b",
-        r"\bseite\s+(knipsen|screenshot)\b",
-        r"\bbild\s+von\s+.*seite\b",
-        r"\bcapture\s+screen\b",
-        r"\btake\s+a\s+screenshot\b",
-        r"\bwebseite\s+(zeig|schau|öffne|screenshot)\b",
+        r"\bscreenshot\b.{0,80}https?://",
+        r"\bscreenshot\b.{0,60}\b(?:[a-z0-9-]+\.)+(?:com|de|org|net|io|ai|app|dev)\b",
+        r"\bmach\w*\s+(?:einen?\s+)?screenshot\b",
+        r"\bscreenshot\s+(?:von|of|der|die|das|the)\b",
     ]
+    # Nicht triggern wenn chrome_browser-Befehl
+    excludes = [r"chrome_browser\s*:"]
     requires = []
 
     def execute(self, agent: dict, message: str, **context) -> SkillResult:
-        # URL aus der Nachricht extrahieren
-        match = _URL_RE.search(message)
-        if not match:
+        # Bei A2A-Tasks nur den Teil nach dem Separator für URL+Dateiname verwenden
+        task_sep = re.search(r"---\s*\nDeine Aufgabe:\s*(.+)", message, re.DOTALL)
+        search_text = task_sep.group(1).strip() if task_sep else message
+
+        url = _extract_url(message)
+        if not url:
             return SkillResult(
-                error="Keine URL gefunden. Bitte gib eine URL an, z.B. 'Screenshot von https://example.com'",
+                error="Keine URL für Screenshot erkannt. Beispiel: 'screenshot https://example.com'",
                 skill_used=self.id,
             )
 
-        url = match.group(0).strip().rstrip(".,;!?")
+        # Optional: "als dateiname.png" → Screenshot auf Disk speichern
+        save_m = re.search(
+            r'\bals\s+([\w\-]+\.png)\b',
+            search_text, re.IGNORECASE
+        )
+        save_filename = save_m.group(1) if save_m else None
 
-        # https:// prefix hinzufügen wenn fehlt
-        if not url.startswith(("http://", "https://")):
-            url = "https://" + url
-
-        logger.info("ScreenshotSkill: Capturing %s", url)
-
+        logger.info("Screenshot: %s%s", url, f" → {save_filename}" if save_filename else "")
         try:
             resp = requests.post(
                 _SCREENSHOT_API,
-                json={"url": url},
+                json={"url": url, "delay": 1500},
                 timeout=_TIMEOUT,
             )
+            resp.raise_for_status()
+            data = resp.json()
+            image_b64 = data.get("image")
+            if not image_b64:
+                return SkillResult(error="Screenshot leer", skill_used=self.id)
+
+            # Auf Disk speichern falls gewünscht
+            saved_path = None
+            if save_filename:
+                try:
+                    from skills.file_skill import _get_base_dir
+                    base_dir, _ = _get_base_dir(agent)
+                    filepath = os.path.join(base_dir, save_filename)
+                    # base64 Data-URI → binary PNG
+                    b64_data = image_b64.split(",", 1)[1] if "," in image_b64 else image_b64
+                    with open(filepath, "wb") as f:
+                        f.write(base64.b64decode(b64_data))
+                    saved_path = filepath
+                    logger.info("Screenshot gespeichert: %s", filepath)
+                except Exception as e:
+                    logger.warning("Screenshot-Speichern fehlgeschlagen: %s", e)
+
+            result_text = f"Screenshot von {url}"
+            if saved_path:
+                result_text += f"\nGespeichert als: {save_filename}"
+
+            return SkillResult(
+                text=result_text,
+                image=image_b64,
+                skill_used=self.id,
+                metadata={"saved_as": save_filename, "saved_path": saved_path},
+            )
         except requests.exceptions.Timeout:
-            return SkillResult(
-                error=f"Timeout nach {_TIMEOUT}s beim Screenshot von {url}",
-                skill_used=self.id,
-            )
-        except requests.exceptions.ConnectionError:
-            return SkillResult(
-                error="AgentClaw API nicht erreichbar (localhost:5050). Läuft die App?",
-                skill_used=self.id,
-            )
+            return SkillResult(error=f"Timeout beim Screenshot von {url}", skill_used=self.id)
         except Exception as e:
-            return SkillResult(
-                error=f"Fehler beim Screenshot-Request: {e}",
-                skill_used=self.id,
-            )
-
-        if resp.status_code == 501:
-            return SkillResult(
-                error="Playwright nicht installiert. Führe aus: pip install playwright && playwright install chromium",
-                skill_used=self.id,
-            )
-        if resp.status_code == 403:
-            detail = resp.json().get("detail", "URL geblockt (SSRF-Schutz)")
-            return SkillResult(error=detail, skill_used=self.id)
-        if not resp.ok:
-            detail = ""
-            try:
-                detail = resp.json().get("detail", resp.text[:200])
-            except Exception:
-                detail = resp.text[:200]
-            return SkillResult(
-                error=f"Screenshot fehlgeschlagen (HTTP {resp.status_code}): {detail}",
-                skill_used=self.id,
-            )
-
-        data = resp.json()
-        image_data_uri = data.get("image")
-        if not image_data_uri:
-            return SkillResult(
-                error="API-Antwort enthält kein Bild",
-                skill_used=self.id,
-            )
-
-        return SkillResult(
-            text=f"Screenshot von {url}",
-            image=image_data_uri,
-            skill_used=self.id,
-            metadata={"url": url},
-        )
+            return SkillResult(error=f"Screenshot fehlgeschlagen: {e}", skill_used=self.id)

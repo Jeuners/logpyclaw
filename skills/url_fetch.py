@@ -14,6 +14,7 @@ def is_safe_url(url: str) -> bool:
     """
     from urllib.parse import urlparse
 
+    url = url.strip().rstrip(".,;\"')}]>:")
     try:
         parsed = urlparse(url)
         if parsed.scheme not in ("http", "https"):
@@ -96,11 +97,15 @@ class UrlFetchSkill(BaseSkill):
 
     def execute(self, agent: dict, message: str, **context) -> SkillResult:
         import re
-        urls = re.findall(r"https?://\S+", message)
+        # Bei A2A-Tasks nur den Teil nach dem Separator verwenden
+        task_sep = re.search(r"---\s*\nDeine Aufgabe:\s*(.+)", message, re.DOTALL)
+        search_text = task_sep.group(1).strip() if task_sep else message
+        urls = re.findall(r"https?://\S+", search_text)
         if not urls:
             return SkillResult(error="Keine URL gefunden", skill_used=self.id)
         results = []
         for url in urls[:3]:
+            url = url.rstrip(".,;\"')}]>:")
             if is_safe_url(url):
                 text = fetch_url_text(url)
                 results.append(f"[{url}]\n{text}")

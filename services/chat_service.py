@@ -216,15 +216,53 @@ class ChatService:
         attachment_path: str | None = task.get("attachment_path") or None
 
         # Skill-Check (mit images + attachment_path aus dem Task)
-        skill_result = self._try_skill(agent, message, images, attachment_path, providers)
-        if skill_result:
+        image_b64 = images[0] if images else None
+        skill_result = self._try_skill(agent, message, images, attachment_path, providers,
+                                       image_b64=image_b64)
+        # Passthrough: Skill hat kein Ergebnis (z.B. file_access ohne Inhalt) → LLM übernimmt
+        is_passthrough = (
+            skill_result is not None
+            and getattr(skill_result, "metadata", {})
+            and skill_result.metadata.get("passthrough")
+        )
+        if skill_result and not is_passthrough:
             return skill_result
+
+        # Routing-Hinweis (nur Log, kein Block): wenn anderer Agent besseren Skill hätte.
+        sep_m2 = re.search(r"---\s*\nDeine Aufgabe:\s*(.+)", message, re.DOTALL)
+        _trigger_hint = sep_m2.group(1).strip() if sep_m2 else message
+        agent_skills = set(agent.get("skills", []))
+        if agent_skills:
+            from storage.agents import load_agents
+            all_agents = load_agents()
+            for other in all_agents:
+                if other["id"] == agent["id"]:
+                    continue
+                matched_skill = self._registry.find_matching(other, _trigger_hint)
+                if matched_skill and matched_skill.id not in agent_skills:
+                    logger.info(
+                        "Routing-Hinweis: @%s → @%s hätte Skill '%s'. LLM-Fallback.",
+                        agent["name"], other["name"], matched_skill.id
+                    )
+                    break
 
         # LLM mit vollständigem Kontext (Agent-Directory, Skills, History, Bilder)
         from storage.history import load_history
         history_data = load_history()
         agent_history = history_data.get(agent["id"], [])
         reply = self._call_llm(agent, message, agent_history, images, providers)
+
+        # Skill aus LLM-Antwort parsen ([skill_id]) — z.B. [file_access] zum Speichern
+        # Wichtig für Tasks wo LLM erst Inhalt generiert und dann Skill aufruft
+        from storage.providers import load_providers as _lp
+        providers_fresh = _lp()
+        skill_from_reply = self._try_skill_from_reply(agent, reply, message, providers_fresh)
+        if skill_from_reply and not skill_from_reply.error:
+            return {
+                "result_text": skill_from_reply.text or reply,
+                "result_image": skill_from_reply.image,
+                "skill_used": skill_from_reply.skill_used,
+            }
 
         # TASKLIST hat Vorrang, dann @Mentions
         from core.task_list import has_task_list
@@ -251,11 +289,15 @@ class ChatService:
         if not skill.is_available(providers):
             return None
         logger.info("LLM hat Skill '%s' aufgerufen via [%s]", skill.name, skill_id)
-        try:
-            return skill.execute(agent, original_message)
-        except Exception as e:
-            logger.error("Skill '%s' Fehler: %s", skill_id, e)
-            return None
+        # LLM-Reply ohne [skill_id]-Tag als content_to_save weiterreichen —
+        # z.B. bei "erstelle Story und speichere unter X.md" enthält der Reply die Story.
+        content_from_reply = re.sub(r'\[[a-z_]+\]', '', reply).strip()
+        return skill.safe_execute(
+            agent,
+            original_message,
+            content_to_save=content_from_reply,
+            llm_reply=content_from_reply,
+        )
 
     def _build_skills_prompt(self, agent: dict) -> str:
         """Baut einen Skills-Block für den System-Prompt — direkt aus dem Registry.
@@ -269,6 +311,11 @@ class ChatService:
         lines = ["--- DEINE SKILLS ---",
                  "Nutze diese Skills direkt indem du [skill_id] in deine Antwort schreibst.",
                  "Entscheide selbst welchen Skill du für die Anfrage brauchst.",
+                 "",
+                 "WICHTIG bei [file_access] mit 'speichern als X.md':",
+                 "  Schreibe ZUERST den vollständigen Inhalt der Datei (Story/Text/Code) in deine Antwort,",
+                 "  DANN hängst du [file_access] ans Ende. Der Skill speichert deinen Reply wörtlich.",
+                 "  NIEMALS 'Datei erfolgreich gespeichert' o.ä. behaupten — du generierst nur den Inhalt.",
                  ""]
         for skill_id in agent_skill_ids:
             skill = self._registry.get(skill_id)
@@ -277,7 +324,7 @@ class ChatService:
         lines.append("--- ENDE SKILLS ---")
         return "\n".join(lines)
 
-    def _try_skill(self, agent, message, images, attachment_path, providers) -> object | None:
+    def _try_skill(self, agent, message, images, attachment_path, providers, **kwargs) -> object | None:
         """Versucht einen Skill direkt auszuführen.
 
         Logik:
@@ -287,7 +334,13 @@ class ChatService:
         """
         if not self._registry:
             return None
-        skill = self._registry.find_matching(agent, message)
+        # Trigger-Matching nur gegen den eigentlichen Task-Text — nicht gegen Kontext-Chain.
+        # Wenn eine "---\nDeine Aufgabe:" Trennlinie vorhanden ist, nur danach suchen.
+        # So wird verhindert dass "Screenshot von https://..." aus vorherigen Steps
+        # fälschlich den screenshot-Skill für einen HTML-Erstellungs-Task auslöst.
+        sep_m = re.search(r"---\s*\nDeine Aufgabe:\s*(.+)", message, re.DOTALL)
+        trigger_text = sep_m.group(1).strip() if sep_m else message
+        skill = self._registry.find_matching(agent, trigger_text)
 
         # Fallback: Agent hat genau 1 Skill → immer diesen nutzen
         if not skill:
@@ -298,18 +351,33 @@ class ChatService:
                     logger.info("Single-Skill Fallback: Agent %s hat nur '%s' → direkt ausführen",
                                 agent["name"], skill.id)
 
+        # Auto-Trigger image_edit wenn Bild angehängt + Agent hat den Skill
+        if not skill and kwargs.get("image_b64"):
+            agent_skill_ids = agent.get("skills", [])
+            if "image_edit" in agent_skill_ids:
+                skill = self._registry.get("image_edit")
+                if skill:
+                    logger.info("Auto-Trigger image_edit wegen Bild-Anhang für Agent %s", agent["name"])
+
+        # Auto-Trigger transcription wenn Audio angehängt
+        if not skill and kwargs.get("audio"):
+            agent_skill_ids = agent.get("skills", [])
+            if "transcription" in agent_skill_ids:
+                skill = self._registry.get("transcription")
+                if skill:
+                    logger.info("Auto-Trigger transcription wegen Audio-Anhang für Agent %s", agent["name"])
+
         if not skill:
             return None
         logger.info("Skill '%s' matcht für Agent %s", skill.id, agent["name"])
-        try:
-            result = skill.execute(agent, message,
-                                   images=images,
-                                   attachment_path=attachment_path,
-                                   providers=providers)
-            return result
-        except Exception as e:
-            logger.error("Skill '%s' fehlgeschlagen: %s", skill.id, e)
-            return None
+        return skill.safe_execute(
+            agent, message,
+            images=images,
+            attachment_path=attachment_path,
+            providers=providers,
+            image_b64=kwargs.get("image_b64"),
+            audio=kwargs.get("audio"),
+        )
 
     def _call_llm(self, agent, message, history, images, providers) -> str:
         """LLM aufrufen mit vollständiger History (synchron, für run_in_executor)."""
@@ -320,6 +388,9 @@ class ChatService:
         provider = agent.get("provider", "ollama")
         model = agent.get("model", "llama3")
         max_tokens = agent.get("max_tokens") or None
+        temperature = agent.get("temperature")
+        if temperature is None:
+            temperature = 0.7
 
         if provider == "openrouter":
             or_key = providers.get("openrouter", {}).get("api_key", "")
@@ -335,6 +406,7 @@ class ChatService:
                     "model": model,
                     "messages": messages,
                     "stream": False,
+                    "temperature": temperature,
                     **({"max_tokens": max_tokens} if max_tokens else {}),
                 },
                 timeout=360,
@@ -345,11 +417,14 @@ class ChatService:
             from core.model_capabilities import supports_thinking, split_thinking_and_content
             ollama_url = providers.get("ollama", {}).get("url", "http://localhost:11434")
             think = supports_thinking(model, provider="ollama", ollama_url=ollama_url)
+            options: dict = {"temperature": temperature}
+            if max_tokens:
+                options["num_predict"] = max_tokens
             payload = {
                 "model": model,
                 "messages": messages,
                 "stream": False,
-                **({"options": {"num_predict": max_tokens}} if max_tokens else {}),
+                "options": options,
             }
             if think:
                 payload["think"] = True
@@ -414,6 +489,27 @@ class ChatService:
                 dispatch.images = list(images)
             if attachment_path:
                 dispatch.attachment_path = attachment_path
+
+            # Bild-Anhang → Ziel-Agent braucht image_edit. Falls er es nicht hat: umleiten.
+            if images:
+                recipient_agent_check = next(
+                    (a for a in all_agents if a.get("id") == dispatch.recipient_id), {}
+                )
+                if "image_edit" not in recipient_agent_check.get("skills", []):
+                    # Suche Agent mit image_edit
+                    edit_agent = next(
+                        (a for a in all_agents
+                         if "image_edit" in a.get("skills", []) and a["id"] != dispatch.recipient_id),
+                        None
+                    )
+                    if edit_agent:
+                        logger.info(
+                            "A2A Bild-Redirect: @%s hat kein image_edit → umgeleitet zu @%s",
+                            dispatch.recipient_name, edit_agent["name"]
+                        )
+                        dispatch.recipient_id = edit_agent["id"]
+                        dispatch.recipient_name = edit_agent["name"]
+
             task = dispatch.to_task_dict()
             dispatch.metadata["task_id"] = task["id"]
 
@@ -493,6 +589,25 @@ class ChatService:
                 item.attachment_path = attachment_path
             item.sender_id = sender_agent.get("id", "")
             item.sender_name = sender_agent.get("name", "")
+
+            # Bild-Anhang → Ziel-Agent braucht image_edit. Falls er es nicht hat: umleiten.
+            if images:
+                item_agent_check = next(
+                    (a for a in all_agents if a.get("id") == item.recipient_id), {}
+                )
+                if "image_edit" not in item_agent_check.get("skills", []):
+                    edit_agent = next(
+                        (a for a in all_agents
+                         if "image_edit" in a.get("skills", []) and a["id"] != item.recipient_id),
+                        None
+                    )
+                    if edit_agent:
+                        logger.info(
+                            "TASKLIST Bild-Redirect: @%s hat kein image_edit → @%s",
+                            item.recipient_name, edit_agent["name"]
+                        )
+                        item.recipient_id = edit_agent["id"]
+                        item.recipient_name = edit_agent["name"]
 
             depends_on: list[str] = []
 
@@ -642,21 +757,37 @@ class ChatService:
         }
 
     def _maybe_fetch_urls(self, message: str, agent: dict) -> str:
-        """URLs in der Nachricht automatisch fetchen wenn url_fetch-Skill aktiv."""
+        """URLs in der Nachricht automatisch fetchen wenn url_fetch-Skill aktiv.
+        Erkennt auch Domains ohne Protokoll (z.B. 'ingest timocom.de').
+        """
         if "url_fetch" not in agent.get("skills", []):
             return message
+        # Explizite URLs mit Protokoll
         url_rx = re.compile(r'https?://[^\s<>"{}|\\^`\[\]]+', re.IGNORECASE)
         urls = url_rx.findall(message)
+        # Domains ohne Protokoll: "ingest timocom.de", "fetch example.com/path"
+        if not urls:
+            domain_rx = re.compile(
+                r'(?:^|[\s(])((?:[a-z0-9-]+\.)+(?:com|de|org|net|io|ai|app|dev|co|uk|ch|at|eu)'
+                r'(?:/[^\s<>"{}|\\^`\[\]]*)?)',
+                re.IGNORECASE,
+            )
+            for m in domain_rx.finditer(message):
+                candidate = "https://" + m.group(1).rstrip(".,;)")
+                urls.append(candidate)
         if not urls:
             return message
         try:
-            from skills.url_fetch import fetch_url_text, _is_safe_url
+            from skills.url_fetch import fetch_url_text, is_safe_url
             fetched_parts = []
-            for url in urls[:2]:  # Max 2 URLs pro Nachricht
-                if _is_safe_url(url):
+            for url in urls[:2]:
+                url = url.rstrip(".,;)")
+                if is_safe_url(url):
                     content = fetch_url_text(url)
                     if content:
-                        fetched_parts.append(f"[Inhalt von {url}]:\n{content[:3000]}")
+                        fetched_parts.append(f"[Inhalt von {url}]:\n{content[:4000]}")
+                    else:
+                        fetched_parts.append(f"[{url}]: Kein Inhalt abrufbar")
             if fetched_parts:
                 return message + "\n\n" + "\n\n".join(fetched_parts)
         except Exception as e:
@@ -668,6 +799,8 @@ class ChatService:
         agent_id: str,
         message: str,
         images: list[str] | None = None,
+        think_override: bool | None = None,
+        audio: list[str] | None = None,
     ):
         """
         Async Generator — streamt LLM-Antwort Token-by-Token.
@@ -693,8 +826,11 @@ class ChatService:
         )
 
         # Skill-Check (synchron im Executor — Skills können HTTP machen)
+        # images[0] als image_b64 durchreichen (für ImageEditSkill etc.)
+        image_b64 = (images[0] if images else None)
         skill_result = await asyncio.get_event_loop().run_in_executor(
-            None, lambda: self._try_skill(agent, message, images, None, providers)
+            None, lambda: self._try_skill(agent, message, images, None, providers,
+                                          image_b64=image_b64, audio=audio)
         )
         # Passthrough: Skill hat bewusst NICHT geantwortet → LLM soll streamen
         is_passthrough = (
@@ -706,7 +842,10 @@ class ChatService:
         )
         if skill_result and not is_passthrough:
             reply = skill_result.text or (f"⚠ {skill_result.error}" if skill_result.error else "")
-            yield {"content": reply}
+            chunk = {"content": reply}
+            if skill_result.image:
+                chunk["image"] = skill_result.image
+            yield chunk
             # History + Event (nach dem Yield)
             self._save_history(agent_id, message, reply,
                                image=skill_result.image, skill=skill_result.skill_used)
@@ -716,13 +855,14 @@ class ChatService:
         # Messages für LLM aufbauen
         history_data = load_history()
         agent_history = history_data.get(agent_id, [])
-        messages = self._build_messages(agent, message, agent_history, images, providers)
+        messages = self._build_messages(agent, message, agent_history, images, providers,
+                                        audio=audio)
 
         # LLM streamen (dicts {"content": ...} | {"thinking": ...})
         full_reply = []
         full_thinking = []
         try:
-            async for chunk in stream_llm(agent, messages, providers):
+            async for chunk in stream_llm(agent, messages, providers, think_override=think_override):
                 if isinstance(chunk, dict):
                     if "content" in chunk:
                         full_reply.append(chunk["content"])
@@ -746,9 +886,13 @@ class ChatService:
             skill_result = self._try_skill_from_reply(agent, reply, message, providers)
             if skill_result:
                 result_text = skill_result.text or (f"⚠ {skill_result.error}" if skill_result.error else "")
-                self._save_history(agent_id, message, result_text, skill=skill_result.skill_used)
-                self._events.emit_chat_message(agent_id, "assistant", result_text)
-                yield {"content": result_text, "__skill__": skill_result.skill_used}
+                self._save_history(agent_id, message, result_text, skill=skill_result.skill_used,
+                                   image=skill_result.image)
+                self._events.emit_chat_message(agent_id, "assistant", result_text, image=skill_result.image)
+                reply_chunk = {"content": result_text, "__skill__": skill_result.skill_used}
+                if skill_result.image:
+                    reply_chunk["image"] = skill_result.image
+                yield reply_chunk
                 return
 
             # History mit Original-Reply (inkl. @Mentions — für LLM-Kontext)
@@ -769,7 +913,7 @@ class ChatService:
             # TASKLIST hat Vorrang vor @Mentions
             from core.task_list import has_task_list, strip_task_list
             if has_task_list(reply):
-                tl_dispatches = self._dispatch_task_list(agent, reply)
+                tl_dispatches = self._dispatch_task_list(agent, reply, images=images)
                 display_reply = strip_task_list(reply)
                 if display_reply:
                     self._events.emit_chat_message(agent_id, "assistant", display_reply)
@@ -786,7 +930,7 @@ class ChatService:
                     ],
                 }
             else:
-                dispatches = self._dispatch_mentions(agent, reply)
+                dispatches = self._dispatch_mentions(agent, reply, images=images)
                 from core.a2a_protocol import strip_a2a_for_display
                 display_reply = strip_a2a_for_display(reply) if dispatches else reply
                 if display_reply:
@@ -811,6 +955,7 @@ class ChatService:
         history: list[dict],
         images: list[str] | None,
         providers: dict,
+        audio: list[str] | None = None,
     ) -> list[dict]:
         """Aufbau der Messages-Liste für LLM-Calls (shared zwischen sync und stream)."""
         from core.skills_registry import _build_agent_directory, _get_codebase_context
@@ -843,11 +988,30 @@ class ChatService:
             if role in ("user", "assistant") and content:
                 messages.append({"role": role, "content": content})
 
-        if images:
-            messages.append({"role": "user", "content": [
-                {"type": "text", "text": message},
-                *[{"type": "image_url", "image_url": {"url": img}} for img in images]
-            ]})
+        def _strip_b64(data: str) -> str:
+            if "base64," in data:
+                return data.split("base64,", 1)[1]
+            return data
+
+        if images or audio:
+            provider = agent.get("provider", "ollama")
+            if provider == "openrouter":
+                # OpenAI-Format für OpenRouter/GPT-4V
+                content_parts = [{"type": "text", "text": message}]
+                if images:
+                    content_parts.extend(
+                        [{"type": "image_url", "image_url": {"url": img}} for img in images]
+                    )
+                messages.append({"role": "user", "content": content_parts})
+            else:
+                # Ollama-Format: base64 ohne data:-Prefix
+                user_msg: dict = {"role": "user", "content": message}
+                if images:
+                    user_msg["images"] = [_strip_b64(img) for img in images]
+                if audio:
+                    # Gemma4 + Ollama: Audio via "audio"-Array (Base64 ohne Prefix)
+                    user_msg["audio"] = [_strip_b64(a) for a in audio]
+                messages.append(user_msg)
         else:
             messages.append({"role": "user", "content": message})
 

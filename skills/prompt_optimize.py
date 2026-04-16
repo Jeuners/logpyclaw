@@ -9,7 +9,12 @@ from .triggers import PROMPT_FRAMEWORKS
 
 def _load_providers() -> dict:
     try:
-        with open(os.path.join(os.getcwd(), "providers.json"), encoding="utf-8") as f:
+        from core.config import PROVIDERS_FILE
+        path = PROVIDERS_FILE
+    except Exception:
+        path = os.path.join(os.getcwd(), "providers.json")
+    try:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return {}
