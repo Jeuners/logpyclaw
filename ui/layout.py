@@ -51,6 +51,7 @@ def create_layout(page_name: str = "home"):
             _nav_link("Home",     "home",       "/",         page_name)
             _nav_link("Chat",     "chat",       "/chat",     page_name)
             _nav_link("Tasks",    "assignment", "/tasks",    page_name)
+            _nav_link("Skills",   "extension",  "/skills",   page_name)
             _nav_link("Settings", "settings",   "/settings", page_name)
 
         # Rechte Seite

@@ -60,6 +60,7 @@ _SKILL_DEFS: list[tuple[str, str, str]] = [
     ("ComfyUI/ImageGen",  "skills.comfyui",             "ImageGenSkill"),
     ("ComfyUI/VideoGen",  "skills.comfyui",             "VideoGenSkill"),
     ("ComfyUI/ImageEdit", "skills.comfyui",             "ImageEditSkill"),
+    ("ComfyUI/TalkingVideo","skills.comfyui",           "TalkingVideoSkill"),
     ("YouTube",           "skills.youtube_skill",       "YouTubeSkill"),
     ("Transcription",     "skills.transcription_skill", "TranscriptionSkill"),
     ("FileAccess",        "skills.file_skill",          "FileAccessSkill"),

@@ -114,6 +114,7 @@ import ui.pages.home        # noqa: F401 — registriert @ui.page("/")
 import ui.pages.chat        # noqa: F401 — registriert @ui.page("/chat/{agent_id}")
 import ui.pages.tasks       # noqa: F401 — registriert @ui.page("/tasks")
 import ui.pages.settings    # noqa: F401 — registriert @ui.page("/settings")
+import ui.pages.skills      # noqa: F401 — registriert @ui.page("/skills")
 import ui.pages.agent_edit  # noqa: F401 — registriert /agent/edit/{id} + /agent/new
 import ui.pages.memory      # noqa: F401 — registriert @ui.page("/memory")
 import ui.pages.backup      # noqa: F401 — registriert @ui.page("/backup")

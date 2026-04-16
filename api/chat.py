@@ -61,11 +61,38 @@ async def chat(req: ChatRequest):
         raise HTTPException(500, str(e))
 
 
+class ChatStreamRequest(BaseModel):
+    agent_id: str = Field(..., min_length=1, max_length=64)
+    message: str = Field(..., min_length=1, max_length=32000)
+    think: int | None = Field(None, ge=0, le=1)
+    images: list[str] | None = None
+    audio: list[str] | None = None
+
+
+@router.post("/chat/stream")
+async def chat_stream_post(req: ChatStreamRequest):
+    """POST-Variante für Attachments (images/audio als Data-URLs)."""
+    return await _stream_response(
+        req.agent_id, req.message, req.think,
+        images=req.images, audio=req.audio,
+    )
+
+
 @router.get("/chat/stream")
 async def chat_stream(
     agent_id: str = Query(..., min_length=1, max_length=64),
     message: str = Query(..., min_length=1, max_length=32000),
     think: int | None = Query(None, ge=0, le=1),
+):
+    return await _stream_response(agent_id, message, think)
+
+
+async def _stream_response(
+    agent_id: str,
+    message: str,
+    think: int | None,
+    images: list[str] | None = None,
+    audio: list[str] | None = None,
 ):
     """
     Streaming-Chat via SSE (Server-Sent Events).
@@ -85,7 +112,8 @@ async def chat_stream(
         try:
             think_override = None if think is None else bool(think)
             async for chunk in services.chat.stream_message(
-                agent_id, message, think_override=think_override
+                agent_id, message, images=images, audio=audio,
+                think_override=think_override,
             ):
                 if isinstance(chunk, dict):
                     # Sentinel-Dicts vom Ende des Generators

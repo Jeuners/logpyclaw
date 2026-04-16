@@ -181,6 +181,21 @@ def upload_image_to_comfyui(image_b64: str, base_url: str) -> str:
     return filename
 
 
+def upload_audio_to_comfyui(audio_path: str, base_url: str) -> str:
+    """Upload audio to ComfyUI input/ folder. Returns server-side filename."""
+    if not os.path.exists(audio_path):
+        raise FileNotFoundError(f"Audio nicht gefunden: {audio_path}")
+    ext = os.path.splitext(audio_path)[1].lower() or ".mp3"
+    mime = {"mp3": "audio/mpeg", "wav": "audio/wav", "m4a": "audio/mp4",
+            "flac": "audio/flac", "ogg": "audio/ogg"}.get(ext.lstrip("."), "audio/mpeg")
+    filename = f"agentclaw_ia2v_{uuid.uuid4().hex[:8]}{ext}"
+    with open(audio_path, "rb") as f:
+        files = {"image": (filename, f.read(), mime)}
+    resp = requests.post(f"{base_url}/upload/image", files=files, timeout=60)
+    resp.raise_for_status()
+    return filename
+
+
 def _poll_comfyui(base_url: str, prompt_id: str, timeout: int = 120, interval: int = 2) -> dict:
     """Poll ComfyUI history until completed or timeout. Returns outputs dict."""
     deadline = time.time() + timeout
@@ -509,6 +524,83 @@ def run_comfyui_video(prompt: str) -> str:
     return _download_comfyui_file(base_url, video_info, default_mime="video/mp4")
 
 
+def build_ltx_ia2v_workflow(
+    image_filename: str,
+    audio_filename: str,
+    prompt: str,
+    duration_sec: float,
+    seed: int,
+) -> dict:
+    """Load LTX 2.3 ia2v template and patch inputs."""
+    template_path = os.path.join(os.path.dirname(__file__), "workflows", "ltx_ia2v.json")
+    with open(template_path, encoding="utf-8") as f:
+        wf = json.load(f)
+    # Image + Audio Inputs
+    wf["269"]["inputs"]["image"] = image_filename
+    wf["276"]["inputs"]["audio"] = audio_filename
+    wf["276"]["inputs"].pop("audioUI", None)
+    # Prompt-Text
+    wf["340:319"]["inputs"]["value"] = prompt
+    # Duration (max 9s laut Workflow)
+    wf["340:331"]["inputs"]["value"] = max(1.0, min(9.0, float(duration_sec)))
+    # Seed (Main Sampler)
+    wf["340:286"]["inputs"]["noise_seed"] = int(seed)
+    return wf
+
+
+def run_comfyui_ia2v(
+    image_b64: str,
+    audio_path: str,
+    prompt: str,
+    duration_sec: float = 9.0,
+) -> str:
+    """Generate talking video (image + audio → video) via LTX 2.3. Returns base64 video."""
+    providers = _load_providers()
+    cfg = providers.get("comfyui", {})
+    base_url = cfg.get("url", "http://localhost:8188").rstrip("/")
+    seed = int(time.time()) % (2**32)
+
+    print(f"[IA2V] upload image + audio to {base_url}", flush=True)
+    image_filename = upload_image_to_comfyui(image_b64, base_url)
+    audio_filename = upload_audio_to_comfyui(audio_path, base_url)
+    print(f"[IA2V] image={image_filename} audio={audio_filename}", flush=True)
+    print(f"[IA2V] duration={duration_sec}s prompt={prompt[:80]}", flush=True)
+
+    workflow = build_ltx_ia2v_workflow(
+        image_filename, audio_filename, prompt, duration_sec, seed,
+    )
+    r = requests.post(
+        f"{base_url}/prompt",
+        json={"prompt": workflow, "client_id": "agentclaw-ia2v"},
+        timeout=30,
+    )
+    r.raise_for_status()
+    resp_json = r.json()
+    if "prompt_id" not in resp_json:
+        raise RuntimeError(f"ComfyUI Antwort unerwartet: {resp_json}")
+    prompt_id = resp_json["prompt_id"]
+    print(f"[IA2V] queued prompt_id={prompt_id}", flush=True)
+
+    outputs = _poll_comfyui(base_url, prompt_id, timeout=1800, interval=3)
+    if outputs is None:
+        raise RuntimeError("Timeout: LTX ia2v hat nicht rechtzeitig geantwortet")
+
+    video_info = None
+    for node_out in outputs.values():
+        for key in ("videos", "gifs", "images"):
+            items = node_out.get(key, [])
+            if items:
+                video_info = items[0]
+                break
+        if video_info:
+            break
+    if not video_info:
+        raise RuntimeError("Keine Videodaten in der ComfyUI-Antwort")
+
+    print(f"[IA2V] downloading: {video_info['filename']}", flush=True)
+    return _download_comfyui_file(base_url, video_info, default_mime="video/mp4")
+
+
 def run_comfyui_edit(image_b64: str, prompt: str, use_lightning: bool = True) -> str:
     """Run FireRed Image Edit via ComfyUI. Returns base64 data URL."""
     providers = _load_providers()
@@ -623,5 +715,67 @@ class ImageEditSkill(BaseSkill):
         try:
             result_b64 = run_comfyui_edit(image_b64, message)
             return SkillResult(image=result_b64, skill_used=self.id)
+        except Exception as e:
+            return SkillResult(error=str(e), skill_used=self.id)
+
+
+# ── Talking Video: Bild + Audio → Video (LTX 2.3) ─────────────────────────────
+
+TALKING_TRIGGERS = re.compile(
+    r"\b(talking[- ]?video|lip[- ]?sync|reden(?:des|des)? video|sprech\w* video|"
+    r"ia2v|image.?audio.?video|bild.{0,10}audio.{0,10}video|animier\w* sprech\w*)\b",
+    re.IGNORECASE,
+)
+
+_DURATION_RX = re.compile(r"(\d+(?:\.\d+)?)\s*(?:s|sec|sekunden|seconds)\b", re.IGNORECASE)
+
+
+def _resolve_local_audio(message: str, attachment_path: str | None) -> str | None:
+    """Audio-Pfad aus message (bare filename oder abs path) oder attachment auflösen."""
+    if attachment_path and os.path.exists(attachment_path):
+        return attachment_path
+    m = re.search(
+        r"(/[\w\-./]+\.(?:mp3|wav|m4a|flac|ogg))", message, re.IGNORECASE,
+    )
+    if m and os.path.exists(m.group(1)):
+        return m.group(1)
+    m = re.search(r"\b([\w\-\.]+\.(?:mp3|wav|m4a|flac|ogg))\b", message, re.IGNORECASE)
+    if m:
+        candidate = os.path.expanduser(f"~/Downloads/AgentClaw/{m.group(1)}")
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
+class TalkingVideoSkill(BaseSkill):
+    id = "talking_video"
+    name = "Talking Video"
+    icon = "movie_filter"
+    description = "Generates video from image + audio via LTX 2.3 (up to 9s, lip-sync)."
+    triggers = [TALKING_TRIGGERS.pattern]
+    requires = ["comfyui"]
+
+    def matches(self, message: str) -> bool:
+        return bool(TALKING_TRIGGERS.search(message))
+
+    def execute(self, agent: dict, message: str, **context) -> SkillResult:
+        image_b64 = context.get("image_b64", "")
+        if not image_b64:
+            return SkillResult(
+                error="Kein Bild übergeben — bitte Bild anhängen.",
+                skill_used=self.id,
+            )
+        audio_path = _resolve_local_audio(message, context.get("attachment_path"))
+        if not audio_path:
+            return SkillResult(
+                error="Keine Audio-Datei gefunden. Pfad angeben oder in ~/Downloads/AgentClaw/ ablegen.",
+                skill_used=self.id,
+            )
+        # Duration aus Text, sonst Default 9s (Max laut Workflow)
+        dm = _DURATION_RX.search(message)
+        duration = float(dm.group(1)) if dm else 9.0
+        try:
+            video_b64 = run_comfyui_ia2v(image_b64, audio_path, message, duration)
+            return SkillResult(image=video_b64, skill_used=self.id)
         except Exception as e:
             return SkillResult(error=str(e), skill_used=self.id)

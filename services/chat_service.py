@@ -91,6 +91,17 @@ class ChatService:
         agent = self._agents.get_or_raise(agent_id)
         providers = load_providers()
 
+        # 0a. Tier-1 Fastpath — deterministischer Command-Dispatch vor allem LLM.
+        # Commands wie `transdownload <url>` oder `/ytsubs <url>` gehen direkt
+        # an den Skill, ohne A2A-Delegation, ohne Reformulierung durch MARTIN.
+        from core.fastpath import dispatch as _fp_dispatch
+        fp = _fp_dispatch(message)
+        if fp is not None:
+            reply = fp.text or (f"⚠ {fp.error}" if fp.error else "")
+            self._save_history(agent_id, message, reply, image=fp.image, skill=fp.skill_id)
+            self._events.emit_chat_message(agent_id, "assistant", reply, image=fp.image)
+            return {"reply": reply, "skill": fp.skill_id, "image": fp.image, "agent_id": agent_id}
+
         # 0. Nummerierte Listen → Task-Chain
         chain = self._detect_and_dispatch_chain(agent, message)
         if chain:
@@ -364,9 +375,17 @@ class ChatService:
             "  • Nur EINEN Skill pro Antwort. Wähle den spezifischsten.",
             "  • Wenn kein Skill passt: antworte normal ohne Marker.",
             "",
-            "SPEZIALFALL [file_access] (Datei speichern):",
+            "SPEZIALFALL [file_access] (Datei speichern/lesen):",
             "  Schreibe ZUERST den kompletten Inhalt (Story/Code/Text), DANN [file_access] ans Ende.",
             "  Der Skill speichert deinen Reply wörtlich — NIEMALS 'gespeichert' behaupten.",
+            "  Standard-Arbeitsordner: `~/Downloads/AgentClaw` — NIEMALS den User nach dem Ordner fragen.",
+            "  Bare Dateinamen (z.B. `song.mp3`) werden dort aufgelöst.",
+            "",
+            "SPEZIALFALL [youtube] Transkript-Download:",
+            "  Schlüsselwörter `transdownload`, `transkript`, `untertitel`, `subtitle` + YouTube-URL",
+            "  → NUR Untertitel/Transkript laden (kein Video, kein Audio, keine Whisper-Transkription).",
+            "  Wenn du an einen anderen Agenten delegierst: das Schlüsselwort `transdownload`",
+            "  UND die URL WÖRTLICH übernehmen — NICHT zu 'Video herunterladen' umformulieren.",
             "",
             "VERFÜGBARE SKILLS:",
         ]
@@ -858,6 +877,22 @@ class ChatService:
 
         agent = self._agents.get_or_raise(agent_id)
         providers = load_providers()
+
+        # Tier-1 Fastpath — deterministischer Command-Dispatch vor LLM/A2A.
+        from core.fastpath import dispatch as _fp_dispatch
+        import asyncio as _asyncio
+        fp = await _asyncio.get_event_loop().run_in_executor(
+            None, lambda: _fp_dispatch(message)
+        )
+        if fp is not None:
+            reply = fp.text or (f"⚠ {fp.error}" if fp.error else "")
+            chunk: dict = {"content": reply}
+            if fp.image:
+                chunk["image"] = fp.image
+            yield chunk
+            self._save_history(agent_id, message, reply, image=fp.image, skill=fp.skill_id)
+            self._events.emit_chat_message(agent_id, "assistant", reply, image=fp.image)
+            return
 
         # Nummerierte Listen → Task-Chain (synchron, kein Streaming nötig)
         chain = self._detect_and_dispatch_chain(agent, message)

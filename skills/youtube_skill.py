@@ -53,6 +53,12 @@ YT_INFO_RX = re.compile(
     re.IGNORECASE,
 )
 
+YT_TRANSCRIPT_RX = re.compile(
+    r"\b(transdownload|transkrib\w*|transkript\w*|transcript\w*|"
+    r"untertitel|subtitle\w*|subs|captions?|sub[-\s]?title)\b",
+    re.IGNORECASE,
+)
+
 
 def _get_downloads_dir() -> str:
     global DOWNLOADS_DIR
@@ -302,6 +308,95 @@ def _download_video(url: str, audio_only: bool = False, progress_cb=None) -> dic
     return result
 
 
+def _vtt_to_plain(vtt_path: str) -> str:
+    """Konvertiert WebVTT zu Plain-Text (ohne Timestamps/Tags, dedupliziert)."""
+    try:
+        with open(vtt_path, encoding="utf-8") as f:
+            raw = f.read()
+    except Exception as e:
+        return f"[VTT-Read-Fehler: {e}]"
+
+    lines_out: list[str] = []
+    last = ""
+    for line in raw.splitlines():
+        s = line.strip()
+        if not s or s == "WEBVTT" or s.startswith("NOTE") or s.startswith("Kind:") or s.startswith("Language:"):
+            continue
+        if "-->" in s:
+            continue
+        if re.fullmatch(r"\d+", s):
+            continue
+        # Tags entfernen: <c>, <00:00:01.000>, etc.
+        s = re.sub(r"<[^>]+>", "", s).strip()
+        if not s or s == last:
+            continue
+        lines_out.append(s)
+        last = s
+    return "\n".join(lines_out)
+
+
+def _download_transcript(url: str, progress_cb=None) -> dict:
+    """Lädt Untertitel/Transkript via yt-dlp (DE/EN, manuell + auto)."""
+    dl_dir = _get_downloads_dir()
+    uid = uuid.uuid4().hex[:8]
+    out_template = os.path.join(dl_dir, f"{uid}.%(ext)s")
+
+    args = [
+        "--no-playlist",
+        "--skip-download",
+        "--write-subs",
+        "--write-auto-subs",
+        "--sub-langs", "de,en,de-orig,en-orig",
+        "--sub-format", "vtt/best",
+        "--convert-subs", "vtt",
+        "-o", out_template,
+        url,
+    ]
+
+    if progress_cb:
+        try:
+            progress_cb("⬇ Lade Untertitel …")
+        except Exception:
+            pass
+
+    stdout, stderr, rc = _run_yt_dlp(args, timeout=60, use_cookies=False)
+    if rc != 0 and ("Sign in" in stderr or "bot" in stderr.lower() or "cookies" in stderr.lower()):
+        stdout, stderr, rc = _run_yt_dlp(args, timeout=60, use_cookies=True)
+    if rc != 0:
+        return {"error": f"Sub-Download fehlgeschlagen: {stderr[:400]}"}
+
+    try:
+        subs = sorted(
+            [f for f in os.listdir(dl_dir) if f.startswith(uid) and f.endswith(".vtt")],
+            key=lambda f: (not f.endswith(".de.vtt"), not f.endswith(".en.vtt"), f),
+        )
+    except Exception as e:
+        return {"error": f"Sub-Suche fehlgeschlagen: {e}"}
+
+    if not subs:
+        return {"error": "Keine Untertitel verfügbar (weder manuell noch auto-generiert)."}
+
+    vtt_path = os.path.join(dl_dir, subs[0])
+    lang = subs[0].split(".")[-2] if "." in subs[0] else "?"
+    plain = _vtt_to_plain(vtt_path)
+    txt_path = vtt_path.replace(".vtt", ".txt")
+    try:
+        with open(txt_path, "w", encoding="utf-8") as f:
+            f.write(plain)
+    except Exception:
+        txt_path = ""
+
+    return {
+        "vtt_path": vtt_path,
+        "txt_path": txt_path,
+        "filename": os.path.basename(txt_path or vtt_path),
+        "lang": lang,
+        "chars": len(plain),
+        "text": plain,
+        "url": url,
+    }
+
+
 def run_youtube(message: str, progress_cb=None) -> str:
     """Hauptfunktion: Parst die Message und führt die passende Aktion aus."""
     url_match = YT_URL_RX.search(message)
@@ -315,8 +410,23 @@ def run_youtube(message: str, progress_cb=None) -> str:
         )
 
     url = url_match.group(0).rstrip(".,;)")
-    audio_only = bool(YT_AUDIO_RX.search(message))
-    info_only = bool(YT_INFO_RX.search(message)) and not audio_only
+    transcript_only = bool(YT_TRANSCRIPT_RX.search(message))
+    audio_only = bool(YT_AUDIO_RX.search(message)) and not transcript_only
+    info_only = bool(YT_INFO_RX.search(message)) and not audio_only and not transcript_only
+
+    if transcript_only:
+        print(f"[YouTube] Transcript-Download: {url[:60]}", flush=True)
+        t = _download_transcript(url, progress_cb=progress_cb)
+        if "error" in t:
+            return f"❌ {t['error']}"
+        preview = t["text"][:1500] + ("\n…" if len(t["text"]) > 1500 else "")
+        return (
+            f"📝 **Transkript geladen** ({t['lang']}, {t['chars']} Zeichen)\n\n"
+            f"**Datei:** `{t['filename']}`\n"
+            f"**Pfad:** `{t.get('txt_path') or t['vtt_path']}`\n"
+            f"**Quelle:** {url}\n\n"
+            f"---\n{preview}"
+        )
 
     if info_only:
         print(f"[YouTube] Info-Fetch: {url[:60]}", flush=True)
@@ -361,6 +471,8 @@ class YouTubeSkill(BaseSkill):
         r"youtu\.?be",
         r"\b(youtube|yt\.com|ytdl|yt-dlp)\b",
         r"\b(download|lade.*runter|herunterladen)\b.{0,30}\b(video|audio|youtube|yt)\b",
+        r"\btransdownload\b",
+        r"\b(transkript|transcript|untertitel|subtitle|captions?)\b.{0,30}https?://",
     ]
     requires = []
 

@@ -30,13 +30,15 @@ ROUTING_RULES: list[tuple[str, str]] = [
     (r"\b(?:python|javascript|typescript|html|css|sql|bash)\b",      "CodeCraft"),
     (r"\b(?:fehler\s+im\s+code|code\s+verbessern|funktion\s+schreiben)\b", "CodeCraft"),
 
-    # Video → Video-Agent
+    # Video / YouTube / Transkript → Video-Agent
     (r"\b(?:video|animier|clip|reel|film)\b",                       "Video-Agent"),
+    (r"\b(?:transdownload|transkript|transcript|untertitel|subtitle|captions?)\b", "Video-Agent"),
+    (r"youtu\.?be",                                                  "Video-Agent"),
 
     # Bilder → Picasso
-    (r"\b(?:bild\s+generi|foto\s+erstell|zeichn|male\s+|artwork|illustr)\b", "Picasso"),
-    (r"\bgenerate\s+(?:an?\s+)?image\b",                            "Picasso"),
-    (r"\b(?:erstelle?|generier)\w*\b.{0,20}\b(?:bild|foto|image)\b","Picasso"),
+    (r"\b(?:bild\s+generi|foto\s+erstell|zeichn|male\s+|artwork|illustr)\b", "Image-Agent"),
+    (r"\bgenerate\s+(?:an?\s+)?image\b",                            "Image-Agent"),
+    (r"\b(?:erstelle?|generier)\w*\b.{0,20}\b(?:bild|foto|image)\b","Image-Agent"),
 
     # E-Mail → Mailbox
     (r"\b(?:mail|e-mail|email|gmail|smtp)\b",                       "Mailbox"),
@@ -87,8 +89,8 @@ def build_routing_table_for_prompt(all_agents: list[dict]) -> str:
     descriptions = {
         "ARIA":        "LinkedIn, SEO, Profil-Analyse, Webseiten-Analyse, Social Media",
         "CodeCraft":   "Code, Programmierung, Bugs, Scripts, technische Probleme",
-        "Video-Agent": "Videos, Animationen, Clips, Reels",
-        "Picasso":     "Bilder generieren, Fotos, Illustrationen, Artwork",
+        "Video-Agent": "Videos, Animationen, Clips, Reels, YouTube-Download, Transkript/Untertitel (transdownload)",
+        "Image-Agent":     "Bilder generieren, Fotos, Illustrationen, Artwork",
         "Mailbox":     "E-Mails lesen und versenden",
         "Wiki":        "Erklärungen, Definitionen, Wissensfragen",
         "DREAM":       "Erinnerungen, Notizen, Memory speichern",

@@ -424,8 +424,7 @@ window._ac = {
     agentId: _agentId,
     agentName: _agentName,
     agentVoice: _agentVoice,
-    _attachedImageB64: null,   // Aktuell angehängtes Bild (Base64)
-    _attachedImageName: '',
+    _attachments: [],  // [{kind:'image'|'audio'|'video', dataUrl, name}]
 
     init: function() {
         // Panel injizieren (Favoriten-Overlay) — nur DOM, keine Listener
@@ -435,38 +434,24 @@ window._ac = {
             const mb = document.getElementById('ac-mic-btn');
             if (mb) mb.style.visibility = 'hidden';
         }
-        // File-Input Listener (Bilder + Audio)
+        // File-Input Listener (multi: Bilder / Audio / Video)
         const fileInput = document.getElementById('ac-file-input');
         if (fileInput) {
             fileInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const isAudio = file.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|aac)$/i.test(file.name);
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    const preview = document.getElementById('ac-attach-preview');
-                    const thumb = document.getElementById('ac-attach-thumb');
-                    const audioIcon = document.getElementById('ac-attach-audio-icon');
-                    const nameEl = document.getElementById('ac-attach-name');
-                    const chip = document.getElementById('ac-chip-attach');
-                    if (isAudio) {
-                        this._attachedAudioB64 = ev.target.result;
-                        this._attachedAudioName = file.name;
-                        this._attachedImageB64 = null;
-                        if (thumb) thumb.style.display = 'none';
-                        if (audioIcon) audioIcon.style.display = 'inline';
-                    } else {
-                        this._attachedImageB64 = ev.target.result;
-                        this._attachedImageName = file.name;
-                        this._attachedAudioB64 = null;
-                        if (thumb) { thumb.src = ev.target.result; thumb.style.display = 'block'; }
-                        if (audioIcon) audioIcon.style.display = 'none';
-                    }
-                    if (preview) preview.classList.add('visible');
-                    if (nameEl) nameEl.textContent = file.name;
-                    if (chip) chip.classList.add('has-image');
-                };
-                reader.readAsDataURL(file);
+                const files = Array.from(e.target.files || []);
+                files.forEach((file) => {
+                    const ext = (file.name.split('.').pop() || '').toLowerCase();
+                    const kind = file.type.startsWith('image/') ? 'image'
+                               : file.type.startsWith('audio/') || /^(mp3|wav|ogg|m4a|aac|flac|opus)$/.test(ext) ? 'audio'
+                               : file.type.startsWith('video/') || /^(mp4|mov|mkv|webm|m4v|avi)$/.test(ext) ? 'video'
+                               : 'file';
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        this._attachments.push({ kind, dataUrl: ev.target.result, name: file.name });
+                        this._renderAttachments();
+                    };
+                    reader.readAsDataURL(file);
+                });
                 fileInput.value = '';
             });
         }
@@ -477,18 +462,36 @@ window._ac = {
     },
 
     clearAttachment: function() {
-        this._attachedImageB64 = null;
-        this._attachedImageName = '';
-        this._attachedAudioB64 = null;
-        this._attachedAudioName = '';
-        const preview = document.getElementById('ac-attach-preview');
-        const thumb = document.getElementById('ac-attach-thumb');
-        const audioIcon = document.getElementById('ac-attach-audio-icon');
+        this._attachments = [];
+        this._renderAttachments();
+    },
+
+    _renderAttachments: function() {
+        const list = document.getElementById('ac-attach-list');
         const chip = document.getElementById('ac-chip-attach');
-        if (preview) preview.classList.remove('visible');
-        if (thumb) { thumb.src = ''; thumb.style.display = 'none'; }
-        if (audioIcon) audioIcon.style.display = 'none';
-        if (chip) chip.classList.remove('has-image');
+        if (!list) return;
+        if (!this._attachments.length) {
+            list.innerHTML = '';
+            if (chip) chip.classList.remove('has-image');
+            return;
+        }
+        const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        list.innerHTML = this._attachments.map((a, idx) => {
+            const thumb = a.kind === 'image'
+                ? `<img src="${esc(a.dataUrl)}">`
+                : `<span class="ac-attach-icon material-icons">${a.kind === 'audio' ? 'audiotrack' : a.kind === 'video' ? 'movie' : 'insert_drive_file'}</span>`;
+            return `<div class="ac-attach-item" data-idx="${idx}">
+                ${thumb}
+                <span class="ac-attach-name" title="${esc(a.name)}">${esc(a.name)}</span>
+                <button class="ac-attach-del" data-idx="${idx}" title="Entfernen"><span class="material-icons" style="font-size:14px">close</span></button>
+            </div>`;
+        }).join('');
+        if (chip) chip.classList.add('has-image');
+    },
+
+    removeAttachment: function(idx) {
+        this._attachments.splice(idx, 1);
+        this._renderAttachments();
     },
 
     _initWhatsAppStream: function() {
@@ -533,27 +536,25 @@ window._ac = {
         const sendBtn = document.getElementById('ac-send-btn');
         if (sendBtn) sendBtn.classList.add('busy');
 
-        // Anhang sichern + UI zurücksetzen
-        const imageb64 = this._attachedImageB64;
-        const audiob64 = this._attachedAudioB64;
-        const audioName = this._attachedAudioName;
+        // Anhänge sichern + UI zurücksetzen
+        const attachments = this._attachments.slice();
         this.clearAttachment();
+        const images = attachments.filter(a => a.kind === 'image').map(a => a.dataUrl);
+        const audios = attachments.filter(a => a.kind === 'audio').map(a => a.dataUrl);
 
         // User-Nachricht anzeigen (mit Vorschau wenn vorhanden)
-        if (imageb64) {
-            this.addMsg('user',
-                '<img src="' + imageb64 + '" style="max-width:200px;max-height:150px;border-radius:6px;display:block;margin-bottom:6px">' +
-                this.escHtml(msg)
-            );
-        } else if (audiob64) {
-            this.addMsg('user',
-                '<div style="font-size:11px;color:#64b5f6;margin-bottom:4px">🎵 ' + this.escHtml(audioName) + '</div>' +
-                '<audio controls src="' + audiob64 + '" style="max-width:280px;display:block;margin-bottom:6px"></audio>' +
-                this.escHtml(msg)
-            );
-        } else {
-            this.addMsg('user', this.escHtml(msg));
-        }
+        let previewHtml = '';
+        attachments.forEach(a => {
+            if (a.kind === 'image') {
+                previewHtml += '<img src="' + a.dataUrl + '" style="max-width:200px;max-height:150px;border-radius:6px;display:inline-block;margin:0 6px 6px 0">';
+            } else if (a.kind === 'audio') {
+                previewHtml += '<div style="font-size:11px;color:#64b5f6;margin-bottom:4px">🎵 ' + this.escHtml(a.name) + '</div>';
+                previewHtml += '<audio controls src="' + a.dataUrl + '" style="max-width:280px;display:block;margin-bottom:6px"></audio>';
+            } else {
+                previewHtml += '<div style="font-size:11px;color:#b8d4b8;margin-bottom:4px">📎 ' + this.escHtml(a.name) + '</div>';
+            }
+        });
+        this.addMsg('user', previewHtml + this.escHtml(msg));
 
         // Typing-Indicator einblenden
         this.addTyping();
@@ -562,10 +563,10 @@ window._ac = {
         const thinkFlag = localStorage.getItem('ac_think') === '0' ? 0 : 1;
 
         let fetchPromise;
-        if (imageb64 || audiob64) {
+        if (attachments.length) {
             const body = { agent_id: this.agentId, message: msg, think: thinkFlag };
-            if (imageb64) body.images = [imageb64];
-            if (audiob64) body.audio = [audiob64];
+            if (images.length) body.images = images;
+            if (audios.length) body.audio = audios;
             fetchPromise = fetch('/api/chat/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1270,9 +1271,11 @@ window._ac = {
             document.getElementById('ac-file-input') && document.getElementById('ac-file-input').click();
             return;
         }
-        if (t.closest('#ac-attach-clear')) {
+        const delBtn = t.closest('.ac-attach-del');
+        if (delBtn) {
             e.preventDefault(); e.stopPropagation();
-            window._ac && window._ac.clearAttachment();
+            const idx = parseInt(delBtn.dataset.idx || '-1', 10);
+            if (idx >= 0 && window._ac) window._ac.removeAttachment(idx);
             return;
         }
         if (t.closest('#ac-chip-shot')) {

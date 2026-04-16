@@ -192,6 +192,43 @@ def chat_page(agent_id: str):
         #ac-mic-btn.recording .ac-mic-waves { display: flex; }
         #ac-mic-btn.recording .ac-mic-icon { display: none; }
 
+        /* Attachment-Liste (multi) */
+        #ac-attach-list {
+            display: flex; flex-wrap: wrap; gap: 6px;
+            padding: 0 8px; margin: 6px 0 0;
+        }
+        #ac-attach-list:empty { display: none; }
+        .ac-attach-item {
+            display: flex; align-items: center; gap: 6px;
+            padding: 4px 8px 4px 4px;
+            background: rgba(0,230,118,.06);
+            border: 1px solid rgba(0,230,118,.22);
+            border-radius: 8px;
+            max-width: 220px;
+        }
+        .ac-attach-item img {
+            width: 32px; height: 32px; border-radius: 5px; object-fit: cover;
+            flex-shrink: 0;
+        }
+        .ac-attach-item .ac-attach-icon {
+            width: 32px; height: 32px; border-radius: 5px;
+            background: rgba(100,181,246,.12); color: #64b5f6;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; flex-shrink: 0;
+        }
+        .ac-attach-item .ac-attach-name {
+            font-size: 11px; color: #b8d4b8; flex: 1;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .ac-attach-item .ac-attach-del {
+            background: none; border: none; color: #3a5a3a; cursor: pointer;
+            padding: 0; line-height: 1; flex-shrink: 0;
+            transition: color .15s;
+        }
+        .ac-attach-item .ac-attach-del:hover { color: #ef4444; }
+        .ac-chip-attach.has-image { background: rgba(0,230,118,.12) !important;
+            color: #00e676 !important; border-color: rgba(0,230,118,.4) !important; }
+
         /* Model-Chip */
         .ac-model-chip {
             font-size: 10px; font-family: monospace;
@@ -283,10 +320,16 @@ def chat_page(agent_id: str):
                     </div>
                     <div class="ac-composer-border">
                         <div class="ac-composer-inner">
+                            <input type="file" id="ac-file-input" accept="image/*,audio/*,video/*" multiple style="display:none">
+                            <div id="ac-attach-list"></div>
                             <textarea id="ac-input" rows="1"
                                 placeholder="Nachricht an {html_mod.escape(agent_name)}…"></textarea>
                             <div class="ac-composer-bar">
                                 <div class="ac-composer-left">
+                                    <button id="ac-chip-attach" class="ac-chip ac-chip-attach" title="Bild / Audio / Video anhängen">
+                                        <span class="material-icons">attach_file</span>
+                                        Anhang
+                                    </button>
                                     <button id="ac-mic-btn" class="ac-chip ac-chip-mic" title="Spracheingabe">
                                         <div class="ac-mic-waves">
                                             <span></span><span></span><span></span>
