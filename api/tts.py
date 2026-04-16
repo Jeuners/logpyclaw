@@ -9,8 +9,12 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from core.config import GOOGLE_TTS_URL, MISTRAL_TTS_URL, MISTRAL_VOICES_URL
+from config.settings import settings
 from storage.providers import load_providers
+
+GOOGLE_TTS_URL = settings.GOOGLE_TTS_URL
+MISTRAL_TTS_URL = settings.MISTRAL_TTS_URL
+MISTRAL_VOICES_URL = settings.MISTRAL_VOICES_URL
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["tts"])

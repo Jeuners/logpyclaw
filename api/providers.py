@@ -7,8 +7,11 @@ import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from core.config import MISTRAL_VOICES_URL, OPENROUTER_BASE_URL
+from config.settings import settings
 from storage.providers import load_providers, save_providers
+
+MISTRAL_VOICES_URL = settings.MISTRAL_VOICES_URL
+OPENROUTER_BASE_URL = settings.OPENROUTER_BASE_URL
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["providers"])

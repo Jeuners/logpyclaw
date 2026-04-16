@@ -7,9 +7,12 @@ from datetime import datetime, timedelta
 
 import requests
 
-from core.config import EMBED_DIM, EMBED_MODEL
+from config.settings import settings
 from storage.agents import load_agents
 from storage.providers import load_providers
+
+EMBED_DIM = settings.EMBED_DIM
+EMBED_MODEL = settings.EMBED_MODEL
 
 try:
     from qdrant_client import QdrantClient

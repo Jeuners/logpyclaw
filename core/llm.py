@@ -7,7 +7,9 @@ from datetime import datetime
 
 import requests
 
-from core.config import OPENROUTER_BASE_URL
+from config.settings import settings
+
+OPENROUTER_BASE_URL = settings.OPENROUTER_BASE_URL
 from core.skills_registry import _build_agent_directory, _get_codebase_context
 from storage.providers import load_providers
 

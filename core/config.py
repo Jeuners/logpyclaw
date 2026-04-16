@@ -1,29 +1,38 @@
 """
-core/config.py — Pfad-Konstanten, URLs, Hilfsfunktionen.
-Importiert nur core/state.py (für _DEBUG_LOG).
+core/config.py — Pfad-Konstanten und Datei-I/O-Helpers.
 
-Werte-Duplikate werden aus config.settings bezogen (Single Source of Truth).
-Diese Datei bleibt als Fassade bestehen, damit alle bestehenden Imports weiter funktionieren.
+Scope:
+- BASE_DIR + DATA_DIR + abgeleitete *_FILE Pfade
+- _read_json / _write_json (JSON-Atomkasten)
+- dlog (conditional Debug-Logger)
+
+Werte (URLs, Limits, Embed-Config) leben in `config.settings` (pydantic).
+Thread-Helper liegen in `core.background`.
+
+Re-Exports werden bewusst NICHT mehr hier gepflegt — jede Call-Site soll
+direkt die Quelle importieren (vermeidet Fassaden-Drift).
+Ausnahme: `spawn_background` wird als Legacy-Re-Export beibehalten, da
+bereits ~7 Stellen darauf zugreifen.
 """
+import json
 import os
 import sys
-import json
-import threading
 
 from core.state import _DEBUG_LOG
-from config.settings import settings
 
 # ── Pfad-Konfiguration ────────────────────────────────────────────────────────
-# Im py2app-Bundle zeigt __file__ auf die .zip — CWD nutzen (gesetzt durch chdir in main_app.py)
+# Im py2app-Bundle zeigt __file__ auf die .zip — CWD nutzen (gesetzt durch chdir
+# in main_app.py)
 BASE_DIR = (
     os.getcwd()
     if getattr(sys, "frozen", False)
     else os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 )
 
-# DATA_DIR kann via env überschrieben werden (Tests, alternative Deployments)
-DATA_DIR       = os.environ.get("AGENTCLAW_DATA_DIR") or os.path.join(BASE_DIR, "data")
-os.makedirs(DATA_DIR, exist_ok=True)  # Beim ersten Start automatisch anlegen
+# DATA_DIR kann via env überschrieben werden (Tests, alternative Deployments).
+DATA_DIR = os.environ.get("AGENTCLAW_DATA_DIR") or os.path.join(BASE_DIR, "data")
+os.makedirs(DATA_DIR, exist_ok=True)
+
 AGENTS_FILE    = os.path.join(DATA_DIR, "agents.json")
 HISTORY_FILE   = os.path.join(DATA_DIR, "history.json")
 PROVIDERS_FILE = os.path.join(DATA_DIR, "providers.json")
@@ -32,19 +41,11 @@ TASKS_FILE     = os.path.join(DATA_DIR, "tasks.json")
 NODES_FILE     = os.path.join(DATA_DIR, "nodes.json")
 BACKUP_DIR     = os.path.join(BASE_DIR, "backups")
 
-# ── API URLs — aus config.settings (Single Source of Truth) ──────────────────
-MISTRAL_TTS_URL     = settings.MISTRAL_TTS_URL
-MISTRAL_VOICES_URL  = settings.MISTRAL_VOICES_URL
-OPENROUTER_BASE_URL = settings.OPENROUTER_BASE_URL
-GOOGLE_TTS_URL      = settings.GOOGLE_TTS_URL
 
-# ── Embedding Config — aus config.settings ────────────────────────────────────
-EMBED_MODEL = settings.EMBED_MODEL
-EMBED_DIM   = settings.EMBED_DIM
-
-# ── History Limits — aus config.settings ──────────────────────────────────────
-MAX_HISTORY_PER_AGENT = settings.MAX_HISTORY_PER_AGENT
-MAX_CONTENT_LENGTH    = settings.MAX_CONTENT_LENGTH
+# ── Legacy-Re-Export ──────────────────────────────────────────────────────────
+# Behalten, da bestehende Call-Sites darauf zugreifen (Aufwand/Nutzen).
+# Neue Call-Sites sollten `from core.background import spawn_background` nutzen.
+from core.background import spawn_background  # noqa: E402,F401
 
 
 # ── Debug Logging ─────────────────────────────────────────────────────────────
@@ -52,14 +53,6 @@ def dlog(*args, tag="DEBUG"):
     """Conditional debug log — only prints when _DEBUG_LOG is True."""
     if _DEBUG_LOG:
         print(f"[{tag}]", *args, flush=True)
-
-
-# ── Background Task Helper ────────────────────────────────────────────────────
-def spawn_background(target, *args, **kwargs):
-    """Spawn a daemon thread for background tasks (threading-compatible)."""
-    t = threading.Thread(target=target, args=args, kwargs=kwargs, daemon=True)
-    t.start()
-    return t
 
 
 # ── JSON File Helpers ─────────────────────────────────────────────────────────

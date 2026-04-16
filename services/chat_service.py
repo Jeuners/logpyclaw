@@ -10,7 +10,9 @@ from typing import TYPE_CHECKING
 from storage.agents import load_agents
 from storage.history import load_history, save_history
 from storage.providers import load_providers
-from core.config import MAX_HISTORY_PER_AGENT
+from config.settings import settings
+
+MAX_HISTORY_PER_AGENT = settings.MAX_HISTORY_PER_AGENT
 from core.state import _PENDING_MAIL_SORT, MAC_MAIL_TRIGGERS
 
 if TYPE_CHECKING:
@@ -382,7 +384,7 @@ class ChatService:
     def _call_llm(self, agent, message, history, images, providers) -> str:
         """LLM aufrufen mit vollständiger History (synchron, für run_in_executor)."""
         import requests as req
-        from core.config import OPENROUTER_BASE_URL
+        OPENROUTER_BASE_URL = settings.OPENROUTER_BASE_URL
 
         messages = self._build_messages(agent, message, history, images, providers)
         provider = agent.get("provider", "ollama")

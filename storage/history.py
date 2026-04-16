@@ -4,7 +4,11 @@ storage/history.py — Chat-History laden und speichern.
 import json
 import os
 
-from core.config import HISTORY_FILE, MAX_HISTORY_PER_AGENT, MAX_CONTENT_LENGTH
+from config.settings import settings
+from core.config import HISTORY_FILE
+
+MAX_HISTORY_PER_AGENT = settings.MAX_HISTORY_PER_AGENT
+MAX_CONTENT_LENGTH = settings.MAX_CONTENT_LENGTH
 from core.state import _history_lock
 
 # ── In-Memory Cache ───────────────────────────────────────────────────────────

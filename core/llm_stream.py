@@ -10,7 +10,9 @@ from typing import AsyncGenerator
 
 import httpx
 
-from core.config import OPENROUTER_BASE_URL
+from config.settings import settings
+
+OPENROUTER_BASE_URL = settings.OPENROUTER_BASE_URL
 
 logger = logging.getLogger(__name__)
 
