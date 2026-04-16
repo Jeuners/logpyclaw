@@ -58,7 +58,16 @@ def _stat_card(label: str, value: int, icon: str, color: str):
 
 
 def _show_dispatch_dialog():
-    """Multi-Agent Task-Dispatch Dialog."""
+    """Multi-Agent Task-Dispatch Dialog.
+
+    ⚠ BEKANNTER BUG (NiceGUI 3.10 + Python 3.14):
+    Die on_click-Handler unten rufen ui.notify(), dialog.close() und
+    ui.navigate.reload() auf — alle drei schlagen aus Event-Handler-Kontext
+    mit `AssertionError: core.loop is not None` fehl. Der Task wird zwar
+    korrekt enqueued, aber die UI reagiert nicht sichtbar.
+    TODO: In HTML+fetch umbauen analog zu ui/pages/memory.py / settings.py.
+    Siehe CLAUDE.md → "NiceGUI core.loop Bug".
+    """
     from services import get_services
     services = get_services()
     agents = services.agents.list_all()

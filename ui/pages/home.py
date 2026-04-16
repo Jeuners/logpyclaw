@@ -268,6 +268,3 @@ def _render_agent_card(agent: dict):
     """)
 
 
-def _show_create_dialog():
-    # Navigation statt Dialog (core.loop Bug v1.89)
-    ui.navigate.to("/agent/new")
