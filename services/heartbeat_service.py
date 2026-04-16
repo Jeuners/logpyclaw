@@ -134,8 +134,8 @@ class HeartbeatService:
             f"{rnd.choice(moods)}, {rnd.choice(styles)}, "
             f"photorealistic, 4k, no text, no words"
         )
-        from skills.comfyui import _run_comfyui_sync
-        result_image = _run_comfyui_sync(img_prompt)
+        from skills.comfyui import run_comfyui_sync
+        result_image = run_comfyui_sync(img_prompt)
         return result_image, f"Bild: {img_prompt[:60]}..."
 
     def _dispatch_heartbeat_mentions(self, sender_agent, reply: str):

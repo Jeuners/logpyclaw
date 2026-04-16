@@ -448,7 +448,8 @@ end tell""")
         # Triage: neue Mails per LLM bewerten
         if re.search(r"\b(triage|prüf|check|bewerт|analyse|wichtig|dringend|priorit)\w*\b", msg, re.I):
             try:
-                with open(os.path.join(BASE_DIR, "providers.json"), encoding="utf-8") as _f:
+                from core.config import PROVIDERS_FILE
+                with open(PROVIDERS_FILE, encoding="utf-8") as _f:
                     _providers = json.load(_f)
                 ollama_url = _providers.get("ollama", {}).get("url", "http://localhost:11434").rstrip("/")
             except Exception:

@@ -75,10 +75,11 @@ async def stream_ollama(
     model: str,
     ollama_url: str = "http://localhost:11434",
     max_tokens: int | None = None,
-) -> AsyncGenerator[str, None]:
+    think: bool = False,
+) -> AsyncGenerator[dict, None]:
     """
     Streamt Tokens von Ollama via NDJSON.
-    Yields: Text-Chunks
+    Yields: {"content": str} oder {"thinking": str} dicts.
     """
     payload: dict = {
         "model": model,
@@ -87,6 +88,7 @@ async def stream_ollama(
     }
     if max_tokens:
         payload["options"] = {"num_predict": max_tokens}
+    payload["think"] = bool(think)
 
     async with httpx.AsyncClient(timeout=_STREAM_TIMEOUT) as client:
         async with client.stream(
@@ -100,9 +102,13 @@ async def stream_ollama(
                     continue
                 try:
                     chunk = json.loads(line)
-                    content = chunk.get("message", {}).get("content", "")
+                    msg = chunk.get("message", {})
+                    thinking = msg.get("thinking", "")
+                    if thinking:
+                        yield {"thinking": thinking}
+                    content = msg.get("content", "")
                     if content:
-                        yield content
+                        yield {"content": content}
                     if chunk.get("done"):
                         break
                 except (json.JSONDecodeError, KeyError):
@@ -113,7 +119,8 @@ async def stream_llm(
     agent: dict,
     messages: list[dict],
     providers: dict,
-) -> AsyncGenerator[str, None]:
+    think_override: bool | None = None,
+) -> AsyncGenerator[dict, None]:
     """
     Universeller Streaming-LLM-Call — wählt Provider automatisch.
 
@@ -121,9 +128,12 @@ async def stream_llm(
         agent: Agent-Config-Dict (enthält provider, model, max_tokens)
         messages: OpenAI-kompatible Messages-Liste
         providers: Provider-Konfiguration
+        think_override: Wenn nicht None, erzwingt Thinking an/aus.
+                        Wenn None: Auto-Detect via model_capabilities.
 
     Yields:
-        Text-Chunks vom LLM
+        {"content": str} oder {"thinking": str} dicts.
+        OpenRouter liefert nur content.
     """
     provider = agent.get("provider", "ollama")
     model = agent.get("model", "llama3")
@@ -132,11 +142,16 @@ async def stream_llm(
     if provider == "openrouter":
         or_key = providers.get("openrouter", {}).get("api_key", "")
         if not or_key:
-            yield "[Fehler: OpenRouter API-Key fehlt]"
+            yield {"content": "[Fehler: OpenRouter API-Key fehlt]"}
             return
         async for chunk in stream_openrouter(messages, model, or_key, max_tokens):
-            yield chunk
+            yield {"content": chunk}
     else:
         ollama_url = providers.get("ollama", {}).get("url", "http://localhost:11434")
-        async for chunk in stream_ollama(messages, model, ollama_url, max_tokens):
+        if think_override is None:
+            from core.model_capabilities import supports_thinking
+            think = supports_thinking(model, provider="ollama", ollama_url=ollama_url)
+        else:
+            think = think_override
+        async for chunk in stream_ollama(messages, model, ollama_url, max_tokens, think=think):
             yield chunk

@@ -30,9 +30,10 @@ _BLOCK_RX = re.compile(
     re.IGNORECASE,
 )
 
-# Zeilen-Parser: "AgentName: Task-Text [flags]"
+# Zeilen-Parser: "AgentName: Task-Text [flags]" — @-Präfix ist optional.
+# LLMs schreiben oft intuitiv "@ARIA: ..." in Analogie zu A2A-Mentions.
 _LINE_RX = re.compile(
-    r"^([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9_\- ]{0,39}?)\s*:\s*(.+)$",
+    r"^@?([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9_\- ]{0,39}?)\s*:\s*(.+)$",
     re.UNICODE,
 )
 

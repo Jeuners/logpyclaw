@@ -66,7 +66,10 @@ def _get_downloads_dir() -> str:
 
 def _get_base_args(use_cookies: bool = False) -> list[str]:
     """Standardargumente für yt-dlp. Cookies nur wenn explizit gewünscht."""
-    args = []
+    # --remote-components ejs:github: lädt einmalig das JS-Challenge-Solver-Script
+    # von GitHub (yt-dlp/ejs). Ohne das scheitern moderne YouTube-Videos mit
+    # "Signature solving failed" / "Only images are available".
+    args = ["--remote-components", "ejs:github"]
     # node.js Runtime für JS-Challenge-Solving (optional)
     for node_path in ["/opt/homebrew/bin/node", "/usr/local/bin/node",
                       shutil.which("node") or ""]:
@@ -95,6 +98,87 @@ def _run_yt_dlp(args: list[str], timeout: int = 120,
         return "", f"yt-dlp nicht gefunden: {YTDLP_BIN}", 1
 
 
+# [download]  45.2% of  232.45MiB at    8.45MiB/s ETA 01:23
+_PROGRESS_RX = re.compile(
+    r"\[download\]\s+(\d+\.?\d*)%\s+of\s+~?\s*([\d\.]+\s*[KMG]i?B)"
+    r"(?:\s+at\s+([\d\.]+\s*[KMG]i?B/s))?"
+    r"(?:\s+ETA\s+([\d:]+))?",
+    re.IGNORECASE,
+)
+
+
+def _run_yt_dlp_streaming(args: list[str], timeout: int = 600,
+                          use_cookies: bool = False,
+                          progress_cb=None) -> tuple[str, str, int]:
+    """Wie _run_yt_dlp, aber liest stdout zeilenweise und ruft progress_cb.
+
+    Erwartet `--newline` in args (wird automatisch ergänzt).
+    Gibt (stdout, stderr_merged, returncode) zurück — stdout enthält
+    nach dem Download die finalen Dateipfade (--print after_move:filepath).
+    """
+    env = os.environ.copy()
+    env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + env.get("PATH", "")
+    cmd = [YTDLP_BIN] + _get_base_args(use_cookies=use_cookies) + args
+    if "--newline" not in cmd:
+        cmd.append("--newline")
+
+    try:
+        proc = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, bufsize=1, env=env,
+        )
+    except FileNotFoundError:
+        return "", f"yt-dlp nicht gefunden: {YTDLP_BIN}", 1
+
+    # stderr in einem Thread drainen, sonst deadlock bei vielen Warnungen
+    import threading
+    stderr_buf: list[str] = []
+
+    def _drain_err():
+        for line in proc.stderr:
+            stderr_buf.append(line)
+
+    err_thread = threading.Thread(target=_drain_err, daemon=True)
+    err_thread.start()
+
+    stdout_lines: list[str] = []
+    last_pct = -1
+
+    try:
+        for raw in proc.stdout:
+            line = raw.rstrip()
+            stdout_lines.append(line)
+            if progress_cb is None:
+                continue
+            m = _PROGRESS_RX.search(line)
+            if not m:
+                continue
+            pct = float(m.group(1))
+            if int(pct) == last_pct:
+                continue
+            last_pct = int(pct)
+            total = m.group(2) or "?"
+            speed = m.group(3) or ""
+            eta = m.group(4) or ""
+            msg = f"⬇ {int(pct)}% · {total}"
+            if speed:
+                msg += f" · {speed}"
+            if eta:
+                msg += f" · ETA {eta}"
+            try:
+                progress_cb(msg)
+            except Exception:
+                pass
+
+        rc = proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        return "\n".join(stdout_lines), f"Timeout nach {timeout}s", 1
+
+    err_thread.join(timeout=2)
+    return "\n".join(stdout_lines), "".join(stderr_buf), rc
+
+
 def _fetch_video_info(url: str) -> dict:
     """Holt Video-Metadaten ohne Download."""
     stdout, stderr, rc = _run_yt_dlp([
@@ -121,11 +205,13 @@ def _fetch_video_info(url: str) -> dict:
         return {"error": f"JSON-Parse-Fehler: {e}"}
 
 
-def _download_video(url: str, audio_only: bool = False) -> dict:
-    """Lädt Video oder Audio herunter."""
+def _download_video(url: str, audio_only: bool = False, progress_cb=None) -> dict:
+    """Lädt Video oder Audio herunter. progress_cb(msg) wird pro %-Schritt aufgerufen."""
     dl_dir = _get_downloads_dir()
     uid = uuid.uuid4().hex[:8]
 
+    # --progress erzwingt Fortschrittsausgabe auch wenn --print gesetzt ist
+    # (sonst schweigt yt-dlp bis zum Schluss und wir haben keine Updates).
     if audio_only:
         # Dateiname: nur uid — keine Sonderzeichen aus Videotitel
         out_template = os.path.join(dl_dir, f"{uid}.%(ext)s")
@@ -137,6 +223,7 @@ def _download_video(url: str, audio_only: bool = False) -> dict:
             "--audio-quality", "0",
             "-o", out_template,
             "--print", "after_move:filepath",
+            "--progress",
             url,
         ]
     else:
@@ -147,20 +234,36 @@ def _download_video(url: str, audio_only: bool = False) -> dict:
             "--merge-output-format", "mp4",
             "-o", out_template,
             "--print", "after_move:filepath",
+            "--progress",
             url,
         ]
 
     print(f"[YouTube] Starte {'Audio' if audio_only else 'Video'}-Download: {url[:60]}", flush=True)
     print(f"[YouTube] yt-dlp Binary: {YTDLP_BIN}", flush=True)
 
+    if progress_cb:
+        try:
+            progress_cb("⬇ Starte Download …")
+        except Exception:
+            pass
+
     # Erster Versuch: ohne Cookies (schneller, kein Keychain-Dialog)
-    stdout, stderr, rc = _run_yt_dlp(args, timeout=300, use_cookies=False)
+    stdout, stderr, rc = _run_yt_dlp_streaming(
+        args, timeout=600, use_cookies=False, progress_cb=progress_cb
+    )
 
     # Zweiter Versuch: mit Chrome-Cookies (bei Bot-Detection)
     if rc != 0 and ("Sign in" in stderr or "bot" in stderr.lower()
                     or "cookies" in stderr.lower() or "403" in stderr):
         print("[YouTube] Retry mit Chrome-Cookies...", flush=True)
-        stdout, stderr, rc = _run_yt_dlp(args, timeout=300, use_cookies=True)
+        if progress_cb:
+            try:
+                progress_cb("🔒 YouTube verlangt Login — retry mit Chrome-Cookies …")
+            except Exception:
+                pass
+        stdout, stderr, rc = _run_yt_dlp_streaming(
+            args, timeout=600, use_cookies=True, progress_cb=progress_cb
+        )
 
     if rc != 0:
         return {"error": f"Download fehlgeschlagen: {stderr[:400]}"}
@@ -199,7 +302,7 @@ def _download_video(url: str, audio_only: bool = False) -> dict:
     return result
 
 
-def run_youtube(message: str) -> str:
+def run_youtube(message: str, progress_cb=None) -> str:
     """Hauptfunktion: Parst die Message und führt die passende Aktion aus."""
     url_match = YT_URL_RX.search(message)
     if not url_match:
@@ -230,7 +333,7 @@ def run_youtube(message: str) -> str:
             f"**URL:** {url}"
         )
 
-    result = _download_video(url, audio_only=audio_only)
+    result = _download_video(url, audio_only=audio_only, progress_cb=progress_cb)
     if "error" in result:
         return f"❌ {result['error']}"
 
@@ -263,7 +366,8 @@ class YouTubeSkill(BaseSkill):
 
     def execute(self, agent: dict, message: str, **context) -> SkillResult:
         try:
-            result = run_youtube(message)
+            progress_cb = context.get("progress_cb")
+            result = run_youtube(message, progress_cb=progress_cb)
             return SkillResult(text=result, skill_used=self.id)
         except Exception as e:
             return SkillResult(error=str(e), skill_used=self.id)

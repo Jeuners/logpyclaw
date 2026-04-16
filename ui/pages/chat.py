@@ -91,8 +91,8 @@ def chat_page(agent_id: str):
             justify-content: space-between;
             padding: 4px 8px 8px;
         }
-        .ac-composer-left { display: flex; align-items: center; gap: 4px; }
-        .ac-composer-right { display: flex; align-items: center; gap: 6px; }
+        .ac-composer-left { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+        .ac-composer-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
         /* Quick-Action Chips */
         .ac-chip {
@@ -115,6 +115,8 @@ def chat_page(agent_id: str):
         .ac-chip-fav  { color: #ffd700; border-color: #ffd70033; background: rgba(255,215,0,.06); }
         .ac-chip-fav:hover  { background: rgba(255,215,0,.14); border-color: #ffd700; }
         .ac-chip-fav.has-text { color: #ffd700; border-color: #ffd700; background: rgba(255,215,0,.12); }
+        .ac-chip-think { border-color: #b794f433; background: rgba(183,148,244,.06); }
+        .ac-chip-think:hover { background: rgba(183,148,244,.14); border-color: #b794f4; }
 
         /* Favoriten-Panel */
         #ac-fav-panel {
@@ -308,6 +310,10 @@ def chat_page(agent_id: str):
                                     <button class="ac-chip ac-chip-web" id="ac-chip-web" title="Web-Suche">
                                         <span class="material-icons">travel_explore</span>
                                         Web
+                                    </button>
+                                    <button class="ac-chip ac-chip-think" id="ac-think-btn" title="Thinking AN — klicken zum Deaktivieren">
+                                        <span class="material-icons">psychology</span>
+                                        Think
                                     </button>
                                 </div>
                                 <div class="ac-composer-right">

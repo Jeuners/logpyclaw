@@ -22,7 +22,8 @@ def _dlog(*args, tag="DEBUG"):
 
 def _load_providers() -> dict:
     try:
-        with open(os.path.join(os.getcwd(), "providers.json"), encoding="utf-8") as f:
+        from core.config import PROVIDERS_FILE
+        with open(PROVIDERS_FILE, encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return {}
@@ -575,6 +576,9 @@ class ImageGenSkill(BaseSkill):
             return SkillResult(error=str(e), skill_used=self.id)
 
 
+_YT_URL_SKIP = re.compile(r"youtu(\.be|be\.com)", re.IGNORECASE)
+
+
 class VideoGenSkill(BaseSkill):
     id = "video_gen"
     name = "Video Generation"
@@ -584,7 +588,14 @@ class VideoGenSkill(BaseSkill):
     requires = ["comfyui"]
 
     def matches(self, message: str) -> bool:
+        if _YT_URL_SKIP.search(message):
+            return False
         return bool(VIDEO_TRIGGERS.search(message))
+
+    def longest_match(self, message: str) -> int:
+        if _YT_URL_SKIP.search(message):
+            return 0
+        return super().longest_match(message)
 
     def execute(self, agent: dict, message: str, **context) -> SkillResult:
         try:

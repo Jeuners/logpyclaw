@@ -274,104 +274,146 @@ class ChatService:
             self._dispatch_mentions(agent, reply, current_task=task)
         return {"result_text": reply, "skill_used": "llm"}
 
-    def _try_skill_from_reply(self, agent: dict, reply: str, original_message: str, providers: dict):
-        """Parst LLM-Antwort auf [skill_id] — führt den Skill aus falls gefunden."""
+    def _try_skill_from_reply(self, agent: dict, reply: str, original_message: str,
+                              providers: dict, progress_cb=None):
+        """Parst LLM-Antwort auf [skill_id] oder [Skill Name] — führt den Skill aus falls gefunden.
+
+        LLMs halluzinieren gerne den Display-Namen statt der ID ([YouTube Download] statt
+        [youtube]). Wir bauen daher ein Mapping id+name → skill_id und matchen tolerant.
+        """
         if not self._registry or '[' not in reply:
             return None
         agent_skill_ids = set(agent.get("skills", []))
-        match = re.search(r'\[([a-z_]+)\]', reply)
-        if not match:
+
+        # Lookup-Tabelle: normalisiertes Token → skill_id
+        # Entfernt Whitespace/Unterstriche/Bindestriche UND alle Nicht-ASCII-Zeichen
+        # (Emojis wie 📺 🎬 im LLM-Output), damit "[📺 YouTube Download]" matcht.
+        def _norm(s: str) -> str:
+            return re.sub(r'[^a-z0-9]', '', s.lower())
+
+        token_to_id: dict[str, str] = {}
+        for sid in agent_skill_ids:
+            skill_obj = self._registry.get(sid)
+            if not skill_obj:
+                continue
+            token_to_id[_norm(sid)] = sid
+            if skill_obj.name:
+                token_to_id[_norm(skill_obj.name)] = sid
+
+        # Alle [...]-Tokens finden; Match-Reihenfolge:
+        #   1. exakt (candidate == token)
+        #   2. Präfix — candidate beginnt mit token (z.B. "youtubedownload" → "youtube")
+        #   3. Enthält — token in candidate (z.B. "downloadyoutube" → "youtube")
+        # Längere Tokens gewinnen, damit "videogen" nicht als "video" missinterpretiert wird.
+        sorted_tokens = sorted(token_to_id.keys(), key=len, reverse=True)
+        skill_id = None
+        matched_raw = None
+        for m in re.finditer(r'\[([^\[\]\n]{1,60})\]', reply):
+            candidate = _norm(m.group(1))
+            if not candidate:
+                continue
+            if candidate in token_to_id:
+                skill_id = token_to_id[candidate]
+                matched_raw = m.group(0)
+                break
+            for tok in sorted_tokens:
+                if len(tok) >= 4 and (candidate.startswith(tok) or tok in candidate):
+                    skill_id = token_to_id[tok]
+                    matched_raw = m.group(0)
+                    break
+            if skill_id:
+                break
+        if not skill_id:
             return None
-        skill_id = match.group(1)
-        if skill_id not in agent_skill_ids:
-            return None
+
         skill = self._registry.get(skill_id)
         if not skill:
             return None
         if not skill.is_available(providers):
             return None
-        logger.info("LLM hat Skill '%s' aufgerufen via [%s]", skill.name, skill_id)
-        # LLM-Reply ohne [skill_id]-Tag als content_to_save weiterreichen —
-        # z.B. bei "erstelle Story und speichere unter X.md" enthält der Reply die Story.
-        content_from_reply = re.sub(r'\[[a-z_]+\]', '', reply).strip()
+        logger.info("LLM hat Skill '%s' aufgerufen via %s", skill.name, matched_raw)
+        # LLM-Reply ohne alle [...]-Tags als content_to_save weiterreichen
+        content_from_reply = re.sub(r'\[[^\]\n]{1,50}\]', '', reply).strip()
         return skill.safe_execute(
             agent,
             original_message,
             content_to_save=content_from_reply,
             llm_reply=content_from_reply,
+            progress_cb=progress_cb,
         )
 
     def _build_skills_prompt(self, agent: dict) -> str:
         """Baut einen Skills-Block für den System-Prompt — direkt aus dem Registry.
-        Der LLM sieht welche Skills er hat und kann sie via [skill_id] aufrufen.
+        Das LLM entscheidet selbst welcher Skill passt und ruft ihn auf.
         """
         if not self._registry:
             return ""
         agent_skill_ids = agent.get("skills", [])
         if not agent_skill_ids:
             return ""
-        lines = ["--- DEINE SKILLS ---",
-                 "Nutze diese Skills direkt indem du [skill_id] in deine Antwort schreibst.",
-                 "Entscheide selbst welchen Skill du für die Anfrage brauchst.",
-                 "",
-                 "WICHTIG bei [file_access] mit 'speichern als X.md':",
-                 "  Schreibe ZUERST den vollständigen Inhalt der Datei (Story/Text/Code) in deine Antwort,",
-                 "  DANN hängst du [file_access] ans Ende. Der Skill speichert deinen Reply wörtlich.",
-                 "  NIEMALS 'Datei erfolgreich gespeichert' o.ä. behaupten — du generierst nur den Inhalt.",
-                 ""]
+
+        lines = [
+            "--- DEINE SKILLS ---",
+            "Um einen Skill auszuführen, schreibe EXAKT den Marker in eckigen Klammern ans Ende deiner Antwort:",
+            "",
+            "  [skill_id]",
+            "",
+            "REGELN:",
+            "  • Schreibe NUR die skill_id in Kleinbuchstaben — KEINE Emojis, KEINE Leerzeichen, KEIN Display-Name.",
+            "  • Richtig: [youtube]   Falsch: [📺 YouTube Download] oder [YouTube]",
+            "  • Nur EINEN Skill pro Antwort. Wähle den spezifischsten.",
+            "  • Wenn kein Skill passt: antworte normal ohne Marker.",
+            "",
+            "SPEZIALFALL [file_access] (Datei speichern):",
+            "  Schreibe ZUERST den kompletten Inhalt (Story/Code/Text), DANN [file_access] ans Ende.",
+            "  Der Skill speichert deinen Reply wörtlich — NIEMALS 'gespeichert' behaupten.",
+            "",
+            "VERFÜGBARE SKILLS:",
+        ]
         for skill_id in agent_skill_ids:
             skill = self._registry.get(skill_id)
             if skill:
-                lines.append(f"[{skill.id}] — {skill.name}: {skill.description}")
+                lines.append(f"  [{skill.id}] — {skill.description}")
         lines.append("--- ENDE SKILLS ---")
         return "\n".join(lines)
 
     def _try_skill(self, agent, message, images, attachment_path, providers, **kwargs) -> object | None:
-        """Versucht einen Skill direkt auszuführen.
+        """Versucht einen Skill direkt auszuführen — ohne Regex-Trigger.
 
-        Logik:
-        1. Trigger-Match → bester passender Skill
-        2. Fallback: Agent hat genau 1 Skill → direkt ausführen (kein Trigger nötig)
-           z.B. Picasso hat nur image_gen — jeder Task an ihn IST ein Bild-Auftrag.
+        Skill-Wahl macht primär das LLM via [skill_id] in seiner Antwort
+        (siehe _try_skill_from_reply). Hier fangen wir nur strukturelle
+        Shortcuts ab, die keine Sprachverständnis brauchen:
+          1. Agent hat genau 1 Skill → direkt ausführen (kein LLM nötig).
+          2. Bild-Anhang + image_edit im Skillset → image_edit.
+          3. Audio-Anhang + transcription im Skillset → transcription.
         """
         if not self._registry:
             return None
-        # Trigger-Matching nur gegen den eigentlichen Task-Text — nicht gegen Kontext-Chain.
-        # Wenn eine "---\nDeine Aufgabe:" Trennlinie vorhanden ist, nur danach suchen.
-        # So wird verhindert dass "Screenshot von https://..." aus vorherigen Steps
-        # fälschlich den screenshot-Skill für einen HTML-Erstellungs-Task auslöst.
-        sep_m = re.search(r"---\s*\nDeine Aufgabe:\s*(.+)", message, re.DOTALL)
-        trigger_text = sep_m.group(1).strip() if sep_m else message
-        skill = self._registry.find_matching(agent, trigger_text)
 
-        # Fallback: Agent hat genau 1 Skill → immer diesen nutzen
-        if not skill:
-            agent_skill_ids = agent.get("skills", [])
-            if len(agent_skill_ids) == 1:
-                skill = self._registry.get(agent_skill_ids[0])
-                if skill:
-                    logger.info("Single-Skill Fallback: Agent %s hat nur '%s' → direkt ausführen",
-                                agent["name"], skill.id)
+        agent_skill_ids = agent.get("skills", [])
+        skill = None
 
-        # Auto-Trigger image_edit wenn Bild angehängt + Agent hat den Skill
-        if not skill and kwargs.get("image_b64"):
-            agent_skill_ids = agent.get("skills", [])
-            if "image_edit" in agent_skill_ids:
-                skill = self._registry.get("image_edit")
-                if skill:
-                    logger.info("Auto-Trigger image_edit wegen Bild-Anhang für Agent %s", agent["name"])
+        # Single-Skill-Shortcut (z.B. Picasso hat nur image_gen)
+        if len(agent_skill_ids) == 1:
+            skill = self._registry.get(agent_skill_ids[0])
+            if skill:
+                logger.info("Single-Skill Shortcut: Agent %s → '%s'",
+                            agent["name"], skill.id)
 
-        # Auto-Trigger transcription wenn Audio angehängt
-        if not skill and kwargs.get("audio"):
-            agent_skill_ids = agent.get("skills", [])
-            if "transcription" in agent_skill_ids:
-                skill = self._registry.get("transcription")
-                if skill:
-                    logger.info("Auto-Trigger transcription wegen Audio-Anhang für Agent %s", agent["name"])
+        # Bild-Anhang + Agent kann editieren → image_edit
+        if not skill and kwargs.get("image_b64") and "image_edit" in agent_skill_ids:
+            skill = self._registry.get("image_edit")
+            if skill:
+                logger.info("Attachment-Shortcut: Bild → image_edit (Agent %s)", agent["name"])
+
+        # Audio-Anhang + Agent kann transkribieren → transcription
+        if not skill and kwargs.get("audio") and "transcription" in agent_skill_ids:
+            skill = self._registry.get("transcription")
+            if skill:
+                logger.info("Attachment-Shortcut: Audio → transcription (Agent %s)", agent["name"])
 
         if not skill:
             return None
-        logger.info("Skill '%s' matcht für Agent %s", skill.id, agent["name"])
         return skill.safe_execute(
             agent, message,
             images=images,
@@ -613,11 +655,13 @@ class ChatService:
 
             depends_on: list[str] = []
 
-            # Prüfe ob Empfänger-Agent parallel-safe Skills hat (ComfyUI etc.)
+            # Parallel-safe nur wenn ALLE Skills des Agenten parallel-safe sind
+            # (z.B. Picasso mit nur image_gen). Multi-Skill-Agents mit einem
+            # parallel-safen Skill (ARIA hat image_edit) brauchen weiter Ketten.
             from services.task_service import PARALLEL_SAFE_SKILLS
             recipient_agent = next((a for a in all_agents if a.get("id") == item.recipient_id), {})
             recipient_skills = set(recipient_agent.get("skills", []))
-            is_parallel_safe = bool(recipient_skills & PARALLEL_SAFE_SKILLS)
+            is_parallel_safe = bool(recipient_skills) and recipient_skills.issubset(PARALLEL_SAFE_SKILLS)
 
             # Explizit: [after: N] → wartet auf Task an Zeile N
             if item.after_line >= 0:
@@ -885,7 +929,39 @@ class ChatService:
         reply = "".join(full_reply).strip()
         if reply:
             # Skill-Call aus LLM-Antwort parsen — [skill_id] → Skill ausführen
-            skill_result = self._try_skill_from_reply(agent, reply, message, providers)
+            # Skill läuft im Executor, Progress-Callback pusht in asyncio.Queue
+            # → wir können während der Skill-Ausführung Zwischenstände streamen.
+            loop = asyncio.get_event_loop()
+            progress_queue: asyncio.Queue = asyncio.Queue()
+
+            def _progress_cb(msg: str):
+                try:
+                    loop.call_soon_threadsafe(progress_queue.put_nowait, msg)
+                except Exception:
+                    pass
+
+            skill_future = loop.run_in_executor(
+                None,
+                lambda: self._try_skill_from_reply(
+                    agent, reply, message, providers, progress_cb=_progress_cb,
+                ),
+            )
+
+            # Progress-Events streamen bis Skill fertig ist
+            while not skill_future.done():
+                try:
+                    msg = await asyncio.wait_for(progress_queue.get(), timeout=0.25)
+                    yield {"progress": msg}
+                except asyncio.TimeoutError:
+                    continue
+            # Restliche Items drainen
+            while not progress_queue.empty():
+                try:
+                    yield {"progress": progress_queue.get_nowait()}
+                except Exception:
+                    break
+
+            skill_result = await skill_future
             if skill_result:
                 result_text = skill_result.text or (f"⚠ {skill_result.error}" if skill_result.error else "")
                 self._save_history(agent_id, message, result_text, skill=skill_result.skill_used,

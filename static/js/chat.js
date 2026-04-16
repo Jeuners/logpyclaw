@@ -627,12 +627,22 @@ window._ac = {
                                 this.updateThinking(accumulatedThinking);
                             }
 
+                            if (data.progress) {
+                                // Skill-Progress (z.B. YouTube-Download)
+                                if (thinkingStarted) {
+                                    this.finishThinking();
+                                    thinkingStarted = false;
+                                }
+                                this.updateProgress(data.progress);
+                            }
+
                             if (data.chunk) {
                                 accumulated += data.chunk;
                                 if (thinkingStarted) {
                                     this.finishThinking();
                                     thinkingStarted = false;
                                 }
+                                this.finishProgress();
                                 if (!replyStarted) {
                                     replyStarted = true;
                                     this.removeTyping();
@@ -648,6 +658,7 @@ window._ac = {
 
                             if (data.done) {
                                 this.removeTyping();
+                                this.finishProgress();
                                 if (thinkingStarted) {
                                     this.finishThinking();
                                     thinkingStarted = false;
@@ -777,6 +788,26 @@ window._ac = {
             '<span style="font-size:10px;font-family:monospace;color:#3a5a3a;padding:0 4px">Assistant</span>' +
             '<div id="ac-reply" style="padding:10px 14px;border-radius:10px;font-size:14px;line-height:1.6;word-break:break-word;' +
             'background:#0d1a0e;border:1px solid #0f2010;color:#b8d4b8;min-width:40px;white-space:pre-wrap"></div></div>');
+    },
+
+    updateProgress: function(text) {
+        let el = document.getElementById('ac-progress');
+        if (!el) {
+            const c = document.getElementById('ac-messages');
+            if (!c) return;
+            this.removeTyping();
+            c.insertAdjacentHTML('beforeend',
+                '<div id="ac-progress" style="max-width:820px;align-self:flex-start;padding:6px 12px;' +
+                'border-radius:8px;font-size:12px;font-family:monospace;color:#8ab88a;' +
+                'background:#0a140b;border:1px solid #1a2e1c"></div>');
+            el = document.getElementById('ac-progress');
+        }
+        if (el) { el.textContent = text; this.scroll(); }
+    },
+
+    finishProgress: function() {
+        const el = document.getElementById('ac-progress');
+        if (el) el.remove();
     },
 
     updateReply: function(text) {

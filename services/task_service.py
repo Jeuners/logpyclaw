@@ -98,7 +98,7 @@ class TaskService:
                 # Prüfe ob Agent parallel-safe Skills hat (ComfyUI etc.)
                 agent_data = self._agents.get(agent_id) or {}
                 agent_skills = set(agent_data.get("skills", []))
-                is_parallel_safe = bool(agent_skills & PARALLEL_SAFE_SKILLS)
+                is_parallel_safe = bool(agent_skills) and agent_skills.issubset(PARALLEL_SAFE_SKILLS)
 
                 busy = any(
                     t.get("recipient_agent_id") == agent_id

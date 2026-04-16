@@ -65,6 +65,7 @@ async def chat(req: ChatRequest):
 async def chat_stream(
     agent_id: str = Query(..., min_length=1, max_length=64),
     message: str = Query(..., min_length=1, max_length=32000),
+    think: int | None = Query(None, ge=0, le=1),
 ):
     """
     Streaming-Chat via SSE (Server-Sent Events).
@@ -82,7 +83,10 @@ async def chat_stream(
         chain_steps: list = []
         display_reply: str | None = None
         try:
-            async for chunk in services.chat.stream_message(agent_id, message):
+            think_override = None if think is None else bool(think)
+            async for chunk in services.chat.stream_message(
+                agent_id, message, think_override=think_override
+            ):
                 if isinstance(chunk, dict):
                     # Sentinel-Dicts vom Ende des Generators
                     if chunk.get("__a2a__"):
@@ -93,9 +97,13 @@ async def chat_stream(
                         chain_steps = chunk.get("chain_steps", [])
                         display_reply = chunk.get("reply")
                         continue
-                    # Reguläre Stream-Chunks: content oder thinking
+                    # Reguläre Stream-Chunks: content / thinking / progress
                     if "thinking" in chunk:
                         payload = json.dumps({"thinking": chunk["thinking"]}, ensure_ascii=False)
+                        yield f"data: {payload}\n\n"
+                        continue
+                    if "progress" in chunk:
+                        payload = json.dumps({"progress": chunk["progress"]}, ensure_ascii=False)
                         yield f"data: {payload}\n\n"
                         continue
                     if "content" in chunk:

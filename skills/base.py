@@ -89,6 +89,19 @@ class BaseSkill(ABC):
         """
         ...
 
+    def safe_execute(
+        self,
+        agent: dict,
+        message: str,
+        **context,
+    ) -> SkillResult:
+        """Führt execute() aus, fängt Exceptions und verpackt sie als SkillResult-Fehler."""
+        try:
+            return self.execute(agent, message, **context)
+        except Exception as e:
+            logger.exception("Skill '%s' execute() error", self.id)
+            return SkillResult(error=str(e), skill_used=self.id)
+
     def matches(self, message: str) -> bool:
         """
         Check if message matches any skill triggers.

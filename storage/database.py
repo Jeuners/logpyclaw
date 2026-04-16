@@ -238,6 +238,80 @@ def migrate_history_json(history_file: str) -> int:
     return count
 
 
+# ── Task-Persistenz ────────────────────────────────────────────────────────────
+
+_TASK_FIELDS = {
+    "id", "status", "sender_agent_id", "sender_agent_name",
+    "recipient_agent_id", "recipient_agent_name", "message",
+    "result_text", "result_image", "error", "skill_used",
+    "delegation_depth", "created_at", "started_at", "completed_at",
+}
+_TERMINAL_STATES = {"completed", "failed", "canceled", "rejected"}
+
+
+def _task_dict_to_row(t: dict) -> dict:
+    """Projiziert ein in-memory Task-Dict auf die TaskDB-Spalten (None → '')."""
+    row = {k: t.get(k) for k in _TASK_FIELDS}
+    for key in ("sender_agent_id", "sender_agent_name", "recipient_agent_id",
+                "recipient_agent_name", "message", "result_text",
+                "result_image", "error", "skill_used"):
+        if row.get(key) is None:
+            row[key] = ""
+    if row.get("status") is None:
+        row["status"] = "queued"
+    if row.get("delegation_depth") is None:
+        row["delegation_depth"] = 0
+    if not row.get("id"):
+        raise ValueError("Task ohne id kann nicht persistiert werden")
+    return row
+
+
+def upsert_task(task: dict) -> None:
+    """Einzelnen Task in SQLite speichern (insert oder update)."""
+    row = _task_dict_to_row(task)
+    with get_session() as session:
+        existing = session.get(TaskDB, row["id"])
+        if existing:
+            for k, v in row.items():
+                setattr(existing, k, v)
+            session.add(existing)
+        else:
+            session.add(TaskDB(**row))
+        session.commit()
+
+
+def upsert_tasks_bulk(tasks: list[dict]) -> int:
+    """Alle Tasks in einer Transaktion upserten. Gibt Anzahl zurück."""
+    if not tasks:
+        return 0
+    count = 0
+    with get_session() as session:
+        for t in tasks:
+            try:
+                row = _task_dict_to_row(t)
+            except ValueError:
+                continue
+            existing = session.get(TaskDB, row["id"])
+            if existing:
+                for k, v in row.items():
+                    setattr(existing, k, v)
+                session.add(existing)
+            else:
+                session.add(TaskDB(**row))
+            count += 1
+        session.commit()
+    return count
+
+
+def load_open_tasks() -> list[dict]:
+    """Lädt alle nicht-terminalen Tasks aus SQLite."""
+    with get_session() as session:
+        stmt = select(TaskDB).where(TaskDB.status.not_in(_TERMINAL_STATES))
+        return [t.to_dict() for t in session.exec(stmt).all()]
+
+
+# ── Migrations ─────────────────────────────────────────────────────────────────
+
 def run_migrations():
     """
     Führt alle Migrations-Schritte durch.
