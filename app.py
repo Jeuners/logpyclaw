@@ -62,14 +62,14 @@ os.makedirs(_static_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
 # ── Services initialisieren ────────────────────────────────────────────────────
+# Wichtig: passiert am Import-Zeitpunkt, damit Router via get_services() Zugriff
+# haben. Disk-IO (load_from_disk) gehört aber in lifespan — siehe unten.
+# Cross-Service-Verdrahtung (set_task_service / set_dispatcher) geschieht in
+# ServiceContainer.__init__ — hier nicht mehr duplizieren.
 from services import init_services
 logger.info("Initialisiere Services...")
 container = init_services()
 logger.info("Services OK — %d Skills registriert", len(container.registry.all()))
-
-container.tasks.load_from_disk()
-container.chat.set_task_service(container.tasks)
-container.heartbeat.set_task_service(container.tasks)
 
 # ── FastAPI Router registrieren ────────────────────────────────────────────────
 # Konvention: JEDER Router definiert seinen eigenen prefix (meist "/api").
@@ -183,6 +183,10 @@ async def lifespan(_app):
         run_migrations()
     except Exception as e:
         logger.warning("DB-Migration übersprungen: %s", e)
+    try:
+        container.tasks.load_from_disk()
+    except Exception as e:
+        logger.warning("Task-Load übersprungen: %s", e)
     try:
         container.events.replay_from_disk(max_age_minutes=60)
     except Exception as e:
