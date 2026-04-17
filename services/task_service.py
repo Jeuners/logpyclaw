@@ -23,8 +23,9 @@ logger = logging.getLogger(__name__)
 
 MAX_DELEGATION_DEPTH = 5
 
-# Skills die parallel laufen dürfen — externe Queue (ComfyUI) verwaltet Reihenfolge selbst
-PARALLEL_SAFE_SKILLS = {"image_gen", "video_gen", "image_edit"}
+# Skills die parallel laufen dürfen — externe Queue (ComfyUI) verwaltet Reihenfolge selbst.
+# Source of Truth: core.dispatch_rules.PARALLEL_SAFE_SKILLS. Hier nur Re-Export.
+from core.dispatch_rules import PARALLEL_SAFE_SKILLS  # noqa: E402,F401
 
 # Separater Lock für Disk-Save — verhindert Race Condition beim Schreiben von tasks.json.tmp
 _save_lock = threading.Lock()

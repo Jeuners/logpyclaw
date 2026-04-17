@@ -14,6 +14,7 @@ from config.settings import settings
 
 MAX_HISTORY_PER_AGENT = settings.MAX_HISTORY_PER_AGENT
 from core.state import _PENDING_MAIL_SORT, MAC_MAIL_TRIGGERS
+from core import dispatch_rules
 
 if TYPE_CHECKING:
     from skills.registry import SkillRegistry
@@ -553,34 +554,20 @@ class ChatService:
             if attachment_path:
                 dispatch.attachment_path = attachment_path
 
-            # Bild-Anhang → Ziel-Agent braucht image_edit. Falls er es nicht hat: umleiten.
+            # Bild-Redirect: Ziel-Agent braucht ein bildverarbeitendes Skill.
             if images:
-                recipient_agent_check = next(
-                    (a for a in all_agents if a.get("id") == dispatch.recipient_id), {}
+                redirect = dispatch_rules.redirect_for_images(
+                    dispatch.recipient_id, dispatch.recipient_name, all_agents, "A2A",
                 )
-                if "image_edit" not in recipient_agent_check.get("skills", []):
-                    # Suche Agent mit image_edit
-                    edit_agent = next(
-                        (a for a in all_agents
-                         if "image_edit" in a.get("skills", []) and a["id"] != dispatch.recipient_id),
-                        None
-                    )
-                    if edit_agent:
-                        logger.info(
-                            "A2A Bild-Redirect: @%s hat kein image_edit → umgeleitet zu @%s",
-                            dispatch.recipient_name, edit_agent["name"]
-                        )
-                        dispatch.recipient_id = edit_agent["id"]
-                        dispatch.recipient_name = edit_agent["name"]
+                if redirect:
+                    dispatch.recipient_id, dispatch.recipient_name = redirect
 
             task = dispatch.to_task_dict()
             dispatch.metadata["task_id"] = task["id"]
 
-            # Prüfe ob Empfänger-Agent parallel-safe Skills hat (ComfyUI etc.)
-            from services.task_service import PARALLEL_SAFE_SKILLS
-            recipient_agent = next((a for a in all_agents if a.get("id") == dispatch.recipient_id), {})
-            recipient_skills = set(recipient_agent.get("skills", []))
-            is_parallel_safe = bool(recipient_skills & PARALLEL_SAFE_SKILLS)
+            is_parallel_safe = dispatch_rules.is_parallel_safe(
+                dispatch.recipient_id, all_agents, strict=False,
+            )
 
             # Kette: falls gleicher Agent bereits einen Task hat → depends_on setzen
             # ABER: parallel-safe Agents überspringen die Kette
@@ -653,34 +640,22 @@ class ChatService:
             item.sender_id = sender_agent.get("id", "")
             item.sender_name = sender_agent.get("name", "")
 
-            # Bild-Anhang → Ziel-Agent braucht image_edit. Falls er es nicht hat: umleiten.
+            # Bild-Redirect: Ziel-Agent braucht ein bildverarbeitendes Skill.
             if images:
-                item_agent_check = next(
-                    (a for a in all_agents if a.get("id") == item.recipient_id), {}
+                redirect = dispatch_rules.redirect_for_images(
+                    item.recipient_id, item.recipient_name, all_agents, "TASKLIST",
                 )
-                if "image_edit" not in item_agent_check.get("skills", []):
-                    edit_agent = next(
-                        (a for a in all_agents
-                         if "image_edit" in a.get("skills", []) and a["id"] != item.recipient_id),
-                        None
-                    )
-                    if edit_agent:
-                        logger.info(
-                            "TASKLIST Bild-Redirect: @%s hat kein image_edit → @%s",
-                            item.recipient_name, edit_agent["name"]
-                        )
-                        item.recipient_id = edit_agent["id"]
-                        item.recipient_name = edit_agent["name"]
+                if redirect:
+                    item.recipient_id, item.recipient_name = redirect
 
             depends_on: list[str] = []
 
             # Parallel-safe nur wenn ALLE Skills des Agenten parallel-safe sind
-            # (z.B. Picasso mit nur image_gen). Multi-Skill-Agents mit einem
-            # parallel-safen Skill (ARIA hat image_edit) brauchen weiter Ketten.
-            from services.task_service import PARALLEL_SAFE_SKILLS
-            recipient_agent = next((a for a in all_agents if a.get("id") == item.recipient_id), {})
-            recipient_skills = set(recipient_agent.get("skills", []))
-            is_parallel_safe = bool(recipient_skills) and recipient_skills.issubset(PARALLEL_SAFE_SKILLS)
+            # (Multi-Skill-Agents mit nur einem parallel-safen Skill brauchen
+            # bei TASKLIST-Ketten weiter Reihenfolge).
+            is_parallel_safe = dispatch_rules.is_parallel_safe(
+                item.recipient_id, all_agents, strict=True,
+            )
 
             # Explizit: [after: N] → wartet auf Task an Zeile N
             if item.after_line >= 0:
