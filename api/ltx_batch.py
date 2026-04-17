@@ -287,15 +287,24 @@ async def progress_stream(job_id: str):
         return StreamingResponse(_not_found(), media_type="text/event-stream")
 
     async def _generate() -> AsyncGenerator[str, None]:
+        # Max. 90 Minuten für den gesamten Job (mehrere Videos à 10 Min)
+        deadline = asyncio.get_event_loop().time() + 90 * 60
         try:
             while True:
-                item = await asyncio.wait_for(queue.get(), timeout=120)
-                if item is None:
-                    yield "data: {\"event\":\"done\"}\n\n"
+                remaining = deadline - asyncio.get_event_loop().time()
+                if remaining <= 0:
+                    yield "data: {\"event\":\"error\",\"msg\":\"Gesamt-Timeout\"}\n\n"
                     break
-                yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
-        except asyncio.TimeoutError:
-            yield "data: {\"event\":\"error\",\"msg\":\"Timeout\"}\n\n"
+                try:
+                    # In 30s-Häppchen warten → Keepalive senden falls nichts kommt
+                    item = await asyncio.wait_for(queue.get(), timeout=30)
+                    if item is None:
+                        yield "data: {\"event\":\"done\"}\n\n"
+                        break
+                    yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+                except asyncio.TimeoutError:
+                    # Keepalive — hält Browser-SSE-Verbindung offen während ComfyUI rendert
+                    yield ": keepalive\n\n"
         finally:
             _jobs.pop(job_id, None)
 
