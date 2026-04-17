@@ -143,7 +143,7 @@ def mock_llm(monkeypatch):
         return state["default"]
 
     # 1. ChatService._call_llm (sync)
-    def _fake_call_llm(self, agent, message, history, images, providers):
+    def _fake_call_llm(self, agent, message, history, images, providers, **kwargs):
         return _resolve_reply(str(message))
 
     monkeypatch.setattr(
