@@ -4,8 +4,10 @@ POST /api/chat       — klassisch, blockierend, vollständige Antwort
 GET  /api/chat/stream — Streaming via SSE, Token-by-Token
 """
 import asyncio
+import base64
 import json
 import logging
+import subprocess
 from fastapi import APIRouter, HTTPException, Request, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -13,6 +15,38 @@ from pydantic import BaseModel, Field
 from services import get_services
 from core.errors import AgentNotFoundError
 from core.thread_pools import CHAT_POOL
+
+
+def _wav_to_mp3_dataurl(data_url: str) -> str:
+    """
+    Konvertiert ein ``data:audio/wav;base64,...`` zu ``data:audio/mpeg;base64,...``
+    via ffmpeg (stdin/stdout). Nicht-WAV-Data-URLs werden unverändert zurückgegeben.
+    Bei Fehler wird das Original zurückgegeben (Konvertierung ist best-effort).
+    """
+    if not data_url or not data_url.startswith("data:"):
+        return data_url
+    header, _, b64 = data_url.partition(",")
+    if "wav" not in header.lower() and "wave" not in header.lower():
+        return data_url
+    try:
+        raw = base64.b64decode(b64)
+        proc = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-loglevel", "error",
+             "-f", "wav", "-i", "pipe:0",
+             "-codec:a", "libmp3lame", "-b:a", "128k",
+             "-f", "mp3", "pipe:1"],
+            input=raw, capture_output=True, timeout=60,
+        )
+        if proc.returncode != 0 or not proc.stdout:
+            logger.warning("WAV→MP3 ffmpeg fehlgeschlagen: %s",
+                           proc.stderr.decode("utf-8", errors="ignore")[:200])
+            return data_url
+        mp3_b64 = base64.b64encode(proc.stdout).decode("ascii")
+        logger.info("WAV→MP3 konvertiert: %d → %d Bytes", len(raw), len(proc.stdout))
+        return f"data:audio/mpeg;base64,{mp3_b64}"
+    except Exception as e:
+        logger.exception("WAV→MP3 Konvertierung fehlgeschlagen: %s", e)
+        return data_url
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -72,9 +106,16 @@ class ChatStreamRequest(BaseModel):
 @router.post("/chat/stream")
 async def chat_stream_post(req: ChatStreamRequest):
     """POST-Variante für Attachments (images/audio als Data-URLs)."""
+    audio = req.audio
+    if audio:
+        # WAV → MP3 konvertieren (viele LLMs akzeptieren kein WAV direkt)
+        loop = asyncio.get_event_loop()
+        audio = await loop.run_in_executor(
+            None, lambda: [_wav_to_mp3_dataurl(a) for a in audio]
+        )
     return await _stream_response(
         req.agent_id, req.message, req.think,
-        images=req.images, audio=req.audio,
+        images=req.images, audio=audio,
     )
 
 
