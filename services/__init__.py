@@ -74,6 +74,7 @@ _SKILL_DEFS: list[tuple[str, str, str]] = [
     ("HackerNews",        "skills.hacker_news",         "HackerNewsSkill"),
     ("Tagesschau",        "skills.tagesschau",          "TagesschauSkill"),
     ("WhatsApp",          "skills.whatsapp",            "WhatsAppSkill"),
+    ("WikiRead",          "skills.wiki_read",           "WikiReadSkill"),
 ]
 
 

@@ -490,8 +490,18 @@ class ChatService:
         agent_skill_ids = agent.get("skills", [])
         skill = None
 
+        # Trigger-Match: Message matched eindeutig einen Skill-Trigger
+        # UND Agent besitzt diesen Skill → direkt ausführen (kein LLM-Umweg).
+        # Nutzt longest-match aus skills/registry.py (spezifischerer Regex gewinnt).
+        if agent_skill_ids:
+            matched = self._registry.find_matching(agent, message)
+            if matched:
+                skill = matched
+                logger.info("Trigger-Match: Agent %s → '%s'",
+                            agent["name"], skill.id)
+
         # Single-Skill-Shortcut (z.B. Picasso hat nur image_gen)
-        if len(agent_skill_ids) == 1:
+        if not skill and len(agent_skill_ids) == 1:
             skill = self._registry.get(agent_skill_ids[0])
             if skill:
                 logger.info("Single-Skill Shortcut: Agent %s → '%s'",
