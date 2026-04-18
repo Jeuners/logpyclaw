@@ -500,10 +500,14 @@ class ChatService:
                 logger.info("Trigger-Match: Agent %s → '%s'",
                             agent["name"], skill.id)
 
-        # Single-Skill-Shortcut (z.B. Picasso hat nur image_gen)
+        # Single-Skill-Shortcut (z.B. Picasso hat nur image_gen).
+        # Nur wenn der Skill sich auch durch Trigger angesprochen fühlt —
+        # sonst feuert z.B. wiki_read bei JEDER Nachricht von MARTIN
+        # ohne Wiki-Bezug und produziert Passthrough-Ghost-Replies.
         if not skill and len(agent_skill_ids) == 1:
-            skill = self._registry.get(agent_skill_ids[0])
-            if skill:
+            candidate = self._registry.get(agent_skill_ids[0])
+            if candidate and candidate.matches(message):
+                skill = candidate
                 logger.info("Single-Skill Shortcut: Agent %s → '%s'",
                             agent["name"], skill.id)
 
@@ -1290,6 +1294,17 @@ class ChatService:
                 f"{agent['soul']}\n\n"
                 f"{_skills_block}{_codebase}"
             )
+
+        # Ambient Wiki-Kontext: bei Agenten mit wiki_read-Skill werden
+        # passende Wiki-Passagen automatisch in den System-Prompt injiziert.
+        # Skipped bei direkten Wiki-Commands (Skill feuert dort sowieso).
+        try:
+            from core.wiki_context import build_wiki_context_block
+            wiki_block = build_wiki_context_block(message, agent)
+            if wiki_block:
+                system_content += f"\n\n{wiki_block}"
+        except Exception as e:
+            logger.debug("wiki_context skipped: %s", e)
 
         if QDRANT_AVAILABLE:
             try:
