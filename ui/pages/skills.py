@@ -2,6 +2,7 @@
 ui/pages/skills.py — Skill-Übersicht: alle registrierten Skills mit Triggern,
 Requirements, Provider-Verfügbarkeit und Agent-Usage.
 """
+import html as _html
 import logging
 from nicegui import ui
 from ui.layout import create_layout
@@ -46,6 +47,29 @@ def skills_page():
         .skill-card:hover {
             border-color: #00e676 !important;
             box-shadow: 0 0 20px rgba(0, 230, 118, 0.08) !important;
+        }
+        /* Collapsible Trigger-Block */
+        .trig-det { margin: 0; padding: 0; }
+        .trig-det > summary { list-style: none; cursor: pointer; user-select: none; }
+        .trig-det > summary::-webkit-details-marker { display: none; }
+        .trig-sum {
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: 10px; color: #3a5a3a; text-transform: uppercase;
+            letter-spacing: 0.3px; font-family: 'SF Mono',monospace;
+            padding: 4px 0; transition: color .15s;
+        }
+        .trig-sum:hover { color: #b8d4b8; }
+        .trig-caret { transition: transform .15s; display: inline-block; font-size: 9px; }
+        .trig-det[open] .trig-caret { transform: rotate(90deg); color: #00e676; }
+        .trig-det[open] .trig-sum { color: #b8d4b8; }
+        .trig-body {
+            display: flex; flex-direction: column; gap: 4px; margin-top: 6px;
+        }
+        .trig-chip {
+            font-size: 11px; font-family: 'SF Mono',monospace;
+            color: #b8d4b8; padding: 4px 8px;
+            background: #0f2010; border-radius: 4px;
+            word-break: break-all; line-height: 1.3; display: block;
         }
     """)
 
@@ -177,26 +201,23 @@ def _render_skill_card(skill, providers: dict, agents: list[dict]):
                         f"border: 1px solid {border};"
                     )
 
-        # Trigger
+        # Trigger — collapsible via native <details> (kein NiceGUI-Event-Handler nötig,
+        # umgeht core.loop-Bug in 3.10 + Py3.14)
         triggers = getattr(skill, "triggers", []) or []
         if triggers:
-            with ui.column().style("gap: 4px;"):
-                ui.label(f"Trigger ({len(triggers)}):").style(
-                    "font-size: 10px; color: #3a5a3a; text-transform: uppercase; "
-                    "letter-spacing: 0.3px; font-family: 'SF Mono',monospace;"
-                )
-                for t in triggers[:4]:
-                    ui.label(t).style(
-                        "font-size: 11px; font-family: 'SF Mono',monospace; "
-                        "color: #b8d4b8; padding: 4px 8px; "
-                        "background: #0f2010; border-radius: 4px; "
-                        "word-break: break-all; line-height: 1.3;"
-                    )
-                if len(triggers) > 4:
-                    ui.label(f"+{len(triggers) - 4} weitere").style(
-                        "font-size: 10px; color: #3a5a3a; "
-                        "font-family: 'SF Mono',monospace;"
-                    )
+            chips = "".join(
+                f'<code class="trig-chip">{_html.escape(str(t))}</code>'
+                for t in triggers
+            )
+            ui.html(
+                f'<details class="trig-det">'
+                f'<summary class="trig-sum">'
+                f'<span>Trigger ({len(triggers)})</span>'
+                f'<span class="trig-caret">▸</span>'
+                f'</summary>'
+                f'<div class="trig-body">{chips}</div>'
+                f'</details>'
+            )
 
         # Agent-Usage
         with ui.row().style(

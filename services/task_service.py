@@ -23,6 +23,10 @@ logger = logging.getLogger(__name__)
 
 MAX_DELEGATION_DEPTH = 5
 
+# Operator-Supervisor-Loop: max. Anzahl Re-Entry-Turns beim Orchestrator,
+# bevor wir ihn zwangsweise zum Abschluss zwingen. Schutz gegen Endlos-Schleifen.
+MAX_SUPERVISOR_TURNS = 5
+
 # Skills die parallel laufen dürfen — externe Queue (ComfyUI) verwaltet Reihenfolge selbst.
 # Source of Truth: core.dispatch_rules.PARALLEL_SAFE_SKILLS. Hier nur Re-Export.
 from core.dispatch_rules import PARALLEL_SAFE_SKILLS  # noqa: E402,F401
@@ -50,10 +54,20 @@ class TaskService:
         self._agents = agents
         self._events = events
         self._dispatcher = None  # Wird von init_services gesetzt
+        self._chat_service = None  # Wird von init_services gesetzt (Supervisor-Callback)
+        # Welche Dispatch-Gruppen haben bereits einen Supervisor-Callback gefeuert.
+        # Schützt gegen Race-Condition wenn mehrere Tasks der Gruppe fast
+        # gleichzeitig completen und jeder _maybe_supervisor_callback auslöst.
+        self._fired_supervisor_dispatches: set[str] = set()
+        self._supervisor_lock = threading.Lock()
 
     def set_dispatcher(self, dispatcher):
         """Dispatcher für Task-Verarbeitung registrieren."""
         self._dispatcher = dispatcher
+
+    def set_chat_service(self, chat_service):
+        """ChatService registrieren für Supervisor-Callback (Operator-Re-Entry)."""
+        self._chat_service = chat_service
 
     # ── Queue Management ──────────────────────────────────────────────────────
 
@@ -352,6 +366,11 @@ class TaskService:
         # Callback-URL: Ergebnis aktiv zurück zum Sender senden (optional)
         self._maybe_callback(task)
 
+        # Operator-Supervisor-Loop: Wenn dieser Task zu einer Operator-Dispatch-Gruppe
+        # gehört (parent_dispatch_id gesetzt) und jetzt ALLE Tasks dieser Gruppe terminal
+        # sind → synthetischen Chat-Turn beim Operator auslösen.
+        self._maybe_supervisor_callback(task)
+
     def _apply_result(self, task, result):
         """Skill-Result auf Task anwenden."""
         from skills.base import SkillResult
@@ -619,6 +638,11 @@ class TaskService:
             return
         if sender_id.startswith("remote::"):
             return  # Remote-Sender → Callback hätte greifen sollen
+        # Skip wenn dieser Task zu einer Operator-Dispatch-Gruppe gehört —
+        # der Supervisor-Callback liefert das aggregierte Ergebnis, einzelne
+        # Chat-Events würden nur duplizieren.
+        if task.get("parent_dispatch_id"):
+            return
 
         if result_text and self._agents.get(sender_id):
             summary = f"📬 **@{task['recipient_agent_name']}** antwortete:\n\n{result_text[:500]}"
@@ -629,3 +653,118 @@ class TaskService:
                 "A2A-Resultat weitergeleitet: @%s → @%s",
                 task["recipient_agent_name"], task.get("sender_agent_name", sender_id)
             )
+
+    # ── Operator-Supervisor-Loop ──────────────────────────────────────────────
+
+    def _maybe_supervisor_callback(self, task: dict):
+        """
+        Prüft ob dieser Task Teil einer Operator-Dispatch-Gruppe ist und ob alle
+        Tasks dieser Gruppe jetzt terminal sind. Wenn ja → Callback auslösen.
+        """
+        dispatch_id = task.get("parent_dispatch_id")
+        if not dispatch_id:
+            return
+        if not self._chat_service:
+            logger.debug("Supervisor-Callback: ChatService nicht registriert")
+            return
+
+        # Double-fire-Schutz: ein Dispatch wird nur einmal abgefeuert.
+        with self._supervisor_lock:
+            if dispatch_id in self._fired_supervisor_dispatches:
+                return
+
+            with _tasks_lock:
+                group = [
+                    t for t in _TASKS.values()
+                    if t.get("parent_dispatch_id") == dispatch_id
+                ]
+
+            if not group:
+                return
+            if not all(t.get("status") in TERMINAL_STATES for t in group):
+                return  # noch nicht alle fertig
+
+            # Mark as fired *innerhalb* des Locks
+            self._fired_supervisor_dispatches.add(dispatch_id)
+
+        sender_id = task.get("sender_agent_id", "")
+        sender_agent = self._agents.get(sender_id) if sender_id else None
+        if not sender_agent or not sender_agent.get("operator", False):
+            logger.warning(
+                "Supervisor-Callback: Dispatch %s hat keinen Operator-Sender (%s)",
+                dispatch_id[:8], sender_id,
+            )
+            return
+
+        current_turn = max((t.get("supervisor_turn", 0) for t in group), default=0)
+        spawn_background(
+            self._trigger_supervisor_callback,
+            dispatch_id, sender_agent, group, current_turn,
+        )
+
+    def _trigger_supervisor_callback(
+        self,
+        dispatch_id: str,
+        sender_agent: dict,
+        group: list,
+        current_turn: int,
+    ):
+        """
+        Baut eine synthetische User-Message mit allen Ergebnissen der Gruppe
+        und reicht sie via ChatService.handle_message beim Operator ein. Dort
+        entscheidet der Operator: weitere TASKLIST dispatchen oder finale Antwort.
+        """
+        group_sorted = sorted(group, key=lambda t: t.get("created_at", ""))
+        parts = [
+            f"[SUPERVISOR-CALLBACK — Dispatch {dispatch_id[:8]}, Runde {current_turn}]",
+            "",
+            f"Alle {len(group_sorted)} Tasks der letzten Runde sind abgeschlossen. Ergebnisse:",
+            "",
+        ]
+        for i, t in enumerate(group_sorted):
+            recipient = t.get("recipient_agent_name", "?")
+            status = t.get("status", "?")
+            task_msg = (t.get("message") or "").split("\n---\n")[-1].strip()[:200]
+            result = (t.get("result_text") or "").strip()
+            err = (t.get("error") or "").strip()
+            parts.append(f"### {i+1}. @{recipient} — {status}")
+            parts.append(f"**Auftrag:** {task_msg}")
+            if result:
+                parts.append(f"**Ergebnis:**\n{result}")
+            if err:
+                parts.append(f"**Fehler:** {err}")
+            parts.append("")
+
+        parts.append("---")
+        if current_turn >= MAX_SUPERVISOR_TURNS:
+            parts.append(
+                f"⚠ **MAX ROUNDS ({MAX_SUPERVISOR_TURNS}) ERREICHT.** "
+                "Du darfst KEINE weitere [tasklist] oder @Mention dispatchen. "
+                "Liefere jetzt eine finale Zusammenfassung für den User."
+            )
+        else:
+            parts.append(
+                "Entscheide: (a) Wenn alles passt → liefere eine knappe finale "
+                "Antwort an den User ohne weitere Delegation. "
+                "(b) Wenn nachgebessert werden muss → dispatche eine neue "
+                "[tasklist] mit den nötigen Revisionen. "
+                f"Diese Runde ist {current_turn}/{MAX_SUPERVISOR_TURNS}."
+            )
+
+        synthetic_msg = "\n".join(parts)
+        sender_id = sender_agent["id"]
+
+        logger.info(
+            "Supervisor-Callback: @%s turn=%d, %d tasks in dispatch %s",
+            sender_agent.get("name"), current_turn, len(group), dispatch_id[:8],
+        )
+
+        try:
+            self._chat_service.handle_message(
+                sender_id,
+                synthetic_msg,
+                _supervisor_turn=current_turn,
+            )
+        except Exception as e:
+            logger.exception("Supervisor-Callback an @%s fehlgeschlagen: %s",
+                             sender_agent.get("name"), e)

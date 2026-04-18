@@ -95,6 +95,7 @@ from api import (
     themes as _themes_api,
     tools as _tools_api,
     chrome_ws as _chrome_ws_api,
+    ltx_batch as _ltx_batch_api,
 )
 
 _API_MODULES = (
@@ -102,7 +103,7 @@ _API_MODULES = (
     _m2m_api,
     _providers_api, _backup_api, _upload_api, _inbox_api, _memory_api,
     _content_api, _tts_api, _transcribe_api, _stats_api, _watchdogs_api,
-    _comfyui_api, _themes_api, _tools_api, _chrome_ws_api,
+    _comfyui_api, _themes_api, _tools_api, _chrome_ws_api, _ltx_batch_api,
 )
 for _mod in _API_MODULES:
     app.include_router(_mod.router)
@@ -120,6 +121,7 @@ import ui.pages.memory      # noqa: F401 — registriert @ui.page("/memory")
 import ui.pages.backup      # noqa: F401 — registriert @ui.page("/backup")
 import ui.pages.network     # noqa: F401 — registriert @ui.page("/network")
 import ui.pages.insights    # noqa: F401 — registriert @ui.page("/insights")
+import ui.pages.ltx_batch  # noqa: F401 — registriert @ui.page("/ltx-batch")
 from nicegui import ui    # Re-import: lokales ui/-Paket hat nicegui.ui überschrieben
 logger.info("NiceGUI Pages registriert")
 

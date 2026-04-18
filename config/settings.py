@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     # Task Management
     TASK_TTL_SECONDS: int = 3600
-    TASK_TIMEOUT_SECONDS: int = 1210
+    TASK_TIMEOUT_SECONDS: int = 3600
     MAX_HISTORY_PER_AGENT: int = 100
 
     # Content & API Limits

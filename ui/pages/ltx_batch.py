@@ -10,11 +10,19 @@ _PAGE_JS = r"""
 <script>
 (function() {
   const API = '/api/ltx-batch';
+  const LS_DEFAULTS = 'ltx_defaults';
+  const LS_JOB = 'ltx_job';
   let es = null;
 
   function qs(sel) { return document.querySelector(sel); }
 
-  function log(msg, cls='') {
+  // ── Job-State in localStorage ─────────────────────────────────────────────
+  function loadJob()    { try { return JSON.parse(localStorage.getItem(LS_JOB) || 'null'); } catch(e) { return null; } }
+  function saveJob(j)   { localStorage.setItem(LS_JOB, JSON.stringify(j)); }
+  function clearJob()   { localStorage.removeItem(LS_JOB); }
+
+  // ── Render-Helfer ─────────────────────────────────────────────────────────
+  function log(msg, cls='', persist=true) {
     const el = qs('#ltx-log');
     if (!el) return;
     const line = document.createElement('div');
@@ -22,9 +30,20 @@ _PAGE_JS = r"""
     line.textContent = msg;
     el.appendChild(line);
     el.scrollTop = el.scrollHeight;
+    if (persist) {
+      const j = loadJob();
+      if (j) { j.logs.push({msg, cls}); saveJob(j); }
+    }
   }
 
-  function showPrompts(items) {
+  function renderLogs(logs) {
+    const el = qs('#ltx-log');
+    if (!el) return;
+    el.innerHTML = '';
+    logs.forEach(({msg, cls}) => log(msg, cls, false));
+  }
+
+  function renderPrompts(items) {
     const el = qs('#ltx-prompts');
     if (!el) return;
     el.innerHTML = '';
@@ -36,11 +55,12 @@ _PAGE_JS = r"""
     });
   }
 
-  const _prompts = [];
-
-  function addVideo(segment, total, url, prompt) {
+  function renderVideo(segment, total, url, prompt, persist=true) {
     const el = qs('#ltx-videos');
     if (!el) return;
+    // Platzhalter "noch keine Videos" entfernen
+    const placeholder = el.querySelector('span');
+    if (placeholder) placeholder.remove();
     const card = document.createElement('div');
     card.className = 'ltx-video-card';
     card.innerHTML = `
@@ -52,6 +72,10 @@ _PAGE_JS = r"""
       <a href="${url}" download="segment_${segment}.mp4" class="ltx-dl-btn">⬇ Download</a>
     `;
     el.appendChild(card);
+    if (persist) {
+      const j = loadJob();
+      if (j) { j.videos.push({segment, total, url, prompt}); saveJob(j); }
+    }
   }
 
   function setRunning(running) {
@@ -59,12 +83,13 @@ _PAGE_JS = r"""
     const spinner = qs('#ltx-spinner');
     if (btn) btn.disabled = running;
     if (spinner) spinner.style.display = running ? 'flex' : 'none';
+    const j = loadJob();
+    if (j) { j.running = running; saveJob(j); }
   }
 
-  // ── localStorage persistence ──────────────────────────────────────────────
-  const LS_KEY = 'ltx_defaults';
+  // ── Formular-Defaults ─────────────────────────────────────────────────────
   function saveDefaults() {
-    localStorage.setItem(LS_KEY, JSON.stringify({
+    localStorage.setItem(LS_DEFAULTS, JSON.stringify({
       concept:      qs('#ltx-concept').value,
       ollama_model: qs('#ltx-model').value,
       chunk_sec:    qs('#ltx-chunk').value,
@@ -72,65 +97,16 @@ _PAGE_JS = r"""
   }
   function loadDefaults() {
     try {
-      const d = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+      const d = JSON.parse(localStorage.getItem(LS_DEFAULTS) || '{}');
       if (d.concept      !== undefined) qs('#ltx-concept').value = d.concept;
       if (d.ollama_model !== undefined) qs('#ltx-model').value   = d.ollama_model;
       if (d.chunk_sec    !== undefined) qs('#ltx-chunk').value   = d.chunk_sec;
     } catch(e) {}
   }
-  document.addEventListener('DOMContentLoaded', loadDefaults);
-  // Event-Listener nach DOM-Aufbau setzen (kein inline onclick wegen Vue-Sanitizing)
-  setTimeout(() => {
-    ['#ltx-concept','#ltx-model','#ltx-chunk'].forEach(sel => {
-      const el = qs(sel);
-      if (el) el.addEventListener('change', saveDefaults);
-    });
-    qs('#ltx-concept')?.addEventListener('input', saveDefaults);
-    qs('#ltx-start-btn')?.addEventListener('click', window._ltxStart);
-    loadDefaults();
-  }, 300);
 
-  window._ltxStart = async function() {
-    const wavFile = qs('#ltx-wav-input').files[0];
-    const imgFile = qs('#ltx-img-input').files[0];
-    const concept = qs('#ltx-concept').value.trim();
-    const ollama_model = qs('#ltx-model').value;
-    const chunk_sec = qs('#ltx-chunk').value;
-
-    if (!wavFile) { log('⚠ Bitte WAV-Datei auswählen', 'ltx-warn'); return; }
-    if (!imgFile) { log('⚠ Bitte Bild auswählen', 'ltx-warn'); return; }
-
-    saveDefaults();
-
-    // reset
-    qs('#ltx-log').innerHTML = '';
-    qs('#ltx-prompts').innerHTML = '';
-    qs('#ltx-videos').innerHTML = '';
-    _prompts.length = 0;
+  // ── SSE verbinden ─────────────────────────────────────────────────────────
+  function connectSSE(job_id) {
     if (es) { es.close(); es = null; }
-    setRunning(true);
-
-    const fd = new FormData();
-    fd.append('wav', wavFile);
-    fd.append('image', imgFile);
-    fd.append('concept', concept || '');
-    fd.append('ollama_model', ollama_model);
-    fd.append('chunk_sec', chunk_sec);
-
-    log('📤 Upload läuft...');
-    let job_id;
-    try {
-      const r = await fetch(API + '/start', { method: 'POST', body: fd });
-      if (!r.ok) { const t = await r.text(); throw new Error(t); }
-      const data = await r.json();
-      job_id = data.job_id;
-      log('✅ Job gestartet: ' + job_id.substring(0,8) + '...');
-    } catch(e) {
-      log('❌ Fehler: ' + e.message, 'ltx-error');
-      setRunning(false);
-      return;
-    }
-
     es = new EventSource(API + '/progress/' + job_id);
 
     es.onmessage = function(e) {
@@ -139,13 +115,15 @@ _PAGE_JS = r"""
         case 'status':
           log('ℹ ' + msg.msg);
           break;
-        case 'prompt':
-          _prompts.push({segment: msg.segment, text: msg.text});
-          showPrompts(_prompts);
+        case 'prompt': {
+          const j = loadJob();
+          if (j) { j.prompts.push({segment: msg.segment, text: msg.text}); saveJob(j); }
+          renderPrompts(j ? j.prompts : [{segment: msg.segment, text: msg.text}]);
           break;
+        }
         case 'segment_done':
           log('🎬 Segment ' + msg.segment + '/' + msg.total + ' fertig!', 'ltx-ok');
-          addVideo(msg.segment, msg.total, msg.url, msg.prompt);
+          renderVideo(msg.segment, msg.total, msg.url, msg.prompt);
           break;
         case 'segment_error':
           log('⚠ Segment ' + msg.segment + ': ' + msg.msg, 'ltx-warn');
@@ -172,7 +150,79 @@ _PAGE_JS = r"""
       setRunning(false);
       if (es) es.close();
     };
+  }
+
+  // ── Seiten-Reload: State wiederherstellen ─────────────────────────────────
+  function restoreState() {
+    loadDefaults();
+    const j = loadJob();
+    if (!j) return;
+    renderLogs(j.logs || []);
+    renderPrompts(j.prompts || []);
+    (j.videos || []).forEach(v => renderVideo(v.segment, v.total, v.url, v.prompt, false));
+    if (j.running && j.job_id) {
+      setRunning(true);
+      log('🔄 Verbindung wiederhergestellt (Reload)...', '', false);
+      connectSSE(j.job_id);
+    }
+  }
+
+  // ── Job starten ───────────────────────────────────────────────────────────
+  window._ltxStart = async function() {
+    const wavFile = qs('#ltx-wav-input').files[0];
+    const imgFile = qs('#ltx-img-input').files[0];
+    const concept = qs('#ltx-concept').value.trim();
+    const ollama_model = qs('#ltx-model').value;
+    const chunk_sec = qs('#ltx-chunk').value;
+
+    if (!wavFile) { log('⚠ Bitte WAV-Datei auswählen', 'ltx-warn'); return; }
+    if (!imgFile) { log('⚠ Bitte Bild auswählen', 'ltx-warn'); return; }
+
+    saveDefaults();
+
+    // State zurücksetzen
+    qs('#ltx-log').innerHTML = '';
+    qs('#ltx-prompts').innerHTML = '';
+    qs('#ltx-videos').innerHTML = '<span style="color:#374151;font-size:12px">Noch keine Videos gerendert...</span>';
+    if (es) { es.close(); es = null; }
+
+    // Neuen Job-State anlegen
+    saveJob({ job_id: null, running: true, logs: [], prompts: [], videos: [] });
+    setRunning(true);
+
+    const fd = new FormData();
+    fd.append('wav', wavFile);
+    fd.append('image', imgFile);
+    fd.append('concept', concept || '');
+    fd.append('ollama_model', ollama_model);
+    fd.append('chunk_sec', chunk_sec);
+
+    log('📤 Upload läuft...');
+    try {
+      const r = await fetch(API + '/start', { method: 'POST', body: fd });
+      if (!r.ok) { const t = await r.text(); throw new Error(t); }
+      const data = await r.json();
+      const j = loadJob();
+      j.job_id = data.job_id;
+      saveJob(j);
+      log('✅ Job gestartet: ' + data.job_id.substring(0,8) + '...');
+      connectSSE(data.job_id);
+    } catch(e) {
+      log('❌ Fehler: ' + e.message, 'ltx-error');
+      setRunning(false);
+      clearJob();
+    }
   };
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  setTimeout(() => {
+    ['#ltx-concept','#ltx-model','#ltx-chunk'].forEach(sel => {
+      qs(sel)?.addEventListener('change', saveDefaults);
+    });
+    qs('#ltx-concept')?.addEventListener('input', saveDefaults);
+    qs('#ltx-start-btn')?.addEventListener('click', window._ltxStart);
+    restoreState();
+  }, 300);
 })();
 </script>
 """

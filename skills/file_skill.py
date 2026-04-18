@@ -4,7 +4,8 @@ skills/file_skill.py — Datei-Lesen/Schreiben
 Unterstützt zwei Modi:
   1. Wiki-Modus: Agent hat wiki_dir gesetzt → arbeitet im konfigurierten Wiki-Verzeichnis
                  Subdirectories erlaubt (pages/, etc.)
-  2. Downloads-Modus: Fallback → ~/Downloads/AgentClaw (kein Subdirectory)
+  2. Downloads-Modus: Fallback → ~/Downloads/AgentClaw
+                      Subdirectories erlaubt, Path-Traversal (..) blockiert.
 """
 import os
 import re
@@ -28,24 +29,35 @@ def _get_base_dir(agent: dict = None) -> tuple[str, bool]:
 def _safe_path(base_dir: str, filename: str, wiki_mode: bool) -> str | None:
     """
     Gibt sicheren absoluten Pfad zurück, oder None bei Path-Traversal.
-    Im Wiki-Modus sind Subdirectories erlaubt (z.B. pages/topic.md).
-    Im Downloads-Modus nur Dateinamen ohne Pfad.
+    Subdirectories sind in beiden Modi erlaubt (z.B. projects/site/index.html).
+    Blockiert: absolute Pfade, `..`-Traversal, Pfade ausserhalb base_dir.
     """
-    if wiki_mode:
-        # Subdirectories erlaubt, aber kein .. Traversal
-        clean = os.path.normpath(filename)
-        if clean.startswith(".."):
-            return None
-        full = os.path.join(base_dir, clean)
-        if not os.path.abspath(full).startswith(os.path.abspath(base_dir)):
-            return None
-        return full
+    if not filename:
+        return None
+    # Tilde/absolute Pfade auf base_dir projizieren: Agent schreibt
+    # "~/Downloads/AgentClaw/projects/foo/index.html" → "projects/foo/index.html"
+    expanded = os.path.expanduser(filename)
+    base_abs = os.path.abspath(base_dir)
+    if os.path.isabs(expanded):
+        exp_abs = os.path.abspath(expanded)
+        if exp_abs.startswith(base_abs + os.sep) or exp_abs == base_abs:
+            rel = os.path.relpath(exp_abs, base_abs)
+        else:
+            return None  # Absolut ausserhalb base_dir → ablehnen
     else:
-        # Nur basename, kein Subdir
-        safe_name = os.path.basename(filename)
-        if not safe_name:
-            return None
-        return os.path.join(base_dir, safe_name)
+        rel = expanded
+
+    clean = os.path.normpath(rel).lstrip(os.sep)
+    if not clean or clean == "." or clean.startswith(".."):
+        return None
+    # Kein einzelner ".."-Segment irgendwo im Pfad
+    if ".." in clean.split(os.sep):
+        return None
+    full = os.path.join(base_dir, clean)
+    # Final-Check: Realpath liegt innerhalb base_dir
+    if not os.path.realpath(full).startswith(os.path.realpath(base_dir)):
+        return None
+    return full
 
 
 def list_files(base_dir: str, wiki_mode: bool, subdir: str = None) -> str:
@@ -133,6 +145,28 @@ def append_file(base_dir: str, filename: str, content: str, wiki_mode: bool) -> 
 def run_file_access(message: str, content_to_save: str = None, agent: dict = None) -> str | None:
     """Hauptfunktion: Erkennt und führt Dateioperationen aus."""
     base_dir, wiki_mode = _get_base_dir(agent)
+
+    # Multi-File-Fallback: wenn content_to_save mehrere Datei-Blocks enthält
+    # (### filename.ext + code fence), delegiere an coding.create_project()
+    # Agents die file_access statt coding aufrufen, schreiben so trotzdem Projekte korrekt.
+    if content_to_save and not wiki_mode:
+        try:
+            from skills.coding_skill import (
+                _extract_files_from_markdown,
+                _derive_project_name,
+                create_project,
+                _safe_project_path,
+            )
+            files = _extract_files_from_markdown(content_to_save)
+            if len(files) >= 2:
+                project_name = _derive_project_name(message, content_to_save)
+                result = create_project(project_name, files)
+                path = _safe_project_path(project_name)
+                if path:
+                    result += f"\n\nProjektpfad: `{path}`"
+                return result
+        except Exception:
+            pass  # Fallback auf Single-File-Logik
 
     # Datei lesen
     read_m = re.search(

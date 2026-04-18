@@ -29,6 +29,8 @@ class CreateAgentRequest(BaseModel):
     max_tokens: int = Field(default=2048, ge=128, le=32768)
     favorite: bool = Field(default=False)
     voice: str = Field(default="")
+    delegation_card: str = Field(default="")
+    operator: bool = Field(default=False)
 
 
 class UpdateAgentRequest(BaseModel):
@@ -45,6 +47,8 @@ class UpdateAgentRequest(BaseModel):
     web_search: bool | None = None
     heartbeat: dict | None = None
     dream: dict | None = None
+    delegation_card: str | None = None
+    operator: bool | None = None
 
 
 @router.get("/agents")

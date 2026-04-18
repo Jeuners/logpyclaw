@@ -10,6 +10,10 @@ import requests
 from config.settings import settings
 
 OPENROUTER_BASE_URL = settings.OPENROUTER_BASE_URL
+
+# LLM-Request Timeout in Sekunden. Große Modelle (≥9GB) auf Ollama brauchen
+# bei langem Input (>4k Tokens) schnell 10+ Min.
+LLM_REQUEST_TIMEOUT = 900
 from core.skills_registry import _build_agent_directory, _get_codebase_context
 from storage.providers import load_providers
 
@@ -19,12 +23,16 @@ def call_agent_text(agent, system_suffix, user_prompt, retries: int = 2):
     providers = load_providers()
     provider = agent.get("provider", "ollama")
     now = datetime.now().strftime("%A, %d. %B %Y, %H:%M Uhr")
-    agent_directory = _build_agent_directory(agent.get("id"))
     _agent_skills = set(agent.get("skills", []))
     if agent.get("favorite"):
         _agent_skills.add("codebase_read")
     _codebase = f"\n\n{_get_codebase_context()}" if "codebase_read" in _agent_skills else ""
-    system_content = f"[Aktuelle Zeit: {now}]\n\n{agent['soul']}\n\n{agent_directory}{_codebase}\n\n{system_suffix}"
+    # Agent-Directory nur für Operator-Agenten.
+    if agent.get("operator", False):
+        agent_directory = _build_agent_directory(agent.get("id"))
+        system_content = f"[Aktuelle Zeit: {now}]\n\n{agent['soul']}\n\n{agent_directory}{_codebase}\n\n{system_suffix}"
+    else:
+        system_content = f"[Aktuelle Zeit: {now}]\n\n{agent['soul']}{_codebase}\n\n{system_suffix}"
     messages = [
         {"role": "system", "content": system_content},
         {"role": "user", "content": user_prompt},
@@ -50,7 +58,7 @@ def call_agent_text(agent, system_suffix, user_prompt, retries: int = 2):
                         "stream": False,
                         **({"max_tokens": agent["max_tokens"]} if agent.get("max_tokens") else {}),
                     },
-                    timeout=360,
+                    timeout=LLM_REQUEST_TIMEOUT,
                 )
                 resp.raise_for_status()
                 return (resp.json()["choices"][0]["message"].get("content") or "").strip()
@@ -64,7 +72,7 @@ def call_agent_text(agent, system_suffix, user_prompt, retries: int = 2):
                         "stream": False,
                         **({"options": {"num_predict": agent["max_tokens"]}} if agent.get("max_tokens") else {}),
                     },
-                    timeout=360,
+                    timeout=LLM_REQUEST_TIMEOUT,
                 )
                 resp.raise_for_status()
                 result = resp.json()

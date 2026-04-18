@@ -18,9 +18,14 @@ IMAGE_CAPABLE_SKILLS: frozenset[str] = frozenset(
     {"image_edit", "talking_video", "video_gen", "image_gen"}
 )
 
-# Skills die parallel ausgeführt werden können (externe Queue, keine Kette nötig).
+# Skills die parallel ausgeführt werden können (externe Queue oder kein shared state).
 # Muss synchron zu ``services.task_service.PARALLEL_SAFE_SKILLS`` bleiben.
-PARALLEL_SAFE_SKILLS: frozenset[str] = frozenset({"image_gen", "video_gen", "image_edit"})
+PARALLEL_SAFE_SKILLS: frozenset[str] = frozenset({
+    "image_gen",    # ComfyUI externe Queue
+    "video_gen",    # ComfyUI externe Queue
+    "image_edit",   # ComfyUI externe Queue
+    "file_access",  # reiner Disk-I/O, kein shared state
+})
 
 
 def redirect_for_images(

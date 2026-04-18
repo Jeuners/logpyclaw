@@ -75,27 +75,27 @@ def _ollama_chat(messages: list[dict], max_tokens: int = 400, model: str = OLLAM
 
 
 def _generate_prompts(concept: str, n_segments: int, ollama_model: str = OLLAMA_MODEL_DEFAULT) -> list[str]:
-    """Generate n_segments visual prompts for the video segments via Ollama."""
-    system = (
-        "You are a cinematic video prompt engineer for AI video generation. "
-        "Generate exactly the requested number of English visual prompts for consecutive 9-second video segments. "
-        "Each prompt describes what happens visually in that segment. "
-        "The same character/scene image is used for all segments. "
-        "Format: one prompt per line, no numbering, no extra text. "
-        "Each prompt: 50-80 words, cinematic quality, focus on motion/action/expression."
-    )
+    """Generate n_segments distinct visual prompts via Ollama — one call for all."""
     user = (
-        f"Overall concept: {concept}\n\n"
-        f"Generate exactly {n_segments} prompts (one per line) for {n_segments} consecutive 9-second segments."
+        f"Video concept: {concept}\n\n"
+        f"Write {n_segments} SHORT English video prompts, one per line.\n"
+        f"Rules:\n"
+        f"- Each prompt describes a DIFFERENT visual scene/action/moment\n"
+        f"- English only, 30-50 words each\n"
+        f"- No numbers, no labels, no explanations — just the prompt text\n"
+        f"- Each line = one prompt\n\n"
+        f"Output exactly {n_segments} lines:"
     )
     raw = _ollama_chat([
-        {"role": "system", "content": system},
         {"role": "user", "content": user},
-    ], max_tokens=n_segments * 100, model=ollama_model)
-    lines = [l.strip() for l in raw.splitlines() if l.strip()]
-    # ensure we have exactly n_segments prompts
+    ], max_tokens=n_segments * 80, model=ollama_model)
+
+    lines = [l.strip(" -•*0123456789.:)") for l in raw.splitlines() if l.strip()]
+    lines = [l for l in lines if len(l) > 15]  # filter out junk lines
+
+    # Fallback: pad with numbered variants of concept
     while len(lines) < n_segments:
-        lines.append(concept)
+        lines.append(f"Scene {len(lines)+1}: {concept[:100]}")
     return lines[:n_segments]
 
 
@@ -130,7 +130,7 @@ def _build_workflow(image_fn: str, audio_fn: str, prompt: str, duration: float, 
     return wf
 
 
-def _poll(prompt_id: str, timeout: int = 1800) -> dict | None:
+def _poll(prompt_id: str, timeout: int = 3600) -> dict | None:
     deadline = time.time() + timeout
     while time.time() < deadline:
         time.sleep(3)
@@ -145,23 +145,90 @@ def _poll(prompt_id: str, timeout: int = 1800) -> dict | None:
     return None
 
 
-def _get_video_url(outputs: dict) -> str | None:
+def _get_video_info(outputs: dict) -> dict | None:
     for node_out in outputs.values():
         for key in ("videos", "gifs", "images"):
             items = node_out.get(key, [])
             if items:
-                info = items[0]
-                fn = info["filename"]
-                subfolder = info.get("subfolder", "")
-                ftype = info.get("type", "output")
-                params = f"filename={fn}&type={ftype}"
-                if subfolder:
-                    params += f"&subfolder={subfolder}"
-                return f"{COMFYUI_URL}/view?{params}"
+                return items[0]
     return None
 
 
+def _video_info_to_url(info: dict) -> str:
+    fn = info["filename"]
+    subfolder = info.get("subfolder", "")
+    ftype = info.get("type", "output")
+    params = f"filename={fn}&type={ftype}"
+    if subfolder:
+        params += f"&subfolder={subfolder}"
+    return f"{COMFYUI_URL}/view?{params}"
+
+
+def _download_video_bytes(info: dict) -> bytes:
+    url = _video_info_to_url(info)
+    r = requests.get(url, timeout=120)
+    r.raise_for_status()
+    return r.content
+
+
+def _extract_last_frame(video_bytes: bytes) -> bytes | None:
+    """Letztes Frame aus MP4-Bytes via ffmpeg extrahieren. Gibt PNG-Bytes zurück."""
+    import subprocess
+    fd_in, path_in = tempfile.mkstemp(suffix=".mp4")
+    fd_out, path_out = tempfile.mkstemp(suffix=".png")
+    try:
+        with os.fdopen(fd_in, "wb") as f:
+            f.write(video_bytes)
+        os.close(fd_out)
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-sseof", "-0.5", "-i", path_in,
+             "-vframes", "1", "-q:v", "2", path_out],
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            return None
+        with open(path_out, "rb") as f:
+            return f.read()
+    except Exception:
+        return None
+    finally:
+        try: os.unlink(path_in)
+        except Exception: pass
+        try: os.unlink(path_out)
+        except Exception: pass
+
+
 # ── background job ─────────────────────────────────────────────────────────────
+
+def _job_log_path(job_id: str) -> str:
+    return os.path.join(_results_dir, f"{job_id}.jsonl")
+
+
+def _persist_event(job_id: str, payload: dict):
+    """Event sofort auf Disk schreiben (append JSONL)."""
+    try:
+        with open(_job_log_path(job_id), "a", encoding="utf-8") as f:
+            f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
+def _replay_events(job_id: str) -> list[dict]:
+    """Alle gespeicherten Events für job_id laden."""
+    path = _job_log_path(job_id)
+    if not os.path.exists(path):
+        return []
+    events = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                try:
+                    events.append(json.loads(line))
+                except Exception:
+                    pass
+    return events
+
 
 def _run_batch(
     job_id: str,
@@ -176,6 +243,7 @@ def _run_batch(
 ):
     def send(event: str, **data):
         payload = {"event": event, **data}
+        _persist_event(job_id, payload)
         asyncio.run_coroutine_threadsafe(queue.put(payload), loop)
 
     try:
@@ -198,7 +266,7 @@ def _run_batch(
             send("status", msg=f"Segment {seg_num}/{n}: Audio hochladen...")
             audio_fn = _upload_audio(chunk_path)
 
-            send("status", msg=f"Segment {seg_num}/{n}: ComfyUI Workflow starten...")
+            send("status", msg=f"Segment {seg_num}/{n}: ComfyUI Workflow starten (Bild: {image_fn})...")
             wf = _build_workflow(image_fn, audio_fn, prompts[i], duration, int(time.time()) % (2**32))
             r = requests.post(
                 f"{COMFYUI_URL}/prompt",
@@ -211,16 +279,32 @@ def _run_batch(
                 raise RuntimeError(f"Kein prompt_id für Segment {seg_num}")
 
             send("status", msg=f"Segment {seg_num}/{n}: Rendern... (prompt_id={prompt_id[:8]})")
-            outputs = _poll(prompt_id, timeout=1800)
+            outputs = _poll(prompt_id, timeout=3600)
             if outputs is None:
                 send("segment_error", segment=seg_num, msg="Timeout beim Rendern")
                 continue
 
-            video_url = _get_video_url(outputs)
-            if video_url:
-                send("segment_done", segment=seg_num, total=n, url=video_url, prompt=prompts[i])
-            else:
+            video_info = _get_video_info(outputs)
+            if not video_info:
                 send("segment_error", segment=seg_num, msg="Keine Videoausgabe von ComfyUI")
+                continue
+
+            video_url = _video_info_to_url(video_info)
+            send("segment_done", segment=seg_num, total=n, url=video_url, prompt=prompts[i])
+
+            # Letztes Frame extrahieren → Startbild für nächstes Segment
+            if i < n - 1:
+                send("status", msg=f"Segment {seg_num}/{n}: Letztes Frame extrahieren...")
+                try:
+                    video_bytes = _download_video_bytes(video_info)
+                    frame_png = _extract_last_frame(video_bytes)
+                    if frame_png:
+                        image_fn = _upload_image(frame_png, "image/png")
+                        send("status", msg=f"Segment {seg_num}/{n}: Frame hochgeladen als {image_fn} → wird Startbild für Segment {seg_num + 1}")
+                    else:
+                        send("status", msg=f"Segment {seg_num}/{n}: Frame-Extraktion fehlgeschlagen — behalte vorheriges Bild")
+                except Exception as e:
+                    send("status", msg=f"Segment {seg_num}/{n}: Frame-Fehler ({e}) — behalte vorheriges Bild")
 
             try:
                 os.unlink(chunk_path)
@@ -281,14 +365,34 @@ async def start_batch(
 @router.get("/progress/{job_id}")
 async def progress_stream(job_id: str):
     queue = _jobs.get(job_id)
+
+    # Job läuft nicht im RAM → Disk-Replay (Server-Neustart oder abgeschlossen)
     if queue is None:
-        async def _not_found():
-            yield "data: {\"event\":\"error\",\"msg\":\"Job nicht gefunden\"}\n\n"
-        return StreamingResponse(_not_found(), media_type="text/event-stream")
+        saved = _replay_events(job_id)
+
+        async def _replay() -> AsyncGenerator[str, None]:
+            if not saved:
+                yield f"data: {json.dumps({'event': 'error', 'msg': 'Job nicht gefunden (kein Verlauf gespeichert)'})}\n\n"
+                return
+            for evt in saved:
+                yield f"data: {json.dumps(evt, ensure_ascii=False)}\n\n"
+            # Falls Job mit complete/error endete ist er fertig; sonst als unterbrochen markieren
+            last_event = saved[-1].get("event", "") if saved else ""
+            if last_event not in ("complete", "error", "done"):
+                yield f"data: {json.dumps({'event': 'error', 'msg': '⚠ Server wurde neu gestartet — Job unterbrochen. Bisherige Segmente oben sichtbar.'})}\n\n"
+
+        return StreamingResponse(
+            _replay(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     async def _generate() -> AsyncGenerator[str, None]:
-        # Max. 90 Minuten für den gesamten Job (mehrere Videos à 10 Min)
-        deadline = asyncio.get_event_loop().time() + 90 * 60
+        # Bereits gespeicherte Events zuerst senden (Reconnect nach Browser-Reload)
+        for evt in _replay_events(job_id):
+            yield f"data: {json.dumps(evt, ensure_ascii=False)}\n\n"
+
+        deadline = asyncio.get_event_loop().time() + 60 * 60
         try:
             while True:
                 remaining = deadline - asyncio.get_event_loop().time()
@@ -296,14 +400,12 @@ async def progress_stream(job_id: str):
                     yield "data: {\"event\":\"error\",\"msg\":\"Gesamt-Timeout\"}\n\n"
                     break
                 try:
-                    # In 30s-Häppchen warten → Keepalive senden falls nichts kommt
                     item = await asyncio.wait_for(queue.get(), timeout=30)
                     if item is None:
                         yield "data: {\"event\":\"done\"}\n\n"
                         break
                     yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
                 except asyncio.TimeoutError:
-                    # Keepalive — hält Browser-SSE-Verbindung offen während ComfyUI rendert
                     yield ": keepalive\n\n"
         finally:
             _jobs.pop(job_id, None)

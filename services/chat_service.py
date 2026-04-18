@@ -4,6 +4,7 @@ Extrahiert aus app.py: /api/chat Route.
 """
 import logging
 import re
+import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -15,6 +16,7 @@ from config.settings import settings
 MAX_HISTORY_PER_AGENT = settings.MAX_HISTORY_PER_AGENT
 from core.state import _PENDING_MAIL_SORT, MAC_MAIL_TRIGGERS
 from core import dispatch_rules
+from core.llm import LLM_REQUEST_TIMEOUT
 
 if TYPE_CHECKING:
     from skills.registry import SkillRegistry
@@ -50,11 +52,27 @@ SINGLE DELEGATION (@Mention):
   Use ONLY for exactly ONE task to ONE agent:
   @AgentName [complete task instructions]
 
-MULTI-TASK DELEGATION → ALWAYS use the [tasklist] tool when:
-  - The user wants MULTIPLE images/videos (e.g. "3 Bilder", "6 Porträts")
-  - The user describes multiple separate tasks in one message
-  - Each image/video MUST be a separate line in the [tasklist]
-  CRITICAL: NEVER send "Generiere 3 Bilder" as ONE @Mention — split into 3 tasklist lines!
+MULTI-TASK DELEGATION — use the [tasklist] tool whenever the job has >1 step:
+  - Multiple images/videos (e.g. "3 Bilder", "6 Porträts") — one line per artifact
+  - Several separate tasks in one message — one line each
+  - A pipeline where later steps need earlier outputs — chain via [after: N]
+
+TASKLIST SYNTAX:
+  [tasklist]
+  @AgentName complete self-contained instruction
+  @AgentName next instruction [after: 0]
+  @AgentName final step [after: 0,1]
+  [/tasklist]
+
+  Line indexes are 0-based and refer to preceding lines in the same block.
+  `[after: N]` means "wait until line N is done". Line 0 NEVER has [after:].
+  Tasks without dependencies omit the flag entirely.
+
+  CRITICAL: A multi-part job is dispatched in ONE [tasklist]. You do NOT get
+  a second turn. Never write "I'll wait and then…" — dispatch all steps now.
+
+  Every delegation is self-contained. The receiving agent has NO access to
+  your chat. Pack story/spec/paths/context inline. Never "see above".
 
 {routing_table}
 
@@ -77,6 +95,10 @@ class ChatService:
         self._agents = agents
         self._events = events
         self._task_service = None  # wird von ServiceContainer gesetzt
+        # Thread-local State für Supervisor-Loop (nur beim aktuellen Chat-Turn gültig).
+        # Operator-Dispatch taggt neu erzeugte Tasks mit turn = self._tls.sv_turn + 1.
+        import threading as _thr
+        self._tls = _thr.local()
 
     def set_task_service(self, task_service):
         """TaskService registrieren für A2A-Delegation."""
@@ -84,11 +106,22 @@ class ChatService:
 
     def handle_message(self, agent_id: str, message: str,
                        images: list[str] | None = None,
-                       attachment_path: str | None = None) -> dict:
+                       audio: list[str] | None = None,
+                       attachment_path: str | None = None,
+                       _supervisor_turn: int = 0) -> dict:
         """
         Haupteinstieg für Chat-Nachrichten.
         Gibt zurück: {reply, skill, image, agent_id}
+
+        _supervisor_turn: Interner Parameter für den Operator-Supervisor-Loop.
+        Wird von TaskService._trigger_supervisor_callback gesetzt und via
+        Thread-local an die internen Dispatcher durchgereicht.
         """
+        # Thread-local Turn-Counter für diesen Chat-Turn. Wird von
+        # _dispatch_task_list/_dispatch_mentions ausgelesen und in die neu
+        # erzeugten Tasks (+1) geschrieben. ChatService ist Singleton, also
+        # darf das nicht als Instance-Var liegen.
+        self._tls.sv_turn = _supervisor_turn
         agent = self._agents.get_or_raise(agent_id)
         providers = load_providers()
 
@@ -132,10 +165,13 @@ class ChatService:
         # 3. LLM aufrufen
         history_data = load_history()
         agent_history = history_data.get(agent_id, [])
-        reply = self._call_llm(agent, message, agent_history, images, providers)
+        reply = self._call_llm(agent, message, agent_history, images, providers, audio=audio)
 
         # 3b. Skill-Call aus LLM-Antwort parsen — [skill_id] → Skill direkt ausführen
-        skill_result = self._try_skill_from_reply(agent, reply, message, providers)
+        skill_result = self._try_skill_from_reply(
+            agent, reply, message, providers,
+            images=images, audio=audio, attachment_path=attachment_path,
+        )
         if skill_result:
             result_text = skill_result.text or (f"⚠ {skill_result.error}" if skill_result.error else "")
             self._save_history(agent_id, message, result_text, skill=skill_result.skill_used)
@@ -160,6 +196,7 @@ class ChatService:
         from core.task_list import has_task_list, strip_task_list
         if has_task_list(reply):
             tl_dispatches = self._dispatch_task_list(agent, reply, images=images,
+                                                     audio=audio,
                                                      attachment_path=attachment_path)
             display_reply = strip_task_list(reply)
             if display_reply:
@@ -191,6 +228,7 @@ class ChatService:
 
         dispatches = self._dispatch_mentions(agent, reply,
                                              images=images,
+                                             audio=audio,
                                              attachment_path=attachment_path)
         display_reply = strip_a2a_for_display(reply) if dispatches else reply
 
@@ -223,16 +261,17 @@ class ChatService:
         providers = _lp()
         message = task.get("message", "")
 
-        # Bilder aus Task oder context_image zusammensammeln
+        # Bilder/Audio aus Task oder context_image zusammensammeln
         images: list[str] | None = task.get("images") or None
         if not images and task.get("context_image"):
             images = [task["context_image"]]
+        audio: list[str] | None = task.get("audio") or None
         attachment_path: str | None = task.get("attachment_path") or None
 
         # Skill-Check (mit images + attachment_path aus dem Task)
         image_b64 = images[0] if images else None
         skill_result = self._try_skill(agent, message, images, attachment_path, providers,
-                                       image_b64=image_b64)
+                                       image_b64=image_b64, audio=audio)
         # Passthrough: Skill hat kein Ergebnis (z.B. file_access ohne Inhalt) → LLM übernimmt
         is_passthrough = (
             skill_result is not None
@@ -264,19 +303,50 @@ class ChatService:
         from storage.history import load_history
         history_data = load_history()
         agent_history = history_data.get(agent["id"], [])
-        reply = self._call_llm(agent, message, agent_history, images, providers)
+        reply = self._call_llm(agent, message, agent_history, images, providers, audio=audio)
 
         # Skill aus LLM-Antwort parsen ([skill_id]) — z.B. [file_access] zum Speichern
         # Wichtig für Tasks wo LLM erst Inhalt generiert und dann Skill aufruft
         from storage.providers import load_providers as _lp
         providers_fresh = _lp()
-        skill_from_reply = self._try_skill_from_reply(agent, reply, message, providers_fresh)
+        skill_from_reply = self._try_skill_from_reply(
+            agent, reply, message, providers_fresh,
+            images=images, audio=audio, attachment_path=attachment_path,
+        )
         if skill_from_reply and not skill_from_reply.error:
             return {
                 "result_text": skill_from_reply.text or reply,
                 "result_image": skill_from_reply.image,
                 "skill_used": skill_from_reply.skill_used,
             }
+
+        # Auto-Coding-Trigger: Wenn Agent 'coding' hat und Reply enthält
+        # Multi-File-Markdown (### filename.ext + code fence), dann Skill direkt
+        # ausführen — auch ohne explizite [coding]-Markierung vom LLM.
+        # Gemma3/4 vergisst oft den Skill-Marker bei großen Outputs.
+        if "coding" in set(agent.get("skills", [])):
+            try:
+                from skills.coding_skill import _extract_files_from_markdown
+                files = _extract_files_from_markdown(reply)
+                if len(files) >= 2:
+                    coding_skill = self._registry.get("coding") if self._registry else None
+                    if coding_skill:
+                        logger.info(
+                            "Auto-Coding-Trigger: %d Dateien im Reply von @%s erkannt",
+                            len(files), agent.get("name"),
+                        )
+                        res = coding_skill.safe_execute(
+                            agent, message,
+                            content_to_save=reply,
+                            llm_reply=reply,
+                        )
+                        if res and not res.error and res.text:
+                            return {
+                                "result_text": f"{reply}\n\n---\n\n{res.text}",
+                                "skill_used": res.skill_used,
+                            }
+            except Exception as e:
+                logger.warning("Auto-Coding-Trigger fehlgeschlagen: %s", e)
 
         # TASKLIST hat Vorrang, dann @Mentions
         from core.task_list import has_task_list
@@ -287,7 +357,10 @@ class ChatService:
         return {"result_text": reply, "skill_used": "llm"}
 
     def _try_skill_from_reply(self, agent: dict, reply: str, original_message: str,
-                              providers: dict, progress_cb=None):
+                              providers: dict, progress_cb=None,
+                              images: list | None = None,
+                              audio: list | None = None,
+                              attachment_path: str | None = None):
         """Parst LLM-Antwort auf [skill_id] oder [Skill Name] — führt den Skill aus falls gefunden.
 
         LLMs halluzinieren gerne den Display-Namen statt der ID ([YouTube Download] statt
@@ -352,6 +425,10 @@ class ChatService:
             content_to_save=content_from_reply,
             llm_reply=content_from_reply,
             progress_cb=progress_cb,
+            images=images,
+            audio=audio,
+            attachment_path=attachment_path,
+            image_b64=(images[0] if images else None),
         )
 
     def _build_skills_prompt(self, agent: dict) -> str:
@@ -443,12 +520,12 @@ class ChatService:
             audio=kwargs.get("audio"),
         )
 
-    def _call_llm(self, agent, message, history, images, providers) -> str:
+    def _call_llm(self, agent, message, history, images, providers, audio=None) -> str:
         """LLM aufrufen mit vollständiger History (synchron, für run_in_executor)."""
         import requests as req
         OPENROUTER_BASE_URL = settings.OPENROUTER_BASE_URL
 
-        messages = self._build_messages(agent, message, history, images, providers)
+        messages = self._build_messages(agent, message, history, images, providers, audio=audio)
         provider = agent.get("provider", "ollama")
         model = agent.get("model", "llama3")
         max_tokens = agent.get("max_tokens") or None
@@ -473,7 +550,7 @@ class ChatService:
                     "temperature": temperature,
                     **({"max_tokens": max_tokens} if max_tokens else {}),
                 },
-                timeout=360,
+                timeout=LLM_REQUEST_TIMEOUT,
             )
             resp.raise_for_status()
             return (resp.json()["choices"][0]["message"].get("content") or "").strip()
@@ -492,7 +569,7 @@ class ChatService:
             }
             if think:
                 payload["think"] = True
-            resp = req.post(f"{ollama_url}/api/chat", json=payload, timeout=360)
+            resp = req.post(f"{ollama_url}/api/chat", json=payload, timeout=LLM_REQUEST_TIMEOUT)
             resp.raise_for_status()
             result = resp.json()
             content = result.get("message", {}).get("content", result.get("response", ""))
@@ -501,7 +578,7 @@ class ChatService:
             return cleaned.strip()
 
     def _save_history(self, agent_id, user_msg, assistant_msg, image=None, skill=None):
-        """Chat-History speichern."""
+        """Chat-History speichern (User + Assistant als Paar)."""
         history = load_history()
         if agent_id not in history:
             history[agent_id] = []
@@ -515,9 +592,39 @@ class ChatService:
         history[agent_id].append(entry)
         save_history(history)
 
+    def _save_user_turn(self, agent_id, content):
+        """User-Message SOFORT persistieren — überlebt Reload mitten im Stream."""
+        history = load_history()
+        if agent_id not in history:
+            history[agent_id] = []
+        history[agent_id].append({
+            "role": "user", "content": content,
+            "ts": datetime.now().isoformat(),
+        })
+        save_history(history)
+
+    def _save_assistant_turn(self, agent_id, content, image=None, skill=None):
+        """Assistant-Message separat persistieren (User wurde bereits gespeichert)."""
+        if not content and not image:
+            return
+        history = load_history()
+        if agent_id not in history:
+            history[agent_id] = []
+        entry = {
+            "role": "assistant", "content": content or "",
+            "ts": datetime.now().isoformat(),
+        }
+        if image:
+            entry["image"] = image
+        if skill:
+            entry["skill_used"] = skill
+        history[agent_id].append(entry)
+        save_history(history)
+
     def _dispatch_mentions(self, sender_agent, reply: str,
                            current_task: dict | None = None,
                            images: list | None = None,
+                           audio: list | None = None,
                            attachment_path: str | None = None) -> list:
         """
         @AgentName-Mentions aus Reply als A2A-Tasks dispatchen.
@@ -531,16 +638,35 @@ class ChatService:
         all_agents = load_agents()
         sender_depth = current_task.get("delegation_depth", 0) if current_task else 0
 
-        # Bilder aus dem aktuellen Task-Kontext übernehmen (falls keine expliziten images)
+        # Bilder/Audio aus dem aktuellen Task-Kontext übernehmen
         if not images and current_task:
             images = current_task.get("images") or []
             if not images and current_task.get("context_image"):
                 images = [current_task["context_image"]]
+        if not audio and current_task:
+            audio = current_task.get("audio") or []
         if not attachment_path and current_task:
             attachment_path = current_task.get("attachment_path", "")
 
         dispatches = parse_a2a_dispatches(reply, sender_agent, all_agents,
                                           sender_delegation_depth=sender_depth)
+
+        # Operator-Supervisor-Loop (analog _dispatch_task_list): Wenn der Sender
+        # ein Operator ist, werden alle @Mention-Dispatches dieses Turns unter einer
+        # gemeinsamen parent_dispatch_id gruppiert. Nach Abschluss triggert
+        # TaskService den Supervisor-Callback beim Operator.
+        parent_dispatch_id: str | None = None
+        next_supervisor_turn: int = 0
+        if sender_agent.get("operator", False) and dispatches:
+            parent_dispatch_id = str(uuid.uuid4())
+            prev_turn = 0
+            if current_task:
+                prev_turn = max(prev_turn, current_task.get("supervisor_turn", 0))
+            try:
+                prev_turn = max(prev_turn, getattr(self._tls, "sv_turn", 0) or 0)
+            except Exception:
+                pass
+            next_supervisor_turn = prev_turn + 1
 
         # Gleiche Empfänger sequenziell ketten: jeder Task wartet auf den vorherigen
         # Beispiel: @Picasso Bild 1 → @Picasso Bild 2 → @Picasso Bild 3
@@ -551,6 +677,8 @@ class ChatService:
         for dispatch in dispatches:
             if images:
                 dispatch.images = list(images)
+            if audio:
+                dispatch.audio = list(audio)
             if attachment_path:
                 dispatch.attachment_path = attachment_path
 
@@ -564,6 +692,9 @@ class ChatService:
 
             task = dispatch.to_task_dict()
             dispatch.metadata["task_id"] = task["id"]
+            if parent_dispatch_id:
+                task["parent_dispatch_id"] = parent_dispatch_id
+                task["supervisor_turn"] = next_supervisor_turn
 
             is_parallel_safe = dispatch_rules.is_parallel_safe(
                 dispatch.recipient_id, all_agents, strict=False,
@@ -595,6 +726,7 @@ class ChatService:
 
     def _dispatch_task_list(self, sender_agent: dict, reply: str,
                             images: list | None = None,
+                            audio: list | None = None,
                             attachment_path: str | None = None,
                             current_task: dict | None = None) -> list:
         """
@@ -616,16 +748,38 @@ class ChatService:
         if not items:
             return []
 
-        # Bilder/Attachment aus Kontext übernehmen
+        # Bilder/Audio/Attachment aus Kontext übernehmen
         if not images and current_task:
             images = current_task.get("images") or []
             if not images and current_task.get("context_image"):
                 images = [current_task["context_image"]]
+        if not audio and current_task:
+            audio = current_task.get("audio") or []
         if not attachment_path and current_task:
             attachment_path = current_task.get("attachment_path", "")
 
+        # Operator-Supervisor-Loop: Wenn der Sender ein Operator ist, gruppieren
+        # wir alle Tasks dieser TASKLIST unter einer gemeinsamen parent_dispatch_id.
+        # Nach Abschluss aller Gruppen-Tasks triggert TaskService einen synthetischen
+        # Chat-Turn beim Operator (supervisor callback) mit dem aggregierten Ergebnis.
+        parent_dispatch_id: str | None = None
+        next_supervisor_turn: int = 0
+        if sender_agent.get("operator", False):
+            parent_dispatch_id = str(__import__("uuid").uuid4())
+            prev_turn = 0
+            if current_task:
+                prev_turn = max(prev_turn, current_task.get("supervisor_turn", 0))
+            try:
+                prev_turn = max(prev_turn, getattr(self._tls, "sv_turn", 0) or 0)
+            except Exception:
+                pass
+            next_supervisor_turn = prev_turn + 1
+
         # line_index → System-Task-ID (für [after: N] Auflösung)
         line_to_task_id: dict[int, str] = {}
+
+        # line_index → recipient_id (für parallel-safe Deduplizierung)
+        line_to_recipient: dict[int, str] = {}
 
         # Letzter Task-ID pro Empfänger (für implizite Sequenzierung)
         last_per_recipient: dict[str, str] = {}
@@ -635,6 +789,8 @@ class ChatService:
         for item in items:
             if images:
                 item.images = list(images)
+            if audio:
+                item.audio = list(audio)
             if attachment_path:
                 item.attachment_path = attachment_path
             item.sender_id = sender_agent.get("id", "")
@@ -657,16 +813,30 @@ class ChatService:
                 item.recipient_id, all_agents, strict=True,
             )
 
-            # Explizit: [after: N] → wartet auf Task an Zeile N
-            if item.after_line >= 0:
-                prev_id = line_to_task_id.get(item.after_line)
-                if prev_id:
+            # Explizit: [after: N] oder [after: N,M,...] → wartet auf diese Zeilen
+            if item.after_lines:
+                for al in item.after_lines:
+                    prev_id = line_to_task_id.get(al)
+                    if not prev_id:
+                        logger.warning(
+                            "TASKLIST: [after: %d] nicht auflösbar (Zeile noch nicht verarbeitet)",
+                            al,
+                        )
+                        continue
+                    # Parallel-safe Deduplizierung: Wenn sowohl Vorgänger als auch
+                    # aktueller Empfänger parallel-safe sind (z.B. beides Image-Agent
+                    # an ComfyUI-Queue), ignoriere den [after:] Hinweis — die externe
+                    # Queue regelt die Reihenfolge, lokal dürfen sie parallel laufen.
+                    prev_rec_id = line_to_recipient.get(al)
+                    if is_parallel_safe and prev_rec_id and dispatch_rules.is_parallel_safe(
+                        prev_rec_id, all_agents, strict=True,
+                    ):
+                        logger.info(
+                            "TASKLIST: [after: %d] verworfen — beide parallel-safe (%s → %s)",
+                            al, prev_rec_id[:8], item.recipient_id[:8],
+                        )
+                        continue
                     depends_on.append(prev_id)
-                else:
-                    logger.warning(
-                        "TASKLIST: [after: %d] nicht auflösbar (Zeile noch nicht verarbeitet)",
-                        item.after_line,
-                    )
 
             # Implizit: kein after + nicht parallel → wartet auf letzten Task desselben Agenten
             # ABER: parallel-safe Agents (ComfyUI) brauchen keine Kette — externe Queue regelt
@@ -675,11 +845,26 @@ class ChatService:
                 if prev_id:
                     depends_on.append(prev_id)
 
+            # Safety-Net: nicht-parallel-safer Empfänger ohne aufgelöste Deps,
+            # aber es gibt frühere Tasks im Block → implizit auf ALLE warten.
+            # Fängt den Fall ab, wo das LLM [after:] vergisst oder falsch nummeriert.
+            if not depends_on and not item.parallel and not is_parallel_safe and line_to_task_id:
+                depends_on = list(line_to_task_id.values())
+                logger.info(
+                    "TASKLIST: line=%d fallback → wartet implizit auf %d vorherige Task(s)",
+                    item.line_index, len(depends_on),
+                )
+
             task_id = str(__import__("uuid").uuid4())
             task = item.to_task_dict(system_task_id=task_id, depends_on=depends_on)
 
+            if parent_dispatch_id:
+                task["parent_dispatch_id"] = parent_dispatch_id
+                task["supervisor_turn"] = next_supervisor_turn
+
             item.task_id = task_id  # für SSE-Response
             line_to_task_id[item.line_index] = task_id
+            line_to_recipient[item.line_index] = item.recipient_id
             last_per_recipient[item.recipient_id] = task_id
 
             self._task_service.enqueue(task)
@@ -853,6 +1038,9 @@ class ChatService:
         agent = self._agents.get_or_raise(agent_id)
         providers = load_providers()
 
+        # User-Turn SOFORT persistieren — überlebt Reload mitten im Stream.
+        self._save_user_turn(agent_id, message)
+
         # Tier-1 Fastpath — deterministischer Command-Dispatch vor LLM/A2A.
         from core.fastpath import dispatch as _fp_dispatch
         import asyncio as _asyncio
@@ -865,7 +1053,7 @@ class ChatService:
             if fp.image:
                 chunk["image"] = fp.image
             yield chunk
-            self._save_history(agent_id, message, reply, image=fp.image, skill=fp.skill_id)
+            self._save_assistant_turn(agent_id, reply, image=fp.image, skill=fp.skill_id)
             self._events.emit_chat_message(agent_id, "assistant", reply, image=fp.image)
             return
 
@@ -903,8 +1091,8 @@ class ChatService:
                 chunk["image"] = skill_result.image
             yield chunk
             # History + Event (nach dem Yield)
-            self._save_history(agent_id, message, reply,
-                               image=skill_result.image, skill=skill_result.skill_used)
+            self._save_assistant_turn(agent_id, reply,
+                                      image=skill_result.image, skill=skill_result.skill_used)
             self._events.emit_chat_message(agent_id, "assistant", reply, image=skill_result.image)
             return
 
@@ -930,9 +1118,25 @@ class ChatService:
                     # Backwards-compat: plain string
                     full_reply.append(chunk)
                     yield {"content": chunk}
+        except GeneratorExit:
+            # Client hat die Verbindung getrennt (Reload / Navigation)
+            # Partial Reply trotzdem persistieren, damit nichts verloren geht.
+            partial = "".join(full_reply).strip()
+            if partial:
+                try:
+                    self._save_assistant_turn(agent_id, partial + " […abgebrochen]")
+                except Exception:
+                    pass
+            raise
         except Exception as e:
             error_msg = f"[Streaming-Fehler: {e}]"
             logger.error("stream_message Fehler: %s", e)
+            # Partial Reply (falls vorhanden) + Error persistieren
+            partial = "".join(full_reply).strip()
+            try:
+                self._save_assistant_turn(agent_id, (partial + "\n" + error_msg) if partial else error_msg)
+            except Exception:
+                pass
             yield {"content": error_msg}
             return
 
@@ -974,8 +1178,8 @@ class ChatService:
             skill_result = await skill_future
             if skill_result:
                 result_text = skill_result.text or (f"⚠ {skill_result.error}" if skill_result.error else "")
-                self._save_history(agent_id, message, result_text, skill=skill_result.skill_used,
-                                   image=skill_result.image)
+                self._save_assistant_turn(agent_id, result_text, skill=skill_result.skill_used,
+                                          image=skill_result.image)
                 self._events.emit_chat_message(agent_id, "assistant", result_text, image=skill_result.image)
                 reply_chunk = {"content": result_text, "__skill__": skill_result.skill_used}
                 if skill_result.image:
@@ -984,7 +1188,7 @@ class ChatService:
                 return
 
             # History mit Original-Reply (inkl. @Mentions — für LLM-Kontext)
-            self._save_history(agent_id, message, reply)
+            self._save_assistant_turn(agent_id, reply)
 
             # Memory in Qdrant speichern (non-blocking)
             try:
@@ -1001,7 +1205,7 @@ class ChatService:
             # TASKLIST hat Vorrang vor @Mentions
             from core.task_list import has_task_list, strip_task_list
             if has_task_list(reply):
-                tl_dispatches = self._dispatch_task_list(agent, reply, images=images)
+                tl_dispatches = self._dispatch_task_list(agent, reply, images=images, audio=audio)
                 display_reply = strip_task_list(reply)
                 if display_reply:
                     self._events.emit_chat_message(agent_id, "assistant", display_reply)
@@ -1018,7 +1222,7 @@ class ChatService:
                     ],
                 }
             else:
-                dispatches = self._dispatch_mentions(agent, reply, images=images)
+                dispatches = self._dispatch_mentions(agent, reply, images=images, audio=audio)
                 from core.a2a_protocol import strip_a2a_for_display
                 display_reply = strip_a2a_for_display(reply) if dispatches else reply
                 if display_reply:
@@ -1048,18 +1252,34 @@ class ChatService:
         """Aufbau der Messages-Liste für LLM-Calls (shared zwischen sync und stream)."""
         from core.skills_registry import _build_agent_directory, _get_codebase_context
         from core.memory import memory_search, QDRANT_AVAILABLE
+        from core.operator_context import get_operator_context
 
         now = datetime.now().strftime("%A, %d. %B %Y, %H:%M Uhr")
-        agent_directory = _build_agent_directory(agent.get("id"))
         _agent_skills = set(agent.get("skills", []))
         _codebase = f"\n\n{_get_codebase_context()}" if "codebase_read" in _agent_skills else ""
         _skills_block = self._build_skills_prompt(agent)
-        system_content = (
-            f"[Aktuelle Zeit: {now}]\n\n{agent['soul']}\n\n"
-            f"{get_a2a_prompt()}\n\n"
-            f"{_skills_block}\n\n"
-            f"{agent_directory}{_codebase}"
-        )
+        is_operator = bool(agent.get("operator", False))
+
+        # Operator-Agenten bekommen Agent-Directory + A2A/TASKLIST-Syntax.
+        # Worker-Agenten sehen davon nichts — sie wissen nicht, dass andere
+        # Agenten existieren. Strikte Trennung von Persona / Skill / Operator.
+        if is_operator:
+            agent_directory = _build_agent_directory(agent.get("id"))
+            system_content = (
+                f"[Aktuelle Zeit: {now}]\n\n"
+                f"{get_operator_context()}\n\n"
+                f"{agent['soul']}\n\n"
+                f"{get_a2a_prompt()}\n\n"
+                f"{_skills_block}\n\n"
+                f"{agent_directory}{_codebase}"
+            )
+        else:
+            system_content = (
+                f"[Aktuelle Zeit: {now}]\n\n"
+                f"{get_operator_context()}\n\n"
+                f"{agent['soul']}\n\n"
+                f"{_skills_block}{_codebase}"
+            )
 
         if QDRANT_AVAILABLE:
             try:

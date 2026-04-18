@@ -224,6 +224,163 @@ def git_init(project_name: str) -> str:
     return result
 
 
+# ─── Multi-File Extraction ───────────────────────────────────────────────────
+
+# Akzeptierte Datei-Extensions in Multi-File-Blocks
+_ALLOWED_EXT = (
+    "html|htm|css|js|mjs|ts|tsx|jsx|json|py|rb|go|rs|java|kt|swift|c|cc|cpp|h|hpp|"
+    "sh|bash|zsh|ps1|sql|md|txt|yaml|yml|toml|ini|cfg|env|xml|svg|csv|dockerfile|"
+    "makefile|gitignore|lock|conf"
+)
+
+# Header-Formate die einen Dateinamen vor einem Code-Fence markieren:
+#   ### 1. index.html           ### index.html          ## styles.css
+#   **index.html**              **index.html:**         __index.html__
+#   `index.html`                filename: index.html    # index.html
+#   --- index.html ---          // File: index.html
+_FILE_HEADER_RX = re.compile(
+    r"""(?imx)
+    ^\s*
+    (?:
+        \#{1,6}\s*\d*\.?\s* |        # ### 1.  oder  #
+        [-=]{2,}\s* |                # ---  ===
+        //\s*(?:file|datei)\s*[:=]\s* |
+        \#\s*(?:file|datei)\s*[:=]\s* |
+        (?:file|datei|filename|pfad|path)\s*[:=]\s*
+    )?
+    (?:\*\*|__|`)?                    # optional bold/code wrapper start
+    (?P<fname>[\w\-./]+?\.(?:""" + _ALLOWED_EXT + r"""))
+    \s*:?\s*                          # optional trailing colon (before or after bold close)
+    (?:\*\*|__|`)?                    # optional bold/code wrapper close
+    \s*:?\s*(?:---)?\s*$              # optional trailing colon + dashes
+    """,
+)
+
+# Fence-Start:  ```lang   oder  ~~~lang
+_FENCE_START_RX = re.compile(r"^\s*(```|~~~)\s*([\w+.-]*)\s*$")
+
+
+def _extract_files_from_markdown(text: str) -> dict[str, str]:
+    """Extrahiert `{filename: content}` aus Markdown mit Datei-Headern + Code-Fences.
+
+    Erkennt:
+        ### 1. index.html
+        ```html
+        <html>...</html>
+        ```
+
+    Heuristik: ein Header matcht nur, wenn innerhalb der nächsten ~5 nicht-leeren
+    Zeilen ein Code-Fence startet. Sonst ignoriert (könnte Prosa sein).
+    """
+    if not text:
+        return {}
+
+    lines = text.splitlines()
+    files: dict[str, str] = {}
+    i = 0
+    n = len(lines)
+    while i < n:
+        m = _FILE_HEADER_RX.match(lines[i])
+        if not m:
+            i += 1
+            continue
+        fname = m.group("fname")
+
+        # Schaue bis zu 6 Zeilen voraus nach einem Code-Fence
+        j = i + 1
+        skipped = 0
+        while j < n and skipped < 6:
+            if _FENCE_START_RX.match(lines[j]):
+                break
+            if lines[j].strip():
+                skipped += 1
+            j += 1
+        else:
+            i += 1
+            continue
+        if j >= n or not _FENCE_START_RX.match(lines[j]):
+            i += 1
+            continue
+
+        fence_m = _FENCE_START_RX.match(lines[j])
+        fence_marker = fence_m.group(1)
+        # Sammle Inhalt bis matching Fence-Close
+        content_lines = []
+        k = j + 1
+        while k < n:
+            if lines[k].lstrip().startswith(fence_marker):
+                break
+            content_lines.append(lines[k])
+            k += 1
+        if k >= n:
+            # unclosed fence — trotzdem akzeptieren
+            pass
+        content = "\n".join(content_lines)
+        # Nur akzeptieren wenn Inhalt nicht-trivial
+        if content.strip():
+            files[fname] = content
+        i = k + 1
+
+    return files
+
+
+_STOPWORDS = {
+    "in", "im", "am", "an", "auf", "bei", "zu", "und", "oder", "the", "a", "an",
+    "für", "for", "mit", "with", "of", "ein", "eine", "einer", "einem", "einen",
+    "der", "die", "das", "den", "dem", "des", "unter", "ordner", "folder",
+    "name", "namens", "called", "namen", "pfad", "path", "dir", "directory",
+}
+
+
+def _derive_project_name(message: str, content: str) -> str:
+    """Leitet einen kebab-case Projektnamen aus Message oder Content ab.
+
+    Priorität:
+      1. Pfad `projects/<name>/` in Content oder Message
+      2. "Projektname: xyz" / "project: xyz" (mit echtem `:` oder `=`)
+      3. Slug aus dem Nachrichteninhalt (erste sinnvolle Wörter)
+    """
+    def _clean(n: str) -> str:
+        return re.sub(r"_", "-", n.strip("-_. ").lower())
+
+    # 1) Pfad mit projects/<name>/ — stärkster Signal
+    for src in (content, message):
+        if not src:
+            continue
+        m = re.search(r"projects?/([a-zA-Z][\w\-]{2,50})(?:/|\s|$|`|\"|')", src)
+        if m:
+            name = _clean(m.group(1))
+            if name and name not in _STOPWORDS and len(name) >= 3:
+                return name
+
+    # 2) Explizit: "Projektname: xyz" (benötigt echtes Trennzeichen)
+    for src in (content, message):
+        if not src:
+            continue
+        m = re.search(
+            r"(?:projekt(?:name)?|project(?:name)?|projekt[\s\-]*pfad)"
+            r"\s*[:=]\s*[`\"']?"
+            r"([a-zA-Z][\w\-]{2,50})",
+            src, re.IGNORECASE,
+        )
+        if m:
+            name = _clean(m.group(1))
+            if name and name not in _STOPWORDS and len(name) >= 3:
+                return name
+
+    # 3) Slug aus Message (erste 5 Content-Wörter)
+    base = (message or "").strip()
+    base = re.sub(r"---\s*\nDeine Aufgabe:\s*", "", base)
+    # Technischen Boilerplate wegschneiden
+    base = re.sub(r"\[Ergebnisse.*?\]:", "", base, flags=re.DOTALL)
+    base = re.sub(r"[^\w\s-]", " ", base.lower())
+    words = [w for w in base.split() if w not in _STOPWORDS and len(w) >= 3][:5]
+    slug = "-".join(words)[:40].strip("-")
+    if not slug or len(slug) < 3:
+        slug = f"project-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    return slug
+
+
 # ─── BaseSkill Wrapper ───────────────────────────────────────────────────────
 
 
@@ -231,7 +388,11 @@ class CodingSkill(BaseSkill):
     id = "coding"
     name = "Coding"
     icon = "code"
-    description = "Creates projects, writes code, executes scripts in sandboxed workspace."
+    description = (
+        "Creates projects, writes multiple files, executes scripts in sandboxed "
+        "workspace (~/Downloads/AgentClaw/projects/<name>/). Extracts files from "
+        "markdown reply (### filename.ext + code fence)."
+    )
     triggers = [
         r"\b(erstelle?|create|neues?)\b.{0,20}\b(projekt|project|app|tool)\b",
         r"\b(code|script|programm|implement|debug|refactor)\b",
@@ -245,25 +406,40 @@ class CodingSkill(BaseSkill):
 
     def execute(self, agent: dict, message: str, **context) -> SkillResult:
         """
-        Der Coding-Skill wird NICHT direkt per Regex dispatcht.
-        Stattdessen wird er als Context-Info ans LLM übergeben.
-        Das LLM entscheidet dann selbst welche Operationen es braucht.
-
-        Für direkte Aufrufe (z.B. 'liste projekte'):
+        Zwei Modi:
+          1. Direkter Aufruf mit content_to_save (LLM hat Reply + [coding] geschrieben)
+             → Multi-File-Extraktion + create_project()
+          2. Direkte Befehle wie "liste projekte"
+          3. Sonst: passthrough (LLM entscheidet selbst)
         """
         msg_lower = message.lower().strip()
+        content = context.get("content_to_save") or context.get("llm_reply") or ""
 
         try:
-            # Direkte Befehle
+            # Direkter Listen-Befehl
             if re.search(r"(liste|zeig\w*|list|show)\s+(alle\s+)?(projekte?|projects?)", msg_lower):
                 return SkillResult(text=list_projects(), skill_used=self.id)
 
-            # Alles andere: Return Skill-Info damit das LLM entscheiden kann
-            # (Der ChatService übergibt dem LLM die Skill-Beschreibung als Tool-Beschreibung)
+            # Multi-File-Extraktion aus LLM-Reply
+            if content:
+                files = _extract_files_from_markdown(content)
+                if files:
+                    project_name = _derive_project_name(message, content)
+                    result_text = create_project(project_name, files)
+                    path = _safe_project_path(project_name)
+                    if path:
+                        result_text += f"\n\nProjektpfad: `{path}`"
+                    return SkillResult(
+                        text=result_text,
+                        skill_used=self.id,
+                        metadata={"project_name": project_name, "files_written": len(files)},
+                    )
+
+            # Alles andere: passthrough
             return SkillResult(
-                text=None,  # None = Skill hat nicht direkt geantwortet
+                text=None,
                 skill_used=self.id,
-                metadata={"passthrough": True}  # Signal: LLM soll antworten
+                metadata={"passthrough": True}
             )
         except Exception as e:
             return SkillResult(error=str(e), skill_used=self.id)

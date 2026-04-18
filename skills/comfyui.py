@@ -121,26 +121,118 @@ def prepare_video_prompt(message: str, providers: dict = None) -> str:
     return p.strip()
 
 
+_IMAGE_PROMPT_NEGATIVE = (
+    "no text, no letters, no words, no watermark, no signature, "
+    "no title, no caption, no writing, clean image, photorealistic"
+)
+
+# Schneller Heuristik-Check: Enthält der String eindeutig deutschen Text?
+# Bewusst NUR Signale die im Englischen nicht vorkommen — keine falschen Positives
+# bei englischen Prompts mit "in", "warm", "golden" etc.
+_DE_HINT_RX = re.compile(
+    r"[äöüÄÖÜß]|"
+    r"\b(?:der|die|das|und|oder|ein|eine|einen|dem|den|des|"
+    r"mit|ohne|für|über|unter|zum|zur|"
+    r"nicht|kein|keine|ist|sind|wird|werden|war|waren|hat|haben|"
+    r"kinderbuch|märchen|schloss|kampf|pferd|reiter|wald|himmel|"
+    r"sonne|mond|sterne|meer|strand|berg|fluss|stadt|haus|frau|mann|"
+    r"kind|bild|bilder|szene|stil|geschichte|vorne|hinten|links|rechts|"
+    r"dunkel|hell|fröhlich|traurig|schön|gross|klein)\b",
+    re.IGNORECASE,
+)
+
+# Minimales Wort-Lookup als Fallback (wenn Ollama down ist)
+_DE_EN_FALLBACK = {
+    "strand": "beach", "meer": "sea", "himmel": "sky", "sonne": "sun",
+    "mond": "moon", "sterne": "stars", "planeten": "planets", "galaxie": "galaxy",
+    "berg": "mountain", "wald": "forest", "fluss": "river", "see": "lake",
+    "stadt": "city", "haus": "house", "mensch": "person", "personen": "people",
+    "frau": "woman", "mann": "man", "kind": "child", "tier": "animal",
+    "vogel": "bird", "blume": "flower", "baum": "tree", "straße": "street",
+    "gebäude": "building", "auto": "car", "boot": "boat", "flugzeug": "airplane",
+    "kinderbuch": "children's book", "märchen": "fairytale", "schloss": "castle",
+    "kampf": "battle", "pferd": "horse", "reiter": "knight",
+    "bild": "image", "bilder": "images", "szene": "scene", "stil": "style",
+    "dunkel": "dark", "hell": "bright", "licht": "light", "neon": "neon",
+    "grün": "green", "blau": "blue", "rot": "red", "schwarz": "black",
+    "weiß": "white", "gold": "golden", "dramatisch": "dramatic",
+    "warm": "warm", "fröhlich": "cheerful", "kalt": "cold",
+}
+
+
+def _translate_image_prompt_via_llm(prompt: str) -> str | None:
+    """Übersetzt/optimiert den Prompt via Ollama zu kurzem, bildhaftem Englisch."""
+    try:
+        providers = _load_providers()
+        ollama_url = providers.get("ollama", {}).get("url", "http://localhost:11434")
+        system = (
+            "You translate and optimize prompts for an AI IMAGE generator. "
+            "Rules: (1) Output MUST be English only. "
+            "(2) If the input is German or mixed, translate it fully. "
+            "(3) Preserve every visual detail — subjects, style, mood, composition, lighting. "
+            "(4) Output ONLY the final prompt. No quotes, no explanation, no meta text, no 'Prompt:'. "
+            "(5) Keep it under 200 words. "
+            "(6) Never invent new subjects; only rephrase what is there. "
+            "(7) If the input is already clean English, just return it unchanged."
+        )
+        resp = requests.post(
+            f"{ollama_url}/api/chat",
+            json={
+                "model": "gemma3:latest",
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": prompt},
+                ],
+                "stream": False,
+                "options": {"num_predict": 300, "temperature": 0.2},
+            },
+            timeout=45,
+        )
+        if not resp.ok:
+            return None
+        out = (resp.json().get("message", {}) or {}).get("content", "").strip()
+        if not out or len(out) < 5:
+            return None
+        # Häufigen Modell-Boilerplate entfernen
+        out = re.sub(r'^["\']+|["\']+$', "", out).strip()
+        out = re.sub(r"^(prompt|output|translation|result)\s*[:\-–]\s*", "",
+                     out, flags=re.IGNORECASE).strip()
+        return out
+    except Exception as e:
+        print(f"[ComfyUI] LLM translate failed: {e}", flush=True)
+        return None
+
+
 def optimize_prompt_for_image(prompt: str) -> str:
-    """Optimize prompt for image generation: English only, no text in output."""
-    translations = {
-        "strand": "beach", "meer": "sea", "himmel": "sky", "sonne": "sun",
-        "mond": "moon", "sterne": "stars", "planeten": "planets", "galaxie": "galaxy",
-        "berg": "mountain", "wald": "forest", "fluss": "river", "see": "lake",
-        "stadt": "city", "haus": "house", "mensch": "person", "personen": "people",
-        "frau": "woman", "mann": "man", "kind": "child", "tier": "animal",
-        "vogel": "bird", "blume": "flower", "baum": "tree", "straße": "street",
-        "gebäude": "building", "auto": "car", "boot": "boat", "flugzeug": "airplane",
-    }
-    p = prompt.lower()
-    for de, en in translations.items():
-        p = re.sub(rf"\b{de}\b", en, p)
+    """
+    Stellt sicher, dass der Prompt an ComfyUI immer Englisch ist.
+
+    Strategie:
+      1. Wenn kein Deutsch-Hinweis erkannt → Prompt ist schon Englisch, nur Negative anhängen.
+      2. Sonst via Ollama übersetzen (hohe Qualität, erhält Details).
+      3. Falls Ollama nicht erreichbar → Wort-Lookup + Umlaut-Replace als Notnagel.
+    """
+    raw = (prompt or "").strip()
+    if not raw:
+        return _IMAGE_PROMPT_NEGATIVE
+
+    # Schnellpfad: Englisch → nur Negative anhängen
+    if not _DE_HINT_RX.search(raw):
+        return f"{raw}, {_IMAGE_PROMPT_NEGATIVE}"
+
+    # Qualitätspfad: LLM-Übersetzung
+    translated = _translate_image_prompt_via_llm(raw)
+    if translated:
+        print(f"[ComfyUI] translated DE→EN: {translated[:80]}...", flush=True)
+        return f"{translated}, {_IMAGE_PROMPT_NEGATIVE}"
+
+    # Notnagel: Wort-Lookup + Umlaut-Normalisierung
+    print("[ComfyUI] translate fallback → wordlist", flush=True)
+    p = raw.lower()
+    for de, en in _DE_EN_FALLBACK.items():
+        p = re.sub(rf"\b{re.escape(de)}\b", en, p)
     p = p.replace("ü", "ue").replace("ö", "oe").replace("ä", "ae").replace("ß", "ss")
-    negative = (
-        "no text, no letters, no words, no watermark, no signature, "
-        "no title, no caption, no writing, clean image, photorealistic"
-    )
-    return f"{p}, {negative}"
+    return f"{p}, {_IMAGE_PROMPT_NEGATIVE}"
 
 
 # ── Thumbnail helper ────────────────────────────────────────────────────────────
@@ -459,7 +551,7 @@ def run_comfyui_sync(prompt: str) -> str:
         raise RuntimeError(f"ComfyUI Antwort unerwartet: {resp_json}")
     prompt_id = resp_json["prompt_id"]
 
-    outputs = _poll_comfyui(base_url, prompt_id, timeout=120, interval=2)
+    outputs = _poll_comfyui(base_url, prompt_id, timeout=600, interval=2)
     if not outputs:
         raise RuntimeError("Timeout: ComfyUI hat nicht rechtzeitig geantwortet")
 
@@ -627,7 +719,7 @@ def run_comfyui_edit(image_b64: str, prompt: str, use_lightning: bool = True) ->
         raise RuntimeError(f"ComfyUI Antwort unerwartet: {resp_json}")
     prompt_id = resp_json["prompt_id"]
 
-    outputs = _poll_comfyui(base_url, prompt_id, timeout=120, interval=2)
+    outputs = _poll_comfyui(base_url, prompt_id, timeout=600, interval=2)
     if not outputs:
         raise RuntimeError("Timeout: ComfyUI hat nicht rechtzeitig geantwortet")
 
@@ -730,8 +822,16 @@ TALKING_TRIGGERS = re.compile(
 _DURATION_RX = re.compile(r"(\d+(?:\.\d+)?)\s*(?:s|sec|sekunden|seconds)\b", re.IGNORECASE)
 
 
-def _resolve_local_audio(message: str, attachment_path: str | None) -> str | None:
-    """Audio-Pfad aus message (bare filename oder abs path) oder attachment auflösen."""
+def _resolve_local_audio(
+    message: str,
+    attachment_path: str | None,
+    audio_dataurls: list[str] | None = None,
+) -> str | None:
+    """Audio-Pfad aus message, attachment oder data-URL-Liste auflösen.
+
+    ``audio_dataurls``: Liste von ``data:audio/...;base64,...`` — erste Daten
+    werden in eine Tempdatei geschrieben und deren Pfad zurückgegeben.
+    """
     if attachment_path and os.path.exists(attachment_path):
         return attachment_path
     m = re.search(
@@ -744,6 +844,30 @@ def _resolve_local_audio(message: str, attachment_path: str | None) -> str | Non
         candidate = os.path.expanduser(f"~/Downloads/AgentClaw/{m.group(1)}")
         if os.path.exists(candidate):
             return candidate
+    # Audio als Data-URL in Tempdatei schreiben
+    if audio_dataurls:
+        import base64, tempfile
+        for du in audio_dataurls:
+            if not du or not du.startswith("data:"):
+                continue
+            header, _, b64 = du.partition(",")
+            ext = ".mp3"
+            if "wav" in header.lower():
+                ext = ".wav"
+            elif "mp4" in header.lower() or "m4a" in header.lower():
+                ext = ".m4a"
+            elif "ogg" in header.lower():
+                ext = ".ogg"
+            elif "flac" in header.lower():
+                ext = ".flac"
+            try:
+                raw = base64.b64decode(b64)
+            except Exception:
+                continue
+            fd, path = tempfile.mkstemp(suffix=ext, prefix="agentclaw_audio_")
+            with os.fdopen(fd, "wb") as f:
+                f.write(raw)
+            return path
     return None
 
 
@@ -765,7 +889,9 @@ class TalkingVideoSkill(BaseSkill):
                 error="Kein Bild übergeben — bitte Bild anhängen.",
                 skill_used=self.id,
             )
-        audio_path = _resolve_local_audio(message, context.get("attachment_path"))
+        audio_path = _resolve_local_audio(
+            message, context.get("attachment_path"), context.get("audio"),
+        )
         if not audio_path:
             return SkillResult(
                 error="Keine Audio-Datei gefunden. Pfad angeben oder in ~/Downloads/AgentClaw/ ablegen.",

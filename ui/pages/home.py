@@ -161,8 +161,6 @@ def _render_agent_card(agent: dict):
     is_fav = agent.get("favorite", False)
     status = agent.get("status", "idle")
 
-    # Initiale (bis zu 2 Zeichen)
-    initials = name[:2].upper() if len(name) >= 2 else name[0].upper()
     short_model = ""
     if model:
         short_model = model.split(":")[-1][:14] if ":" in model else model[:14]
@@ -179,14 +177,8 @@ def _render_agent_card(agent: dict):
     with card:
         # ─── Karten-Header ─────────────────────────────────────────────────
         with ui.row().style("align-items: flex-start; gap: 12px; margin-bottom: 12px;"):
-            # Avatar
-            with ui.element("div").style(
-                f"width: 44px; height: 44px; border-radius: 50%; background: {color}; "
-                f"display: flex; align-items: center; justify-content: center; "
-                f"font-size: 16px; font-weight: 700; color: #000; flex-shrink: 0; "
-                f"text-transform: uppercase; border: 2px solid rgba(255,255,255,0.1);"
-            ):
-                ui.label(initials)
+            from ui.components.avatar import render_avatar
+            ui.html(render_avatar(agent, size=44))
 
             # Name + Rolle
             with ui.column().style("gap: 2px; flex: 1; min-width: 0;"):

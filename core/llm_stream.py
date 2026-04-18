@@ -17,7 +17,7 @@ OPENROUTER_BASE_URL = settings.OPENROUTER_BASE_URL
 logger = logging.getLogger(__name__)
 
 # Timeout-Konfiguration: connect kurz, read lang (LLM braucht Zeit)
-_STREAM_TIMEOUT = httpx.Timeout(connect=10.0, read=360.0, write=10.0, pool=5.0)
+_STREAM_TIMEOUT = httpx.Timeout(connect=10.0, read=1800.0, write=10.0, pool=5.0)
 
 
 async def stream_openrouter(

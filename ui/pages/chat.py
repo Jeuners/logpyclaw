@@ -495,43 +495,82 @@ def _simple_md(text: str) -> str:
 # ─── Sidebar Agent ────────────────────────────────────────────────────────────
 
 
+# Skill-ID → Emoji für die Sidebar-Karten
+_SKILL_EMOJI = {
+    "image_gen": "🎨", "image_edit": "🖌️",
+    "video_gen": "🎬", "talking_video": "🎥",
+    "youtube": "📺", "transcription": "🎤",
+    "file_access": "📄", "linkedin": "💼",
+    "prompt_optimize": "✨", "url_fetch": "🔗",
+    "mac_mail": "📧", "gmail": "✉️",
+    "coding": "💻", "chrome_browser": "🌐",
+    "hacker_news": "📰", "tagesschau": "📡",
+    "whatsapp": "💬", "screenshot": "📸",
+}
+
+
 def _render_sidebar_agent(agent: dict, current_agent_id: str):
     ag_id = agent["id"]
     name = agent.get("name", "?")
     color = agent.get("color", "#00e676")
     model = agent.get("model", "")
+    role = agent.get("role", "")
     is_fav = agent.get("favorite", False)
     is_selected = ag_id == current_agent_id
-    initials = name[:2].upper() if len(name) >= 2 else name[0].upper()
 
-    border_style = "border-left: 2px solid #ffd700;" if is_fav else "border-left: 2px solid transparent;"
-    bg_style = (
-        f"background: rgba(0,230,118,.08); {border_style}"
-        if is_selected else f"background: transparent; {border_style}"
-    )
+    # Karten-Style: selected → grüner Rahmen + leichter Glow
+    if is_selected:
+        card_style = (
+            "background: rgba(0,230,118,.05); "
+            "border: 1px solid #00e676; "
+            "box-shadow: 0 0 0 1px rgba(0,230,118,.15), 0 0 16px rgba(0,230,118,.08);"
+        )
+    else:
+        card_style = (
+            "background: #0a130c; "
+            "border: 1px solid #132418; "
+            "box-shadow: none;"
+        )
 
     with ui.element("a").props(f'href="/chat/{ag_id}" data-agent-id="{ag_id}"').style(
-        f"display: flex; align-items: center; gap: 8px; padding: 8px; "
-        f"border-radius: 6px; cursor: pointer; transition: background .12s; "
-        f"margin-bottom: 2px; text-decoration: none; {bg_style}"
+        f"display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; "
+        f"border-radius: 10px; cursor: pointer; transition: all .15s; "
+        f"margin-bottom: 6px; text-decoration: none; position: relative; {card_style}"
     ).classes("ac-agent-item"):
-        with ui.element("div").style(
-            f"width: 30px; height: 30px; border-radius: 50%; background: {color}; "
-            f"display: flex; align-items: center; justify-content: center; "
-            f"font-size: 11px; font-weight: 700; color: #000; flex-shrink: 0; text-transform: uppercase;"
-        ):
-            ui.label(initials)
-        with ui.column().style("flex: 1; min-width: 0; gap: 0;"):
-            name_color = "color: #00e676;" if is_selected else "color: #b8d4b8;"
+        # Avatar — zentrale Komponente (agent['avatar'] steuert Bild/Initialien)
+        from ui.components.avatar import render_avatar
+        ui.html(render_avatar(agent, size=44))
+
+        # Text-Stack
+        with ui.column().style("flex: 1; min-width: 0; gap: 2px;"):
+            name_color = "color: #00e676;" if is_selected else "color: #e4f4e4;"
             ui.label(name).style(
-                f"font-size: 13px; font-weight: 500; {name_color} "
+                f"font-size: 14px; font-weight: 600; {name_color} "
                 f"overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
             )
+            if role:
+                ui.label(role).style(
+                    "font-size: 11px; color: #6a8a6a; font-family: monospace; "
+                    "overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                )
             if model:
-                short = model.split(":")[-1][:12] if ":" in model else model[:12]
-                ui.label(short).style("font-size: 9px; color: #3a5a3a; font-family: monospace;")
+                short = model.split("/")[-1][:16]
+                ui.label(short).style("font-size: 10px; color: #3a5a3a; font-family: monospace;")
+            # Skill-Emoji-Reihe
+            skills = agent.get("skills", []) or []
+            emojis = "".join(_SKILL_EMOJI.get(s, "") for s in skills)
+            if emojis:
+                ui.html(
+                    f'<div style="font-size:13px;line-height:1;margin-top:4px;'
+                    f'letter-spacing:2px">{emojis}</div>'
+                )
+
+        # Favorit-Stern oben rechts
         if is_fav:
-            ui.icon("star").style("font-size: 12px; color: #ffd700; flex-shrink: 0;")
+            ui.html(
+                '<span class="material-icons" style="position:absolute;top:10px;right:10px;'
+                'font-size:14px;color:#ffd700">star</span>'
+            )
 
 
 # ─── Chat Topbar ──────────────────────────────────────────────────────────────
@@ -545,7 +584,6 @@ def _build_topbar_html(agent: dict, agent_id: str, color: str) -> str:
     skills = agent.get("skills", [])
     model = agent.get("model", "")
     is_fav = agent.get("favorite", False)
-    initials = html_mod.escape((name[:2] if len(name) >= 2 else name[:1]).upper())
     safe_name = html_mod.escape(name)
     safe_role = html_mod.escape(role)
     safe_model = html_mod.escape(model.split("/")[-1][:16]) if model else ""
@@ -558,6 +596,8 @@ def _build_topbar_html(agent: dict, agent_id: str, color: str) -> str:
         for sk in skills[:5]
     )
 
+    from ui.components.avatar import render_avatar
+    avatar_html = render_avatar(agent, size=44)
     star_html = '<span class="material-icons" style="font-size:14px;color:#ffd700">star</span>' if is_fav else ""
     role_html = f'<div style="font-size:12px;color:#3a5a3a;font-family:monospace">{safe_role}</div>' if role else ""
     model_html = (
@@ -570,10 +610,8 @@ def _build_topbar_html(agent: dict, agent_id: str, color: str) -> str:
         f'<div id="ac-topbar" style="display:flex;align-items:center;gap:16px;padding:0 24px;'
         f'height:72px;background:#070d08;border-bottom:1px solid #0f2010;flex-shrink:0">'
 
-        # Avatar
-        f'<div style="width:44px;height:44px;border-radius:50%;background:{safe_color};'
-        f'display:flex;align-items:center;justify-content:center;'
-        f'font-size:18px;font-weight:700;color:#000;flex-shrink:0">{initials}</div>'
+        # Avatar (zentrale Komponente)
+        f'{avatar_html}'
 
         # Name + Role
         f'<div style="gap:2px;flex:1;min-width:0;display:flex;flex-direction:column">'

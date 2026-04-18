@@ -30,6 +30,7 @@ class ServiceContainer:
         # Cross-references für bidirektionale Dependencies
         self.chat.set_task_service(self.tasks)
         self.tasks.set_dispatcher(self.chat)   # Skill-Check + LLM-Fallback für A2A-Tasks
+        self.tasks.set_chat_service(self.chat) # Operator-Supervisor-Callback Re-Entry
         self.heartbeat.set_task_service(self.tasks)
 
         # WhatsApp Watcher starten

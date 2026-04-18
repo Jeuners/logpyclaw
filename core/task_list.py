@@ -30,15 +30,21 @@ _BLOCK_RX = re.compile(
     re.IGNORECASE,
 )
 
-# Zeilen-Parser: "AgentName: Task-Text [flags]" — @-Präfix ist optional.
-# LLMs schreiben oft intuitiv "@ARIA: ..." in Analogie zu A2A-Mentions.
-_LINE_RX = re.compile(
+# Zeilen-Parser — akzeptiert beides:
+#   "AgentName: Task-Text [flags]"   (mit Doppelpunkt, @-Präfix optional)
+#   "@AgentName Task-Text [flags]"   (ohne Doppelpunkt, @-Präfix Pflicht)
+_LINE_COLON_RX = re.compile(
     r"^@?([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9_\- ]{0,39}?)\s*:\s*(.+)$",
+    re.UNICODE,
+)
+_LINE_AT_RX = re.compile(
+    r"^@([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9_\-]{0,39})\s+(.+)$",
     re.UNICODE,
 )
 
 # Flag-Parser innerhalb der Task-Beschreibung
-_FLAG_AFTER_RX    = re.compile(r"\[after\s*:\s*(\d+)\]", re.IGNORECASE)
+# [after: N] oder [after: N,M,...] — eine oder mehrere Abhängigkeiten
+_FLAG_AFTER_RX    = re.compile(r"\[after\s*:\s*(\d+(?:\s*,\s*\d+)*)\]", re.IGNORECASE)
 _FLAG_PARALLEL_RX = re.compile(r"\[parallel\]", re.IGNORECASE)
 _FLAG_PRIORITY_RX = re.compile(r"\[priority\s*:\s*(\d+)\]", re.IGNORECASE)
 
@@ -52,10 +58,11 @@ class TaskItem:
     task_text: str
     sender_id: str = ""
     sender_name: str = ""
-    after_line: int = -1    # -1 = kein explizites after
+    after_lines: list[int] = field(default_factory=list)  # leer = kein explizites after
     priority: int = 5
     parallel: bool = False
     images: list = field(default_factory=list)
+    audio: list = field(default_factory=list)
     attachment_path: str = ""
 
     def to_task_dict(self, system_task_id: str = "", depends_on: list | None = None) -> dict:
@@ -80,6 +87,8 @@ class TaskItem:
         }
         if self.images:
             d["images"] = self.images
+        if self.audio:
+            d["audio"] = self.audio
         if self.attachment_path:
             d["attachment_path"] = self.attachment_path
         return d
@@ -122,24 +131,71 @@ def parse_task_list(
     items: list[TaskItem] = []
     line_index = 0
 
-    for raw_line in block.splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
+    # Tasks können mehrzeilig sein — ein Task startet an einer Zeile, die
+    # mit "@Name" oder "Name:" beginnt, und umfasst alle Folgezeilen bis
+    # zum nächsten solchen Start (oder Block-Ende).
+    # Wir sammeln Chunks und verarbeiten sie dann gemeinsam.
+    raw_chunks: list[str] = []
+    current: list[str] = []
+    lines = block.splitlines()
 
-        lm = _LINE_RX.match(line)
+    def _looks_like_task_start(s: str) -> bool:
+        t = s.strip()
+        if not t or t.startswith("#"):
+            return False
+        # Zeilen wie "```" oder Markdown-Header ignorieren
+        if t.startswith("```") or t.startswith("**") or t.startswith("*") or t.startswith("-"):
+            return False
+        # @Name ... ODER Name: ...
+        if _LINE_AT_RX.match(t):
+            return True
+        m2 = _LINE_COLON_RX.match(t)
+        if m2:
+            # Name muss ein bekannter Agent sein — vermeidet False-Positives
+            # bei Zeilen wie "Projekt-Pfad: ..." oder "Farbpalette: ..."
+            name = m2.group(1).strip().lower()
+            return name in name_map or _find_agent(name, name_map) is not None
+        return False
+
+    for raw_line in lines:
+        if _looks_like_task_start(raw_line):
+            if current:
+                raw_chunks.append("\n".join(current).strip())
+                current = []
+            current.append(raw_line)
+        else:
+            if current:
+                current.append(raw_line)
+            # Wenn kein aktueller Chunk offen ist (Vorspann), ignorieren.
+    if current:
+        raw_chunks.append("\n".join(current).strip())
+
+    for chunk in raw_chunks:
+        # Erste Zeile enthält @Name / Name:, Rest ist Fortsetzung der Task
+        first_line, _, rest = chunk.partition("\n")
+        first_line = first_line.strip()
+
+        # Erst Colon-Format probieren, dann @Name-ohne-Colon
+        lm = _LINE_COLON_RX.match(first_line) or _LINE_AT_RX.match(first_line)
         if not lm:
-            logger.debug("TASKLIST: Zeile übersprungen (kein 'AgentName: Task'): %r", line[:60])
+            logger.debug("TASKLIST: Chunk übersprungen: %r", first_line[:60])
             continue
 
         agent_name_raw = lm.group(1).strip()
-        task_raw = lm.group(2).strip()
+        # Task-Text = Rest der ersten Zeile + alle Folgezeilen
+        task_first = lm.group(2).strip()
+        task_raw = (task_first + ("\n" + rest if rest else "")).strip()
 
         # Flags extrahieren
         after_m    = _FLAG_AFTER_RX.search(task_raw)
         prio_m     = _FLAG_PRIORITY_RX.search(task_raw)
         parallel   = bool(_FLAG_PARALLEL_RX.search(task_raw))
-        after_line = int(after_m.group(1)) if after_m else -1
+        after_lines: list[int] = []
+        if after_m:
+            after_lines = [int(x.strip()) for x in after_m.group(1).split(",") if x.strip().isdigit()]
+        # Self-Referenz filtern: [after: N] auf der eigenen Zeile N ist Unsinn.
+        # Das LLM nutzt die Flag manchmal als Label ihrer eigenen Zeile statt als Dep.
+        after_lines = [a for a in after_lines if a != line_index]
         priority   = int(prio_m.group(1)) if prio_m else 5
 
         # Flags aus Task-Text entfernen
@@ -174,7 +230,7 @@ def parse_task_list(
             task_text=task_text,
             sender_id=sender_id,
             sender_name=sender_agent.get("name", ""),
-            after_line=after_line,
+            after_lines=after_lines,
             priority=max(1, min(10, priority)),
             parallel=parallel,
         ))

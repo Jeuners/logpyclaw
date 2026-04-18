@@ -38,6 +38,7 @@ class A2ADispatch:
     delegation_depth: int = 1
     timeout_secs: int = 1210
     images: list = field(default_factory=list)        # base64-Bilder weitergeben
+    audio: list = field(default_factory=list)          # base64-Audio (MP3) weitergeben
     attachment_path: str = ""                          # Dateipfad weitergeben
     metadata: dict = field(default_factory=dict)
 
@@ -63,6 +64,8 @@ class A2ADispatch:
         }
         if self.images:
             d["images"] = self.images
+        if self.audio:
+            d["audio"] = self.audio
         if self.attachment_path:
             d["attachment_path"] = self.attachment_path
         return d

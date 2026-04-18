@@ -78,8 +78,8 @@ class HeartbeatService:
 
             if "image_gen" in skills:
                 result_image, short = self._run_image_heartbeat(agent, prompt)
-                from skills.comfyui import _make_thumbnail
-                thumb = _make_thumbnail(result_image)
+                from skills.comfyui import make_thumbnail
+                thumb = make_thumbnail(result_image)
                 history[agent_id].append({
                     "role": "assistant",
                     "content": "💓 **Heartbeat** — Bild generiert",

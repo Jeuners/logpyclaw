@@ -214,8 +214,14 @@ _SKILL_MAP = {s["id"]: s for s in SKILLS}
 
 def _build_agent_directory(current_agent_id: str = None) -> str:
     """
-    Baut ein kompaktes Agent-Verzeichnis und Delegationsregeln dynamisch auf.
-    Filtert Agenten heraus, deren Skills der aktuelle Agent bereits selbst besitzt.
+    Baut ein kompaktes Agent-Verzeichnis dynamisch auf.
+
+    Pro anderem Agent:
+      • Wenn `delegation_card` gesetzt ist → nimm die Karte (agent-eigene Selbstbeschreibung).
+      • Sonst → generische Zeile mit Skill-Liste (Legacy-Fallback).
+
+    Die eigenen Skills werden oben gelistet mit dem Hinweis, dass diese
+    NIEMALS delegiert werden.
     """
     from storage.agents import load_agents
 
@@ -230,66 +236,48 @@ def _build_agent_directory(current_agent_id: str = None) -> str:
         s = _SKILL_MAP.get(sid)
         return f"{s['icon']} {s['name']}" if s else sid
 
-    skill_to_agents = {}
-    for a in agents:
-        if a["id"] == current_agent_id:
-            continue
-        for s in a.get("skills", []):
-            if s not in my_skills:
-                skill_to_agents.setdefault(s, []).append(a["name"])
-
     own_skills_str = (
         ", ".join(_skill_label(s) for s in sorted(my_skills)) if my_skills else "keine"
     )
+
     lines = [
         "--- AGENT NETZWERK ---",
         f"⚡ DEINE EIGENEN SKILLS: {own_skills_str}",
-        f"→ Diese Skills führst du IMMER selbst aus. Für diese Skills delegierst du NIEMALS.",
+        "→ Diese Skills führst du IMMER selbst aus. Dafür delegierst du NIEMALS.",
         "",
-        "Für Skills die du NICHT besitzt kannst du @AgentName <Task> delegieren:",
+        "VERFÜGBARE AGENTEN ZUM DELEGIEREN (via @Name <Auftrag>):",
         "",
     ]
 
-    delegation_map = [
-        ("Screenshot", "screenshot"),
-        ("Website analysieren / URL check", "url_fetch"),
-        ("Bild generieren / Foto / Malen", "image_gen"),
-        ("Video generieren / Animieren / Clip", "video_gen"),
-        ("Prompt optimieren", "prompt_optimize"),
-        ("Tagesschau / Nachrichten", "tagesschau"),
-        ("Hacker News / Tech News", "hackernews"),
-        ("Memory / Erinnerungen", "memory"),
-        ("Telegram Nachrichten", "telegram_incoming"),
-        ("Web Suche", "web_search"),
-        ("Gmail / E-Mail", "gmail"),
-    ]
-
-    for label, sid in delegation_map:
-        if sid in my_skills:
-            continue
-        target_agents = skill_to_agents.get(sid, [])
-        if target_agents:
-            mentions = " oder ".join([f"@{name}" for name in target_agents])
-            lines.append(f"• **{label}** → {mentions}")
-
-    lines += [
-        "",
-        "VERFÜGBARE HILFS-AGENTS IM NETZWERK:",
-    ]
-
+    has_any_card = False
+    legacy_lines = []
     for a in agents:
         if a["id"] == current_agent_id:
             continue
+        card = (a.get("delegation_card") or "").strip()
         other_skills = set(a.get("skills", []))
         useful_skills = other_skills - my_skills
-        if useful_skills:
+        if card:
+            has_any_card = True
+            lines.append(f"### @{a['name']}")
+            lines.append(card)
+            lines.append("")
+        elif useful_skills:
             skill_str = ", ".join(_skill_label(s) for s in sorted(useful_skills))
-            lines.append(f"  • {a['name']} — kann: {skill_str}")
+            legacy_lines.append(f"  • @{a['name']} — kann: {skill_str}")
+
+    if legacy_lines:
+        if has_any_card:
+            lines.append("Weitere Agenten (Skill-Liste):")
+        lines.extend(legacy_lines)
+        lines.append("")
 
     lines += [
-        "",
-        "REGEL: Jeder Agent sieht nur die Skills anderer Agents die er selbst NICHT hat.",
-        "Ein Agent der für einen Skill nicht gelistet ist → nutze deinen eigenen.",
+        "REGELN:",
+        "• Jede Delegation ist self-contained — der Empfänger hat KEINEN Zugriff auf deinen Chat.",
+        "  Pack alles Nötige in die Task (Story/Inhalt/Spec/Pfade inline, keine Rückreferenzen).",
+        "• Nutze [tasklist]...[/tasklist] für mehrteilige Aufträge, ketten via [after: N].",
+        "• Ein Agent der keine passende Fähigkeit hat → nutze deinen eigenen Skill oder antworte selbst.",
         "--- ENDE AGENT NETZWERK ---",
     ]
     return "\n".join(lines)
