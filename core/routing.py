@@ -43,8 +43,15 @@ ROUTING_RULES: list[tuple[str, str]] = [
     # E-Mail → Mailbox
     (r"\b(?:mail|e-mail|email|gmail|smtp)\b",                       "Mailbox"),
 
-    # Wiki / Wissen → Wiki
-    (r"\b(?:erkl[äa]r|was\s+ist|definition|wikipedia|wikidata)\b",  "Wiki"),
+    # Allgemeinwissen / Recherche / Begriffserklärungen → Recon
+    # (Wiki-Agent ist das PROJEKT-Wiki, nicht Wikipedia — daher hier NICHT routen)
+    (r"\b(?:erkl[äa]r|was\s+ist|definition|wikipedia|wikidata)\b",  "Recon"),
+    (r"\b(?:such\w*|search|google|recherchier\w*)\b.{0,30}\b(?:im\s+web|online|nach)\b", "Recon"),
+    (r"\bweb[\s\-]?search\b",                                        "Recon"),
+    # Alltagswissen / How-To-Fragen → Recon (web_search liefert Rezepte/Anleitungen)
+    (r"\bwie\s+(?:backe|koche|mach|repariere|bastle|baue|pflanze|funktioniert|heißt)\b", "Recon"),
+    (r"\b(?:rezept|anleitung|tutorial)\s+(?:für|zu|von)\b",          "Recon"),
+    (r"\b(?:wer|wann|wo)\s+(?:ist|war|hat|ging|kommt)\b",             "Recon"),
 
     # Memory / Notizen → DREAM
     (r"\b(?:merk\s+(?:dir|es)|speicher\s+das|erinnerung|notiz)\b",  "DREAM"),
@@ -79,6 +86,39 @@ def find_target_agent(message: str, all_agents: list[dict]) -> Optional[dict]:
     return best_agent
 
 
+# Patterns die direkt einem Skill des Ziel-Agenten entsprechen.
+# Wenn keiner matcht → Router prefixt mit einem deterministischen Skill-Trigger,
+# damit der Ziel-Agent nicht ins LLM-Halluzinieren fällt.
+_RECON_SKILL_HINTS: list[tuple[str, str]] = [
+    # (pattern, prefix oder None — None = original lassen)
+    (r"\bwikipedia\b",                                                       ""),
+    (r"\b(?:such\w*|search|google|duckduckgo|recherchier\w*|web[\s\-]?search)\b", ""),
+    # Fallback für alle anderen Recon-Routen → web_search
+    (r".*",                                                                  "suche im web nach "),
+]
+
+
+def reformulate_for_agent(message: str, target_agent_name: str) -> str:
+    """
+    Präpariert die Message für den Ziel-Agenten, damit dessen deterministische
+    Skill-Trigger matchen. Verhindert LLM-Halluzination bei nicht-triggernden
+    Nachrichten (z.B. 'wie backe ich brot' → 'suche im web nach wie backe ich brot').
+    """
+    if target_agent_name.lower() != "recon":
+        return message
+    # Finde den ersten passenden Hint
+    for pattern, prefix in _RECON_SKILL_HINTS:
+        if re.search(pattern, message, re.IGNORECASE):
+            if prefix:
+                logger.info(
+                    "reformulate: '%s...' → prefix '%s' (für @%s)",
+                    message[:50], prefix, target_agent_name
+                )
+                return prefix + message
+            return message
+    return message
+
+
 def build_routing_table_for_prompt(all_agents: list[dict]) -> str:
     """
     Generiert eine lesbare Routing-Tabelle für den LLM-System-Prompt.
@@ -92,7 +132,8 @@ def build_routing_table_for_prompt(all_agents: list[dict]) -> str:
         "Video-Agent": "Videos, Animationen, Clips, Reels, YouTube-Download, Transkript/Untertitel (transdownload)",
         "Image-Agent":     "Bilder generieren, Fotos, Illustrationen, Artwork",
         "Mailbox":     "E-Mails lesen und versenden",
-        "Wiki":        "Erklärungen, Definitionen, Wissensfragen",
+        "Recon":       "Web-Recherche, Wikipedia, Begriffserklärungen, Definitionen, URL-Inhalte",
+        "Wiki":        "Projekt-internes Wiki pflegen (ingest/query/lint im AgentClaw-Wiki)",
         "DREAM":       "Erinnerungen, Notizen, Memory speichern",
     }
     agent_names = {a["name"] for a in all_agents}

@@ -170,12 +170,17 @@ def build_wiki_context_block(message: str, agent: dict) -> str:
     """Markdown-Block zur Injektion in den System-Prompt, oder leer.
 
     Skip-Conditions:
+      - Agent ist Operator (delegiert nur, baut keine Inhalts-Antworten)
       - Agent hat kein wiki_read-Skill (kennt das Wiki nicht)
       - Message ist ein direkter Wiki-Command (Skill feuert sowieso)
       - Message ist ein Supervisor-Callback (system-generiert)
       - Message zu kurz (< 12 Zeichen)
       - Keine relevante Seite gefunden
     """
+    # Operator-Agenten (MARTIN & Co) sollen NIE inhaltlich antworten, sondern
+    # routen. Ambient-Context würde sie verführen Dinge selbst zu beantworten.
+    if agent.get("operator"):
+        return ""
     if "wiki_read" not in agent.get("skills", []):
         return ""
     if not message or len(message.strip()) < 12:

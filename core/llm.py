@@ -82,6 +82,65 @@ def call_agent_text(agent, system_suffix, user_prompt, retries: int = 2):
             print(f"[call_agent_text] Timeout attempt {attempt+1}/{retries+1} für {agent.get('name')}", flush=True)
             if attempt < retries:
                 _time.sleep(2 ** attempt)
-        except requests.exceptions.RequestException:
+        except requests.exceptions.HTTPError as e:
+            # OpenRouter liefert sporadisch 404/429/5xx (Routing-Glitch, Rate-Limit,
+            # Upstream-Down). Diese sind retryable. 401/403 = Auth-Fehler → sofort raise.
+            status = getattr(e.response, "status_code", 0)
+            if status in (404, 408, 425, 429, 500, 502, 503, 504) and attempt < retries:
+                last_exc = e
+                wait = 5 * (2 ** attempt)  # 5s, 10s, 20s
+                print(f"[call_agent_text] HTTP {status} von {provider} für {agent.get('name')} — retry {attempt+1}/{retries} in {wait}s", flush=True)
+                _time.sleep(wait)
+                continue
             raise
+        except requests.exceptions.RequestException as e:
+            # Connection-Errors etc. auch retryable
+            last_exc = e
+            if attempt < retries:
+                wait = 5 * (2 ** attempt)
+                print(f"[call_agent_text] {type(e).__name__} für {agent.get('name')} — retry {attempt+1}/{retries} in {wait}s", flush=True)
+                _time.sleep(wait)
+                continue
+            break  # raus aus Retry-Loop → Fallback unten
+    # Alle OpenRouter-Versuche fehlgeschlagen → Fallback auf Ollama gemma4:e4b
+    if provider == "openrouter":
+        from core.llm_stream import FALLBACK_MODEL
+        print(
+            f"[call_agent_text] OpenRouter final failed für {agent.get('name')} "
+            f"({agent.get('model')}) — Fallback auf ollama/{FALLBACK_MODEL}",
+            flush=True,
+        )
+        try:
+            ollama_url = providers.get("ollama", {}).get("url", "http://localhost:11434")
+            # Ollama versteht keine Multi-Part-Content-Listen → auf Text flachklopfen
+            def _flatten_msg(m):
+                c = m.get("content", "")
+                if isinstance(c, list):
+                    parts = []
+                    for p in c:
+                        if isinstance(p, dict):
+                            t = p.get("text") or p.get("content") or ""
+                            if t:
+                                parts.append(t)
+                        elif isinstance(p, str):
+                            parts.append(p)
+                    c = "\n".join(parts)
+                return {"role": m.get("role", "user"), "content": c or ""}
+            flat_messages = [_flatten_msg(m) for m in messages]
+            resp = requests.post(
+                f"{ollama_url}/api/chat",
+                json={
+                    "model": FALLBACK_MODEL,
+                    "messages": flat_messages,
+                    "stream": False,
+                    **({"options": {"num_predict": agent["max_tokens"]}} if agent.get("max_tokens") else {}),
+                },
+                timeout=LLM_REQUEST_TIMEOUT,
+            )
+            resp.raise_for_status()
+            result = resp.json()
+            return result.get("message", {}).get("content", result.get("response", "")).strip()
+        except Exception as fe:
+            print(f"[call_agent_text] Fallback ebenfalls gescheitert: {fe}", flush=True)
+            raise last_exc or fe
     raise last_exc

@@ -162,6 +162,53 @@ class ChatService:
             self._events.emit_chat_message(agent_id, "assistant", reply, image=image)
             return {"reply": reply, "skill": skill_result.skill_used, "image": image, "agent_id": agent_id}
 
+        # 2b. Deterministic Routing für Operator-Agenten (PRE-LLM).
+        # Operator sollen nie selbst antworten. Wenn der Router die Nachricht
+        # deterministisch einem anderen Agenten zuordnen kann, delegieren wir
+        # direkt — spart den LLM-Call und verhindert Memory-Contamination
+        # (z.B. Nemotron das an @Wiki statt @Recon routet).
+        # Supervisor-Callback-Messages NICHT durch den PRE-LLM-Router schicken —
+        # die sind systemgeneriert und enthalten Text ("recherchier",
+        # "web search", "completed/**Auftrag:**"), der den Router sonst
+        # re-triggert und eine Zombie-Cascade auslöst. Der normale LLM-Path
+        # (Nemotron) soll die Synthese übernehmen.
+        is_supervisor_callback = (
+            message.lstrip().startswith("[SUPERVISOR-CALLBACK")
+            or "completed\n**Auftrag:**" in message[:200]
+        )
+        if agent.get("operator") and not is_supervisor_callback:
+            from core.routing import find_target_agent, reformulate_for_agent
+            all_agents = load_agents()
+            routed = find_target_agent(message, all_agents)
+            if routed and routed.get("id") != agent.get("id"):
+                logger.info(
+                    "PRE-LLM DeterministicRouter (Operator): @%s ← '%s...'",
+                    routed["name"], message[:60]
+                )
+                reformulated = reformulate_for_agent(message, routed["name"])
+                reply = f"@{routed['name']} {reformulated}"
+                dispatches = self._dispatch_mentions(agent, reply,
+                                                     images=images,
+                                                     audio=audio,
+                                                     attachment_path=attachment_path)
+                from core.a2a_protocol import strip_a2a_for_display
+                display_reply = strip_a2a_for_display(reply) if dispatches else reply
+                self._save_history(agent_id, message, reply)
+                if display_reply:
+                    self._events.emit_chat_message(agent_id, "assistant", display_reply)
+                for d in dispatches:
+                    self._events.emit_a2a_dispatch(
+                        agent["id"], agent["name"],
+                        d.recipient_name, d.task_text,
+                    )
+                return {
+                    "reply": display_reply,
+                    "a2a_dispatches": [{"recipient_name": d.recipient_name, "task_text": d.task_text, "task_id": d.metadata.get("task_id", "")} for d in dispatches],
+                    "skill": None,
+                    "image": None,
+                    "agent_id": agent_id,
+                }
+
         # 3. LLM aufrufen
         history_data = load_history()
         agent_history = history_data.get(agent_id, [])
@@ -213,8 +260,9 @@ class ChatService:
 
         # 5b. @Mentions dispatchen + Display-Reply bereinigen (images/attachment weitergeben)
         # Deterministisches Routing: Falls LLM keine @Mention geliefert hat, selbst ermitteln
+        # Skippen bei Supervisor-Callbacks — siehe PRE-LLM-Router oben.
         from core.a2a_protocol import strip_a2a_for_display, _MENTION_RX
-        if not _MENTION_RX.search(reply):
+        if not _MENTION_RX.search(reply) and not is_supervisor_callback:
             from core.routing import find_target_agent
             all_agents = load_agents()
             routed = find_target_agent(message, all_agents)
@@ -537,6 +585,7 @@ class ChatService:
     def _call_llm(self, agent, message, history, images, providers, audio=None) -> str:
         """LLM aufrufen mit vollständiger History (synchron, für run_in_executor)."""
         import requests as req
+        import time as _time
         OPENROUTER_BASE_URL = settings.OPENROUTER_BASE_URL
 
         messages = self._build_messages(agent, message, history, images, providers, audio=audio)
@@ -548,26 +597,84 @@ class ChatService:
             temperature = 0.7
 
         if provider == "openrouter":
+            from core.llm_stream import _RETRYABLE_STATUS, FALLBACK_MODEL
             or_key = providers.get("openrouter", {}).get("api_key", "")
-            resp = req.post(
-                f"{OPENROUTER_BASE_URL}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {or_key}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "http://localhost:5050",
-                    "X-Title": "AgentClaw",
-                },
-                json={
-                    "model": model,
-                    "messages": messages,
-                    "stream": False,
-                    "temperature": temperature,
-                    **({"max_tokens": max_tokens} if max_tokens else {}),
-                },
-                timeout=LLM_REQUEST_TIMEOUT,
-            )
-            resp.raise_for_status()
-            return (resp.json()["choices"][0]["message"].get("content") or "").strip()
+            last_exc = None
+            for attempt in range(3):  # 3 Versuche
+                try:
+                    resp = req.post(
+                        f"{OPENROUTER_BASE_URL}/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {or_key}",
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": "http://localhost:5050",
+                            "X-Title": "AgentClaw",
+                        },
+                        json={
+                            "model": model,
+                            "messages": messages,
+                            "stream": False,
+                            "temperature": temperature,
+                            **({"max_tokens": max_tokens} if max_tokens else {}),
+                        },
+                        timeout=LLM_REQUEST_TIMEOUT,
+                    )
+                    resp.raise_for_status()
+                    return (resp.json()["choices"][0]["message"].get("content") or "").strip()
+                except req.exceptions.HTTPError as e:
+                    status = getattr(e.response, "status_code", 0)
+                    last_exc = e
+                    if status in _RETRYABLE_STATUS and attempt < 2:
+                        wait = 5 * (2 ** attempt)
+                        logger.warning("_call_llm: OpenRouter HTTP %d für %s — retry %d/3 in %ds", status, model, attempt+2, wait)
+                        _time.sleep(wait)
+                        continue
+                    break  # Auth-Fehler oder Retry exhausted → Fallback
+                except req.exceptions.RequestException as e:
+                    last_exc = e
+                    if attempt < 2:
+                        wait = 5 * (2 ** attempt)
+                        logger.warning("_call_llm: %s für %s — retry %d/3 in %ds", type(e).__name__, model, attempt+2, wait)
+                        _time.sleep(wait)
+                        continue
+                    break
+            # Fallback auf Ollama gemma4:e4b
+            logger.warning("_call_llm: OpenRouter (%s) komplett failed: %s — Fallback auf ollama/%s", model, last_exc, FALLBACK_MODEL)
+            ollama_url = providers.get("ollama", {}).get("url", "http://localhost:11434")
+            # Ollama versteht keine Multi-Part-Content-Listen (OpenRouter-Style).
+            # → jede Message auf reinen Text reduzieren.
+            def _flatten_msg(m):
+                c = m.get("content", "")
+                if isinstance(c, list):
+                    parts = []
+                    for p in c:
+                        if isinstance(p, dict):
+                            t = p.get("text") or p.get("content") or ""
+                            if t:
+                                parts.append(t)
+                        elif isinstance(p, str):
+                            parts.append(p)
+                    c = "\n".join(parts)
+                return {"role": m.get("role", "user"), "content": c or ""}
+            flat_messages = [_flatten_msg(m) for m in messages]
+            try:
+                resp = req.post(
+                    f"{ollama_url}/api/chat",
+                    json={
+                        "model": FALLBACK_MODEL,
+                        "messages": flat_messages,
+                        "stream": False,
+                        "options": {"temperature": temperature, **({"num_predict": max_tokens} if max_tokens else {})},
+                    },
+                    timeout=LLM_REQUEST_TIMEOUT,
+                )
+                resp.raise_for_status()
+                result = resp.json()
+                content = result.get("message", {}).get("content", result.get("response", ""))
+                return f"⚠️ OpenRouter-Fehler, Antwort via Fallback `{FALLBACK_MODEL}`:\n\n{content.strip()}"
+            except Exception as fe:
+                logger.error("_call_llm: Fallback ebenfalls gescheitert: %s", fe)
+                raise last_exc or fe
         else:
             from core.model_capabilities import supports_thinking, split_thinking_and_content
             ollama_url = providers.get("ollama", {}).get("url", "http://localhost:11434")

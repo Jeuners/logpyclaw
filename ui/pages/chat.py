@@ -257,6 +257,71 @@ def chat_page(agent_id: str):
             background: #0f2010; color: #3a5a3a;
             box-shadow: none; cursor: default;
         }
+
+        /* ── Sidebar: Compact-Mode + Activity-Pulse ── */
+        @keyframes ac-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: .55; transform: scale(1.12); }
+        }
+        @keyframes ac-border-pulse {
+            0%, 100% { box-shadow: 0 0 0 1px rgba(0,230,118,.12), 0 0 12px rgba(0,230,118,.05); }
+            50%      { box-shadow: 0 0 0 1px rgba(0,230,118,.5),  0 0 22px rgba(0,230,118,.25); }
+        }
+        .ac-agent-item.is-active {
+            border-color: rgba(0,230,118,.45) !important;
+            animation: ac-border-pulse 1.6s ease-in-out infinite;
+        }
+        .ac-agent-item.is-active .ac-skills-row {
+            animation: ac-pulse 1.2s ease-in-out infinite;
+        }
+        .ac-activity-chip {
+            display: none;
+            font-size: 10px; font-family: monospace;
+            padding: 2px 6px; border-radius: 4px; margin-top: 4px;
+            background: rgba(0,230,118,.12); color: #00e676;
+            border: 1px solid rgba(0,230,118,.3);
+            align-self: flex-start;
+            letter-spacing: .3px;
+            max-width: 100%; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap;
+        }
+        .ac-agent-item.is-active .ac-activity-chip { display: inline-block; }
+
+        /* Compact-Mode: alles ausblenden außer selected + active */
+        .ac-sidebar.compact .ac-agent-item:not(.is-selected):not(.is-active) {
+            display: none;
+        }
+        .ac-sidebar.compact #ac-filter-wrap { display: none; }
+
+        /* Sidebar-Header Controls */
+        .ac-sidebar-head-btn {
+            width: 20px; height: 20px; display: inline-flex;
+            align-items: center; justify-content: center; border-radius: 4px;
+            cursor: pointer; color: #3a5a3a; background: transparent;
+            border: none; transition: all .15s;
+        }
+        .ac-sidebar-head-btn:hover { color: #00e676; background: rgba(0,230,118,.08); }
+        .ac-sidebar-head-btn.active { color: #00e676; }
+        .ac-sidebar-head-btn .material-icons { font-size: 14px; }
+
+        #ac-filter-wrap {
+            padding: 6px 10px;
+            border-bottom: 1px solid #0f2010;
+            flex-shrink: 0;
+        }
+        #ac-filter-input {
+            width: 100%; background: #0a130c; border: 1px solid #132418;
+            border-radius: 6px; padding: 5px 10px;
+            color: #e4f4e4; font-size: 12px; font-family: inherit;
+            outline: none; transition: border-color .15s;
+        }
+        #ac-filter-input:focus { border-color: #00e676; }
+        #ac-filter-input::placeholder { color: #2a4a2a; }
+
+        .ac-empty-hint {
+            color: #3a5a3a; font-size: 11px; font-style: italic;
+            text-align: center; padding: 18px 8px; font-family: monospace;
+        }
     """)
 
     # ─── 2-Spalten-Layout ────────────────────────────────────────────────
@@ -264,30 +329,39 @@ def chat_page(agent_id: str):
         "display: flex; width: 100%; height: calc(100vh - 44px); overflow: hidden; gap: 0;"
     ):
         # Linke Sidebar
-        with ui.element("div").style(
+        with ui.element("div").classes("ac-sidebar compact").props('id="ac-sidebar"').style(
             "width: 228px; min-width: 228px; flex-shrink: 0; "
             "background: #070d08; border-right: 1px solid #0f2010; "
             "display: flex; flex-direction: column; overflow: hidden;"
         ):
-            with ui.element("div").style(
-                "padding: 10px 14px 8px; font-size: 10px; font-weight: 700; "
-                "color: #3a5a3a; text-transform: uppercase; letter-spacing: 1.2px; "
-                "font-family: 'SF Mono','Fira Code',monospace; flex-shrink: 0; "
-                "border-bottom: 1px solid #0f2010; display: flex; "
-                "align-items: center; justify-content: space-between;"
-            ):
-                ui.label("Agenten")
-                ui.html('''<a href="/agent/new" title="Neuer Agent"
-                    style="color:#00e676;width:24px;height:24px;display:inline-flex;
-                    align-items:center;justify-content:center;border-radius:50%;
-                    text-decoration:none">
-                    <span class="material-icons" style="font-size:16px">add</span>
-                </a>''')
+            ui.html('''
+                <div style="padding: 10px 14px 8px; font-size: 10px; font-weight: 700;
+                    color: #3a5a3a; text-transform: uppercase; letter-spacing: 1.2px;
+                    font-family: 'SF Mono','Fira Code',monospace; flex-shrink: 0;
+                    border-bottom: 1px solid #0f2010; display: flex;
+                    align-items: center; justify-content: space-between; gap: 6px;">
+                    <span id="ac-sidebar-title">Aktiv</span>
+                    <div style="display:flex;gap:4px;align-items:center">
+                        <button id="ac-toggle-mode" class="ac-sidebar-head-btn"
+                            title="Alle Agenten anzeigen">
+                            <span class="material-icons">groups</span>
+                        </button>
+                        <a href="/agent/new" class="ac-sidebar-head-btn" title="Neuer Agent">
+                            <span class="material-icons">add</span>
+                        </a>
+                    </div>
+                </div>
+                <div id="ac-filter-wrap">
+                    <input id="ac-filter-input" type="text"
+                        placeholder="Filter (Name, Skill, Rolle…)" autocomplete="off">
+                </div>
+            ''')
 
             with ui.scroll_area().style("flex: 1; min-height: 0;"):
-                with ui.column().style("padding: 4px 6px; gap: 0;"):
+                with ui.column().props('id="ac-agents-list"').style("padding: 4px 6px; gap: 0;"):
                     for ag in agents_sorted:
                         _render_sidebar_agent(ag, agent_id)
+                    ui.html('<div id="ac-sidebar-empty" class="ac-empty-hint" style="display:none">Keine aktiven Agenten.<br>Auf <span class="material-icons" style="font-size:12px;vertical-align:middle">groups</span> klicken, um alle zu sehen.</div>')
 
         # Rechter Bereich: Chat
         with ui.element("div").style(
@@ -416,6 +490,100 @@ document.addEventListener('DOMContentLoaded', function() {{
             if (window._acTts) window._acTts.stop();
         }});
     }}
+
+    // ─── Sidebar: Compact-Toggle + Filter + Activity-Polling ─────────
+    var sidebar = document.getElementById('ac-sidebar');
+    var toggleBtn = document.getElementById('ac-toggle-mode');
+    var filterInput = document.getElementById('ac-filter-input');
+    var titleEl = document.getElementById('ac-sidebar-title');
+    var emptyHint = document.getElementById('ac-sidebar-empty');
+
+    function setMode(mode) {{
+        if (!sidebar) return;
+        if (mode === 'all') {{
+            sidebar.classList.remove('compact');
+            if (toggleBtn) toggleBtn.classList.add('active');
+            if (toggleBtn) toggleBtn.title = 'Nur aktive anzeigen';
+            if (titleEl) titleEl.textContent = 'Alle Agenten';
+        }} else {{
+            sidebar.classList.add('compact');
+            if (toggleBtn) toggleBtn.classList.remove('active');
+            if (toggleBtn) toggleBtn.title = 'Alle Agenten anzeigen';
+            if (titleEl) titleEl.textContent = 'Aktiv';
+        }}
+        try {{ localStorage.setItem('ac.sidebarMode', mode); }} catch(e) {{}}
+        updateEmptyHint();
+    }}
+
+    function updateEmptyHint() {{
+        if (!sidebar || !emptyHint) return;
+        var isCompact = sidebar.classList.contains('compact');
+        if (!isCompact) {{ emptyHint.style.display = 'none'; return; }}
+        // Im Compact-Mode: visible wenn keine Agent-Card angezeigt wird
+        var visible = sidebar.querySelectorAll('.ac-agent-item.is-selected, .ac-agent-item.is-active');
+        emptyHint.style.display = visible.length === 0 ? 'block' : 'none';
+    }}
+
+    // Initialer Mode aus localStorage (default: compact)
+    var savedMode = 'compact';
+    try {{ savedMode = localStorage.getItem('ac.sidebarMode') || 'compact'; }} catch(e) {{}}
+    setMode(savedMode);
+
+    if (toggleBtn) {{
+        toggleBtn.addEventListener('click', function(ev) {{
+            ev.preventDefault();
+            var isCompact = sidebar.classList.contains('compact');
+            setMode(isCompact ? 'all' : 'compact');
+        }});
+    }}
+
+    // Filter-Input (funktioniert nur im 'all'-Mode weil sonst alle hidden)
+    if (filterInput) {{
+        filterInput.addEventListener('input', function() {{
+            var q = filterInput.value.trim().toLowerCase();
+            var items = sidebar.querySelectorAll('.ac-agent-item');
+            items.forEach(function(el) {{
+                if (!q) {{ el.style.removeProperty('display'); return; }}
+                var hay = el.getAttribute('data-haystack') || '';
+                el.style.display = hay.indexOf(q) >= 0 ? '' : 'none';
+            }});
+        }});
+    }}
+
+    // Activity-Polling: /api/memory/activity alle 2s
+    // Markiert Agenten mit Klasse .is-active + füllt Chip mit Label.
+    var activityTimer = null;
+    function pollActivity() {{
+        fetch('/api/activity', {{ cache: 'no-store' }})
+            .then(function(r) {{ return r.ok ? r.json() : {{}}; }})
+            .then(function(data) {{
+                var activeIds = Object.keys(data || {{}});
+                var items = sidebar.querySelectorAll('.ac-agent-item');
+                items.forEach(function(el) {{
+                    var id = el.getAttribute('data-agent-id');
+                    var info = data[id];
+                    var chip = el.querySelector('.ac-activity-chip');
+                    if (info) {{
+                        el.classList.add('is-active');
+                        if (chip) {{
+                            var lbl = (info.label || info.type || 'aktiv').toString();
+                            if (lbl.length > 22) lbl = lbl.slice(0, 22) + '…';
+                            chip.textContent = '⚡ ' + lbl;
+                        }}
+                    }} else {{
+                        el.classList.remove('is-active');
+                        if (chip) chip.textContent = '⚡';
+                    }}
+                }});
+                updateEmptyHint();
+            }})
+            .catch(function() {{}});
+    }}
+    pollActivity();
+    activityTimer = setInterval(pollActivity, 2000);
+    window.addEventListener('beforeunload', function() {{
+        if (activityTimer) clearInterval(activityTimer);
+    }});
 }});
 </script>""")
 
@@ -532,11 +700,21 @@ def _render_sidebar_agent(agent: dict, current_agent_id: str):
             "box-shadow: none;"
         )
 
-    with ui.element("a").props(f'href="/chat/{ag_id}" data-agent-id="{ag_id}"').style(
+    # Searchable-Haystack für den Filter (name + role + skills)
+    import html as _h
+    haystack = " ".join([
+        (agent.get("name") or ""),
+        (agent.get("role") or ""),
+        " ".join(agent.get("skills", []) or []),
+    ]).lower()
+    selected_class = " is-selected" if is_selected else ""
+    with ui.element("a").props(
+        f'href="/chat/{ag_id}" data-agent-id="{ag_id}" data-agent-name="{_h.escape(name, quote=True)}" data-haystack="{_h.escape(haystack, quote=True)}"'
+    ).style(
         f"display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; "
         f"border-radius: 10px; cursor: pointer; transition: all .15s; "
         f"margin-bottom: 6px; text-decoration: none; position: relative; {card_style}"
-    ).classes("ac-agent-item"):
+    ).classes(f"ac-agent-item{selected_class}"):
         # Avatar — zentrale Komponente (agent['avatar'] steuert Bild/Initialien)
         from ui.components.avatar import render_avatar
         ui.html(render_avatar(agent, size=44))
@@ -556,14 +734,16 @@ def _render_sidebar_agent(agent: dict, current_agent_id: str):
             if model:
                 short = model.split("/")[-1][:16]
                 ui.label(short).style("font-size: 10px; color: #3a5a3a; font-family: monospace;")
-            # Skill-Emoji-Reihe
+            # Skill-Emoji-Reihe (pulst wenn Agent aktiv)
             skills = agent.get("skills", []) or []
             emojis = "".join(_SKILL_EMOJI.get(s, "") for s in skills)
             if emojis:
                 ui.html(
-                    f'<div style="font-size:13px;line-height:1;margin-top:4px;'
-                    f'letter-spacing:2px">{emojis}</div>'
+                    f'<div class="ac-skills-row" style="font-size:13px;line-height:1;'
+                    f'margin-top:4px;letter-spacing:2px">{emojis}</div>'
                 )
+            # Activity-Chip (wird via JS gefüllt bei laufender Activity)
+            ui.html(f'<span class="ac-activity-chip" data-agent-activity-for="{ag_id}">⚡</span>')
 
         # Favorit-Stern oben rechts
         if is_fav:

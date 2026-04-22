@@ -1,6 +1,6 @@
 """
 ui/pages/ltx_batch.py — LTX 2.3 Batch Video Renderer.
-WAV + Bild → automatische Segment-Aufteilung + Prompt-Generierung + ComfyUI Render.
+WAV + Bild → Prepare (Segmente + Prompts) → User-Review → Render → ComfyUI.
 Komplett JS-basiert (umgeht NiceGUI core.loop Bug).
 """
 from nicegui import ui
@@ -13,15 +13,17 @@ _PAGE_JS = r"""
   const LS_DEFAULTS = 'ltx_defaults';
   const LS_JOB = 'ltx_job';
   let es = null;
+  let PREP = null;   // { job_id, total, segments: [{idx, segment, duration, prompt, image_mode, custom_fn}] }
 
-  function qs(sel) { return document.querySelector(sel); }
+  const qs = (s, r) => (r||document).querySelector(s);
+  const qsa = (s, r) => Array.from((r||document).querySelectorAll(s));
 
-  // ── Job-State in localStorage ─────────────────────────────────────────────
+  // ── Job-State ─────────────────────────────────────────────────────────────
   function loadJob()    { try { return JSON.parse(localStorage.getItem(LS_JOB) || 'null'); } catch(e) { return null; } }
   function saveJob(j)   { localStorage.setItem(LS_JOB, JSON.stringify(j)); }
   function clearJob()   { localStorage.removeItem(LS_JOB); }
 
-  // ── Render-Helfer ─────────────────────────────────────────────────────────
+  // ── Log / Videos ──────────────────────────────────────────────────────────
   function log(msg, cls='', persist=true) {
     const el = qs('#ltx-log');
     if (!el) return;
@@ -35,32 +37,14 @@ _PAGE_JS = r"""
       if (j) { j.logs.push({msg, cls}); saveJob(j); }
     }
   }
-
   function renderLogs(logs) {
-    const el = qs('#ltx-log');
-    if (!el) return;
+    const el = qs('#ltx-log'); if (!el) return;
     el.innerHTML = '';
     logs.forEach(({msg, cls}) => log(msg, cls, false));
   }
-
-  function renderPrompts(items) {
-    const el = qs('#ltx-prompts');
-    if (!el) return;
-    el.innerHTML = '';
-    items.forEach(({segment, text}) => {
-      const d = document.createElement('div');
-      d.className = 'ltx-prompt-item';
-      d.innerHTML = `<span class="ltx-seg-badge">Seg ${segment}</span><span class="ltx-prompt-text">${text}</span>`;
-      el.appendChild(d);
-    });
-  }
-
   function renderVideo(segment, total, url, prompt, persist=true) {
-    const el = qs('#ltx-videos');
-    if (!el) return;
-    // Platzhalter "noch keine Videos" entfernen
-    const placeholder = el.querySelector('span');
-    if (placeholder) placeholder.remove();
+    const el = qs('#ltx-videos'); if (!el) return;
+    const ph = el.querySelector('.ltx-placeholder'); if (ph) ph.remove();
     const card = document.createElement('div');
     card.className = 'ltx-video-card';
     card.innerHTML = `
@@ -78,16 +62,15 @@ _PAGE_JS = r"""
     }
   }
 
-  function setRunning(running) {
-    const btn = qs('#ltx-start-btn');
-    const spinner = qs('#ltx-spinner');
-    if (btn) btn.disabled = running;
-    if (spinner) spinner.style.display = running ? 'flex' : 'none';
-    const j = loadJob();
-    if (j) { j.running = running; saveJob(j); }
+  function setBusy(which, busy) {
+    // which: 'prepare' | 'render'
+    const btn = qs(which==='prepare' ? '#ltx-prepare-btn' : '#ltx-render-btn');
+    const sp  = qs(which==='prepare' ? '#ltx-prep-spinner' : '#ltx-render-spinner');
+    if (btn) btn.disabled = busy;
+    if (sp)  sp.style.display = busy ? 'flex' : 'none';
   }
 
-  // ── Formular-Defaults ─────────────────────────────────────────────────────
+  // ── Defaults ──────────────────────────────────────────────────────────────
   function saveDefaults() {
     localStorage.setItem(LS_DEFAULTS, JSON.stringify({
       concept:      qs('#ltx-concept').value,
@@ -104,23 +87,112 @@ _PAGE_JS = r"""
     } catch(e) {}
   }
 
-  // ── SSE verbinden ─────────────────────────────────────────────────────────
+  // ── Review-Cards: pro Segment eine Card mit Prompt-Textarea + Radio + File ─
+  function renderReview() {
+    const wrap = qs('#ltx-review');
+    const box  = qs('#ltx-review-list');
+    if (!wrap || !box || !PREP) return;
+    wrap.style.display = 'block';
+    // Context (Transkript + Bild-Beschreibung) oben einblenden
+    const ctx = qs('#ltx-context');
+    if (ctx) {
+      const esc = s => (s||'').replace(/</g,'&lt;');
+      const t = PREP.transcript ? esc(PREP.transcript) : '<em style="color:#6b7280">— keine Transkription —</em>';
+      const d = PREP.image_desc ? esc(PREP.image_desc) : '<em style="color:#6b7280">— keine Bild-Beschreibung —</em>';
+      ctx.innerHTML = `
+        <div class="ltx-ctx-block">
+          <div class="ltx-ctx-label">🎙 Transkript (Whisper)</div>
+          <div class="ltx-ctx-text">${t}</div>
+        </div>
+        <div class="ltx-ctx-block">
+          <div class="ltx-ctx-label">🖼 Start-Bild (Vision)</div>
+          <div class="ltx-ctx-text">${d}</div>
+        </div>
+      `;
+    }
+    box.innerHTML = '';
+    PREP.segments.forEach(seg => {
+      const c = document.createElement('div');
+      c.className = 'ltx-seg-card';
+      c.dataset.idx = seg.idx;
+      const isFirst = seg.idx === 0;
+      c.innerHTML = `
+        <div class="ltx-seg-head">
+          <span class="ltx-seg-badge">Seg ${seg.segment}</span>
+          <span class="ltx-seg-dur">${seg.duration}s</span>
+        </div>
+        <textarea class="ltx-seg-prompt" rows="3">${seg.prompt.replace(/</g,'&lt;')}</textarea>
+        <div class="ltx-seg-modes">
+          ${isFirst ? '' : `
+          <label class="ltx-mode">
+            <input type="radio" name="mode-${seg.idx}" value="prev" ${seg.image_mode==='prev'?'checked':''}>
+            <span>🔗 Last-Frame vom Vorgänger</span>
+          </label>`}
+          <label class="ltx-mode">
+            <input type="radio" name="mode-${seg.idx}" value="start" ${seg.image_mode==='start'?'checked':''}>
+            <span>🏁 Start-Bild</span>
+          </label>
+          <label class="ltx-mode">
+            <input type="radio" name="mode-${seg.idx}" value="custom" ${seg.image_mode==='custom'?'checked':''}>
+            <span>🖼 Eigenes Bild hochladen</span>
+          </label>
+        </div>
+        <div class="ltx-seg-upload" style="display:${seg.image_mode==='custom'?'flex':'none'}">
+          <input type="file" accept="image/*" class="ltx-seg-file">
+          <span class="ltx-seg-uploaded">${seg.custom_fn ? '✓ '+seg.custom_fn : ''}</span>
+        </div>
+      `;
+      box.appendChild(c);
+
+      // Prompt live in PREP
+      qs('.ltx-seg-prompt', c).addEventListener('input', (ev) => {
+        seg.prompt = ev.target.value;
+      });
+      // Mode-Radio
+      qsa(`input[name="mode-${seg.idx}"]`, c).forEach(r => {
+        r.addEventListener('change', (ev) => {
+          seg.image_mode = ev.target.value;
+          qs('.ltx-seg-upload', c).style.display = (seg.image_mode==='custom') ? 'flex' : 'none';
+        });
+      });
+      // File → upload-ref sofort hochladen
+      qs('.ltx-seg-file', c).addEventListener('change', async (ev) => {
+        const f = ev.target.files[0];
+        if (!f) return;
+        const fd = new FormData();
+        fd.append('job_id', PREP.job_id);
+        fd.append('idx', String(seg.idx));
+        fd.append('image', f);
+        qs('.ltx-seg-uploaded', c).textContent = '⏳ hochladen...';
+        try {
+          const r = await fetch(API + '/upload-ref', { method:'POST', body: fd });
+          const data = await r.json();
+          if (data.ok) {
+            seg.custom_fn = data.custom_fn;
+            seg.image_mode = 'custom';
+            qs('.ltx-seg-uploaded', c).textContent = '✓ ' + data.custom_fn;
+            const rad = qs(`input[name="mode-${seg.idx}"][value="custom"]`, c);
+            if (rad) rad.checked = true;
+          } else {
+            qs('.ltx-seg-uploaded', c).textContent = '❌ ' + (data.error || 'Upload-Fehler');
+          }
+        } catch(e) {
+          qs('.ltx-seg-uploaded', c).textContent = '❌ ' + e.message;
+        }
+      });
+    });
+  }
+
+  // ── SSE ───────────────────────────────────────────────────────────────────
   function connectSSE(job_id) {
     if (es) { es.close(); es = null; }
     es = new EventSource(API + '/progress/' + job_id);
-
     es.onmessage = function(e) {
       const msg = JSON.parse(e.data);
       switch(msg.event) {
         case 'status':
           log('ℹ ' + msg.msg);
           break;
-        case 'prompt': {
-          const j = loadJob();
-          if (j) { j.prompts.push({segment: msg.segment, text: msg.text}); saveJob(j); }
-          renderPrompts(j ? j.prompts : [{segment: msg.segment, text: msg.text}]);
-          break;
-        }
         case 'segment_done':
           log('🎬 Segment ' + msg.segment + '/' + msg.total + ' fertig!', 'ltx-ok');
           renderVideo(msg.segment, msg.total, msg.url, msg.prompt);
@@ -130,65 +202,46 @@ _PAGE_JS = r"""
           break;
         case 'error':
           log('❌ ' + msg.msg, 'ltx-error');
-          setRunning(false);
+          setBusy('render', false);
           es.close();
           break;
         case 'complete':
           log('🎉 Alle ' + msg.total + ' Segmente gerendert!', 'ltx-ok');
-          setRunning(false);
+          setBusy('render', false);
           es.close();
           break;
         case 'done':
-          setRunning(false);
+          setBusy('render', false);
           if (es) es.close();
           break;
       }
     };
-
     es.onerror = function() {
       log('⚠ SSE-Verbindung unterbrochen', 'ltx-warn');
-      setRunning(false);
+      setBusy('render', false);
       if (es) es.close();
     };
   }
 
-  // ── Seiten-Reload: State wiederherstellen ─────────────────────────────────
-  function restoreState() {
-    loadDefaults();
-    const j = loadJob();
-    if (!j) return;
-    renderLogs(j.logs || []);
-    renderPrompts(j.prompts || []);
-    (j.videos || []).forEach(v => renderVideo(v.segment, v.total, v.url, v.prompt, false));
-    if (j.running && j.job_id) {
-      setRunning(true);
-      log('🔄 Verbindung wiederhergestellt (Reload)...', '', false);
-      connectSSE(j.job_id);
-    }
-  }
-
-  // ── Job starten ───────────────────────────────────────────────────────────
-  window._ltxStart = async function() {
+  // ── PREPARE ───────────────────────────────────────────────────────────────
+  window._ltxPrepare = async function() {
     const wavFile = qs('#ltx-wav-input').files[0];
     const imgFile = qs('#ltx-img-input').files[0];
     const concept = qs('#ltx-concept').value.trim();
     const ollama_model = qs('#ltx-model').value;
     const chunk_sec = qs('#ltx-chunk').value;
 
-    if (!wavFile) { log('⚠ Bitte WAV-Datei auswählen', 'ltx-warn'); return; }
-    if (!imgFile) { log('⚠ Bitte Bild auswählen', 'ltx-warn'); return; }
-
+    if (!wavFile) { log('⚠ Bitte WAV wählen', 'ltx-warn'); return; }
+    if (!imgFile) { log('⚠ Bitte Start-Bild wählen', 'ltx-warn'); return; }
     saveDefaults();
 
-    // State zurücksetzen
+    // Review + Logs + Videos zurücksetzen
     qs('#ltx-log').innerHTML = '';
-    qs('#ltx-prompts').innerHTML = '';
-    qs('#ltx-videos').innerHTML = '<span style="color:#374151;font-size:12px">Noch keine Videos gerendert...</span>';
-    if (es) { es.close(); es = null; }
-
-    // Neuen Job-State anlegen
-    saveJob({ job_id: null, running: true, logs: [], prompts: [], videos: [] });
-    setRunning(true);
+    qs('#ltx-review-list').innerHTML = '';
+    qs('#ltx-videos').innerHTML = '<span class="ltx-placeholder">Noch keine Videos gerendert...</span>';
+    qs('#ltx-review').style.display = 'none';
+    PREP = null;
+    clearJob();
 
     const fd = new FormData();
     fd.append('wav', wavFile);
@@ -197,22 +250,96 @@ _PAGE_JS = r"""
     fd.append('ollama_model', ollama_model);
     fd.append('chunk_sec', chunk_sec);
 
+    setBusy('prepare', true);
     log('📤 Upload läuft...');
+    let jobId = null;
     try {
-      const r = await fetch(API + '/start', { method: 'POST', body: fd });
+      const r = await fetch(API + '/prepare', { method:'POST', body: fd });
       if (!r.ok) { const t = await r.text(); throw new Error(t); }
       const data = await r.json();
-      const j = loadJob();
-      j.job_id = data.job_id;
-      saveJob(j);
-      log('✅ Job gestartet: ' + data.job_id.substring(0,8) + '...');
-      connectSSE(data.job_id);
+      jobId = data.job_id;
+      log(`🚀 Prepare-Job ${jobId.substring(0,8)}... gestartet — polle Status`);
     } catch(e) {
-      log('❌ Fehler: ' + e.message, 'ltx-error');
-      setRunning(false);
-      clearJob();
+      log('❌ Upload-Fehler: ' + e.message, 'ltx-error');
+      setBusy('prepare', false);
+      return;
+    }
+
+    // Polling (2s) bis ready oder error. Übersteht Connection-Glitches (Starlink etc.).
+    let lastMsg = '';
+    const poll = async () => {
+      try {
+        const r = await fetch(`${API}/prepare-status/${jobId}`);
+        if (!r.ok) throw new Error('HTTP '+r.status);
+        const s = await r.json();
+        if (s.progress_msg && s.progress_msg !== lastMsg) {
+          log('ℹ ' + s.progress_msg);
+          lastMsg = s.progress_msg;
+        }
+        if (s.status === 'ready') {
+          PREP = s;
+          log(`✅ ${s.total} Segmente vorbereitet — Prompts/Bilder reviewen, dann ▶ Rendern`, 'ltx-ok');
+          renderReview();
+          setBusy('prepare', false);
+          return;
+        }
+        if (s.status === 'error') {
+          log('❌ Prepare-Fehler: ' + (s.error || 'unbekannt'), 'ltx-error');
+          setBusy('prepare', false);
+          return;
+        }
+        setTimeout(poll, 2000);
+      } catch(e) {
+        // Netzwerk-Glitch → einfach weiterpollen, nicht aufgeben
+        log(`⚠ Poll-Fehler (${e.message}) — versuche in 5s erneut`, 'ltx-warn');
+        setTimeout(poll, 5000);
+      }
+    };
+    poll();
+  };
+
+  // ── RENDER ────────────────────────────────────────────────────────────────
+  window._ltxRender = async function() {
+    if (!PREP) { log('⚠ Erst vorbereiten', 'ltx-warn'); return; }
+    setBusy('render', true);
+    const edits = PREP.segments.map(s => ({
+      idx: s.idx,
+      prompt: s.prompt,
+      image_mode: s.image_mode,
+      custom_fn: s.custom_fn || null,
+    }));
+    // Job-State für Reload-Recovery
+    saveJob({ job_id: PREP.job_id, running: true, logs: [], prompts: [], videos: [] });
+    log('🚀 Rendering startet...');
+    try {
+      const r = await fetch(API + '/render', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ job_id: PREP.job_id, segments: edits }),
+      });
+      if (!r.ok) { const t = await r.text(); throw new Error(t); }
+      const data = await r.json();
+      if (data.error) throw new Error(data.error);
+      connectSSE(PREP.job_id);
+    } catch(e) {
+      log('❌ Render-Fehler: ' + e.message, 'ltx-error');
+      setBusy('render', false);
     }
   };
+
+  // ── Reload-Restore (nur Logs + Videos, nicht PREP) ────────────────────────
+  function restoreState() {
+    loadDefaults();
+    const j = loadJob();
+    if (!j) return;
+    renderLogs(j.logs || []);
+    (j.videos || []).forEach(v => renderVideo(v.segment, v.total, v.url, v.prompt, false));
+    if (j.running && j.job_id) {
+      setBusy('render', true);
+      log('🔄 Verbindung wiederhergestellt...', '', false);
+      connectSSE(j.job_id);
+    }
+  }
 
   // ── Init ──────────────────────────────────────────────────────────────────
   setTimeout(() => {
@@ -220,7 +347,8 @@ _PAGE_JS = r"""
       qs(sel)?.addEventListener('change', saveDefaults);
     });
     qs('#ltx-concept')?.addEventListener('input', saveDefaults);
-    qs('#ltx-start-btn')?.addEventListener('click', window._ltxStart);
+    qs('#ltx-prepare-btn')?.addEventListener('click', window._ltxPrepare);
+    qs('#ltx-render-btn')?.addEventListener('click', window._ltxRender);
     restoreState();
   }, 300);
 })();
@@ -229,8 +357,11 @@ _PAGE_JS = r"""
 
 _PAGE_CSS = """
 <style>
+/* Theme-Override: globales html/body overflow:hidden aufheben */
+html, body { overflow: auto !important; height: auto !important; }
+.q-page-container, .q-page { overflow: visible !important; min-height: unset !important; }
 body { background: #050a06 !important; color: #e2e8f0; margin: 0; font-family: system-ui, sans-serif; }
-.ltx-wrap { display: flex; flex-direction: column; gap: 20px; padding: 24px; max-width: 1100px; margin: 0 auto; }
+.ltx-wrap { display: flex; flex-direction: column; gap: 20px; padding: 24px; max-width: 1200px; margin: 0 auto; }
 .ltx-title { font-size: 22px; font-weight: 700; color: #4ade80; margin-bottom: 4px; }
 .ltx-sub { font-size: 13px; color: #6b7280; margin-bottom: 12px; }
 .ltx-card { background: #0d1f0e; border: 1px solid #1a3a1a; border-radius: 12px; padding: 20px; }
@@ -248,19 +379,59 @@ body { background: #050a06 !important; color: #e2e8f0; margin: 0; font-family: s
   background: #14532d; color: #4ade80; border: none; border-radius: 6px;
   padding: 4px 10px; cursor: pointer; font-size: 12px; margin-right: 8px;
 }
-.ltx-start-wrap { display: flex; align-items: center; gap: 14px; }
-.ltx-start-btn {
+.ltx-btn-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.ltx-btn {
   background: linear-gradient(135deg, #166534, #14532d);
   color: #4ade80; border: 1px solid #166534; border-radius: 8px;
   padding: 10px 28px; font-size: 14px; font-weight: 600; cursor: pointer;
   transition: opacity 0.2s;
 }
-.ltx-start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.ltx-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.ltx-btn.primary { background: linear-gradient(135deg, #22c55e, #16a34a); color: #042f11; border-color: #22c55e; }
 .ltx-spinner { display: none; align-items: center; gap: 8px; color: #4ade80; font-size: 13px; }
 .ltx-spinner-dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; animation: ltxpulse 1s infinite alternate; }
 @keyframes ltxpulse { from { opacity: 0.3; } to { opacity: 1; } }
-.ltx-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 700px) { .ltx-cols { grid-template-columns: 1fr; } }
+
+/* Context-Box (Transkript + Bild-Beschreibung) */
+#ltx-context { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.ltx-ctx-block { background: #050a06; border: 1px solid #1a3a1a; border-radius: 8px; padding: 10px 12px; }
+.ltx-ctx-label { font-size: 11px; font-weight: 600; color: #4ade80; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.ltx-ctx-text { font-size: 12px; color: #d1d5db; line-height: 1.5; white-space: pre-wrap; max-height: 140px; overflow-y: auto; }
+
+/* Review-Grid */
+#ltx-review-list {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px;
+}
+.ltx-seg-card {
+  background: #050a06; border: 1px solid #1a3a1a; border-radius: 10px;
+  padding: 12px; display: flex; flex-direction: column; gap: 10px;
+}
+.ltx-seg-head { display: flex; align-items: center; gap: 8px; }
+.ltx-seg-badge {
+  background: #14532d; color: #4ade80; border-radius: 4px;
+  padding: 2px 8px; font-size: 11px; font-weight: 600;
+}
+.ltx-seg-dur { color: #6b7280; font-size: 11px; }
+.ltx-seg-prompt {
+  width: 100%; box-sizing: border-box;
+  background: #070d08; border: 1px solid #1a3a1a; border-radius: 6px;
+  color: #e2e8f0; padding: 8px; font-size: 12px; font-family: inherit;
+  resize: vertical; min-height: 68px;
+}
+.ltx-seg-modes { display: flex; flex-direction: column; gap: 4px; }
+.ltx-mode {
+  display: flex; align-items: center; gap: 6px; font-size: 12px;
+  color: #d1d5db; cursor: pointer; padding: 2px 0;
+}
+.ltx-mode input[type=radio] { accent-color: #4ade80; }
+.ltx-seg-upload { display: flex; align-items: center; gap: 8px; }
+.ltx-seg-upload input[type=file] {
+  flex: 1; background: #070d08; border: 1px solid #1a3a1a; border-radius: 6px;
+  color: #9ca3af; padding: 4px; font-size: 11px;
+}
+.ltx-seg-uploaded { font-size: 11px; color: #4ade80; }
+
+/* Log + Videos */
 #ltx-log {
   background: #050a06; border-radius: 8px; padding: 12px; height: 180px;
   overflow-y: auto; font-size: 12px; font-family: monospace;
@@ -269,13 +440,7 @@ body { background: #050a06 !important; color: #e2e8f0; margin: 0; font-family: s
 .ltx-log-line.ltx-ok { color: #4ade80; }
 .ltx-log-line.ltx-warn { color: #fbbf24; }
 .ltx-log-line.ltx-error { color: #f87171; }
-#ltx-prompts { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
-.ltx-prompt-item { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; }
-.ltx-seg-badge {
-  background: #14532d; color: #4ade80; border-radius: 4px;
-  padding: 1px 6px; font-size: 11px; white-space: nowrap; flex-shrink: 0;
-}
-.ltx-prompt-text { color: #d1d5db; line-height: 1.4; }
+.ltx-placeholder { color: #374151; font-size: 12px; }
 #ltx-videos { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 4px; }
 .ltx-video-card { background: #050a06; border: 1px solid #1a3a1a; border-radius: 10px; overflow: hidden; }
 .ltx-video-header { padding: 8px 12px; font-size: 12px; font-weight: 600; color: #4ade80; background: #0d1f0e; }
@@ -301,24 +466,24 @@ def ltx_batch_page():
 <div class="ltx-wrap">
   <div>
     <div class="ltx-title">🎬 LTX 2.3 Batch Renderer</div>
-    <div class="ltx-sub">WAV + Bild → automatische Segment-Aufteilung → Prompt-Generierung → ComfyUI Render</div>
+    <div class="ltx-sub">WAV + Bild → Segmente + Prompts vorbereiten → pro Segment entscheiden → rendern</div>
   </div>
 
-  <!-- Eingaben -->
+  <!-- 1. Eingaben -->
   <div class="ltx-card">
-    <div class="ltx-card-title">Eingaben</div>
+    <div class="ltx-card-title">1 · Eingaben</div>
     <div class="ltx-row">
       <div class="ltx-field">
-        <label class="ltx-label">WAV-Datei (wird in 9s-Blöcke aufgeteilt)</label>
+        <label class="ltx-label">WAV-Datei</label>
         <input type="file" id="ltx-wav-input" accept=".wav,audio/wav" class="ltx-file-input">
       </div>
       <div class="ltx-field">
-        <label class="ltx-label">Start-Bild (wird für alle Segmente verwendet)</label>
+        <label class="ltx-label">Start-Bild</label>
         <input type="file" id="ltx-img-input" accept="image/*" class="ltx-file-input">
       </div>
     </div>
     <div class="ltx-field" style="margin-top:12px">
-      <label class="ltx-label">Video-Konzept / Idee (Ollama generiert daraus die Segment-Prompts)</label>
+      <label class="ltx-label">Video-Konzept (Ollama generiert daraus pro Segment einen Prompt)</label>
       <textarea id="ltx-concept" class="ltx-textarea"
         placeholder="z.B. Ein sprechender Kaktus-Charakter erklärt eine Roadtrip-Geschichte...">Der Mann erzählt seine Geschichte... nach 3 Sekunden wechsel zu Superman im Flug... Zoom auf Supermanns Gesicht</textarea>
     </div>
@@ -334,7 +499,7 @@ def ltx_batch_page():
         </select>
       </div>
       <div class="ltx-field">
-        <label class="ltx-label">Segment-Länge (Sekunden)</label>
+        <label class="ltx-label">Segment-Länge</label>
         <select id="ltx-chunk" class="ltx-select">
           <option value="5">5s</option>
           <option value="7">7s</option>
@@ -344,31 +509,42 @@ def ltx_batch_page():
         </select>
       </div>
     </div>
-    <div class="ltx-start-wrap" style="margin-top:14px">
-      <button id="ltx-start-btn" class="ltx-start-btn">▶ Batch starten</button>
-      <div id="ltx-spinner" class="ltx-spinner">
+    <div class="ltx-btn-row" style="margin-top:14px">
+      <button id="ltx-prepare-btn" class="ltx-btn">⚙ Vorbereiten</button>
+      <div id="ltx-prep-spinner" class="ltx-spinner">
+        <div class="ltx-spinner-dot"></div>
+        <span>WAV splitten + Prompts generieren...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Review (erst nach Prepare sichtbar) -->
+  <div id="ltx-review" class="ltx-card" style="display:none">
+    <div class="ltx-card-title">2 · Segmente prüfen & anpassen</div>
+    <div style="font-size:12px;color:#9ca3af;margin-bottom:10px">
+      Pro Segment: Prompt editieren, Bildquelle wählen (Last-Frame des vorigen Segments, Start-Bild, oder eigenes Bild).
+    </div>
+    <div id="ltx-context"></div>
+    <div id="ltx-review-list"></div>
+    <div class="ltx-btn-row" style="margin-top:14px">
+      <button id="ltx-render-btn" class="ltx-btn primary">▶ Rendern starten</button>
+      <div id="ltx-render-spinner" class="ltx-spinner">
         <div class="ltx-spinner-dot"></div>
         <span>Rendering läuft...</span>
       </div>
     </div>
   </div>
 
-  <!-- Log + Prompts -->
-  <div class="ltx-cols">
-    <div class="ltx-card">
-      <div class="ltx-card-title">Log</div>
-      <div id="ltx-log"></div>
-    </div>
-    <div class="ltx-card">
-      <div class="ltx-card-title">Generierte Prompts</div>
-      <div id="ltx-prompts"><span style="color:#374151;font-size:12px">Noch keine Prompts...</span></div>
-    </div>
+  <!-- 3. Log -->
+  <div class="ltx-card">
+    <div class="ltx-card-title">Log</div>
+    <div id="ltx-log"></div>
   </div>
 
-  <!-- Video-Ergebnisse -->
+  <!-- 4. Videos -->
   <div class="ltx-card">
     <div class="ltx-card-title">Ergebnisse</div>
-    <div id="ltx-videos"><span style="color:#374151;font-size:12px">Noch keine Videos gerendert...</span></div>
+    <div id="ltx-videos"><span class="ltx-placeholder">Noch keine Videos gerendert...</span></div>
   </div>
 </div>
 """)
