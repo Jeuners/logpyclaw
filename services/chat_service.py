@@ -17,6 +17,7 @@ MAX_HISTORY_PER_AGENT = settings.MAX_HISTORY_PER_AGENT
 from core.state import _PENDING_MAIL_SORT, MAC_MAIL_TRIGGERS
 from core import dispatch_rules
 from core.llm import LLM_REQUEST_TIMEOUT
+from core.intent_detector import detect_execution_intent
 
 if TYPE_CHECKING:
     from skills.registry import SkillRegistry
@@ -316,6 +317,44 @@ class ChatService:
         audio: list[str] | None = task.get("audio") or None
         attachment_path: str | None = task.get("attachment_path") or None
 
+        # Execution-Intent-Detektion (Guard gegen halluzinierte Tool-Ausführung).
+        # Extrahiere den eigentlichen Task-Text aus "Deine Aufgabe: ..."-Envelope
+        # falls vorhanden, sonst die rohe Message.
+        sep_for_intent = re.search(r"---\s*\nDeine Aufgabe:\s*(.+)", message, re.DOTALL)
+        intent_target_text = (sep_for_intent.group(1).strip() if sep_for_intent else message)[:2000]
+        exec_intent = detect_execution_intent(intent_target_text)
+        agent_skill_set = set(agent.get("skills", []))
+        has_exec_skill = bool(agent_skill_set & {"coding", "file_access"})
+
+        if exec_intent.kind in ("shell", "python") and exec_intent.confidence >= 0.7:
+            logger.info(
+                "Execution-Intent erkannt: @%s ← kind=%s target=%s conf=%.2f phrase=%r",
+                agent.get("name"), exec_intent.kind, exec_intent.target,
+                exec_intent.confidence, exec_intent.matched_phrase[:60],
+            )
+            if not has_exec_skill:
+                # Kein Execution-Skill verfügbar → strukturell ehrlich sein statt LLM-Halluzination.
+                from skills.base import SkillResult
+                honest_text = (
+                    f"⚠ [NICHT AUSGEFÜHRT]\n\n"
+                    f"Du hast mich gebeten, **{exec_intent.kind}** auszuführen"
+                    + (f" (`{exec_intent.target}`)" if exec_intent.target else "")
+                    + f", aber ich (@{agent.get('name')}) habe keinen Execution-Skill "
+                    f"(`coding`/`file_access`) — nur: {sorted(agent_skill_set) or 'keine'}.\n\n"
+                    f"Bitte delegiere an einen Agenten mit `coding`-Skill "
+                    f"(z.B. @CodeCraft) oder führe das Kommando manuell aus."
+                )
+                return SkillResult(
+                    text=honest_text,
+                    skill_used="intent_guard",
+                    metadata={
+                        "executed": False,
+                        "intent_kind": exec_intent.kind,
+                        "intent_target": exec_intent.target,
+                        "intent_confidence": exec_intent.confidence,
+                    },
+                )
+
         # Skill-Check (mit images + attachment_path aus dem Task)
         image_b64 = images[0] if images else None
         skill_result = self._try_skill(agent, message, images, attachment_path, providers,
@@ -402,6 +441,33 @@ class ChatService:
             self._dispatch_task_list(agent, reply, current_task=task)
         else:
             self._dispatch_mentions(agent, reply, current_task=task)
+
+        # Post-Check: Execution-Intent war erkannt, aber kein Execution-Skill ist gefeuert.
+        # Reply könnte halluzinierter Tool-Output sein → sichtbar markieren.
+        if (exec_intent.kind in ("shell", "python")
+                and exec_intent.confidence >= 0.7
+                and has_exec_skill):
+            logger.warning(
+                "Execution-Intent ohne Skill-Execution: @%s ← kind=%s target=%s "
+                "— Reply möglicherweise halluziniert, markiere als NICHT AUSGEFÜHRT.",
+                agent.get("name"), exec_intent.kind, exec_intent.target,
+            )
+            warning_banner = (
+                f"⚠ **[NICHT AUSGEFÜHRT]** — Execution-Intent ({exec_intent.kind}"
+                + (f" `{exec_intent.target}`" if exec_intent.target else "")
+                + f") erkannt, aber kein `coding`/`file_access`-Skill wurde ausgelöst. "
+                f"Der folgende Text ist eine LLM-Antwort, **kein** tatsächlicher Tool-Output:\n\n---\n\n"
+            )
+            reply = warning_banner + reply
+            return {
+                "result_text": reply,
+                "skill_used": "llm",
+                "metadata": {
+                    "executed": False,
+                    "intent_kind": exec_intent.kind,
+                    "intent_target": exec_intent.target,
+                },
+            }
         return {"result_text": reply, "skill_used": "llm"}
 
     def _try_skill_from_reply(self, agent: dict, reply: str, original_message: str,
