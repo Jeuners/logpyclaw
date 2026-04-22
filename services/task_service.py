@@ -44,9 +44,10 @@ A2A_TASK_STATES = {
     "canceled": "Task was canceled by client",
     "queued": "Task is queued (agent busy)",
     "waiting": "Task waiting for dependencies to complete",
+    "halted_no_exec": "Execution-Intent detected but no execution-skill fired (possible hallucination)",
 }
 
-TERMINAL_STATES = {"completed", "failed", "canceled", "rejected"}
+TERMINAL_STATES = {"completed", "failed", "canceled", "rejected", "halted_no_exec"}
 
 
 class TaskService:
@@ -351,7 +352,7 @@ class TaskService:
         # AUSNAHME: Chain-Tasks (chain_index gesetzt) werden via Chain-Karte im UI angezeigt
         #           → kein separates emit, sonst erscheint jedes Ergebnis doppelt
         is_chain_task = "chain_index" in task
-        if task["status"] == "completed" and not is_chain_task:
+        if task["status"] in ("completed", "halted_no_exec") and not is_chain_task:
             sender_id = task.get("sender_agent_id")
             result_image = task.get("result_image")
             result_text = task.get("result_text") or ""
@@ -381,11 +382,30 @@ class TaskService:
             task["result_text"] = result.text
             task["result_image"] = result.image
             task["skill_used"] = result.skill_used
+            if getattr(result, "metadata", None):
+                task["metadata"] = result.metadata
         elif isinstance(result, dict):
             task.update(result)
 
     def _complete(self, task):
-        """Task als completed markieren. Triggert Dependency-Queue für Folgetasks."""
+        """Task als completed markieren. Triggert Dependency-Queue für Folgetasks.
+
+        Audit: Wenn metadata.executed==False → Status 'halted_no_exec' statt 'completed'.
+        Das signalisiert Supervisor/UI, dass die Antwort kein tatsächlicher Tool-Output ist
+        (siehe core.intent_detector + chat_service Guard).
+        """
+        metadata = task.get("metadata") or {}
+        if metadata.get("executed") is False:
+            task["status"] = "halted_no_exec"
+            task["completed_at"] = datetime.now().isoformat()
+            logger.warning(
+                "Task %s HALTED_NO_EXEC via %s — intent=%s target=%s "
+                "(kein Execution-Skill gefeuert, Reply möglicherweise halluziniert)",
+                task["id"], task.get("skill_used"),
+                metadata.get("intent_kind"), metadata.get("intent_target"),
+            )
+            return
+
         task["status"] = "completed"
         task["completed_at"] = datetime.now().isoformat()
         logger.info("Task %s abgeschlossen via %s", task["id"], task.get("skill_used"))
@@ -608,7 +628,7 @@ class TaskService:
         result_text = task.get("result_text")
         status = task.get("status")
 
-        if status not in ("completed", "failed"):
+        if status not in ("completed", "failed", "halted_no_exec"):
             return
 
         # Modus 1: HTTP Callback (M2M Remote)

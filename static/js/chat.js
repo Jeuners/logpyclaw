@@ -714,12 +714,25 @@ window._ac = {
         if (!c) return;
         const isUser = role === 'user';
         const align = isUser ? 'flex-end' : 'flex-start';
-        const bbl = isUser
-            ? 'background:rgba(0,230,118,.08);border:1px solid #182e18;color:#e4f4e4;border-bottom-right-radius:3px;'
-            : 'background:#0d1a0e;border:1px solid #0f2010;color:#b8d4b8;border-bottom-left-radius:3px;';
+
+        // Halluzinations-Warnung (Intent-Guard): Reply beginnt mit "[NICHT AUSGEFÜHRT]"
+        // → gelber Warn-Stil + Badge im Label.
+        const isHalted = !isUser && typeof html === 'string' &&
+            (html.indexOf('[NICHT AUSGEFÜHRT]') >= 0 && html.indexOf('[NICHT AUSGEFÜHRT]') < 400);
+        const haltBadge = isHalted
+            ? '<span style="display:inline-block;margin-left:6px;padding:1px 6px;background:#4a3410;color:#ffb020;border:1px solid #6a4a18;border-radius:3px;font-size:9px;font-family:monospace;letter-spacing:.5px">⚠ NICHT AUSGEFÜHRT</span>'
+            : '';
+        let bbl;
+        if (isHalted) {
+            bbl = 'background:rgba(255,176,32,.08);border:1px solid #5a4210;color:#ffcf70;border-bottom-left-radius:3px;';
+        } else {
+            bbl = isUser
+                ? 'background:rgba(0,230,118,.08);border:1px solid #182e18;color:#e4f4e4;border-bottom-right-radius:3px;'
+                : 'background:#0d1a0e;border:1px solid #0f2010;color:#b8d4b8;border-bottom-left-radius:3px;';
+        }
         const label = isUser ? 'Du' : 'Assistant';
         let h = '<div style="display:flex;flex-direction:column;gap:3px;max-width:820px;align-self:'+align+';align-items:'+align+';width:100%">';
-        h += '<span style="font-size:10px;font-family:monospace;color:#3a5a3a;padding:0 4px">'+label+'</span>';
+        h += '<span style="font-size:10px;font-family:monospace;color:#3a5a3a;padding:0 4px">'+label+haltBadge+'</span>';
         if (image) {
             const isVideo = image.startsWith('data:video') || image.includes('.mp4');
             if (isVideo) {

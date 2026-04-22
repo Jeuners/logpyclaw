@@ -620,19 +620,39 @@ def _build_history_html(agent_id: str) -> str:
 def _msg_to_html(role: str, content: str, image=None, skill=None) -> str:
     is_user = role == "user"
     align = "flex-end" if is_user else "flex-start"
-    bbl = (
-        "background:rgba(0,230,118,.08);border:1px solid #182e18;color:#e4f4e4;border-bottom-right-radius:3px;"
-        if is_user else
-        "background:#0d1a0e;border:1px solid #0f2010;color:#b8d4b8;border-bottom-left-radius:3px;"
+
+    # Halluzinations-Warnung: Execution-Intent erkannt, aber kein Exec-Skill gefeuert
+    # (siehe core.intent_detector + chat_service Guard). Reply beginnt mit ⚠ Banner.
+    is_halted = (not is_user) and isinstance(content, str) and (
+        "[NICHT AUSGEFÜHRT]" in content[:200] or skill == "intent_guard"
     )
+
+    if is_halted:
+        bbl = (
+            "background:rgba(255,176,32,.08);border:1px solid #5a4210;"
+            "color:#ffcf70;border-bottom-left-radius:3px;"
+        )
+    else:
+        bbl = (
+            "background:rgba(0,230,118,.08);border:1px solid #182e18;color:#e4f4e4;border-bottom-right-radius:3px;"
+            if is_user else
+            "background:#0d1a0e;border:1px solid #0f2010;color:#b8d4b8;border-bottom-left-radius:3px;"
+        )
     label = "Du" if is_user else "Assistant"
     skill_text = f" · {html_mod.escape(skill)}" if skill else ""
+    halt_badge = (
+        '<span style="display:inline-block;margin-left:6px;padding:1px 6px;'
+        'background:#4a3410;color:#ffb020;border:1px solid #6a4a18;'
+        'border-radius:3px;font-size:9px;font-family:monospace;'
+        'letter-spacing:.5px">⚠ NICHT AUSGEFÜHRT</span>'
+        if is_halted else ""
+    )
 
     h = (
         f'<div style="display:flex;flex-direction:column;gap:3px;max-width:820px;'
         f'align-self:{align};align-items:{align};width:100%">'
         f'<span style="font-size:10px;font-family:monospace;color:#3a5a3a;padding:0 4px">'
-        f'{label}{skill_text}</span>'
+        f'{label}{skill_text}{halt_badge}</span>'
     )
     if image:
         if image.startswith("data:video"):
