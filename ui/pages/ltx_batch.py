@@ -116,11 +116,15 @@ _PAGE_JS = r"""
       c.className = 'ltx-seg-card';
       c.dataset.idx = seg.idx;
       const isFirst = seg.idx === 0;
+      const audioHtml = seg.audio_url
+        ? `<audio controls class="ltx-seg-audio" src="${seg.audio_url}"></audio>`
+        : `<div class="ltx-seg-no-audio">🔇 Audio nicht verfügbar</div>`;
       c.innerHTML = `
         <div class="ltx-seg-head">
           <span class="ltx-seg-badge">Seg ${seg.segment}</span>
           <span class="ltx-seg-dur">${seg.duration}s</span>
         </div>
+        ${audioHtml}
         <textarea class="ltx-seg-prompt" rows="3">${seg.prompt.replace(/</g,'&lt;')}</textarea>
         <div class="ltx-seg-modes">
           ${isFirst ? '' : `
@@ -424,6 +428,12 @@ body { background: #050a06 !important; color: #e2e8f0; margin: 0; font-family: s
   color: #d1d5db; cursor: pointer; padding: 2px 0;
 }
 .ltx-mode input[type=radio] { accent-color: #4ade80; }
+.ltx-seg-audio {
+  width: 100%; height: 32px; border-radius: 6px;
+  accent-color: #4ade80; background: #070d08;
+  filter: invert(1) hue-rotate(100deg) brightness(0.85);
+}
+.ltx-seg-no-audio { font-size: 11px; color: #374151; }
 .ltx-seg-upload { display: flex; align-items: center; gap: 8px; }
 .ltx-seg-upload input[type=file] {
   flex: 1; background: #070d08; border: 1px solid #1a3a1a; border-radius: 6px;

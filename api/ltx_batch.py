@@ -601,11 +601,31 @@ async def prepare_status(job_id: str):
                     "prompt": s["prompt"],
                     "image_mode": s["image_mode"],
                     "custom_fn": s["custom_fn"],
+                    # Audio-Preview URL — wird vom /audio-Endpunkt serviert
+                    "audio_url": f"/api/ltx-batch/audio/{job_id}/{s['idx']}"
+                    if s.get("audio_path") and os.path.exists(s["audio_path"]) else None,
                 }
                 for s in job.get("segments", [])
             ],
         })
     return resp
+
+
+@router.get("/audio/{job_id}/{idx}")
+async def serve_audio(job_id: str, idx: int):
+    """Serviert den WAV-Chunk eines Segments für den Browser-Audio-Player."""
+    from fastapi.responses import FileResponse
+    from fastapi import HTTPException
+    job = _prep_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="job_id unbekannt")
+    segs = job.get("segments", [])
+    if idx < 0 or idx >= len(segs):
+        raise HTTPException(status_code=404, detail="idx out of range")
+    audio_path = segs[idx].get("audio_path")
+    if not audio_path or not os.path.exists(audio_path):
+        raise HTTPException(status_code=404, detail="Audio-Datei nicht (mehr) verfügbar")
+    return FileResponse(audio_path, media_type="audio/wav")
 
 
 @router.post("/upload-ref")
