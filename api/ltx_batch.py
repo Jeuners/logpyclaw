@@ -736,18 +736,31 @@ async def progress_stream(job_id: str):
         for evt in _replay_events(job_id):
             yield f"data: {json.dumps(evt, ensure_ascii=False)}\n\n"
 
-        deadline = asyncio.get_event_loop().time() + 60 * 60
+        # Idle-Timeout statt Gesamt-Timeout: bei jedem echten Event wird die
+        # Deadline zurückgesetzt; Keepalive-Ticks zählen nicht als Aktivität.
+        # Window > _poll(timeout=3600) damit ein laufender ComfyUI-Render
+        # nicht abgebrochen wird, während er still wartet.
+        IDLE_TIMEOUT_S = 90 * 60
+        last_event_at = asyncio.get_event_loop().time()
         try:
             while True:
-                remaining = deadline - asyncio.get_event_loop().time()
-                if remaining <= 0:
-                    yield "data: {\"event\":\"error\",\"msg\":\"Gesamt-Timeout\"}\n\n"
+                idle = asyncio.get_event_loop().time() - last_event_at
+                if idle >= IDLE_TIMEOUT_S:
+                    yield (
+                        "data: "
+                        + json.dumps({
+                            "event": "error",
+                            "msg": f"Idle-Timeout ({IDLE_TIMEOUT_S // 60} min ohne Event)",
+                        })
+                        + "\n\n"
+                    )
                     break
                 try:
                     item = await asyncio.wait_for(queue.get(), timeout=30)
                     if item is None:
                         yield "data: {\"event\":\"done\"}\n\n"
                         break
+                    last_event_at = asyncio.get_event_loop().time()
                     yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
                 except asyncio.TimeoutError:
                     yield ": keepalive\n\n"
