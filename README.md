@@ -17,7 +17,7 @@
 
 ## What is AgentClaw?
 
-AgentClaw is a **self-hosted, privacy-first multi-agent AI platform** that runs entirely on your Mac. Create multiple AI agents with distinct personalities, voices, and skill sets. They can chat, search the web, take screenshots, generate images, remember past conversations, delegate tasks to each other, and run on schedules.
+AgentClaw is a **self-hosted, privacy-first multi-agent AI platform** that runs entirely on your Mac. Create multiple AI agents with distinct personalities, voices, and skill sets. They can chat, search the web, take screenshots, generate images, delegate tasks to each other, and run on schedules.
 
 No cloud subscriptions required — use local models via [Ollama](https://ollama.com) or connect to OpenRouter / Mistral for more power.
 
@@ -27,7 +27,7 @@ No cloud subscriptions required — use local models via [Ollama](https://ollama
 
 ### Multi-Agent System
 - Create unlimited AI agents with unique personalities (system prompts), colors, and voices
-- Each agent has its own conversation history and long-term memory
+- Each agent has its own conversation history
 - Agents can delegate tasks to each other via `@mentions`
 - **Real-time WebSocket updates** — see agent activity instantly
 
@@ -47,11 +47,8 @@ No cloud subscriptions required — use local models via [Ollama](https://ollama
 | ✏️ **Image Editing** | Edits uploaded images via ComfyUI |
 | 📰 **Tagesschau News** | Fetches latest German news from Tagesschau RSS |
 | 🎩 **Hacker News** | Fetches top stories from Hacker News API |
-| 🧠 **Long-Term Memory** | Stores and recalls context using Qdrant vector DB |
-| 📄 **Document Memory** | Upload PDFs/images — stored as vectors (requires Google API) |
 | ✨ **Prompt Optimizer** | Optimizes prompts using RTF, TAG, BAB, CARE, RISE frameworks |
 | ✈️ **Telegram** | Sends/receives messages and images via Telegram bot |
-| 🌙 **Dream Agent** | Daily memory cleanup — removes old entries, keeps memory fresh |
 
 ### Autonomous Agents (Heartbeat)
 - Configure a **heartbeat** schedule for any agent (e.g. every 15 minutes)
@@ -175,18 +172,12 @@ Configure your AI providers and external services (also editable via the UI unde
   "openrouter": { "api_key": "sk-or-v1-..." },
   "mistral":    { "api_key": "sk-..." },
   "google":     { "api_key": "..." },
-  "qdrant":     { "url": "http://localhost:6333" },
   "comfyui":    { "url": "http://localhost:8188" },
   "telegram":   { "bot_token": "...", "chat_id": "..." }
 }
 ```
 
-### Optional Services via Docker
-
-**Vector Memory (Qdrant)**
-```bash
-docker run -d --name qdrant -p 6333:6333 qdrant/qdrant
-```
+### Optional Services
 
 **Screenshots (Playwright)**
 ```bash
@@ -233,7 +224,6 @@ agentclaw/
 | `GET` | `/api/hackernews` | Hacker News top stories |
 | `GET` | `/api/tagesschau` | Tagesschau news feed |
 | `PUT` | `/api/agents/<id>/heartbeat` | Configure heartbeat |
-| `PUT` | `/api/agents/<id>/dream` | Configure Dream (memory cleanup) |
 
 ### Real-Time WebSocket
 
@@ -254,7 +244,6 @@ socket.on('chat_message', (data) => { /* New chat message */ });
 | **Ollama** | Local | Fully private, no API key needed |
 | **OpenRouter** | Cloud | 100+ models, free tier available |
 | **Mistral** | Cloud | Required for Voxtral TTS voices |
-| **Google** | Cloud | Gemini for embeddings |
 
 ---
 
@@ -276,10 +265,6 @@ Agents are configured via the UI or directly in `agents.json`:
     "active": false,
     "interval_min": 60,
     "prompt": "Summarize the latest AI news."
-  },
-  "dream": {
-    "active": false,
-    "retention_days": 30
   }
 }
 ```
@@ -322,7 +307,6 @@ AgentClaw is **GDPR-ready by design** — not as an afterthought.
 
 ## Roadmap
 
-- [ ] VectorMind integration (Gemini Embedding 2 + Qdrant multimodal)
 - [ ] Auto-update mechanism for macOS app
 - [ ] Agent import/export
 - [ ] Voice wake word detection

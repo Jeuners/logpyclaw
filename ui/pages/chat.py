@@ -550,7 +550,7 @@ document.addEventListener('DOMContentLoaded', function() {{
         }});
     }}
 
-    // Activity-Polling: /api/memory/activity alle 2s
+    // Activity-Polling: /api/activity alle 2s
     // Markiert Agenten mit Klasse .is-active + füllt Chip mit Label.
     var activityTimer = null;
     function pollActivity() {{

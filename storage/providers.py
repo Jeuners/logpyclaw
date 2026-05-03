@@ -18,7 +18,6 @@ _PROVIDER_DEFAULTS = {
     "mistral":    {"api_key": os.getenv("MISTRAL_API_KEY", "")},
     "openrouter": {"api_key": ""},
     "comfyui":    {"url": "http://localhost:8188", "model": "flux2pro"},
-    "qdrant":     {"url": "http://localhost:6333"},
     "google_api": {"api_key": ""},
     "telegram":   {"bot_token": "", "chat_id": ""},
     "gmail":      {"email": "", "app_password": ""},

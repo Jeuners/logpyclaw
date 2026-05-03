@@ -102,16 +102,6 @@ async def providers_status():
     else:
         status["openrouter"] = {"ok": False, "info": "Kein API Key"}
 
-    # Qdrant
-    try:
-        qdrant_url = providers.get("qdrant", {}).get("url", "http://localhost:6333")
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            r = await client.get(f"{qdrant_url}/collections")
-        count = len(r.json().get("result", {}).get("collections", []))
-        status["qdrant"] = {"ok": True, "info": f"{count} Collections"}
-    except Exception:
-        status["qdrant"] = {"ok": False, "info": "Nicht erreichbar"}
-
     return status
 
 

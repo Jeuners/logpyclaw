@@ -39,8 +39,6 @@ Die Quelle der Wahrheit ist `.env.example`.
 | `AGENTCLAW_OLLAMA_MODEL` | str | llama2 | Standard Ollama Modell |
 | `AGENTCLAW_COMFYUI_URL` | str | http://localhost:8188 | ComfyUI Server (Image/Video Gen) |
 | `AGENTCLAW_COMFYUI_TIMEOUT_SECONDS` | int | 300 | Timeout für ComfyUI Workflows |
-| `AGENTCLAW_QDRANT_URL` | str | http://localhost:6333 | Qdrant Vector DB |
-| `AGENTCLAW_QDRANT_API_KEY` | str | (leer) | Qdrant API Key (optional) |
 | `AGENTCLAW_REDIS_HOST` | str | localhost | Redis Server Host |
 | `AGENTCLAW_REDIS_PORT` | int | 6379 | Redis Server Port |
 | `AGENTCLAW_REDIS_DB` | int | 0 | Redis DB Index |
@@ -75,7 +73,6 @@ Die Quelle der Wahrheit ist `.env.example`.
 
 | Variable | Typ | Default | Beschreibung |
 |----------|-----|---------|---|
-| `AGENTCLAW_ENABLE_MEMORY_SKILL` | bool | true | Memory/Vector-DB Skill |
 | `AGENTCLAW_ENABLE_WEBSEARCH_SKILL` | bool | true | Web-Suche Skill |
 | `AGENTCLAW_ENABLE_FILE_SKILL` | bool | true | File-Access Skill |
 | `AGENTCLAW_ENABLE_IMAGE_GENERATION` | bool | true | Image Generation (ComfyUI) |
@@ -149,7 +146,6 @@ AGENTCLAW_HOST=0.0.0.0
 AGENTCLAW_NATIVE_MODE=false
 AGENTCLAW_OLLAMA_URL=http://ollama:11434     # Service-Name statt localhost
 AGENTCLAW_REDIS_HOST=redis                   # Service-Name
-AGENTCLAW_QDRANT_URL=http://qdrant:6333      # Service-Name
 ```
 
 ### Kubernetes/Cloud

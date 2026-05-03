@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from storage.agents import load_agents
-from storage.history import load_history, save_history
+from storage.history import append_message, get_messages
 from storage.providers import load_providers
 from config.settings import settings
 
@@ -40,8 +40,7 @@ You are part of the AgentClaw multi-agent system.
 BEHAVIOUR RULES:
 1. ALWAYS check first if you can handle a request using YOUR OWN SKILLS (listed below).
 2. Only delegate to other agents if you absolutely do not have the required skill yourself.
-3. If you find information in your Memory, present it yourself — do not ask another agent.
-4. Reply precisely and minimally — no long explanations.
+3. Reply precisely and minimally — no long explanations.
 5. STRICTLY follow the ROUTING TABLE below — never guess, always use the listed agent.
 
 MARKDOWN RULES (STRICT):
@@ -211,8 +210,7 @@ class ChatService:
                 }
 
         # 3. LLM aufrufen
-        history_data = load_history()
-        agent_history = history_data.get(agent_id, [])
+        agent_history = get_messages(agent_id)
         reply = self._call_llm(agent, message, agent_history, images, providers, audio=audio)
 
         # 3b. Skill-Call aus LLM-Antwort parsen — [skill_id] → Skill direkt ausführen
@@ -228,17 +226,6 @@ class ChatService:
 
         # 4. History speichern (Original mit @Mentions — für LLM-Kontext)
         self._save_history(agent_id, message, reply)
-
-        # 4b. Memory in Qdrant speichern (non-blocking)
-        try:
-            from core.memory import QDRANT_AVAILABLE, memory_store
-            if QDRANT_AVAILABLE:
-                import threading
-                threading.Thread(
-                    target=memory_store, args=(agent_id, message, reply), daemon=True
-                ).start()
-        except Exception:
-            pass
 
         # 5a. TASKLIST zuerst prüfen (strukturiert, hat Vorrang vor @Mentions)
         from core.task_list import has_task_list, strip_task_list
@@ -387,9 +374,7 @@ class ChatService:
                     break
 
         # LLM mit vollständigem Kontext (Agent-Directory, Skills, History, Bilder)
-        from storage.history import load_history
-        history_data = load_history()
-        agent_history = history_data.get(agent["id"], [])
+        agent_history = get_messages(agent["id"])
         reply = self._call_llm(agent, message, agent_history, images, providers, audio=audio)
 
         # Skill aus LLM-Antwort parsen ([skill_id]) — z.B. [file_access] zum Speichern
@@ -766,47 +751,25 @@ class ChatService:
 
     def _save_history(self, agent_id, user_msg, assistant_msg, image=None, skill=None):
         """Chat-History speichern (User + Assistant als Paar)."""
-        history = load_history()
-        if agent_id not in history:
-            history[agent_id] = []
         ts = datetime.now().isoformat()
-        history[agent_id].append({"role": "user", "content": user_msg, "ts": ts})
-        entry = {"role": "assistant", "content": assistant_msg, "ts": ts}
-        if image:
-            entry["image"] = image
-        if skill:
-            entry["skill_used"] = skill
-        history[agent_id].append(entry)
-        save_history(history)
+        append_message(agent_id, "user", user_msg, ts=ts)
+        append_message(
+            agent_id, "assistant", assistant_msg or "",
+            image=image or "", skill_used=skill or "", ts=ts,
+        )
 
     def _save_user_turn(self, agent_id, content):
         """User-Message SOFORT persistieren — überlebt Reload mitten im Stream."""
-        history = load_history()
-        if agent_id not in history:
-            history[agent_id] = []
-        history[agent_id].append({
-            "role": "user", "content": content,
-            "ts": datetime.now().isoformat(),
-        })
-        save_history(history)
+        append_message(agent_id, "user", content)
 
     def _save_assistant_turn(self, agent_id, content, image=None, skill=None):
         """Assistant-Message separat persistieren (User wurde bereits gespeichert)."""
         if not content and not image:
             return
-        history = load_history()
-        if agent_id not in history:
-            history[agent_id] = []
-        entry = {
-            "role": "assistant", "content": content or "",
-            "ts": datetime.now().isoformat(),
-        }
-        if image:
-            entry["image"] = image
-        if skill:
-            entry["skill_used"] = skill
-        history[agent_id].append(entry)
-        save_history(history)
+        append_message(
+            agent_id, "assistant", content or "",
+            image=image or "", skill_used=skill or "",
+        )
 
     def _dispatch_mentions(self, sender_agent, reply: str,
                            current_task: dict | None = None,
@@ -1284,8 +1247,7 @@ class ChatService:
             return
 
         # Messages für LLM aufbauen
-        history_data = load_history()
-        agent_history = history_data.get(agent_id, [])
+        agent_history = get_messages(agent_id)
         messages = self._build_messages(agent, message, agent_history, images, providers,
                                         audio=audio)
 
@@ -1377,17 +1339,6 @@ class ChatService:
             # History mit Original-Reply (inkl. @Mentions — für LLM-Kontext)
             self._save_assistant_turn(agent_id, reply)
 
-            # Memory in Qdrant speichern (non-blocking)
-            try:
-                from core.memory import QDRANT_AVAILABLE, memory_store
-                if QDRANT_AVAILABLE:
-                    import threading
-                    threading.Thread(
-                        target=memory_store, args=(agent_id, message, reply), daemon=True
-                    ).start()
-            except Exception:
-                pass
-
             # A2A-Dispatchen + Display bereinigen
             # TASKLIST hat Vorrang vor @Mentions
             from core.task_list import has_task_list, strip_task_list
@@ -1438,7 +1389,6 @@ class ChatService:
     ) -> list[dict]:
         """Aufbau der Messages-Liste für LLM-Calls (shared zwischen sync und stream)."""
         from core.skills_registry import _build_agent_directory, _get_codebase_context
-        from core.memory import memory_search, QDRANT_AVAILABLE
         from core.operator_context import get_operator_context
 
         now = datetime.now().strftime("%A, %d. %B %Y, %H:%M Uhr")
@@ -1478,14 +1428,6 @@ class ChatService:
                 system_content += f"\n\n{wiki_block}"
         except Exception as e:
             logger.debug("wiki_context skipped: %s", e)
-
-        if QDRANT_AVAILABLE:
-            try:
-                mem_context = memory_search(agent["id"], message, top_k=3)
-                if mem_context:
-                    system_content += f"\n\n[Aus deinem Gedächtnis:]\n{mem_context}"
-            except Exception:
-                pass
 
         messages = [{"role": "system", "content": system_content}]
         for msg in history[-MAX_HISTORY_PER_AGENT:]:

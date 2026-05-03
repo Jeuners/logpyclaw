@@ -8,7 +8,6 @@ Vorteile:
   - Kein 500-Zeichen-Limit mehr
   - Fuzzy-Matching für Agent-Namen mit Umlauten/Leerzeichen
   - Selbstreferenz-Schutz (Agent kann sich nicht selbst dispatchen)
-  - Optionale Qdrant-basierte Capability-Validation
 """
 import re
 import logging

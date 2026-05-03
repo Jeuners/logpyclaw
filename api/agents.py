@@ -2,7 +2,7 @@
 api/agents.py — Agent CRUD + History API + Sub-Routen.
 Ersetzt Flask-Routen aus app.py:
   /api/agents, /api/agents/<id>, /api/history/<id>,
-  /api/agents/<id>/heartbeat, /api/agents/<id>/dream,
+  /api/agents/<id>/heartbeat,
   /api/agents/<id>/settings, /api/agents/<id>/skills, /api/agents/<id>/voice
 """
 import logging
@@ -172,40 +172,6 @@ def run_heartbeat_now(agent_id: str):
         raise HTTPException(404, f"Agent {agent_id} nicht gefunden")
     from core.config import spawn_background
     spawn_background(services.heartbeat.run, agent_id)
-    return {"ok": True}
-
-
-# ── Dream ─────────────────────────────────────────────────────────────────────
-
-class DreamRequest(BaseModel):
-    active: bool = Field(default=False)
-    retention_days: int = Field(default=30, ge=1, le=3650)
-
-
-@router.put("/agents/{agent_id}/dream")
-def set_dream(agent_id: str, req: DreamRequest):
-    """Dream-Zyklus (Memory-Optimierung) konfigurieren."""
-    services = get_services()
-    agent = services.agents.get(agent_id)
-    if not agent:
-        raise HTTPException(404, f"Agent {agent_id} nicht gefunden")
-
-    dream = agent.get("dream", {})
-    dream["active"] = req.active
-    dream["retention_days"] = req.retention_days
-    updated = services.agents.update(agent_id, {"dream": dream})
-    services.events.emit("agent_updated", {"id": agent_id})
-    logger.info("Dream gesetzt für Agent %s: active=%s", agent_id, req.active)
-    return {"ok": True, "agent": updated}
-
-
-@router.post("/agents/{agent_id}/dream/run")
-def run_dream_now(agent_id: str):
-    """Dream-Zyklus sofort manuell starten."""
-    services = get_services()
-    if not services.agents.get(agent_id):
-        raise HTTPException(404, f"Agent {agent_id} nicht gefunden")
-    services.heartbeat.run_dream(agent_id)
     return {"ok": True}
 
 

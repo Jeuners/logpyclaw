@@ -65,7 +65,7 @@ def _show_dispatch_dialog():
     ui.navigate.reload() auf — alle drei schlagen aus Event-Handler-Kontext
     mit `AssertionError: core.loop is not None` fehl. Der Task wird zwar
     korrekt enqueued, aber die UI reagiert nicht sichtbar.
-    TODO: In HTML+fetch umbauen analog zu ui/pages/memory.py / settings.py.
+    TODO: In HTML+fetch umbauen analog zu ui/pages/settings.py.
     Siehe CLAUDE.md → "NiceGUI core.loop Bug".
     """
     from services import get_services

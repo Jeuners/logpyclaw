@@ -52,10 +52,6 @@ ROUTING_RULES: list[tuple[str, str]] = [
     (r"\bwie\s+(?:backe|koche|mach|repariere|bastle|baue|pflanze|funktioniert|heißt)\b", "Recon"),
     (r"\b(?:rezept|anleitung|tutorial)\s+(?:für|zu|von)\b",          "Recon"),
     (r"\b(?:wer|wann|wo)\s+(?:ist|war|hat|ging|kommt)\b",             "Recon"),
-
-    # Memory / Notizen → DREAM
-    (r"\b(?:merk\s+(?:dir|es)|speicher\s+das|erinnerung|notiz)\b",  "DREAM"),
-    (r"\bmerke\b.{0,10}\bdir\b",                                     "DREAM"),
 ]
 
 
@@ -134,7 +130,6 @@ def build_routing_table_for_prompt(all_agents: list[dict]) -> str:
         "Mailbox":     "E-Mails lesen und versenden",
         "Recon":       "Web-Recherche, Wikipedia, Begriffserklärungen, Definitionen, URL-Inhalte",
         "Wiki":        "Projekt-internes Wiki pflegen (ingest/query/lint im AgentClaw-Wiki)",
-        "DREAM":       "Erinnerungen, Notizen, Memory speichern",
     }
     agent_names = {a["name"] for a in all_agents}
     lines = ["ROUTING TABLE (immer einhalten):"]

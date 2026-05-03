@@ -15,7 +15,6 @@ async def health():
     checks = {
         "app": "ok",
         "ollama": await _check_service(settings.OLLAMA_URL + "/api/tags"),
-        "qdrant": await _check_service(settings.QDRANT_URL + "/collections"),
     }
     all_ok = all(v == "ok" for v in checks.values())
     return checks

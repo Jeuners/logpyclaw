@@ -40,3 +40,13 @@ events.jsonl
 # Backup-Dateien
 *.bak
 *.json.bak
+
+# Whisper-Modelle (lokal im Repo, aber zu groß für Git)
+models/*.bin
+models/*.gguf
+
+# Runtime-Daten (Migration legt JSONs in SQLite ab, ltx_batch ist Render-Output)
+data/
+
+# Pre-Migration-Backups
+*.bak.pre-migration

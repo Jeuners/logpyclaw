@@ -96,27 +96,6 @@ SKILLS = [
         "requires": None,
     },
     {
-        "id": "memory",
-        "name": "Long-Term Memory",
-        "icon": "🧠",
-        "description": "Stores important conversation content in Qdrant vector DB and recalls relevant memories as context",
-        "requires": "qdrant",
-    },
-    {
-        "id": "document_memory",
-        "name": "Document Memory",
-        "icon": "📄",
-        "description": "Upload PDFs, images - stored as vectors for retrieval (requires Google API)",
-        "requires": "google_api",
-    },
-    {
-        "id": "dream",
-        "name": "Dream Agent",
-        "icon": "🌙",
-        "description": "Optimizes agent memories daily - removes old entries, resolves contradictions, cleans up vector store",
-        "requires": "qdrant",
-    },
-    {
         "id": "telegram",
         "name": "Telegram",
         "icon": "✈️",

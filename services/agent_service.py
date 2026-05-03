@@ -5,7 +5,7 @@ import logging
 import uuid
 from datetime import datetime
 from storage.agents import load_agents, save_agents, patch_agent_heartbeat
-from storage.history import load_history, save_history
+from storage.history import append_message, clear_messages, get_messages
 from storage.providers import load_providers
 from core.errors import AgentNotFoundError, ValidationError
 
@@ -79,31 +79,25 @@ class AgentService:
         if len(agents) == original:
             raise AgentNotFoundError(f"Agent '{agent_id}' nicht gefunden")
         save_agents(agents)
-        # History löschen
-        history = load_history()
-        history.pop(agent_id, None)
-        save_history(history)
+        clear_messages(agent_id)
         logger.info("Agent gelöscht: %s", agent_id)
 
     def get_history(self, agent_id: str) -> list[dict]:
         """Chat-History für Agent abrufen."""
-        history = load_history()
-        return history.get(agent_id, [])
+        return get_messages(agent_id)
 
     def clear_history(self, agent_id: str):
         """Chat-History für Agent löschen."""
-        history = load_history()
-        history[agent_id] = []
-        save_history(history)
+        clear_messages(agent_id)
 
     def append_history(self, agent_id: str, role: str, content: str, **extra):
         """Eintrag zur Chat-History hinzufügen."""
-        history = load_history()
-        if agent_id not in history:
-            history[agent_id] = []
-        entry = {"role": role, "content": content, "ts": datetime.now().isoformat(), **extra}
-        history[agent_id].append(entry)
-        save_history(history)
+        append_message(
+            agent_id, role, content,
+            image=extra.get("image", "") or "",
+            skill_used=extra.get("skill_used", "") or "",
+            ts=extra.get("ts"),
+        )
 
     def get_providers(self) -> dict:
         """API-Provider-Config abrufen."""

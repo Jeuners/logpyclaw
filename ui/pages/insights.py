@@ -137,8 +137,6 @@ function renderKPIs(agents, stats, skills, health) {
   const working = activeTasks.working || 0;
   const total   = stats.total_tasks || 0;
   const successRate = stats.success_rate != null ? stats.success_rate.toFixed(1) + '%' : '—';
-  const qdrant  = health.qdrant === 'ok' ? '✓' : '✗';
-  const qdrantCol = health.qdrant === 'ok' ? '#00e676' : '#ef4444';
 
   const kpis = [
     { num: agents.length, label: 'Agenten', color: '#00e676' },
@@ -147,7 +145,6 @@ function renderKPIs(agents, stats, skills, health) {
     { num: pending, label: 'Tasks ausstehend', color: '#ffeb3b' },
     { num: working, label: 'Tasks aktiv', color: '#00bcd4' },
     { num: successRate, label: 'Erfolgsrate', color: '#00e676' },
-    { num: qdrant, label: 'Qdrant Memory', color: qdrantCol },
     { num: (stats.avg_duration_sec || 0).toFixed(1) + 's', label: 'Ø Task-Dauer', color: '#ab47bc' },
   ];
 
@@ -228,7 +225,6 @@ function renderProviders(providers) {
     ollama:      { label: 'Ollama (lokal)',   key: v => v.url,                   extra: v => v.url },
     openrouter:  { label: 'OpenRouter',       key: v => v.api_key_masked,         extra: v => v.api_key_masked ? '●●●●' + v.api_key_masked.slice(-4) : null },
     comfyui:     { label: 'ComfyUI',          key: v => v.url,                   extra: v => v.url },
-    qdrant:      { label: 'Qdrant (Vector)',  key: v => v.url,                   extra: v => v.url },
     telegram:    { label: 'Telegram',         key: v => v.enabled && v.bot_token, extra: v => v.enabled ? 'aktiv' : 'inaktiv' },
     redis:       { label: 'Redis',            key: v => v.enabled,               extra: v => v.enabled ? `${v.host}:${v.port}` : 'inaktiv' },
   };

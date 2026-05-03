@@ -8,31 +8,9 @@ from nicegui import ui
 logger = logging.getLogger(__name__)
 
 
-_QDRANT_DOT_JS = """
-<script>
-document.addEventListener('DOMContentLoaded', async () => {
-  try {
-    const r = await fetch('/api/health');
-    const data = await r.json();
-    const dot = document.getElementById('qdrant-status-dot');
-    if (!dot) return;
-    if (data.qdrant === 'ok') {
-      dot.style.background = '#00e676';
-      dot.title = 'Qdrant: erreichbar';
-    } else {
-      dot.style.background = '#ef4444';
-      dot.title = 'Qdrant: nicht erreichbar';
-    }
-  } catch(e) {}
-});
-</script>
-"""
-
-
 def create_layout(page_name: str = "home"):
     """Erstellt den Header. Muss am Anfang jeder Page aufgerufen werden."""
     ui.dark_mode(True)
-    ui.add_head_html(_QDRANT_DOT_JS)
 
     with ui.header().classes("items-center justify-between px-3 py-0").style(
         "height: 44px; min-height: 44px; background: #070d08; "
@@ -53,16 +31,20 @@ def create_layout(page_name: str = "home"):
             _nav_link("Tasks",    "assignment", "/tasks",    page_name)
             _nav_link("Skills",   "extension",  "/skills",   page_name)
             _nav_link("Settings", "settings",   "/settings", page_name)
+            ui.html(
+                '<button onclick="location.reload()" title="Seite neu laden" '
+                'style="display:inline-flex;align-items:center;justify-content:center;'
+                'width:28px;height:28px;border-radius:50%;border:none;cursor:pointer;'
+                'background:rgba(0,230,118,.08);color:#3a5a3a;'
+                'transition:color .15s,background .15s;margin-left:4px;" '
+                'onmouseover="this.style.color=\'#00e676\';this.style.background=\'rgba(0,230,118,.15)\'" '
+                'onmouseout="this.style.color=\'#3a5a3a\';this.style.background=\'rgba(0,230,118,.08)\'">'
+                '<span class="material-icons" style="font-size:16px">refresh</span>'
+                '</button>'
+            )
 
         # Rechte Seite
         with ui.row().classes("items-center gap-1 ml-auto shrink-0"):
-            ui.html(
-                '<span id="qdrant-status-dot" title="Qdrant Memory: prüfe..." '
-                'style="width:8px;height:8px;border-radius:50%;background:#3a5a3a;'
-                'display:inline-block;margin-right:2px;flex-shrink:0;'
-                'transition:background .4s;cursor:default"></span>'
-            )
-            _icon_link("memory",  "/memory",  "Memory")
             _icon_link("backup",  "/backup",  "Backup")
             _icon_link("hub",     "/network", "M2M Netzwerk")
 

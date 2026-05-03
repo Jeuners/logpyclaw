@@ -194,18 +194,12 @@ class WhatsAppWatcherService:
             if not self._martin_id:
                 return
 
-            from storage.history import load_history, save_history
-            history = load_history()
+            from storage.history import append_message
             agent_id = self._martin_id
-            if agent_id not in history:
-                history[agent_id] = []
-
-            history[agent_id].append({
-                "role": "assistant",
-                "content": f"📱 **WhatsApp** von **{sender}** [{ts}]:\n{text}",
-                "ts": datetime.now().isoformat(),
-                "skill_used": "whatsapp",
-            })
-            save_history(history)
+            append_message(
+                agent_id, "assistant",
+                f"📱 **WhatsApp** von **{sender}** [{ts}]:\n{text}",
+                skill_used="whatsapp",
+            )
         except Exception as e:
             logger.warning("WhatsApp inject Fehler: %s", e)

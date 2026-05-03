@@ -211,7 +211,7 @@ User        Frontend         Server          ComfyUI / LLM
 ### `PUT /api/agents/<id>/skills` — Skills aktualisieren
 
 ```json
-{ "skills": ["image_gen", "web_search", "memory"] }
+{ "skills": ["image_gen", "web_search"] }
 ```
 
 ---
@@ -293,7 +293,6 @@ interface Agent {
 | `web_search` | Web Search | Live-Suche via SearXNG |
 | `url_fetch` | URL Fetch | Text aus URLs extrahieren |
 | `screenshot` | Screenshot | Browser-Screenshots via Playwright |
-| `memory` | Memory | Semantisches Gedächtnis via Qdrant |
 | `telegram` | Telegram | Nachrichten/Bilder senden |
 | `telegram_incoming` | Telegram Incoming | Eingehende Nachrichten empfangen |
 | `gmail` | Gmail | E-Mails senden und lesen (IMAP/SMTP) |

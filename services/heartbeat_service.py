@@ -1,6 +1,6 @@
 """
-services/heartbeat_service.py — Heartbeat und Dream-Zyklen.
-Extrahiert aus app.py: run_heartbeat(), tick_heartbeats(), run_dream_for_agent().
+services/heartbeat_service.py — Heartbeat-Zyklen.
+Extrahiert aus app.py: run_heartbeat(), tick_heartbeats().
 """
 import logging
 import re
@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 from storage.agents import load_agents
-from storage.history import load_history, save_history
+from storage.history import append_message
 from core.config import spawn_background
 from core.state import MAC_MAIL_TRIGGERS
 
@@ -71,49 +71,41 @@ class HeartbeatService:
         self._events.activity_start(agent_id, "heartbeat", prompt[:60])
 
         try:
-            history = load_history()
-            if agent_id not in history:
-                history[agent_id] = []
             ts = datetime.now().isoformat()
 
             if "image_gen" in skills:
                 result_image, short = self._run_image_heartbeat(agent, prompt)
                 from skills.comfyui import make_thumbnail
                 thumb = make_thumbnail(result_image)
-                history[agent_id].append({
-                    "role": "assistant",
-                    "content": "💓 **Heartbeat** — Bild generiert",
-                    "task_image": thumb,
-                    "ts": ts,
-                    "heartbeat": True,
-                })
+                append_message(
+                    agent_id, "assistant",
+                    "💓 **Heartbeat** — Bild generiert",
+                    image=thumb or "", skill_used="heartbeat", ts=ts,
+                )
             elif "mac_mail" in skills and MAC_MAIL_TRIGGERS.search(prompt):
                 from mac_mail.skill import _run_mac_mail
                 reply = _run_mac_mail(prompt)
                 short = reply[:120]
-                history[agent_id].append({
-                    "role": "assistant",
-                    "content": f"💓 **Heartbeat**\n\n{reply}",
-                    "ts": ts,
-                    "heartbeat": True,
-                })
+                append_message(
+                    agent_id, "assistant",
+                    f"💓 **Heartbeat**\n\n{reply}",
+                    skill_used="heartbeat", ts=ts,
+                )
             else:
                 from core.llm import call_agent_text
                 prompt_for_llm = _MENTION_RX.sub("", prompt).strip()
                 reply = call_agent_text(agent, "[Heartbeat]", prompt_for_llm)
                 short = reply[:120]
-                history[agent_id].append({
-                    "role": "assistant",
-                    "content": f"💓 **Heartbeat**\n\n{reply}",
-                    "ts": ts,
-                    "heartbeat": True,
-                })
+                append_message(
+                    agent_id, "assistant",
+                    f"💓 **Heartbeat**\n\n{reply}",
+                    skill_used="heartbeat", ts=ts,
+                )
                 # Mentions dispatchen
                 clean_reply = re.sub(r"^\s*\(.*?\)\s*", "", reply, flags=re.DOTALL).strip()
                 if self._task_service and _MENTION_RX.search(clean_reply or reply):
                     self._dispatch_heartbeat_mentions(agent, clean_reply or reply)
 
-            save_history(history)
             self._agents.patch_heartbeat(agent_id, last_run=ts, last_result=short[:300])
             self._events.emit_heartbeat_result(agent_id, locals().get("reply", short))
             self._notify_macos(agent["name"], short)
@@ -160,7 +152,3 @@ class HeartbeatService:
         except Exception:
             pass
 
-    def run_dream(self, agent_id: str):
-        """Dream-Zyklus: Memory optimieren."""
-        from core.memory import run_dream_for_agent
-        spawn_background(run_dream_for_agent, agent_id)

@@ -27,9 +27,6 @@ openai>=1.30.0              # OpenAI/OpenRouter-kompatibler Client
 Pillow>=10.0.0              # Bild-Thumbnails, MIME-Erkennung (ComfyUI Skills)
 yt-dlp>=2024.1.1            # YouTube-Download Skill
 
-# ── Vector Memory ─────────────────────────────────────────────────────────────
-qdrant-client>=1.9.0        # Qdrant Vektor-Datenbank (semantische Memory)
-
 # ── Security ──────────────────────────────────────────────────────────────────
 cryptography>=42.0.0        # Verschlüsselung, API-Key-Masking
 
@@ -38,9 +35,6 @@ python-json-logger>=2.0.0   # Strukturiertes JSON-Logging (optional)
 
 # ── Optional: Rate Limiting ───────────────────────────────────────────────────
 # slowapi>=0.1.9             # Rate Limiting für FastAPI (Produktions-Deploy)
-
-# ── Optional: PDF-Verarbeitung ────────────────────────────────────────────────
-# PyPDF2>=3.0.0              # PDF-Text-Extraktion für Memory-Uploads
 
 # ── Optional: Web-Screenshots ─────────────────────────────────────────────────
 # playwright>=1.44.0         # Browser-Automatisierung für /api/screenshot

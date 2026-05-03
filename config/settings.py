@@ -39,7 +39,6 @@ class Settings(BaseSettings):
     # External Services
     OLLAMA_URL: str = "http://localhost:11434"
     COMFYUI_URL: str = "http://localhost:8188"
-    QDRANT_URL: str = "http://localhost:6333"
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
 
@@ -48,10 +47,6 @@ class Settings(BaseSettings):
     MISTRAL_VOICES_URL: str = "https://api.mistral.ai/v1/audio/voices"
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     GOOGLE_TTS_URL: str = "https://texttospeech.googleapis.com/v1/text:synthesize"
-
-    # Embeddings
-    EMBED_MODEL: str = "nomic-embed-text"
-    EMBED_DIM: int = 768
 
     # Logging
     LOG_LEVEL: str = "INFO"

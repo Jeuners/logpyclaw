@@ -18,7 +18,6 @@ python app_new.py
 | [CONFIG_SCHEMA.md](./CONFIG_SCHEMA.md) | Alle Konfigurationsoptionen |
 | [A2A.md](./A2A.md) | Agent-to-Agent Protokoll (A2A) |
 | [PROTOCOL.md](./PROTOCOL.md) | API-Protokoll-Dokumentation |
-| [dream.md](./dream.md) | Dream-Funktion Konzept |
 
 ## Einstiegspunkte
 
@@ -30,12 +29,7 @@ python app_new.py
 
 ## TODO / Geplant
 
-- [ ] **Qdrant Vector Store** — Skill-Capability-Discovery + semantisches A2A-Routing
-  - Agenten-Fähigkeiten als Embeddings in Qdrant speichern
-  - Tasks per Cosine-Similarity zum passendsten Agenten routen
-  - Memory-Kontext über Qdrant (statt reinem JSON-File)
 - [ ] **Streaming-Bilder** — Multimodale Inputs auch über SSE streamen
-- [ ] **Agent-Memory-Kompression** — Auto-Zusammenfassung langer Historien (>100 Messages)
 - [ ] **Web-UI für Watchdogs** — Watchdog-Verwaltung im NiceGUI-Frontend
 - [ ] **py2app Build** — macOS .app Bundle mit neuem Stack
 

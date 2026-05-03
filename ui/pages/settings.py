@@ -37,7 +37,7 @@ def _render_providers():
     services = get_services()
     providers = services.agents.get_providers()
 
-    CHECKABLE = {"ollama", "mistral", "openrouter", "qdrant"}
+    CHECKABLE = {"ollama", "mistral", "openrouter"}
 
     provider_configs = [
         ("ollama",     "Ollama",           "🖥",  [("url",          "Server URL",   "http://localhost:11434")]),
@@ -56,7 +56,6 @@ def _render_providers():
             ("url",   "Server URL", "http://localhost:8188"),
             ("model", "Modell",     "flux2pro"),
         ]),
-        ("qdrant",     "Qdrant (Memory)",   "🧠",  [("url", "Server URL", "http://localhost:6333")]),
     ]
 
     # Gesamte Provider-UI als HTML — kein NiceGUI on_click nötig
@@ -252,8 +251,7 @@ def _render_debug():
         import httpx
         from config.settings import settings
         results = {}
-        for name, url in [("Ollama", settings.OLLAMA_URL + "/api/tags"),
-                          ("Qdrant", settings.QDRANT_URL + "/collections")]:
+        for name, url in [("Ollama", settings.OLLAMA_URL + "/api/tags")]:
             try:
                 async with httpx.AsyncClient(timeout=3) as c:
                     r = await c.get(url)

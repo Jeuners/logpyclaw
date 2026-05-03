@@ -375,12 +375,14 @@ class TaskService:
     def _apply_result(self, task, result):
         """Skill-Result auf Task anwenden."""
         from skills.base import SkillResult
+        from storage.files import persist_image_field
         if isinstance(result, SkillResult):
             if result.error:
                 logger.error("Skill-Fehler in Task %s: %s", task["id"], result.error)
                 raise RuntimeError(result.error)   # → landet in _fail()
             task["result_text"] = result.text
-            task["result_image"] = result.image
+            # Base64-data-URIs werden als Datei abgelegt; DB hält nur den /static/...-Pfad.
+            task["result_image"] = persist_image_field(result.image, name_hint=task["id"])
             task["skill_used"] = result.skill_used
             if getattr(result, "metadata", None):
                 task["metadata"] = result.metadata
@@ -431,42 +433,33 @@ class TaskService:
     def _save_to_history(self, task):
         """Task-Ergebnis in Chat-History beider Agenten speichern."""
         try:
-            from storage.history import load_history, save_history
+            from storage.history import append_message
             ts = datetime.now().isoformat()
             recipient_id  = task["recipient_agent_id"]
             sender_id     = task.get("sender_agent_id", "")
             result_text   = task.get("result_text") or ""
-            result_image  = task.get("result_image")   # base64 oder None
+            result_image  = task.get("result_image") or ""   # /static/...-Pfad oder leer
             recipient_name = task.get("recipient_agent_name", "Agent")
             sender_name    = task.get("sender_agent_name", "?")
+            skill_used     = task.get("skill_used") or ""
 
             if not result_text and not result_image:
                 return
 
-            history = load_history()
-
             # Beim Empfänger-Agenten speichern
-            history.setdefault(recipient_id, [])
-            history[recipient_id].append({
-                "role": "assistant",
-                "content": result_text or f"[Task von @{sender_name} abgeschlossen]",
-                "image": result_image,
-                "skill_used": task.get("skill_used"),
-                "ts": ts,
-            })
+            append_message(
+                recipient_id, "assistant",
+                result_text or f"[Task von @{sender_name} abgeschlossen]",
+                image=result_image, skill_used=skill_used, ts=ts,
+            )
 
             # Beim Sender-Agenten speichern (nur wenn echter Agent, nicht User/System)
             if sender_id and sender_id not in ("system", "inbox", "user", ""):
-                history.setdefault(sender_id, [])
-                history[sender_id].append({
-                    "role": "assistant",
-                    "content": result_text or f"[@{recipient_name} hat den Task abgeschlossen]",
-                    "image": result_image,
-                    "skill_used": task.get("skill_used"),
-                    "ts": ts,
-                })
-
-            save_history(history)
+                append_message(
+                    sender_id, "assistant",
+                    result_text or f"[@{recipient_name} hat den Task abgeschlossen]",
+                    image=result_image, skill_used=skill_used, ts=ts,
+                )
 
         except Exception as e:
             logger.warning("History-Save fehlgeschlagen: %s", e)

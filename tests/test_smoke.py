@@ -24,8 +24,7 @@ EXPECTED_ROUTES = [
     "/api/providers",
     "/api/backup",
     "/api/upload",
-    "/api/memory",
-    "/api/activity",       # memory router
+    "/api/activity",
     "/api/summary",        # health router
     "/api/models",         # providers router
     "/api/screenshot",     # content router
@@ -54,7 +53,6 @@ UI_PAGE_MODULES = [
     "ui.pages.tasks",
     "ui.pages.settings",
     "ui.pages.agent_edit",
-    "ui.pages.memory",
     "ui.pages.backup",
     "ui.pages.network",
     "ui.pages.insights",

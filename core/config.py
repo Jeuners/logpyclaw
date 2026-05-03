@@ -6,7 +6,7 @@ Scope:
 - _read_json / _write_json (JSON-Atomkasten)
 - dlog (conditional Debug-Logger)
 
-Werte (URLs, Limits, Embed-Config) leben in `config.settings` (pydantic).
+Werte (URLs, Limits) leben in `config.settings` (pydantic).
 Thread-Helper liegen in `core.background`.
 
 Re-Exports werden bewusst NICHT mehr hier gepflegt — jede Call-Site soll

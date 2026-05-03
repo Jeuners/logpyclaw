@@ -41,8 +41,6 @@ submitted → working → input-required → completed/failed/canceled/rejected/
 | `/api/agents/<id>/skills` | PUT | Enable/disable skills |
 | `/api/agents/<id>/heartbeat` | PUT | Configure heartbeat (auto-task) |
 | `/api/agents/<id>/heartbeat/run` | POST | Trigger heartbeat manually |
-| `/api/agents/<id>/dream` | PUT | Configure dream (memory cleanup) |
-| `/api/agents/<id>/dream/run` | POST | Run dream cycle manually |
 
 ### Task Management
 
@@ -61,13 +59,10 @@ submitted → working → input-required → completed/failed/canceled/rejected/
 | `/api/skills` | GET | List all skills with availability |
 | `/api/skills/<skill>/check` | GET | Check if skill is available |
 
-### Memory & Documents
+### History
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/memory/<agent_id>` | GET | Get agent memories from Qdrant |
-| `/api/memory/<agent_id>` | DELETE | Clear all memories |
-| `/api/memory/<agent_id>/document` | POST | Upload PDF/image to vector store |
 | `/api/history/<agent_id>` | GET/DELETE | Chat history |
 
 ### Other Endpoints
@@ -92,8 +87,8 @@ Delegations-Syntax: @AgentName <Aufgabe>
 
 VERFÜGBARE AGENTS:
   • Picasso (DU) — Skills: 📸 Screenshot, 🎨 Image Gen
-  • LISA — Skills: 📰 Tagesschau News, 🧠 Memory
-  • MARTIN — Skills: 🧠 Memory, ✏️ Prompt Optimize, 🎩 Hacker News
+  • LISA — Skills: 📰 Tagesschau News
+  • MARTIN — Skills: ✏️ Prompt Optimize, 🎩 Hacker News
   • Flo — Skills: 🎨 Image Gen, ✏️ Prompt Optimize
   • Jan — Skills: 📸 Screenshot, 🎨 Image Gen
   • Fotograf — Skills: 🎨 Image Gen
@@ -171,7 +166,7 @@ Agents can also delegate to other agents by mentioning them in their reply:
   "provider": "ollama|mistral|openrouter|google",
   "model": "string",
   "soul": "string (system prompt)",
-  "skills": ["image_gen", "memory", "telegram", ...],
+  "skills": ["image_gen", "telegram", ...],
   "voice": "string|null",
   "avatar": "base64|null",
   "color": "hex|null",
@@ -179,10 +174,6 @@ Agents can also delegate to other agents by mentioning them in their reply:
     "active": "boolean",
     "interval_min": "number",
     "prompt": "string"
-  },
-  "dream": {
-    "active": "boolean",
-    "retention_days": "number"
   }
 }
 ```
@@ -193,8 +184,6 @@ Agents can also delegate to other agents by mentioning them in their reply:
 |-------|-------------|----------|
 | `image_gen` | Image generation via ComfyUI | ComfyUI |
 | `image_edit` | Image editing | ComfyUI |
-| `memory` | Long-term memory via Qdrant | Qdrant |
-| `document_memory` | PDF/image upload to vector store | Qdrant + Google API |
 | `telegram` | Telegram bot | Telegram API |
 | `gmail` | Gmail integration | Gmail API |
 | `prompt_optimize` | Prompt optimization via Ollama | Ollama |
@@ -212,14 +201,6 @@ Agents can run periodic tasks automatically:
 - **Trigger**: Backend scheduler checks every minute
 - **Use case**: Daily status updates, data fetching, delegation to other agents
 
-## Dream (Memory Cleanup)
-
-Agents with memory skill can auto-cleanup old memories:
-
-- **Retention**: 1-365 days
-- **Trigger**: Daily via `_run_dream_cycle()`
-- **Action**: Deletes vector entries older than retention period
-
 ## Error Handling
 
 | Status Code | Description |
@@ -227,7 +208,7 @@ Agents with memory skill can auto-cleanup old memories:
 | 400 | Bad request (missing fields, invalid state) |
 | 404 | Task/Agent not found |
 | 405 | Method not allowed |
-| 503 | Service unavailable (e.g., Qdrant not running) |
+| 503 | Service unavailable |
 
 ## Testing
 
@@ -257,19 +238,6 @@ curl http://localhost:5050/api/tasks/<task_id>
 
 # Cancel task
 curl -X POST http://localhost:5050/api/tasks/<task_id>/cancel
-
-# Upload document to memory
-curl -X POST http://localhost:5050/api/memory/<agent_id>/document \
-  -F "file=@document.pdf"
-```
-
-## Memory Clear Trigger
-
-Agents with memory skill can have their memory cleared:
-
-```
-User: "vergiss das", "lösche memory", "clear memory"
-→ Memory collection for that agent is deleted from Qdrant
 ```
 
 ## Voice Language

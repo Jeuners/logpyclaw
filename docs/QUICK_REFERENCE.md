@@ -28,7 +28,6 @@ playwright install chromium        # für Screenshots
 # Dienste
 brew install ollama
 ollama pull gemma3:4b              # oder gewünschtes Modell
-docker run -d -p 6333:6333 qdrant/qdrant   # Vektor-Memory
 
 # Konfiguration vom alten Mac kopieren
 cp /alter/mac/agentclaw/config/providers.json ./config/

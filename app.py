@@ -85,7 +85,7 @@ from api import (
     backup as _backup_api,
     upload as _upload_api,
     inbox as _inbox_api,
-    memory as _memory_api,
+    activity as _activity_api,
     content as _content_api,
     tts as _tts_api,
     transcribe as _transcribe_api,
@@ -97,13 +97,15 @@ from api import (
     chrome_ws as _chrome_ws_api,
     ltx_batch as _ltx_batch_api,
 )
+from lab.api import lab_router as _lab_api  # 🧪 Communication Lab — isoliert
 
 _API_MODULES = (
     _agents_api, _chat_api, _tasks_api, _skills_api, _health_api,
     _m2m_api,
-    _providers_api, _backup_api, _upload_api, _inbox_api, _memory_api,
+    _providers_api, _backup_api, _upload_api, _inbox_api, _activity_api,
     _content_api, _tts_api, _transcribe_api, _stats_api, _watchdogs_api,
     _comfyui_api, _themes_api, _tools_api, _chrome_ws_api, _ltx_batch_api,
+    _lab_api,
 )
 for _mod in _API_MODULES:
     app.include_router(_mod.router)
@@ -117,11 +119,11 @@ import ui.pages.tasks       # noqa: F401 — registriert @ui.page("/tasks")
 import ui.pages.settings    # noqa: F401 — registriert @ui.page("/settings")
 import ui.pages.skills      # noqa: F401 — registriert @ui.page("/skills")
 import ui.pages.agent_edit  # noqa: F401 — registriert /agent/edit/{id} + /agent/new
-import ui.pages.memory      # noqa: F401 — registriert @ui.page("/memory")
 import ui.pages.backup      # noqa: F401 — registriert @ui.page("/backup")
 import ui.pages.network     # noqa: F401 — registriert @ui.page("/network")
 import ui.pages.insights    # noqa: F401 — registriert @ui.page("/insights")
 import ui.pages.ltx_batch  # noqa: F401 — registriert @ui.page("/ltx-batch")
+import lab.ui.lab_page    # noqa: F401 — 🧪 registriert @ui.page("/lab")
 from nicegui import ui    # Re-import: lokales ui/-Paket hat nicegui.ui überschrieben
 logger.info("NiceGUI Pages registriert")
 
@@ -197,18 +199,6 @@ async def lifespan(_app):
     from core.scheduler import start_scheduler
     await start_scheduler()
     logger.info("Scheduler gestartet. Bereit auf %s:%d", settings.HOST, settings.PORT)
-
-    # Qdrant-Status beim Startup prüfen
-    try:
-        from core.memory import get_qdrant, QDRANT_AVAILABLE
-        if not QDRANT_AVAILABLE:
-            logger.warning("⚠ qdrant_client nicht installiert — Memory deaktiviert")
-        elif get_qdrant() is None:
-            logger.warning("⚠ Qdrant nicht erreichbar (http://localhost:6333) — Memory deaktiviert")
-        else:
-            logger.info("Qdrant: erreichbar ✓")
-    except Exception as e:
-        logger.warning("Qdrant-Check fehlgeschlagen: %s", e)
 
     yield  # App läuft
 
