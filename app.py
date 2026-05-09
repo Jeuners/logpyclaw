@@ -96,8 +96,10 @@ from api import (
     tools as _tools_api,
     chrome_ws as _chrome_ws_api,
     ltx_batch as _ltx_batch_api,
+    temporal as _temporal_api,
 )
 from lab.api import lab_router as _lab_api  # 🧪 Communication Lab — isoliert
+from lab.api import dilation_demo_router as _dilation_demo_api  # 🧪 Time Dilation Demo
 
 _API_MODULES = (
     _agents_api, _chat_api, _tasks_api, _skills_api, _health_api,
@@ -105,7 +107,9 @@ _API_MODULES = (
     _providers_api, _backup_api, _upload_api, _inbox_api, _activity_api,
     _content_api, _tts_api, _transcribe_api, _stats_api, _watchdogs_api,
     _comfyui_api, _themes_api, _tools_api, _chrome_ws_api, _ltx_batch_api,
+    _temporal_api,
     _lab_api,
+    _dilation_demo_api,
 )
 for _mod in _API_MODULES:
     app.include_router(_mod.router)
@@ -123,9 +127,19 @@ import ui.pages.backup      # noqa: F401 — registriert @ui.page("/backup")
 import ui.pages.network     # noqa: F401 — registriert @ui.page("/network")
 import ui.pages.insights    # noqa: F401 — registriert @ui.page("/insights")
 import ui.pages.ltx_batch  # noqa: F401 — registriert @ui.page("/ltx-batch")
-import lab.ui.lab_page    # noqa: F401 — 🧪 registriert @ui.page("/lab")
+import ui.pages.temporal   # noqa: F401 — registriert @ui.page("/temporal")
+import lab.ui.lab_page              # noqa: F401 — 🧪 registriert @ui.page("/lab")
+# dilation-demo wird als plain FastAPI HTMLResponse serviert (kein NiceGUI)
 from nicegui import ui    # Re-import: lokales ui/-Paket hat nicegui.ui überschrieben
 logger.info("NiceGUI Pages registriert")
+
+# ── Time Dilation Demo — standalone HTML, kein NiceGUI ───────────────────────
+from fastapi.responses import HTMLResponse as _HTMLResponse
+from lab.api.dilation_demo_router import _PAGE_HTML as _dil_html
+
+@app.get("/dilation-demo", response_class=_HTMLResponse)
+def dilation_demo_html():
+    return _HTMLResponse(_dil_html)
 
 # ── /chat Redirect (HTTP 302 statt NiceGUI-Page) ──────────────────────────────
 from fastapi.responses import RedirectResponse

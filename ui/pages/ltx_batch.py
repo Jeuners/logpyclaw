@@ -12,6 +12,7 @@ _PAGE_JS = r"""
   const API = '/api/ltx-batch';
   const LS_DEFAULTS = 'ltx_defaults';
   const LS_JOB = 'ltx_job';
+  const LS_PREP = 'ltx_prep';
   let es = null;
   let PREP = null;   // { job_id, total, segments: [{idx, segment, duration, prompt, image_mode, custom_fn}] }
 
@@ -22,6 +23,11 @@ _PAGE_JS = r"""
   function loadJob()    { try { return JSON.parse(localStorage.getItem(LS_JOB) || 'null'); } catch(e) { return null; } }
   function saveJob(j)   { localStorage.setItem(LS_JOB, JSON.stringify(j)); }
   function clearJob()   { localStorage.removeItem(LS_JOB); }
+
+  // ── PREP-Persistenz (Segmente, Transkript, Bild-Beschreibung) ─────────────
+  function loadPrep()   { try { return JSON.parse(localStorage.getItem(LS_PREP) || 'null'); } catch(e) { return null; } }
+  function savePrep()   { if (PREP) localStorage.setItem(LS_PREP, JSON.stringify(PREP)); }
+  function clearPrep()  { localStorage.removeItem(LS_PREP); }
 
   // ── Log / Videos ──────────────────────────────────────────────────────────
   function log(msg, cls='', persist=true) {
@@ -42,24 +48,109 @@ _PAGE_JS = r"""
     el.innerHTML = '';
     logs.forEach(({msg, cls}) => log(msg, cls, false));
   }
+  function refreshConcatButton() {
+    const btn = qs('#ltx-concat-btn');
+    if (!btn) return;
+    const finished = document.querySelectorAll('#ltx-videos .ltx-video-card').length;
+    btn.disabled = finished < 2;
+    btn.textContent = finished < 2
+      ? '🎬 Alle fertigen Segmente zusammenschneiden'
+      : `🎬 ${finished} fertige Segmente zusammenschneiden`;
+  }
+
+  window._ltxConcat = async function() {
+    if (!PREP || !PREP.job_id) return;
+    const btn = qs('#ltx-concat-btn');
+    const status = qs('#ltx-concat-status');
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ verbinde Segmente...';
+    if (status) status.textContent = '';
+    try {
+      const r = await fetch(API + '/concat/' + PREP.job_id, { method: 'POST' });
+      const data = await r.json();
+      if (!r.ok || data.error) {
+        const detail = data.stderr ? ' — ' + data.stderr.slice(-200) : '';
+        log('❌ Concat-Fehler: ' + (data.error || 'unbekannt') + detail, 'ltx-error');
+        if (status) status.textContent = data.error || 'Fehler';
+        return;
+      }
+      log(`🎬 Master-MP4 erzeugt aus ${data.segments_used} Segmenten (${(data.size_bytes/1024/1024).toFixed(1)} MB)`, 'ltx-ok');
+      const wrap = qs('#ltx-master-video');
+      if (wrap) {
+        wrap.innerHTML = `
+          <div class="ltx-video-card">
+            <div class="ltx-video-header">🎬 Master — ${data.segments_used} Segmente</div>
+            <video controls preload="metadata" class="ltx-video-el">
+              <source src="${data.url}" type="video/mp4">
+            </video>
+            <div class="ltx-video-actions">
+              <a href="${data.url}" download="${data.filename}" class="ltx-dl-btn">⬇ Master-Download (${(data.size_bytes/1024/1024).toFixed(1)} MB)</a>
+            </div>
+          </div>
+        `;
+      }
+      if (status) status.textContent = `✓ ${data.filename}`;
+    } catch(e) {
+      log('❌ Concat-Fehler: ' + e.message, 'ltx-error');
+      if (status) status.textContent = e.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = orig;
+      refreshConcatButton();
+    }
+  };
+
   function renderVideo(segment, total, url, prompt, persist=true) {
     const el = qs('#ltx-videos'); if (!el) return;
     const ph = el.querySelector('.ltx-placeholder'); if (ph) ph.remove();
+    const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const existing = el.querySelector(`[data-segment="${segment}"]`);
     const card = document.createElement('div');
     card.className = 'ltx-video-card';
+    card.dataset.segment = segment;
     card.innerHTML = `
       <div class="ltx-video-header">Segment ${segment} / ${total}</div>
-      <video controls autoplay muted loop class="ltx-video-el">
-        <source src="${url}" type="video/mp4">
+      <video controls preload="metadata" muted loop class="ltx-video-el">
+        <source src="${esc(url)}" type="video/mp4">
       </video>
-      <div class="ltx-video-prompt">${prompt}</div>
-      <a href="${url}" download="segment_${segment}.mp4" class="ltx-dl-btn">⬇ Download</a>
+      <div class="ltx-video-prompt">${esc(prompt)}</div>
+      <div class="ltx-video-actions">
+        <a href="${esc(url)}" download="segment_${segment}.mp4" class="ltx-dl-btn">⬇ Download</a>
+        <button class="ltx-btn-mini ltx-video-edit-btn" data-segment="${segment}">✏ Edit &amp; Re-Render</button>
+      </div>
     `;
-    el.appendChild(card);
+    if (existing) {
+      existing.replaceWith(card);
+    } else {
+      el.appendChild(card);
+    }
+    // Edit-Button: scrollt zur entsprechenden Review-Card und fokussiert das Prompt-Feld
+    const editBtn = card.querySelector('.ltx-video-edit-btn');
+    if (editBtn) {
+      editBtn.addEventListener('click', () => {
+        const idx = segment - 1;
+        const reviewCard = document.querySelector(`.ltx-seg-card[data-idx="${idx}"]`);
+        if (!reviewCard) {
+          log('⚠ Review-Card für Segment ' + segment + ' nicht gefunden', 'ltx-warn');
+          return;
+        }
+        reviewCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        reviewCard.classList.add('ltx-flash');
+        setTimeout(() => reviewCard.classList.remove('ltx-flash'), 1200);
+        const ta = reviewCard.querySelector('.ltx-seg-prompt');
+        if (ta) { ta.focus(); ta.select(); }
+      });
+    }
     if (persist) {
       const j = loadJob();
-      if (j) { j.videos.push({segment, total, url, prompt}); saveJob(j); }
+      if (j) {
+        j.videos = (j.videos || []).filter(v => v.segment !== segment);
+        j.videos.push({segment, total, url, prompt});
+        saveJob(j);
+      }
     }
+    refreshConcatButton();
   }
 
   function setBusy(which, busy) {
@@ -113,12 +204,17 @@ _PAGE_JS = r"""
     box.innerHTML = '';
     PREP.segments.forEach(seg => {
       const c = document.createElement('div');
-      c.className = 'ltx-seg-card';
+      c.className = 'ltx-seg-card' + (seg.prompt_locked ? ' locked' : '');
       c.dataset.idx = seg.idx;
       const isFirst = seg.idx === 0;
       const audioHtml = seg.audio_url
         ? `<audio controls class="ltx-seg-audio" src="${seg.audio_url}"></audio>`
         : `<div class="ltx-seg-no-audio">🔇 Audio nicht verfügbar</div>`;
+      const lockState = seg.prompt_locked ? 'locked' : '';
+      const lockLabel = seg.prompt_locked ? '🔒 Prompt gelockt' : '🔓 Auto-Refine an';
+      const lockTitle = isFirst
+        ? 'Segment 1 wird nicht refined (erstes Bild ist immer das Start-Bild)'
+        : 'Wenn aktiv (🔓), wird der Prompt vor dem Render anhand des echten Eingangsbilds verfeinert. Sperren mit 🔒 um den eigenen Wortlaut zu schützen.';
       c.innerHTML = `
         <div class="ltx-seg-head">
           <span class="ltx-seg-badge">Seg ${seg.segment}</span>
@@ -126,6 +222,7 @@ _PAGE_JS = r"""
         </div>
         ${audioHtml}
         <textarea class="ltx-seg-prompt" rows="3">${seg.prompt.replace(/</g,'&lt;')}</textarea>
+        <div class="ltx-refined-note" data-refined-for="${seg.idx}"></div>
         <div class="ltx-seg-modes">
           ${isFirst ? '' : `
           <label class="ltx-mode">
@@ -145,20 +242,38 @@ _PAGE_JS = r"""
           <input type="file" accept="image/*" class="ltx-seg-file">
           <span class="ltx-seg-uploaded">${seg.custom_fn ? '✓ '+seg.custom_fn : ''}</span>
         </div>
+        <div class="ltx-seg-foot">
+          <button class="ltx-lock-btn ${lockState}" title="${lockTitle}" ${isFirst?'disabled':''}>${lockLabel}</button>
+          <button class="ltx-btn-mini ltx-seg-rerun-btn">↻ Nur dieses rendern</button>
+        </div>
       `;
       box.appendChild(c);
 
       // Prompt live in PREP
       qs('.ltx-seg-prompt', c).addEventListener('input', (ev) => {
         seg.prompt = ev.target.value;
+        savePrep();
       });
       // Mode-Radio
       qsa(`input[name="mode-${seg.idx}"]`, c).forEach(r => {
         r.addEventListener('change', (ev) => {
           seg.image_mode = ev.target.value;
           qs('.ltx-seg-upload', c).style.display = (seg.image_mode==='custom') ? 'flex' : 'none';
+          savePrep();
         });
       });
+      // 🔒 Lock-Toggle
+      qs('.ltx-lock-btn', c).addEventListener('click', () => {
+        if (isFirst) return;
+        seg.prompt_locked = !seg.prompt_locked;
+        const btn = qs('.ltx-lock-btn', c);
+        btn.classList.toggle('locked', seg.prompt_locked);
+        btn.textContent = seg.prompt_locked ? '🔒 Prompt gelockt' : '🔓 Auto-Refine an';
+        c.classList.toggle('locked', seg.prompt_locked);
+        savePrep();
+      });
+      // ↻ Nur dieses Segment rendern
+      qs('.ltx-seg-rerun-btn', c).addEventListener('click', () => window._ltxRenderSegment(seg.idx));
       // File → upload-ref sofort hochladen
       qs('.ltx-seg-file', c).addEventListener('change', async (ev) => {
         const f = ev.target.files[0];
@@ -174,6 +289,7 @@ _PAGE_JS = r"""
           if (data.ok) {
             seg.custom_fn = data.custom_fn;
             seg.image_mode = 'custom';
+            savePrep();
             qs('.ltx-seg-uploaded', c).textContent = '✓ ' + data.custom_fn;
             const rad = qs(`input[name="mode-${seg.idx}"][value="custom"]`, c);
             if (rad) rad.checked = true;
@@ -187,6 +303,48 @@ _PAGE_JS = r"""
     });
   }
 
+  // ── prompt_refined SSE-Handler (in beiden Streams identisch) ───────────────
+  function applyPromptRefinement(msg) {
+    // msg = { segment, total, prompt, image_mode, image_desc, reason, refined, switched_mode }
+    const idx = msg.segment - 1;
+    if (PREP && PREP.segments) {
+      const s = PREP.segments.find(x => x.idx === idx);
+      if (s) {
+        if (msg.refined && msg.prompt) s.prompt = msg.prompt;
+        if (msg.image_mode) s.image_mode = msg.image_mode;
+        savePrep();
+      }
+    }
+    const card = document.querySelector(`.ltx-seg-card[data-idx="${idx}"]`);
+    if (!card) return;
+    if (msg.refined && msg.prompt) {
+      const ta = card.querySelector('.ltx-seg-prompt');
+      if (ta) ta.value = msg.prompt;
+    }
+    if (msg.image_mode) {
+      const r = card.querySelector(`input[name="mode-${idx}"][value="${msg.image_mode}"]`);
+      if (r) r.checked = true;
+      const up = card.querySelector('.ltx-seg-upload');
+      if (up) up.style.display = (msg.image_mode === 'custom') ? 'flex' : 'none';
+    }
+    const note = card.querySelector('.ltx-refined-note');
+    if (note) {
+      const esc = s => (s||'').replace(/</g,'&lt;');
+      const head = msg.refined
+        ? (msg.switched_mode
+            ? `<strong>🔍 Auto-Refine:</strong> Prompt verfeinert · Frame → <code>${esc(msg.switched_mode)}</code>`
+            : `<strong>🔍 Auto-Refine:</strong> Prompt verfeinert`)
+        : (msg.switched_mode
+            ? `<strong>🔍 Frame-Switch:</strong> → <code>${esc(msg.switched_mode)}</code>`
+            : `<strong>🔍 Auto-Refine:</strong> ${esc(msg.reason || 'kein Update nötig')}`);
+      const desc = msg.image_desc ? `<div class="ltx-refined-desc">Vision: ${esc(msg.image_desc)}</div>` : '';
+      const reason = (msg.refined || msg.switched_mode) && msg.reason
+        ? `<div class="ltx-refined-desc">${esc(msg.reason)}</div>` : '';
+      note.innerHTML = head + reason + desc;
+      note.classList.add('visible');
+    }
+  }
+
   // ── SSE ───────────────────────────────────────────────────────────────────
   function connectSSE(job_id) {
     if (es) { es.close(); es = null; }
@@ -196,6 +354,10 @@ _PAGE_JS = r"""
       switch(msg.event) {
         case 'status':
           log('ℹ ' + msg.msg);
+          break;
+        case 'prompt_refined':
+          log('🔍 Seg ' + msg.segment + ': ' + (msg.refined ? 'Prompt verfeinert' : (msg.reason || 'kein Refine')), msg.refined ? 'ltx-ok' : 'ltx-warn');
+          applyPromptRefinement(msg);
           break;
         case 'segment_done':
           log('🎬 Segment ' + msg.segment + '/' + msg.total + ' fertig!', 'ltx-ok');
@@ -269,7 +431,42 @@ _PAGE_JS = r"""
       return;
     }
 
-    // Polling (2s) bis ready oder error. Übersteht Connection-Glitches (Starlink etc.).
+    pollPrepare(jobId, '✅ {n} Segmente vorbereitet — Prompts/Bilder reviewen, dann ▶ Rendern');
+  };
+
+  // ── REPREPARE (ohne Re-Upload) ─────────────────────────────────────────────
+  window._ltxReprepare = async function() {
+    if (!PREP || !PREP.job_id) {
+      log('⚠ Erst regulär vorbereiten — Re-Prepare braucht eine bestehende Job-ID', 'ltx-warn');
+      return;
+    }
+    saveDefaults();
+    setBusy('prepare', true);
+    log('🔄 Re-Prepare läuft (cached: WAV + Bild + Whisper + Vision)...');
+    try {
+      const r = await fetch(API + '/reprepare', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          job_id: PREP.job_id,
+          concept: qs('#ltx-concept').value.trim(),
+          ollama_model: qs('#ltx-model').value,
+          chunk_sec: parseFloat(qs('#ltx-chunk').value),
+        }),
+      });
+      if (!r.ok) { const t = await r.text(); throw new Error(t); }
+      const data = await r.json();
+      if (data.error) throw new Error(data.error);
+    } catch(e) {
+      log('❌ Re-Prepare-Fehler: ' + e.message, 'ltx-error');
+      setBusy('prepare', false);
+      return;
+    }
+    pollPrepare(PREP.job_id, '✅ Re-Prepare fertig: {n} Segmente');
+  };
+
+  // Geteilter Poll-Loop für Prepare + Reprepare. Übersteht Netzwerk-Glitches.
+  function pollPrepare(jobId, doneTpl) {
     let lastMsg = '';
     const poll = async () => {
       try {
@@ -282,25 +479,25 @@ _PAGE_JS = r"""
         }
         if (s.status === 'ready') {
           PREP = s;
-          log(`✅ ${s.total} Segmente vorbereitet — Prompts/Bilder reviewen, dann ▶ Rendern`, 'ltx-ok');
+          savePrep();
+          log(doneTpl.replace('{n}', s.total), 'ltx-ok');
           renderReview();
           setBusy('prepare', false);
           return;
         }
         if (s.status === 'error') {
-          log('❌ Prepare-Fehler: ' + (s.error || 'unbekannt'), 'ltx-error');
+          log('❌ ' + (s.error || 'unbekannt'), 'ltx-error');
           setBusy('prepare', false);
           return;
         }
         setTimeout(poll, 2000);
       } catch(e) {
-        // Netzwerk-Glitch → einfach weiterpollen, nicht aufgeben
         log(`⚠ Poll-Fehler (${e.message}) — versuche in 5s erneut`, 'ltx-warn');
         setTimeout(poll, 5000);
       }
     };
     poll();
-  };
+  }
 
   // ── RENDER ────────────────────────────────────────────────────────────────
   window._ltxRender = async function() {
@@ -311,6 +508,7 @@ _PAGE_JS = r"""
       prompt: s.prompt,
       image_mode: s.image_mode,
       custom_fn: s.custom_fn || null,
+      prompt_locked: !!s.prompt_locked,
     }));
     // Job-State für Reload-Recovery
     saveJob({ job_id: PREP.job_id, running: true, logs: [], prompts: [], videos: [] });
@@ -331,17 +529,100 @@ _PAGE_JS = r"""
     }
   };
 
-  // ── Reload-Restore (nur Logs + Videos, nicht PREP) ────────────────────────
+  // ── SINGLE-SEGMENT RE-RENDER ──────────────────────────────────────────────
+  window._ltxRenderSegment = async function(idx) {
+    if (!PREP) { log('⚠ Erst vorbereiten', 'ltx-warn'); return; }
+    const seg = PREP.segments.find(s => s.idx === idx);
+    if (!seg) return;
+    const card = document.querySelector(`.ltx-seg-card[data-idx="${idx}"]`);
+    const btn = card?.querySelector('.ltx-seg-rerun-btn');
+    const setBtn = (label, disabled) => { if (btn) { btn.textContent = label; btn.disabled = disabled; } };
+    setBtn('⏳ rendert...', true);
+    log(`↻ Re-Render Segment ${seg.segment} startet...`);
+    let subId = null;
+    try {
+      const r = await fetch(API + '/render-segment', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          job_id: PREP.job_id,
+          idx: seg.idx,
+          prompt: seg.prompt,
+          image_mode: seg.image_mode,
+          custom_fn: seg.custom_fn || null,
+          prompt_locked: !!seg.prompt_locked,
+        }),
+      });
+      if (!r.ok) { const t = await r.text(); throw new Error(t); }
+      const data = await r.json();
+      if (data.error) throw new Error(data.error);
+      subId = data.sub_job_id;
+    } catch(e) {
+      log('❌ Re-Render-Fehler: ' + e.message, 'ltx-error');
+      setBtn('↻ Nur dieses rendern', false);
+      return;
+    }
+    const subEs = new EventSource(API + '/progress/' + subId);
+    subEs.onmessage = function(e) {
+      const msg = JSON.parse(e.data);
+      switch(msg.event) {
+        case 'status':
+          log('ℹ ' + msg.msg);
+          break;
+        case 'prompt_refined':
+          log('🔍 Seg ' + msg.segment + ': ' + (msg.refined ? 'Prompt verfeinert' : (msg.reason || 'kein Refine')), msg.refined ? 'ltx-ok' : 'ltx-warn');
+          applyPromptRefinement(msg);
+          break;
+        case 'segment_done':
+          log('🎬 Segment ' + msg.segment + ' neu gerendert!', 'ltx-ok');
+          renderVideo(msg.segment, msg.total, msg.url, msg.prompt);
+          break;
+        case 'segment_error':
+          log('⚠ Segment ' + msg.segment + ': ' + msg.msg, 'ltx-warn');
+          break;
+        case 'error':
+          log('❌ ' + msg.msg, 'ltx-error');
+          subEs.close();
+          setBtn('↻ Nur dieses rendern', false);
+          break;
+        case 'complete':
+          subEs.close();
+          setBtn('↻ Nur dieses rendern', false);
+          break;
+        case 'done':
+          subEs.close();
+          setBtn('↻ Nur dieses rendern', false);
+          break;
+      }
+    };
+    subEs.onerror = function() {
+      log('⚠ SSE-Verbindung (Re-Render) unterbrochen', 'ltx-warn');
+      subEs.close();
+      setBtn('↻ Nur dieses rendern', false);
+    };
+  };
+
+  // ── Reload-Restore: PREP + Logs + Videos + SSE-Reconnect ──────────────────
   function restoreState() {
     loadDefaults();
+    const p = loadPrep();
+    if (p && p.segments) {
+      PREP = p;
+      renderReview();
+      log('🔄 Vorherige Segmente wiederhergestellt (' + p.segments.length + ' Stück)', '', false);
+    }
     const j = loadJob();
-    if (!j) return;
-    renderLogs(j.logs || []);
-    (j.videos || []).forEach(v => renderVideo(v.segment, v.total, v.url, v.prompt, false));
-    if (j.running && j.job_id) {
-      setBusy('render', true);
-      log('🔄 Verbindung wiederhergestellt...', '', false);
-      connectSSE(j.job_id);
+    if (j) {
+      renderLogs(j.logs || []);
+      (j.videos || []).forEach(v => renderVideo(v.segment, v.total, v.url, v.prompt, false));
+    }
+    // SSE öffnen wenn ein Job bekannt ist — Server replayt JSONL und holt
+    // Events nach, die während der Tab geschlossen war eingegangen sind.
+    const job_id = (j && j.job_id) || (PREP && PREP.job_id);
+    if (job_id) {
+      if (j && j.running) setBusy('render', true);
+      log('🔄 Hole Events vom Server (Job ' + job_id.substring(0,8) + ')...', '', false);
+      connectSSE(job_id);
     }
   }
 
@@ -352,7 +633,19 @@ _PAGE_JS = r"""
     });
     qs('#ltx-concept')?.addEventListener('input', saveDefaults);
     qs('#ltx-prepare-btn')?.addEventListener('click', window._ltxPrepare);
+    qs('#ltx-reprepare-btn')?.addEventListener('click', window._ltxReprepare);
     qs('#ltx-render-btn')?.addEventListener('click', window._ltxRender);
+    qs('#ltx-export-btn')?.addEventListener('click', () => {
+      if (!PREP || !PREP.segments) { alert('Keine Segmente geladen.'); return; }
+      const lines = PREP.segments.map(s =>
+        `Segment ${s.segment} (${s.duration}s)\n${s.prompt}\n`
+      ).join('\n');
+      const blob = new Blob([lines], {type: 'text/plain'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `ltx_prompts_${(PREP.job_id||'').substring(0,8)}.txt`;
+      a.click();
+    });
     restoreState();
   }, 300);
 })();
@@ -440,6 +733,32 @@ body { background: #050a06 !important; color: #e2e8f0; margin: 0; font-family: s
   color: #9ca3af; padding: 4px; font-size: 11px;
 }
 .ltx-seg-uploaded { font-size: 11px; color: #4ade80; }
+.ltx-seg-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; }
+.ltx-btn-mini {
+  background: #14532d; color: #4ade80; border: 1px solid #166534;
+  border-radius: 6px; padding: 5px 12px; font-size: 11px; font-weight: 500;
+  cursor: pointer; transition: background 0.15s;
+}
+.ltx-btn-mini:disabled { opacity: 0.5; cursor: not-allowed; }
+.ltx-btn-mini:hover:not(:disabled) { background: #166534; }
+/* Lock-Toggle */
+.ltx-lock-btn {
+  background: transparent; color: #6b7280; border: 1px solid #1a3a1a;
+  border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer;
+  transition: all 0.15s;
+}
+.ltx-lock-btn:hover { color: #4ade80; border-color: #166534; }
+.ltx-lock-btn.locked { color: #fbbf24; border-color: #92400e; background: #1f1407; }
+.ltx-seg-card.locked { border-color: #92400e; }
+/* Refined-Banner */
+.ltx-refined-note {
+  font-size: 10px; line-height: 1.35; padding: 6px 8px; border-radius: 5px;
+  background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.2);
+  color: #9ca3af; display: none;
+}
+.ltx-refined-note.visible { display: block; }
+.ltx-refined-note strong { color: #4ade80; font-weight: 600; }
+.ltx-refined-note .ltx-refined-desc { color: #6b7280; font-style: italic; margin-top: 3px; }
 
 /* Log + Videos */
 #ltx-log {
@@ -456,12 +775,38 @@ body { background: #050a06 !important; color: #e2e8f0; margin: 0; font-family: s
 .ltx-video-header { padding: 8px 12px; font-size: 12px; font-weight: 600; color: #4ade80; background: #0d1f0e; }
 .ltx-video-el { width: 100%; display: block; }
 .ltx-video-prompt { padding: 8px 12px; font-size: 11px; color: #6b7280; line-height: 1.4; }
+.ltx-video-actions {
+  display: flex; gap: 6px; padding: 0 12px 10px;
+}
 .ltx-dl-btn {
-  display: block; margin: 0 12px 10px; text-align: center;
+  flex: 1; text-align: center;
   background: #14532d; color: #4ade80; border-radius: 6px; padding: 5px;
   font-size: 12px; text-decoration: none;
 }
 .ltx-dl-btn:hover { background: #166534; }
+.ltx-video-edit-btn {
+  flex: 1;
+}
+.ltx-flash {
+  animation: ltx-flash-anim 1.2s ease-out;
+}
+@keyframes ltx-flash-anim {
+  0%   { box-shadow: 0 0 0 2px #4ade80, 0 0 16px rgba(74,222,128,0.6); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+/* Concat-Button + Master-Video */
+.ltx-concat-bar {
+  display: flex; align-items: center; gap: 8px; margin: 4px 0 12px;
+  font-size: 12px; color: #6b7280;
+}
+.ltx-concat-btn {
+  background: #14532d; color: #4ade80; border: 1px solid #166534;
+  border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: background 0.15s;
+}
+.ltx-concat-btn:hover:not(:disabled) { background: #166534; }
+.ltx-concat-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+#ltx-master-video { margin-top: 12px; }
 </style>
 """
 
@@ -538,6 +883,8 @@ def ltx_batch_page():
     <div id="ltx-review-list"></div>
     <div class="ltx-btn-row" style="margin-top:14px">
       <button id="ltx-render-btn" class="ltx-btn primary">▶ Rendern starten</button>
+      <button id="ltx-reprepare-btn" class="ltx-btn" title="Concept/Modell/Segment-Länge ändern und Prompts neu generieren — ohne WAV/Bild erneut hochzuladen">🔄 Prompts neu</button>
+      <button id="ltx-export-btn" class="ltx-btn">📋 Prompts exportieren</button>
       <div id="ltx-render-spinner" class="ltx-spinner">
         <div class="ltx-spinner-dot"></div>
         <span>Rendering läuft...</span>
@@ -554,6 +901,11 @@ def ltx_batch_page():
   <!-- 4. Videos -->
   <div class="ltx-card">
     <div class="ltx-card-title">Ergebnisse</div>
+    <div class="ltx-concat-bar">
+      <button id="ltx-concat-btn" class="ltx-concat-btn" disabled onclick="window._ltxConcat()">🎬 Alle fertigen Segmente zusammenschneiden</button>
+      <span id="ltx-concat-status"></span>
+    </div>
+    <div id="ltx-master-video"></div>
     <div id="ltx-videos"><span class="ltx-placeholder">Noch keine Videos gerendert...</span></div>
   </div>
 </div>
