@@ -648,6 +648,51 @@ _PAGE_JS = r"""
     });
     restoreState();
   }, 300);
+
+  // ── Nuke: alles löschen, sauber neu starten ──────────────────────────
+  window._ltxNuke = async function() {
+    const btn = qs('#ltx-nuke-btn');
+    if (!confirm('🧹 Alles zurücksetzen?\n\nLöscht:\n• Aktuellen Job & Prompts\n• Log & Videos\n• LocalStorage\n\nDer Server-Job wird ebenfalls gestoppt.')) return;
+
+    btn.classList.add('nuking');
+    btn.querySelector('.ltx-nuke-label').textContent = 'Räume auf...';
+
+    // 1. SSE schließen
+    if (es) { try { es.close(); } catch(e){} es = null; }
+    if (PREP && PREP.job_id) {
+      // Server-Job cancel (best-effort)
+      try { await fetch(API + '/cancel/' + PREP.job_id, {method:'POST'}); } catch(e){}
+    }
+
+    // 2. LocalStorage leeren
+    localStorage.removeItem(LS_JOB);
+    localStorage.removeItem(LS_PREP);
+
+    // 3. UI zurücksetzen
+    PREP = null;
+    const ids = ['ltx-log','ltx-videos','ltx-prompts'];
+    ids.forEach(id => { const el = qs('#'+id); if (el) el.innerHTML = ''; });
+    const review = qs('#ltx-review');
+    if (review) { review.style.display = 'none'; }
+    const renderRow = qs('#ltx-render-row');
+    if (renderRow) renderRow.style.display = 'none';
+    const concatBtn = qs('#ltx-concat-btn');
+    if (concatBtn) { concatBtn.disabled = true; }
+    ['#ltx-wav-input','#ltx-img-input'].forEach(sel => {
+      const el = qs(sel);
+      if (el) el.value = '';
+    });
+
+    // 4. Spinner kurz zeigen, dann fertig
+    await new Promise(r => setTimeout(r, 600));
+    btn.classList.remove('nuking');
+    btn.querySelector('.ltx-nuke-label').textContent = '✓ Sauber!';
+    btn.querySelector('.ltx-nuke-icon').textContent = '✨';
+    setTimeout(() => {
+      btn.querySelector('.ltx-nuke-label').textContent = 'Reset & Clean';
+      btn.querySelector('.ltx-nuke-icon').textContent = '🧹';
+    }, 2000);
+  };
 })();
 </script>
 """
@@ -660,6 +705,27 @@ html, body { overflow: auto !important; height: auto !important; }
 body { background: #050a06 !important; color: #e2e8f0; margin: 0; font-family: system-ui, sans-serif; }
 .ltx-wrap { display: flex; flex-direction: column; gap: 20px; padding: 24px; max-width: 1200px; margin: 0 auto; }
 .ltx-title { font-size: 22px; font-weight: 700; color: #4ade80; margin-bottom: 4px; }
+
+/* ── Nuke / Reset Button ── */
+.ltx-nuke-btn {
+  display: flex; align-items: center; gap: 8px;
+  background: #0d1f0e; border: 1px solid #1a3a1a; border-radius: 10px;
+  padding: 10px 16px; cursor: pointer; color: #9ca3af; font-size: 13px; font-weight: 600;
+  transition: all 0.2s; white-space: nowrap; flex-shrink: 0;
+  position: relative; overflow: hidden;
+}
+.ltx-nuke-btn::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, #7f1d1d00, #7f1d1d00);
+  transition: background 0.3s;
+}
+.ltx-nuke-btn:hover { border-color: #ef444460; color: #ef4444; }
+.ltx-nuke-btn:hover::before { background: linear-gradient(135deg, #7f1d1d20, #7f1d1d10); }
+.ltx-nuke-btn:hover .ltx-nuke-icon { animation: spin 0.6s ease-in-out; }
+.ltx-nuke-btn.nuking { border-color: #ef4444; color: #ef4444; background: #7f1d1d20; }
+.ltx-nuke-btn.nuking .ltx-nuke-icon { animation: spin 0.5s linear infinite; }
+.ltx-nuke-icon { font-size: 16px; display: inline-block; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
 .ltx-sub { font-size: 13px; color: #6b7280; margin-bottom: 12px; }
 .ltx-card { background: #0d1f0e; border: 1px solid #1a3a1a; border-radius: 12px; padding: 20px; }
 .ltx-card-title { font-size: 14px; font-weight: 600; color: #4ade80; margin-bottom: 12px; letter-spacing: 0.05em; text-transform: uppercase; }
@@ -819,9 +885,15 @@ def ltx_batch_page():
 
     ui.html("""
 <div class="ltx-wrap">
-  <div>
-    <div class="ltx-title">🎬 LTX 2.3 Batch Renderer</div>
-    <div class="ltx-sub">WAV + Bild → Segmente + Prompts vorbereiten → pro Segment entscheiden → rendern</div>
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+    <div>
+      <div class="ltx-title">🎬 LTX 2.3 Batch Renderer</div>
+      <div class="ltx-sub">WAV + Bild → Segmente + Prompts vorbereiten → pro Segment entscheiden → rendern</div>
+    </div>
+    <button id="ltx-nuke-btn" class="ltx-nuke-btn" title="Alles löschen und sauber neu starten" onclick="window._ltxNuke()">
+      <span class="ltx-nuke-icon">🧹</span>
+      <span class="ltx-nuke-label">Reset &amp; Clean</span>
+    </button>
   </div>
 
   <!-- 1. Eingaben -->
