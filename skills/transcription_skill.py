@@ -15,13 +15,19 @@ FFMPEG_BIN = "/opt/homebrew/bin/ffmpeg"
 FFPROBE_BIN = "/opt/homebrew/bin/ffprobe"
 OLLAMA_URL = "http://localhost:11434"
 WHISPER_CLI = "/opt/homebrew/bin/whisper-cli"
+# Modelle leben im Repo unter models/ (robuster als ~/Downloads). Legacy-Pfade
+# werden als Fallback weiter unterstützt — falls jemand das Modell noch dort hat.
+_REPO_MODELS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models")
 _WHISPER_CANDIDATES = [
+    os.path.join(_REPO_MODELS, "ggml-large-v3-turbo.bin"),
+    os.path.join(_REPO_MODELS, "ggml-small.bin"),
+    os.path.join(_REPO_MODELS, "ggml-base.bin"),
     os.path.expanduser("~/Downloads/AgentClaw/ggml-small.bin"),
     os.path.expanduser("~/Downloads/AgentClaw/ggml-large-v3-turbo.bin"),
     os.path.expanduser("~/Downloads/AgentClaw/ggml-base.bin"),
 ]
 WHISPER_MODEL = next((p for p in _WHISPER_CANDIDATES if os.path.exists(p)),
-                     os.path.expanduser("~/Downloads/AgentClaw/ggml-small.bin"))
+                     os.path.join(_REPO_MODELS, "ggml-small.bin"))
 
 # Bevorzugte Modelle (in Reihenfolge — erstes verfügbares wird genutzt)
 TRANSCRIPTION_MODELS = ["gemma4:e4b", "gemma3:latest", "moondream:latest", "llava:latest"]
@@ -210,6 +216,25 @@ def _extract_audio_segment(video_path: str, duration_sec: int = 60) -> str | Non
     return None
 
 
+def _transcribe_video_audio(video_path: str) -> str:
+    """Extrahiert Audio aus Video und transkribiert via whisper-cli."""
+    wav = f"/tmp/agentclaw_vidaudio_{uuid.uuid4().hex[:8]}.wav"
+    try:
+        r = subprocess.run(
+            [FFMPEG_BIN, "-i", video_path, "-ar", "16000", "-ac", "1", "-f", "wav", wav, "-y"],
+            capture_output=True, timeout=120,
+        )
+        if r.returncode != 0 or not os.path.exists(wav):
+            return f"❌ Audio-Extraktion fehlgeschlagen: {r.stderr.decode()[:200]}"
+        return _transcribe_audio_whisper(wav)
+    finally:
+        if os.path.exists(wav):
+            try:
+                os.remove(wav)
+            except Exception:
+                pass
+
+
 def _transcribe_with_ollama(filepath: str, model: str, task: str = "transcribe") -> str:
     """Transkribiert/analysiert Video via Ollama multimodal model."""
     ext = os.path.splitext(filepath)[1].lower()
@@ -217,6 +242,17 @@ def _transcribe_with_ollama(filepath: str, model: str, task: str = "transcribe")
     is_audio = ext in (".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac")
 
     print(f"[Transcription] {model} analysiert {os.path.basename(filepath)[:40]}", flush=True)
+
+    # Für echte Transkriptions-Intents: Whisper auf der Tonspur laufen lassen
+    task_l = (task or "").lower()
+    wants_transcript = any(kw in task_l for kw in (
+        "transkri", "transcri", "verschrift", "was sagt", "was spricht",
+        "was redet", "audio", "gesprochen", "text aus",
+    ))
+
+    if is_video and wants_transcript:
+        transcript = _transcribe_video_audio(filepath)
+        return f"**Transkription (Audio via Whisper):**\n{transcript}"
 
     if is_video:
         # Frames extrahieren und multimodal senden

@@ -95,6 +95,10 @@ class ChatService:
         self._agents = agents
         self._events = events
         self._task_service = None  # wird von ServiceContainer gesetzt
+        # Eigenzeit-Provider (Orchestrator-Frame). Default = WallClockProvider,
+        # damit Tests/Stand-alone-Dispatches ohne explizite Wiring funktionieren.
+        from core.time_provider import get_default_provider
+        self._time = get_default_provider()
         # Thread-local State für Supervisor-Loop (nur beim aktuellen Chat-Turn gültig).
         # Operator-Dispatch taggt neu erzeugte Tasks mit turn = self._tls.sv_turn + 1.
         import threading as _thr
@@ -103,6 +107,28 @@ class ChatService:
     def set_task_service(self, task_service):
         """TaskService registrieren für A2A-Delegation."""
         self._task_service = task_service
+
+    def set_time_provider(self, provider):
+        """TimeProvider registrieren — Orchestrator-Frame für Sub-Dispatches."""
+        self._time = provider
+
+    def _fork_for_recipient(self, recipient_agent: dict | None, kind: str = "interactive"):
+        """Erzeugt einen Child-Provider für eine Sub-Dispatch.
+
+        γ wird aus Provider/Model des Empfängers geschätzt (§3.3). ``kind``
+        ist ein Frame-Tag (interactive/heartbeat/...) für §4.2 Source-2-Trennung.
+        Liefert None, wenn kein Empfänger bekannt ist (sicheres Fallback —
+        ``to_task_dict`` ohne Provider verhält sich wie früher).
+        """
+        if recipient_agent is None or self._time is None:
+            return None
+        from core.time_provider import estimate_dilation
+        gamma = estimate_dilation(recipient_agent)
+        return self._time.fork(
+            agent_id=recipient_agent.get("id", "unknown"),
+            dilation_factor=gamma,
+            metadata={"kind": kind},
+        )
 
     def handle_message(self, agent_id: str, message: str,
                        images: list[str] | None = None,
@@ -840,7 +866,12 @@ class ChatService:
                 if redirect:
                     dispatch.recipient_id, dispatch.recipient_name = redirect
 
-            task = dispatch.to_task_dict()
+            recipient = next(
+                (a for a in all_agents if a.get("id") == dispatch.recipient_id),
+                None,
+            )
+            child_tp = self._fork_for_recipient(recipient, kind="interactive")
+            task = dispatch.to_task_dict(time_provider=child_tp)
             dispatch.metadata["task_id"] = task["id"]
             if parent_dispatch_id:
                 task["parent_dispatch_id"] = parent_dispatch_id
@@ -1006,7 +1037,16 @@ class ChatService:
                 )
 
             task_id = str(__import__("uuid").uuid4())
-            task = item.to_task_dict(system_task_id=task_id, depends_on=depends_on)
+            recipient = next(
+                (a for a in all_agents if a.get("id") == item.recipient_id),
+                None,
+            )
+            child_tp = self._fork_for_recipient(recipient, kind="interactive")
+            task = item.to_task_dict(
+                system_task_id=task_id,
+                depends_on=depends_on,
+                time_provider=child_tp,
+            )
 
             if parent_dispatch_id:
                 task["parent_dispatch_id"] = parent_dispatch_id

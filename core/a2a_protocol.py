@@ -11,10 +11,12 @@ Vorteile:
 """
 import re
 import logging
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Optional
-import uuid
+
+from core.time_provider import TimeProvider
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +43,18 @@ class A2ADispatch:
     attachment_path: str = ""                          # Dateipfad weitergeben
     metadata: dict = field(default_factory=dict)
 
-    def to_task_dict(self) -> dict:
-        """Konvertiert zu Task-Dict kompatibel mit TaskService.enqueue()."""
-        now = datetime.now()
+    def to_task_dict(
+        self,
+        time_provider: Optional[TimeProvider] = None,
+    ) -> dict:
+        """Konvertiert zu Task-Dict kompatibel mit TaskService.enqueue().
+
+        Wenn ``time_provider`` gesetzt ist, schreibt die Methode die Eigenzeit-
+        Felder gemäß §4.3 (reference_now, parent_reference_now, dilation_factor,
+        frame_id) in das Dispatch-Dict. Ohne Provider bleibt das Verhalten
+        bit-identisch zur alten Variante (Wall-Clock-only).
+        """
+        wall_now = datetime.now()
         d = {
             "id": str(uuid.uuid4()),
             "sender_agent_id": self.sender_id,
@@ -55,12 +66,21 @@ class A2ADispatch:
             "result_text": None,
             "result_image": None,
             "error": None,
-            "created_at": now.isoformat(),
+            "created_at": wall_now.isoformat(),
             "completed_at": None,
-            "timeout_at": (now + timedelta(seconds=self.timeout_secs)).isoformat(),
+            "timeout_at": (wall_now + timedelta(seconds=self.timeout_secs)).isoformat(),
             "delegation_depth": self.delegation_depth,
             "priority": self.priority,
         }
+        if time_provider is not None:
+            frame = time_provider.frame
+            d["reference_now"] = time_provider.now().isoformat()
+            d["parent_reference_now"] = (
+                frame.parent_reference_now.isoformat()
+                if frame.parent_reference_now is not None else None
+            )
+            d["dilation_factor"] = frame.dilation_factor
+            d["frame_id"] = frame.frame_id
         if self.images:
             d["images"] = self.images
         if self.audio:

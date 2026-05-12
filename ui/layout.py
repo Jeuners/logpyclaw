@@ -45,6 +45,7 @@ def create_layout(page_name: str = "home"):
 
         # Rechte Seite
         with ui.row().classes("items-center gap-1 ml-auto shrink-0"):
+            _icon_link("schedule", "/temporal", "Eigenzeit & Drift")
             _icon_link("backup",  "/backup",  "Backup")
             _icon_link("hub",     "/network", "M2M Netzwerk")
 

@@ -3,6 +3,7 @@ services/__init__.py — Dependency Injection Container.
 Alle Services werden einmal initialisiert und als Singleton gehalten.
 """
 import logging
+from core.time_provider import TimeProvider, WallClockProvider, get_default_provider
 from services.agent_service import AgentService
 from services.chat_service import ChatService
 from services.task_service import TaskService
@@ -18,6 +19,10 @@ logger = logging.getLogger(__name__)
 class ServiceContainer:
     def __init__(self):
         self.registry = SkillRegistry()
+        # Eigenzeit-Provider auf Orchestrator-Frame (§3, §4.3). Default-Verhalten
+        # ist verhaltensgleich zu datetime.now(); zusätzliche Buchhaltung (frame,
+        # tau) wird transparent mitgeführt.
+        self.time: TimeProvider = get_default_provider()
         self.events = EventService()
         self.agents = AgentService()
         self.tasks = TaskService(self.agents, self.events)
@@ -32,6 +37,14 @@ class ServiceContainer:
         self.tasks.set_dispatcher(self.chat)   # Skill-Check + LLM-Fallback für A2A-Tasks
         self.tasks.set_chat_service(self.chat) # Operator-Supervisor-Callback Re-Entry
         self.heartbeat.set_task_service(self.tasks)
+        # Eigenzeit-Provider in beide Dispatcher injizieren — die Sub-Tasks
+        # werden dadurch automatisch mit Frame-Inheritance enqueued.
+        self.chat.set_time_provider(self.time)
+        self.heartbeat.set_time_provider(self.time)
+        # EventService bekommt denselben Provider — Events werden dadurch
+        # automatisch mit (wall_clock, agent_reference_now, frame_id, dilation)
+        # angereichert (§4.3 Logging-Tuple).
+        self.events.set_time_provider(self.time)
 
         # WhatsApp Watcher starten
         self.whatsapp_watcher.start()

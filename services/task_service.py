@@ -315,6 +315,28 @@ class TaskService:
             self._fail(task, f"Agent '{task['recipient_agent_name']}' nicht gefunden")
             return
 
+        # Drift-Check (§4.3 Re-Synchronisation Policy). Tasks mit alter
+        # reference_now, deren Empfänger ein Side-Effect-Skill hat, werden
+        # kontrolliert abgewiesen statt blind zu feuern.
+        from core.temporal_policy import evaluate_drift, TemporalPolicy
+        drift = evaluate_drift(task, agent)
+        if drift["drift_seconds"] is not None:
+            logger.info(
+                "Task %s drift=%.1fs policy=%s → %s",
+                task_id, drift["drift_seconds"], drift["policy"].value, drift["reason"],
+            )
+        if drift["should_reject"]:
+            task["error"] = f"Temporal drift rejected: {drift['reason']}"
+            task["temporal_policy_outcome"] = "rejected"
+            self._fail(task, task["error"])
+            self._events.activity_end(task["recipient_agent_id"])
+            self._save()
+            self._events.emit_task_result(
+                task["id"], task["recipient_agent_id"],
+                None, None, task["status"], task.get("error"),
+            )
+            return
+
         self._events.activity_start(
             task["recipient_agent_id"], "task",
             f"Task von @{task['sender_agent_name']}: {task['message'][:50]}"

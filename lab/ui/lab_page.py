@@ -354,7 +354,8 @@ def lab_page():
   <div class="lab-banner">
     🧪 <strong>COMMUNICATION LAB</strong>
     <span style="color:#fed7aa;opacity:0.8">— isolierte Test-Umgebung. Mock-Agenten nur. Kein Bezug zu echten AgentClaw-Agenten.</span>
-    <button id="lab-reset-btn" class="lab-btn lab-btn-mini lab-btn-danger" style="margin-left:auto">⟲ Reset</button>
+    <a href="/lab/spacetime" style="margin-left:auto;margin-right:10px;color:#a78bfa;font-size:12px;font-weight:600;text-decoration:none;background:#1e1b4b;padding:4px 10px;border-radius:6px;border:1px solid #3730a3">⏱ Spacetime</a>
+    <button id="lab-reset-btn" class="lab-btn lab-btn-mini lab-btn-danger">⟲ Reset</button>
   </div>
 
   <div>

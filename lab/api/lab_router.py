@@ -229,6 +229,167 @@ async def mission_stream(mission_id: str):
     )
 
 
+# ── Spacetime-Diagram-Daten ───────────────────────────────────────────────────
+
+@router.get("/missions/{mission_id}/spacetime")
+def mission_spacetime(mission_id: str):
+    """
+    Liefert strukturierte Daten für das Spacetime-Diagramm:
+    - nodes: {agent, eigenzeit, wall_ts, label}
+    - edges: {from_agent, to_agent, from_ez, to_ez, type, relation, label}
+
+    X-Achse = Agent, Y-Achse = Eigenzeit (ops-Ticks).
+    Edges = Messages zwischen Agenten mit CDC-Relation (ORDERED/CAUSAL_DRIFT/etc.)
+    """
+    messages = store.get_trace(mission_id)
+    if not messages:
+        return {"nodes": [], "edges": [], "agents": []}
+
+    # Alle beteiligten Agenten (sortiert für stabiles Layout)
+    agent_set: set[str] = set()
+    for m in messages:
+        agent_set.add(m.sender)
+        agent_set.add(m.recipient)
+    agents = sorted([a for a in agent_set if not a.startswith("lab:_")])
+
+    # Nodes: jede Message erzeugt einen Event-Punkt auf dem Spacetime-Diagram
+    nodes = []
+    edges = []
+
+    prev_clock_by_agent: dict[str, "CausalDilationClock"] = {}
+
+    for msg in messages:
+        clk = msg.clock
+        sender = msg.sender
+        recip = msg.recipient
+
+        # Eigenzeit des Senders zum Sendezeitpunkt
+        sender_ez = clk.vector.get(sender, 0)
+        recip_ez = clk.vector.get(recip, 0)
+
+        # Node für dieses Message-Event (beim Sender)
+        if sender not in ["lab:_user"] and sender in agents:
+            nodes.append({
+                "id": msg.msg_id,
+                "agent": sender,
+                "eigenzeit": sender_ez,
+                "wall_ts": msg.timestamp,
+                "type": msg.type.value,
+                "label": f"{msg.type.value[:3].upper()} → {recip.replace('lab:','')}",
+                "payload_hint": str(msg.payload.get("content", msg.payload.get("result", "")))[:40],
+            })
+
+        # Edge: Message von Sender zu Recipient
+        if sender in agents and recip in agents:
+            # CDC-Relation zwischen aufeinanderfolgenden Clocks
+            prev = prev_clock_by_agent.get(sender)
+            relation = prev.relate_lab(clk) if prev else "ordered"
+            edges.append({
+                "id": f"e_{msg.msg_id}",
+                "from_agent": sender,
+                "to_agent": recip,
+                "from_ez": sender_ez,
+                "to_ez": recip_ez,
+                "type": msg.type.value,
+                "relation": relation,
+                "label": msg.type.value,
+                "wall_ts": msg.timestamp,
+            })
+
+        prev_clock_by_agent[sender] = clk
+
+    # Drift-Segmente: wo liegt CAUSAL_DRIFT oder CONCURRENT_DRIFT?
+    drift_segments = [e for e in edges if "drift" in e["relation"].lower()]
+
+    return {
+        "mission_id": mission_id,
+        "agents": agents,
+        "nodes": nodes,
+        "edges": edges,
+        "drift_segments": drift_segments,
+        "total_messages": len(messages),
+    }
+
+
+# ── Drift-Kompensation: Scheduler-Empfehlung ──────────────────────────────────
+
+@router.get("/scheduler/recommend")
+def scheduler_recommend(task_type: str = "default", candidates: str = ""):
+    """
+    Empfiehlt den besten verfügbaren Agenten für eine Task basierend auf CDC-Drift.
+
+    Logik:
+    - Sammle aktuelle Eigenzeit-Rate aller Agenten aus letzten Missions
+    - Wähle Agenten mit minimaler Drift (rate nah an Referenz-Rate = 1.0)
+    - Falls alle driften: wähle den mit höchster Rate (schnellsten)
+    - Gibt gamma_ij (relative Dilation zum Referenzrahmen) zurück
+    """
+    from lab.core import store as _store, conductor as _cond
+
+    # Kandidaten filtern
+    cand_names = [c.strip() for c in candidates.split(",") if c.strip()] if candidates else []
+    all_agents = _store.list_agents()
+    pool = [a for a in all_agents
+            if not cand_names or a.id.replace("lab:", "") in cand_names]
+
+    if not pool:
+        return {"error": "Keine Agenten verfügbar", "candidates": []}
+
+    # Eigenzeit-Rate aus letzten Missions sammeln
+    missions = _cond.Conductor.get().list_missions()
+    agent_rates: dict[str, list[float]] = {}
+
+    for mission in missions[-10:]:  # letzte 10 Missions
+        msgs = _store.get_trace(mission.id)
+        for msg in msgs:
+            for aid, rate in msg.clock.dilation.items():
+                if rate > 0:
+                    agent_rates.setdefault(aid, []).append(rate)
+
+    # Mittlere Rate pro Agent
+    avg_rates: dict[str, float] = {
+        aid: sum(rates) / len(rates)
+        for aid, rates in agent_rates.items()
+    }
+
+    REF_RATE = 1.0  # Referenz-Frame (Eigenzeit = Wandzeit)
+
+    results = []
+    for agent in pool:
+        aid = agent.id
+        avg_rate = avg_rates.get(aid, REF_RATE)
+        gamma = avg_rate / REF_RATE  # γ_ij: wie viel schneller/langsamer als Referenz
+        drift_score = abs(gamma - 1.0)  # 0 = kein Drift, >1 = starker Drift
+
+        busy = not agent._inbox.empty()
+
+        results.append({
+            "agent": aid.replace("lab:", ""),
+            "agent_id": aid,
+            "avg_rate": round(avg_rate, 4),
+            "gamma": round(gamma, 4),
+            "drift_score": round(drift_score, 4),
+            "busy": busy,
+            "recommendation_score": round(gamma / (1 + drift_score) - (0.5 if busy else 0), 4),
+        })
+
+    # Sortiert: hohe recommendation_score = bevorzugt
+    results.sort(key=lambda x: -x["recommendation_score"])
+
+    best = results[0] if results else None
+    return {
+        "task_type": task_type,
+        "recommended": best["agent"] if best else None,
+        "gamma_recommended": best["gamma"] if best else None,
+        "all_candidates": results,
+        "note": (
+            f"γ={best['gamma']:.2f} — "
+            + ("kein Drift" if best and best['drift_score'] < 0.2
+               else f"Drift={best['drift_score']:.2f}, trotzdem bester Kandidat")
+        ) if best else "keine Daten",
+    }
+
+
 # ── Reset ─────────────────────────────────────────────────────────────────────
 
 @router.post("/reset")

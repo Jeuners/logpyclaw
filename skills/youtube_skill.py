@@ -72,16 +72,8 @@ def _get_downloads_dir() -> str:
 
 def _get_base_args(use_cookies: bool = False) -> list[str]:
     """Standardargumente für yt-dlp. Cookies nur wenn explizit gewünscht."""
-    # --remote-components ejs:github: lädt einmalig das JS-Challenge-Solver-Script
-    # von GitHub (yt-dlp/ejs). Ohne das scheitern moderne YouTube-Videos mit
-    # "Signature solving failed" / "Only images are available".
-    args = ["--remote-components", "ejs:github"]
-    # node.js Runtime für JS-Challenge-Solving (optional)
-    for node_path in ["/opt/homebrew/bin/node", "/usr/local/bin/node",
-                      shutil.which("node") or ""]:
-        if node_path and os.path.exists(node_path):
-            args += ["--extractor-args", f"youtube:player_client=default,web"]
-            break
+    # android/ios brauchen keinen GVS PO Token, web-client dagegen schon
+    args = ["--extractor-args", "youtube:player_client=android,ios"]
     if use_cookies:
         args += ["--cookies-from-browser", "chrome"]
     return args
@@ -272,6 +264,8 @@ def _download_video(url: str, audio_only: bool = False, progress_cb=None) -> dic
         )
 
     if rc != 0:
+        if "drm" in stderr.lower() or "DRM" in stderr:
+            return {"error": "Dieses Video ist DRM-geschützt und kann nicht heruntergeladen werden."}
         return {"error": f"Download fehlgeschlagen: {stderr[:400]}"}
 
     # Dateipath aus stdout extrahieren

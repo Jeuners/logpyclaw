@@ -129,6 +129,7 @@ import ui.pages.insights    # noqa: F401 — registriert @ui.page("/insights")
 import ui.pages.ltx_batch  # noqa: F401 — registriert @ui.page("/ltx-batch")
 import ui.pages.temporal   # noqa: F401 — registriert @ui.page("/temporal")
 import lab.ui.lab_page              # noqa: F401 — 🧪 registriert @ui.page("/lab")
+import lab.ui.spacetime_page        # noqa: F401 — registriert @ui.page("/lab/spacetime")
 # dilation-demo wird als plain FastAPI HTMLResponse serviert (kein NiceGUI)
 from nicegui import ui    # Re-import: lokales ui/-Paket hat nicegui.ui überschrieben
 logger.info("NiceGUI Pages registriert")

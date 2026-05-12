@@ -40,19 +40,49 @@ def _get_event_log_path() -> str:
 
 
 class EventService:
-    def emit(self, event_type: str, data: dict = None):
-        """Event emittieren, in Memory-Buffer + Disk-Log speichern."""
+    def __init__(self):
+        # Eigenzeit-Provider — wenn gesetzt, werden Events automatisch um
+        # wall_clock/agent_reference_now/frame_id/dilation_factor angereichert
+        # (Logging-Tuple aus §4.3).
+        self._time = None
+
+    def set_time_provider(self, provider):
+        """TimeProvider injizieren. Ohne Provider laufen Events wie zuvor."""
+        self._time = provider
+
+    def emit(self, event_type: str, data: dict = None, frame: dict | None = None):
+        """Event emittieren, in Memory-Buffer + Disk-Log speichern.
+
+        ``frame`` (optional) überschreibt den Default-Frame des injizierten
+        TimeProviders. Nutzbar für Tasks, deren Frame nicht zum Orchestrator
+        passt (z.B. Heartbeat-Tasks oder Sub-Agent-Frames).
+        """
         global _EVENT_VERSION
         with _event_version_lock:
             _EVENT_VERSION += 1
             version = _EVENT_VERSION
 
+        wall_clock = datetime.now().isoformat()
         event = {
             "type": event_type,
             "data": data or {},
             "v": version,
-            "ts": datetime.now().isoformat(),
+            "ts": wall_clock,
+            "wall_clock": wall_clock,
         }
+        # Eigenzeit-Stempel anhängen, falls Provider/Frame verfügbar.
+        # ``frame`` (explizit) hat Vorrang; sonst der Default-Provider.
+        if frame is not None:
+            event["frame"] = dict(frame)
+        elif self._time is not None:
+            try:
+                f = self._time.frame
+                event["agent_reference_now"] = self._time.now().isoformat()
+                event["frame_id"] = f.frame_id
+                event["dilation_factor"] = f.dilation_factor
+                event["frame"] = f.to_dict()
+            except Exception as e:
+                logger.debug("Eigenzeit-Stempel fehlgeschlagen: %s", e)
 
         with _events_lock:
             _EVENTS.append(event)
@@ -197,8 +227,8 @@ class EventService:
         with _activity_lock:
             return dict(_ACTIVITY)
 
-    def emit_task_result(self, task_id: str, agent_id: str, result_text, result_image, status: str, error=None):
-        """Task-Ergebnis als Event emittieren."""
+    def emit_task_result(self, task_id: str, agent_id: str, result_text, result_image, status: str, error=None, frame: dict | None = None):
+        """Task-Ergebnis als Event emittieren. Optional Task-Frame mitgeben."""
         self.emit("task_result", {
             "task_id": task_id,
             "agent_id": agent_id,
@@ -206,7 +236,7 @@ class EventService:
             "result_image": result_image,
             "status": status,
             "error": error,
-        })
+        }, frame=frame)
 
     def emit_chat_message(self, agent_id: str, role: str, content: str, image=None):
         """Chat-Nachricht als Event emittieren."""
@@ -225,6 +255,7 @@ class EventService:
         recipient_name: str,
         task_text: str,
         task_id: str = "",
+        frame: dict | None = None,
     ):
         """A2A-Delegation als eigenes Event emittieren (kein Chat-Bubble)."""
         self.emit("a2a_dispatch", {
@@ -234,7 +265,7 @@ class EventService:
             "task_text": task_text,
             "task_id": task_id,
             "ts": datetime.now().isoformat(),
-        })
+        }, frame=frame)
 
     def emit_heartbeat_result(self, agent_id: str, result: str):
         """Heartbeat-Ergebnis emittieren."""

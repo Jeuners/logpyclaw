@@ -18,9 +18,12 @@ Die API unter GET /api/tools/tasklist beschreibt dieses Format selbst.
 """
 import logging
 import re
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-import uuid
+from typing import Optional
+
+from core.time_provider import TimeProvider
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +68,19 @@ class TaskItem:
     audio: list = field(default_factory=list)
     attachment_path: str = ""
 
-    def to_task_dict(self, system_task_id: str = "", depends_on: list | None = None) -> dict:
-        now = datetime.now()
+    def to_task_dict(
+        self,
+        system_task_id: str = "",
+        depends_on: list | None = None,
+        time_provider: Optional[TimeProvider] = None,
+    ) -> dict:
+        """Konvertiert den Task in das Dispatch-Dict.
+
+        Wenn ``time_provider`` übergeben wird, werden zusätzlich Eigenzeit-Felder
+        (§4.3 — reference_now, parent_reference_now, dilation_factor, frame_id)
+        gesetzt. Ohne Provider verhält sich die Methode wie bisher.
+        """
+        wall_now = datetime.now()
         d = {
             "id": system_task_id or str(uuid.uuid4()),
             "sender_agent_id": self.sender_id,
@@ -78,13 +92,22 @@ class TaskItem:
             "result_text": None,
             "result_image": None,
             "error": None,
-            "created_at": now.isoformat(),
+            "created_at": wall_now.isoformat(),
             "completed_at": None,
-            "timeout_at": (now + timedelta(seconds=1210)).isoformat(),
+            "timeout_at": (wall_now + timedelta(seconds=1210)).isoformat(),
             "delegation_depth": 1,
             "priority": self.priority,
             "depends_on": depends_on or [],
         }
+        if time_provider is not None:
+            frame = time_provider.frame
+            d["reference_now"] = time_provider.now().isoformat()
+            d["parent_reference_now"] = (
+                frame.parent_reference_now.isoformat()
+                if frame.parent_reference_now is not None else None
+            )
+            d["dilation_factor"] = frame.dilation_factor
+            d["frame_id"] = frame.frame_id
         if self.images:
             d["images"] = self.images
         if self.audio:

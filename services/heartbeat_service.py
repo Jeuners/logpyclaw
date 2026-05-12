@@ -33,10 +33,18 @@ class HeartbeatService:
         self._events = events
         self._registry = registry
         self._task_service = None
+        # Heartbeat operiert in einem eigenen Frame (§4.2 Source 2). Default ist
+        # der globale Orchestrator-Provider; ServiceContainer kann ihn ersetzen.
+        from core.time_provider import get_default_provider
+        self._time = get_default_provider()
 
     def set_task_service(self, ts):
         """TaskService registrieren."""
         self._task_service = ts
+
+    def set_time_provider(self, provider):
+        """TimeProvider registrieren — Heartbeat-Dispatches forken davon."""
+        self._time = provider
 
     def tick(self):
         """Alle Agenten mit aktivem Heartbeat prüfen und ggf. triggern."""
@@ -131,14 +139,30 @@ class HeartbeatService:
         return result_image, f"Bild: {img_prompt[:60]}..."
 
     def _dispatch_heartbeat_mentions(self, sender_agent, reply: str):
-        """Mentions aus Heartbeat-Reply als Tasks dispatchen (via A2A-Protokoll)."""
+        """Mentions aus Heartbeat-Reply als Tasks dispatchen (via A2A-Protokoll).
+
+        Frame-Tag ``kind=heartbeat`` markiert die Tasks als aus dem Heartbeat-
+        Frame stammend (§4.2 Source 2 — entkoppelt von Chat-Frame).
+        """
         from core.a2a_protocol import parse_a2a_dispatches
+        from core.time_provider import estimate_dilation
         from storage.agents import load_agents
         all_agents = load_agents()
         dispatches = parse_a2a_dispatches(reply, sender_agent, all_agents)
         for dispatch in dispatches:
             dispatch.priority = 3  # Heartbeat = niedrigere Priorität als User-Chat
-            task = dispatch.to_task_dict()
+            recipient = next(
+                (a for a in all_agents if a.get("id") == dispatch.recipient_id),
+                None,
+            )
+            child_tp = None
+            if recipient and self._time is not None:
+                child_tp = self._time.fork(
+                    agent_id=recipient.get("id", "unknown"),
+                    dilation_factor=estimate_dilation(recipient),
+                    metadata={"kind": "heartbeat"},
+                )
+            task = dispatch.to_task_dict(time_provider=child_tp)
             self._task_service.enqueue(task)
 
     def _notify_macos(self, agent_name: str, short: str):

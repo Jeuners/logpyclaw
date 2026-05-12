@@ -17,6 +17,12 @@ os.environ["AGENTCLAW_DATA_DIR"] = _TEST_DATA_DIR
 # Alte Kompat-Variable aus v1 Tests
 os.environ["AGENTCLAW_TEST_DATA_DIR"] = _TEST_DATA_DIR
 
+# DB-Datei in tmp redirecten — sonst landen Test-Tasks/Agents in der Prod-DB.
+# storage/database.py liest BASE_DIR aus core.config, das via AGENTCLAW_DATA_DIR
+# umgeleitet wird. Aber agentclaw.db wird unabhängig davon im Repo-Root abgelegt.
+# Dieser Patch zwingt SQLite auf eine isolierte Test-Datei.
+os.environ["AGENTCLAW_DB_PATH"] = os.path.join(_TEST_DATA_DIR, "test_agentclaw.db")
+
 import pytest
 from fastapi.testclient import TestClient
 

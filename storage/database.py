@@ -25,7 +25,9 @@ from core.config import BASE_DIR
 logger = logging.getLogger(__name__)
 
 # ── Datenbank-Konfiguration ────────────────────────────────────────────────────
-DB_PATH = os.path.join(BASE_DIR, "agentclaw.db")
+# AGENTCLAW_DB_PATH überschreibt den Default — von tests/conftest.py genutzt,
+# damit Pytest-Runs niemals in die Production-agentclaw.db schreiben.
+DB_PATH = os.environ.get("AGENTCLAW_DB_PATH") or os.path.join(BASE_DIR, "agentclaw.db")
 DB_URL  = f"sqlite:///{DB_PATH}"
 
 # connect_args für SQLite Thread-Sicherheit
@@ -136,6 +138,12 @@ class TaskDB(SQLModel, table=True):
     created_at:           str            = Field(default_factory=lambda: datetime.now().isoformat())
     started_at:           Optional[str]  = Field(default=None)
     completed_at:         Optional[str]  = Field(default=None)
+    # Eigenzeit-Felder (Dillenberg, Time Dilation §4.3 — Conceptual → Implemented).
+    # Alle nullable, damit Bestandsdaten unverändert lesbar bleiben.
+    reference_now:         Optional[str]   = Field(default=None)
+    parent_reference_now:  Optional[str]   = Field(default=None)
+    dilation_factor:       Optional[float] = Field(default=None)
+    frame_id:              Optional[str]   = Field(default=None, index=True)
 
     def to_dict(self) -> dict:
         return {
@@ -154,6 +162,10 @@ class TaskDB(SQLModel, table=True):
             "created_at":           self.created_at,
             "started_at":           self.started_at,
             "completed_at":         self.completed_at,
+            "reference_now":        self.reference_now,
+            "parent_reference_now": self.parent_reference_now,
+            "dilation_factor":      self.dilation_factor,
+            "frame_id":             self.frame_id,
         }
 
 
@@ -162,7 +174,45 @@ class TaskDB(SQLModel, table=True):
 def init_db():
     """Erstellt alle Tabellen (falls nicht vorhanden). Beim Start aufrufen."""
     SQLModel.metadata.create_all(engine)
+    _ensure_eigenzeit_columns()
     logger.info("SQLite DB initialisiert: %s", DB_PATH)
+
+
+def _ensure_eigenzeit_columns() -> None:
+    """ALTER TABLE für Eigenzeit-Felder (§4.3).
+
+    SQLModel.create_all legt fehlende Tabellen an, ändert aber keine vorhandenen.
+    Diese Funktion fügt für Bestands-DBs die nullable Eigenzeit-Spalten nach.
+    Idempotent — vorhandene Spalten werden übersprungen.
+    """
+    expected: list[tuple[str, str]] = [
+        ("reference_now",        "TEXT"),
+        ("parent_reference_now", "TEXT"),
+        ("dilation_factor",      "REAL"),
+        ("frame_id",             "TEXT"),
+    ]
+    with engine.connect() as conn:
+        from sqlalchemy import text
+        existing = {
+            row[1] for row in conn.exec_driver_sql("PRAGMA table_info(tasks)").all()
+        }
+        for col, sql_type in expected:
+            if col in existing:
+                continue
+            try:
+                conn.exec_driver_sql(
+                    f"ALTER TABLE tasks ADD COLUMN {col} {sql_type}"
+                )
+                logger.info("Migration: tasks.%s (%s) hinzugefügt", col, sql_type)
+            except Exception as e:
+                logger.warning("Migration tasks.%s übersprungen: %s", col, e)
+        try:
+            conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_tasks_frame_id ON tasks (frame_id)"
+            )
+        except Exception as e:
+            logger.warning("Index ix_tasks_frame_id übersprungen: %s", e)
+        conn.commit()
 
 
 @contextmanager
@@ -245,6 +295,8 @@ _TASK_FIELDS = {
     "recipient_agent_id", "recipient_agent_name", "message",
     "result_text", "result_image", "error", "skill_used",
     "delegation_depth", "created_at", "started_at", "completed_at",
+    # Eigenzeit-Felder (§4.3) — nullable
+    "reference_now", "parent_reference_now", "dilation_factor", "frame_id",
 }
 _TERMINAL_STATES = {"completed", "failed", "canceled", "rejected"}
 
@@ -263,6 +315,8 @@ def _task_dict_to_row(t: dict) -> dict:
         row["delegation_depth"] = 0
     if not row.get("id"):
         raise ValueError("Task ohne id kann nicht persistiert werden")
+    # Eigenzeit-Felder bleiben explizit nullable — None ist ein gültiger Wert
+    # (= "Task aus Pre-Eigenzeit-Ära oder ohne Frame-Kontext").
     return row
 
 
@@ -308,6 +362,43 @@ def load_open_tasks() -> list[dict]:
     with get_session() as session:
         stmt = select(TaskDB).where(TaskDB.status.not_in(_TERMINAL_STATES))
         return [t.to_dict() for t in session.exec(stmt).all()]
+
+
+def delete_old_tasks(cutoff_iso: str) -> int:
+    """Löscht alle terminalen Tasks deren ``completed_at`` älter als ``cutoff_iso`` ist.
+
+    Wird vom periodischen TaskService-Cleanup aufgerufen. Idempotent.
+    Liefert die Anzahl gelöschter Zeilen zurück.
+    """
+    with get_session() as session:
+        stmt = select(TaskDB).where(
+            TaskDB.status.in_(_TERMINAL_STATES),
+            TaskDB.completed_at.is_not(None),
+            TaskDB.completed_at < cutoff_iso,
+        )
+        rows = session.exec(stmt).all()
+        for r in rows:
+            session.delete(r)
+        session.commit()
+        return len(rows)
+
+
+def delete_orphan_tasks() -> int:
+    """Löscht Tasks deren recipient_agent_id nicht mehr in der agents-Tabelle existiert.
+
+    Bereinigt Test-Pollution + Verweise auf gelöschte Agents. Liefert die
+    Anzahl entfernter Zeilen zurück.
+    """
+    with get_session() as session:
+        agent_ids = {a.id for a in session.exec(select(AgentDB)).all()}
+        rows = session.exec(select(TaskDB)).all()
+        removed = 0
+        for r in rows:
+            if r.recipient_agent_id not in agent_ids:
+                session.delete(r)
+                removed += 1
+        session.commit()
+        return removed
 
 
 # ── Migrations ─────────────────────────────────────────────────────────────────

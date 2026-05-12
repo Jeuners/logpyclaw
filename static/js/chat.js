@@ -900,7 +900,7 @@ window._ac = {
             <span style="font-size:12px;font-weight:600;color:#00bcd4">${this.escHtml(sender)} → @${this.escHtml(recipient)}</span>
             <span style="margin-left:auto;font-size:9px;padding:2px 6px;border-radius:3px;
                 border:1px solid #00bcd4;color:#00bcd4;font-family:monospace;letter-spacing:.5px">A2A</span>
-            <span id="${cardId}-status" style="font-size:10px;color:#3a8a9a;font-style:italic">working…</span>
+            <span id="${cardId}-status" style="font-size:10px;color:#00bcd4;font-style:italic;animation:a2a-blink 1s ease-in-out infinite">läuft…</span>
           </div>
           <!-- Task-Text -->
           <div style="padding:8px 14px 10px;font-size:12px;color:#4a7a8a;line-height:1.5">
@@ -919,6 +919,8 @@ window._ac = {
             s.textContent = `
                 @keyframes a2a-spin { to { transform: rotate(360deg); } }
                 @keyframes a2a-fadein { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+                @keyframes a2a-blink { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
+                @keyframes a2a-pulse { 0%,100% { opacity:1; } 50% { opacity:0.55; } }
             `;
             document.head.appendChild(s);
         }
@@ -1015,22 +1017,26 @@ window._ac = {
                 icon.style.color = '#00bcd4';
                 icon.style.animation = 'a2a-spin 1.2s linear infinite';
                 label.textContent = 'läuft…';
+                label.style.color = '#00bcd4';
+                label.style.animation = 'a2a-blink 1s ease-in-out infinite';
+                label.style.fontWeight = '600';
                 if (overall) overall.textContent = `Schritt ${stepIdx + 1}/${totalSteps} läuft…`;
-            } else if (status === 'waiting') {
-                icon.textContent = 'hourglass_top';
+            } else if (status === 'waiting' || status === 'queued') {
+                icon.textContent = status === 'waiting' ? 'hourglass_top' : 'schedule';
                 icon.style.color = '#ffa726';
                 icon.style.animation = 'none';
-                label.textContent = 'wartet…';
-            } else if (status === 'queued') {
-                icon.textContent = 'schedule';
-                icon.style.color = '#ffa726';
-                icon.style.animation = 'none';
-                label.textContent = 'in Warteschlange';
+                label.textContent = status === 'waiting' ? 'wartet…' : 'in Warteschlange';
+                label.style.color = '#ffa726';
+                label.style.animation = 'a2a-pulse 2s ease-in-out infinite';
+                label.style.fontWeight = '600';
             } else if (status === 'completed') {
                 icon.textContent = 'check_circle';
                 icon.style.color = '#00e676';
                 icon.style.animation = 'none';
                 label.textContent = 'abgeschlossen';
+                label.style.color = '#00e676';
+                label.style.animation = 'none';
+                label.style.fontWeight = '700';
                 if (stepIdx + 1 === totalSteps && overall) {
                     overall.textContent = '✓ Alle Schritte abgeschlossen';
                     overall.style.color = '#00e676';
@@ -1040,6 +1046,9 @@ window._ac = {
                 icon.style.color = '#ef4444';
                 icon.style.animation = 'none';
                 label.textContent = 'fehlgeschlagen';
+                label.style.color = '#ef4444';
+                label.style.animation = 'none';
+                label.style.fontWeight = '700';
                 if (overall) { overall.textContent = `⚠ Fehler bei Schritt ${stepIdx + 1}`; overall.style.color = '#ef4444'; }
             }
         }
@@ -1118,20 +1127,32 @@ window._ac = {
                 icon.textContent = 'autorenew';
                 icon.style.color = '#00bcd4';
                 icon.style.animation = 'a2a-spin 1.2s linear infinite';
+                label.style.color = '#00bcd4';
+                label.style.animation = 'a2a-blink 1s ease-in-out infinite';
+                label.style.fontWeight = '600';
+            } else if (status === 'waiting' || status === 'queued') {
+                icon.textContent = status === 'waiting' ? 'hourglass_top' : 'schedule';
+                icon.style.color = '#ffa726';
+                icon.style.animation = 'none';
+                label.style.color = '#ffa726';
+                label.style.animation = 'a2a-pulse 2s ease-in-out infinite';
+                label.style.fontWeight = '600';
             } else if (status === 'completed') {
                 icon.textContent = 'check_circle';
                 icon.style.color = '#00e676';
                 icon.style.animation = 'none';
                 card.style.borderColor = '#1a4a2a';
+                label.style.color = '#00e676';
+                label.style.animation = 'none';
+                label.style.fontWeight = '700';
             } else if (status === 'failed') {
                 icon.textContent = 'error';
                 icon.style.color = '#ef4444';
                 icon.style.animation = 'none';
                 card.style.borderColor = '#4a1a1a';
-            } else if (status === 'queued') {
-                icon.textContent = 'schedule';
-                icon.style.color = '#ffa726';
-                icon.style.animation = 'none';
+                label.style.color = '#ef4444';
+                label.style.animation = 'none';
+                label.style.fontWeight = '700';
             }
             label.textContent = STATUS_LABELS[status] || status;
         }
