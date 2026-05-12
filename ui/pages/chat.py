@@ -733,7 +733,8 @@ def _render_sidebar_agent(agent: dict, current_agent_id: str):
     ).style(
         f"display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; "
         f"border-radius: 10px; cursor: pointer; transition: all .15s; "
-        f"margin-bottom: 6px; text-decoration: none; position: relative; {card_style}"
+        f"margin-bottom: 6px; text-decoration: none; position: relative; "
+        f"width: 100%; box-sizing: border-box; min-height: 68px; {card_style}"
     ).classes(f"ac-agent-item{selected_class}"):
         # Avatar — zentrale Komponente (agent['avatar'] steuert Bild/Initialien)
         from ui.components.avatar import render_avatar

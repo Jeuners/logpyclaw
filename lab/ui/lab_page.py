@@ -19,8 +19,8 @@ body { background: #050a06 !important; color: #e2e8f0; margin: 0; font-family: s
 }
 .lab-title { font-size: 22px; font-weight: 700; color: #4ade80; margin-bottom: 2px; }
 .lab-sub { font-size: 13px; color: #6b7280; }
-.lab-grid { display: grid; grid-template-columns: 320px 1fr 380px; gap: 14px; align-items: start; }
-@media (max-width: 1100px) { .lab-grid { grid-template-columns: 1fr; } }
+.lab-grid { display: grid; grid-template-columns: 380px 1fr 380px; gap: 14px; align-items: start; }
+@media (max-width: 1200px) { .lab-grid { grid-template-columns: 1fr; } }
 
 .lab-card {
   background: #0d1f0e; border: 1px solid #1a3a1a; border-radius: 10px; padding: 14px;
@@ -54,6 +54,7 @@ body { background: #050a06 !important; color: #e2e8f0; margin: 0; font-family: s
 .lab-agent-item {
   background: #050a06; border: 1px solid #1a3a1a; border-radius: 6px;
   padding: 8px 10px; margin-bottom: 6px; font-size: 12px;
+  display: flex; flex-direction: column; gap: 3px; min-height: 78px;
 }
 .lab-agent-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
 .lab-agent-name { font-weight: 600; color: #fbbf24; }
@@ -153,10 +154,11 @@ _PAGE_JS = r"""
           ${a.error_prob > 0 ? ' ⚠'+(a.error_prob*100).toFixed(0)+'%' : ''}
           · inbox: ${a.inbox_size}
         </div>
-        ${a.ops > 0 ? `<div class="lab-agent-clock">
-          ⏱ ez=${a.eigenzeit} ops · ${a.dilation_rate.toFixed(2)} ops/s
-          · <span class="lab-time-feel">${escape(a.time_feel)}</span>
-        </div>` : ''}
+        <div class="lab-agent-clock">
+          ${a.ops > 0
+            ? `⏱ ez=${a.eigenzeit} ops · ${a.dilation_rate.toFixed(2)} ops/s · <span class="lab-time-feel">${escape(a.time_feel)}</span>`
+            : `<span style="opacity:0.4">⏱ idle · keine Ticks</span>`}
+        </div>
       `;
       el.appendChild(row);
       row.querySelector('button').addEventListener('click', async (e) => {

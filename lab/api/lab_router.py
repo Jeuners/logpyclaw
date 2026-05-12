@@ -131,7 +131,7 @@ def mission_temporal_summary(mission_id: str):
         clock = msg.clock
         for aid, rate in clock.dilation.items():
             if aid not in agent_time or rate > 0:
-                ez = clock.eigenzeit.get(aid, 0)
+                ez = clock.vector.get(aid, 0)
                 agent_time[aid] = {"rate": rate, "eigenzeit": ez}
 
     # Dauer pro Task
