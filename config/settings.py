@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     TASK_TTL_SECONDS: int = 3600
     TASK_TIMEOUT_SECONDS: int = 3600
     MAX_HISTORY_PER_AGENT: int = 100
+    # Watchdog: wie lange ein Task in "working" stecken darf bevor er als
+    # hängend gilt und auto-failed wird (600s = 10 Min). ComfyUI-Renders
+    # können mehrere Minuten dauern → konservativ halten.
+    TASK_STALE_WORKING_SEC: int = 600
+    # Operator-Supervisor: maximale Re-Entry-Runden bevor zwangsweise final
+    # geantwortet werden muss. Verhindert Endlosschleifen bei schlechter
+    # Acceptance-Krit definition.
+    MAX_SUPERVISOR_TURNS: int = 5
 
     # Content & API Limits
     MAX_CONTENT_LENGTH: int = 32000

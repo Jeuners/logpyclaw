@@ -63,8 +63,20 @@ def client(agentclaw_app):
 
 @pytest.fixture(scope="session")
 def container(agentclaw_app):
-    """ServiceContainer (wird durch app-Import initialisiert)."""
+    """ServiceContainer (wird durch app-Import initialisiert).
+
+    Wichtig: `run_migrations()` läuft im echten Betrieb erst in FastAPI's
+    lifespan-Startup. In Tests, die `container` ohne TestClient nutzen,
+    bleiben die Tabellen sonst leer → SQLite-Errors beim ersten _save().
+    Daher hier explizit triggern.
+    """
     from services import get_services
+    from storage.database import run_migrations
+    try:
+        run_migrations()
+    except Exception:
+        # Idempotent — falls schon migriert, einfach weitermachen
+        pass
     return get_services()
 
 
@@ -210,8 +222,14 @@ def make_agent(container, agentclaw_app):
             "role": overrides.get("role", "tester"),
             "favorite": overrides.get("favorite", False),
             "max_tokens": overrides.get("max_tokens", 512),
+            "operator": overrides.get("operator", False),
         }
         agent = container.agents.create(data)
+        # AgentService.create lässt nicht-Standard-Felder fallen; operator
+        # zusätzlich via update setzen damit der Supervisor-Callback ihn erkennt.
+        if data["operator"]:
+            container.agents.update(agent["id"], {"operator": True})
+            agent["operator"] = True
         created_ids.append(agent["id"])
         return agent
 

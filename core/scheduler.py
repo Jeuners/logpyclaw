@@ -49,6 +49,8 @@ class Scheduler:
                     # heartbeat.tick() + watchdog.tick() spawnen nur Threads (schnell)
                     self._container.heartbeat.tick()
                     self._container.watchdog.tick()
+                    # Stalled-Task-Watchdog: failed hängende "working"-Tasks
+                    self._container.tasks.tick_stale_tasks()
                     # m2m + linkedin → Background-Pool (HTTP, langsam)
                     loop.run_in_executor(BACKGROUND_POOL, self._container.m2m.tick_peers)
                     loop.run_in_executor(BACKGROUND_POOL, _tick_linkedin_scheduled)

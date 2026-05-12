@@ -25,7 +25,8 @@ MAX_DELEGATION_DEPTH = 5
 
 # Operator-Supervisor-Loop: max. Anzahl Re-Entry-Turns beim Orchestrator,
 # bevor wir ihn zwangsweise zum Abschluss zwingen. Schutz gegen Endlos-Schleifen.
-MAX_SUPERVISOR_TURNS = 5
+from config.settings import settings as _settings
+MAX_SUPERVISOR_TURNS = _settings.MAX_SUPERVISOR_TURNS
 
 # Skills die parallel laufen dürfen — externe Queue (ComfyUI) verwaltet Reihenfolge selbst.
 # Source of Truth: core.dispatch_rules.PARALLEL_SAFE_SKILLS. Hier nur Re-Export.
@@ -162,6 +163,7 @@ class TaskService:
                 if t.get("status") in ("submitted", "working")
             }
             to_start = []
+            cascaded_failures: list[dict] = []
 
             # Waiting Tasks: prüfen ob Abhängigkeiten jetzt erfüllt sind
             for task in list(_TASKS.values()):
@@ -177,7 +179,12 @@ class TaskService:
                     task["status"] = "failed"
                     task["error"] = "Abhängiger Task fehlgeschlagen"
                     task["completed_at"] = datetime.now().isoformat()
-                    logger.warning("Task %s failed (dependency failed)", task["id"][:8])
+                    disp = (task.get("parent_dispatch_id") or "-")[:8]
+                    logger.warning(
+                        "Task %s failed (dependency failed) dispatch=%s",
+                        task["id"][:8], disp,
+                    )
+                    cascaded_failures.append(task)
                     continue
                 all_done = all(
                     _TASKS.get(dep_id, {}).get("status") == "completed"
@@ -226,6 +233,60 @@ class TaskService:
         for tid in to_start:
             spawn_background(self.process, tid)
 
+        # Supervisor-Hook für Cascade-Fails: nachdem der Lock frei ist, damit
+        # _maybe_supervisor_callback sauber den Group-Status lesen kann.
+        for t in cascaded_failures:
+            self._maybe_supervisor_callback(t)
+
+    # Maximum Wand-Zeit, die ein Task in "working" verbringen darf, bevor ihn
+    # der Watchdog als hängend einstuft. Konfigurierbar via
+    # AGENTCLAW_TASK_STALE_WORKING_SEC (Default 600s = 10 Min). ComfyUI-Renders
+    # können mehrere Minuten dauern → konservativ halten.
+    STALE_WORKING_SEC = _settings.TASK_STALE_WORKING_SEC
+
+    def tick_stale_tasks(self):
+        """Watchdog: scannt 'working'-Tasks und failed sie, falls started_at
+        älter als STALE_WORKING_SEC ist. Verhindert dass Operator-Dispatch-Gruppen
+        ewig auf einen hängenden Sub-Task warten."""
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        cutoff = now - timedelta(seconds=self.STALE_WORKING_SEC)
+        stale: list[dict] = []
+        with _tasks_lock:
+            for task in list(_TASKS.values()):
+                if task.get("status") != "working":
+                    continue
+                started_raw = task.get("started_at")
+                if not started_raw:
+                    continue
+                try:
+                    started = datetime.fromisoformat(started_raw)
+                except (ValueError, TypeError):
+                    continue
+                if started < cutoff:
+                    age = (now - started).total_seconds()
+                    task["status"] = "failed"
+                    task["error"] = f"Stalled: working {age:.0f}s without progress"
+                    task["completed_at"] = now.isoformat()
+                    stale.append(task)
+                    disp = (task.get("parent_dispatch_id") or "-")[:8]
+                    logger.warning(
+                        "Watchdog: Task %s (@%s) stale failed after %.0fs dispatch=%s",
+                        task["id"][:8], task.get("recipient_agent_name","?"),
+                        age, disp,
+                    )
+        if stale:
+            self._save()
+            # Dependents cascaden + Supervisor-Hooks triggern
+            for t in stale:
+                self._events.emit_task_result(
+                    t["id"], t["recipient_agent_id"],
+                    None, None, "failed", t.get("error",""),
+                )
+                self._maybe_supervisor_callback(t)
+            # tick_queue() bringt Cascade-Fails der Dependents in Gang
+            self.tick_queue()
+
     def cancel(self, task_id: str) -> bool:
         """Task canceln wenn nicht schon terminal."""
         with _tasks_lock:
@@ -237,6 +298,9 @@ class TaskService:
             task["status"] = "canceled"
             task["completed_at"] = datetime.now().isoformat()
         self._save()
+        # Supervisor-Hook auch bei Cancel auslösen, damit Operator-Dispatch-Gruppen
+        # bei manuellem Abbruch terminal werden und Martin nicht ewig wartet.
+        self._maybe_supervisor_callback(task)
         return True
 
     def get(self, task_id: str) -> dict | None:
@@ -277,6 +341,7 @@ class TaskService:
             return
 
         task["status"] = "working"
+        task["started_at"] = datetime.now().isoformat()
         self._save()
 
         # Kumulativen Kontext aller vorherigen Chain-Schritte injizieren

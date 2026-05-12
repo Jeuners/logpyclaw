@@ -435,11 +435,17 @@ class CodingSkill(BaseSkill):
                         metadata={"project_name": project_name, "files_written": len(files)},
                     )
 
-            # Alles andere: passthrough
+            # Passthrough: Skill wurde getriggert, aber kein File-Output produziert
+            # (kein content_to_save mit Markdown-Code-Blocks, kein list-Befehl).
+            # → Status muss halted_no_exec werden, sonst meldet der Operator-Loop
+            # „done" obwohl die versprochene Datei nicht existiert.
+            # Beobachteter Bug: CodeCraft schrieb „[coding]" als Annotation,
+            # CodingSkill returned passthrough → Task completed → Martin glaubt
+            # an Erfolg, aber data/exports/wild/index.html wurde nie erstellt.
             return SkillResult(
                 text=None,
                 skill_used=self.id,
-                metadata={"passthrough": True}
+                metadata={"passthrough": True, "executed": False},
             )
         except Exception as e:
             return SkillResult(error=str(e), skill_used=self.id)

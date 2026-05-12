@@ -14,6 +14,14 @@ from storage.providers import load_providers
 from config.settings import settings
 
 MAX_HISTORY_PER_AGENT = settings.MAX_HISTORY_PER_AGENT
+
+# Skills, deren Aufgaben Wall-Clock-Bezüge in der echten Welt haben (Mails mit
+# Datum, Chat-Timestamps, geplante Posts). Agenten mit diesen Skills bekommen
+# automatisch `[Aktuelle Zeit: ...]` in den System-Prompt injiziert. Alle
+# anderen Agenten sehen keinen Timestamp (CDC-Thesis — siehe linkedin_post_2).
+_WALLTIME_SKILLS = frozenset({
+    "mac_mail", "linkedin", "telegram", "whatsapp",
+})
 from core.state import _PENDING_MAIL_SORT, MAC_MAIL_TRIGGERS
 from core import dispatch_rules
 from core.llm import LLM_REQUEST_TIMEOUT
@@ -1431,11 +1439,25 @@ class ChatService:
         from core.skills_registry import _build_agent_directory, _get_codebase_context
         from core.operator_context import get_operator_context
 
-        now = datetime.now().strftime("%A, %d. %B %Y, %H:%M Uhr")
         _agent_skills = set(agent.get("skills", []))
         _codebase = f"\n\n{_get_codebase_context()}" if "codebase_read" in _agent_skills else ""
         _skills_block = self._build_skills_prompt(agent)
         is_operator = bool(agent.get("operator", False))
+
+        # Wall-Clock-Timestamp nur dann injizieren, wenn der Agent ihn wirklich
+        # braucht (CDC-Thesis: LLMs überinterpretieren Datums-/Zeit-Strings
+        # ohne sie berechnen zu können). Drei Wege opt-in:
+        #   1. Agent-Flag `needs_walltime=True` (manuelle Steuerung)
+        #   2. Skill aus _WALLTIME_SKILLS dabei (Mail/Telegram/WhatsApp/Linkedin —
+        #      diese arbeiten mit Zeitstempel-Daten in der Außenwelt)
+        # Default = aus.
+        walltime_block = ""
+        needs_wt = agent.get("needs_walltime", False) or bool(
+            _agent_skills & _WALLTIME_SKILLS
+        )
+        if needs_wt:
+            now = datetime.now().strftime("%A, %d. %B %Y, %H:%M Uhr")
+            walltime_block = f"[Aktuelle Zeit: {now}]\n\n"
 
         # Operator-Agenten bekommen Agent-Directory + A2A/TASKLIST-Syntax.
         # Worker-Agenten sehen davon nichts — sie wissen nicht, dass andere
@@ -1443,7 +1465,7 @@ class ChatService:
         if is_operator:
             agent_directory = _build_agent_directory(agent.get("id"))
             system_content = (
-                f"[Aktuelle Zeit: {now}]\n\n"
+                f"{walltime_block}"
                 f"{get_operator_context()}\n\n"
                 f"{agent['soul']}\n\n"
                 f"{get_a2a_prompt()}\n\n"
@@ -1452,7 +1474,7 @@ class ChatService:
             )
         else:
             system_content = (
-                f"[Aktuelle Zeit: {now}]\n\n"
+                f"{walltime_block}"
                 f"{get_operator_context()}\n\n"
                 f"{agent['soul']}\n\n"
                 f"{_skills_block}{_codebase}"

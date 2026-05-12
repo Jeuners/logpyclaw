@@ -128,11 +128,22 @@ class BaseSkill(ABC):
 
     def longest_match(self, message: str) -> int:
         """
-        Gibt die Länge des längsten Trigger-Matches zurück.
-        Wird von SkillRegistry.find_matching() genutzt um den spezifischsten Skill zu wählen.
+        Gibt die Spezifität des Trigger-Matches zurück (kein Roh-len(group(0))).
+
+        WICHTIG: Kombi-Regexe wie ``(bild).{0,60}(mach)`` würden bei
+        Roh-Match-Länge eine 50-Zeichen-Spanne inkl. Füller zählen und damit
+        einfache Einzelwort-Trigger schlagen, obwohl der eigentliche Trigger-
+        Inhalt kürzer ist. Wir summieren stattdessen nur die Längen der
+        Capture-Groups (sofern vorhanden). Ohne Capture-Groups fällt's auf
+        ``group(0)`` zurück.
+
+        Beobachteter Bug ohne diesen Schutz: IMAGE_EDIT_TRIGGERS schlug
+        IMG_TRIGGERS bei „Image-Generierung für 5 Artikel-Bilder…", weil
+        die ``\\b(bild|image)\\b.{0,60}\\b(set|make)\\b`` Kombi den ganzen
+        Zwischenraum kapselt.
 
         Returns:
-            Länge des längsten Matches, 0 wenn kein Trigger passt.
+            Spezifitäts-Score (Σ Group-Längen), 0 wenn kein Trigger passt.
         """
         if not self.triggers:
             return 0
@@ -140,7 +151,9 @@ class BaseSkill(ABC):
         for trigger in self.triggers:
             m = re.search(trigger, message, re.IGNORECASE)
             if m:
-                best = max(best, len(m.group(0)))
+                groups = [g for g in m.groups() if g is not None]
+                length = sum(len(g) for g in groups) if groups else len(m.group(0))
+                best = max(best, length)
         return best
 
     def is_available(self, providers: dict) -> bool:
