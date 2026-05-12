@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AgentClaw — Was ist das?</title>
+<style>
+  :root {
+    --bg: #07070f;
+    --surface: #0f0f1e;
+    --surface2: #14142a;
+    --border: #1e1e3a;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --green: #10b981;
+    --red: #ef4444;
+    --amber: #f59e0b;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --muted2: #94a3b8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  /* ── Navigation ─────────────────────────────────────────────── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(7,7,15,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 24px;
+    padding: 0 40px; height: 56px;
+  }
+  .nav-logo {
+    font-size: 15px; font-weight: 700; color: var(--accent2);
+    letter-spacing: .06em; text-decoration: none;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .nav-logo span { color: var(--muted); font-weight: 400; }
+  nav a { color: var(--muted2); font-size: 13px; text-decoration: none; }
+  nav a:hover { color: var(--text); }
+  .nav-badge {
+    margin-left: auto;
+    background: #7c2d12; color: #fca5a5;
+    font-size: 11px; font-weight: 700; letter-spacing: .08em;
+    padding: 3px 10px; border-radius: 20px; border: 1px solid #9a3412;
+  }
+
+  /* ── Layout ─────────────────────────────────────────────────── */
+  main { max-width: 860px; margin: 0 auto; padding: 120px 24px 80px; }
+
+  /* ── Hero ───────────────────────────────────────────────────── */
+  .hero {
+    text-align: center;
+    margin-bottom: 80px;
+  }
+  .hero-kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #1e1b4b; border: 1px solid #3730a3;
+    color: var(--accent2); font-size: 12px; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase;
+    padding: 5px 14px; border-radius: 20px; margin-bottom: 28px;
+  }
+  .hero h1 {
+    font-size: clamp(32px, 6vw, 58px);
+    font-weight: 800; letter-spacing: -.02em;
+    line-height: 1.1; margin-bottom: 20px;
+    background: linear-gradient(135deg, #e0e7ff 30%, #818cf8);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .hero-sub {
+    font-size: 18px; color: var(--muted2); max-width: 560px; margin: 0 auto 36px;
+  }
+  .hero-warning {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: #1c1007; border: 1px solid #78350f;
+    color: #fbbf24; font-size: 13px; font-weight: 500;
+    padding: 10px 20px; border-radius: 10px;
+  }
+
+  /* ── Section ────────────────────────────────────────────────── */
+  section { margin-bottom: 72px; }
+  .section-label {
+    font-size: 11px; font-weight: 700; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 12px;
+  }
+  h2 {
+    font-size: 26px; font-weight: 700; letter-spacing: -.01em;
+    margin-bottom: 16px; color: #f1f5f9;
+  }
+  p { color: var(--muted2); font-size: 15px; margin-bottom: 12px; }
+
+  /* ── What is it ─────────────────────────────────────────────── */
+  .what-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    margin-top: 24px;
+  }
+  @media(max-width:600px) { .what-grid { grid-template-columns: 1fr; } }
+  .what-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 22px;
+  }
+  .what-card-icon { font-size: 22px; margin-bottom: 10px; }
+  .what-card h3 { font-size: 14px; font-weight: 700; color: #c7d2fe; margin-bottom: 6px; }
+  .what-card p { font-size: 13px; color: var(--muted); margin: 0; }
+
+  /* ── Pro/Con ────────────────────────────────────────────────── */
+  .procon-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+    margin-top: 24px;
+  }
+  @media(max-width:600px) { .procon-grid { grid-template-columns: 1fr; } }
+  .procon-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px;
+  }
+  .procon-box.pro { border-top: 3px solid var(--green); }
+  .procon-box.con { border-top: 3px solid var(--red); }
+  .procon-title {
+    font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .procon-box.pro .procon-title { color: var(--green); }
+  .procon-box.con .procon-title { color: var(--red); }
+  .procon-item {
+    display: flex; gap: 10px; margin-bottom: 12px; font-size: 14px; color: var(--muted2);
+  }
+  .procon-item:last-child { margin-bottom: 0; }
+  .procon-dot {
+    width: 18px; height: 18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; flex-shrink: 0; margin-top: 1px;
+  }
+  .pro .procon-dot { background: #064e3b; color: #6ee7b7; }
+  .con .procon-dot { background: #450a0a; color: #fca5a5; }
+
+  /* ── Tech Stack ─────────────────────────────────────────────── */
+  .stack-row {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px;
+  }
+  .stack-chip {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--muted2); font-size: 12px; font-weight: 600;
+    padding: 5px 12px; border-radius: 6px; font-family: 'JetBrains Mono', monospace;
+  }
+  .stack-chip.core { border-color: #3730a3; color: #a5b4fc; background: #1e1b4b; }
+
+  /* ── Roadmap ────────────────────────────────────────────────── */
+  .roadmap { margin-top: 24px; }
+  .roadmap-item {
+    display: flex; gap: 16px; margin-bottom: 20px;
+    position: relative;
+  }
+  .roadmap-item:not(:last-child)::after {
+    content: '';
+    position: absolute; left: 11px; top: 26px;
+    width: 2px; height: calc(100% + 4px);
+    background: var(--border);
+  }
+  .roadmap-dot {
+    width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; position: relative; z-index: 1;
+  }
+  .roadmap-dot.done { background: #064e3b; color: #6ee7b7; border: 2px solid #10b981; }
+  .roadmap-dot.wip  { background: #1e1b4b; color: #a5b4fc; border: 2px solid #6366f1; }
+  .roadmap-dot.plan { background: var(--surface2); color: var(--muted); border: 2px solid var(--border); }
+  .roadmap-content { padding-top: 2px; }
+  .roadmap-title { font-size: 14px; font-weight: 600; color: #e2e8f0; margin-bottom: 2px; }
+  .roadmap-sub { font-size: 13px; color: var(--muted); }
+
+  /* ── Not Consumer ───────────────────────────────────────────── */
+  .warning-box {
+    background: #0c0a00; border: 1px solid #78350f;
+    border-left: 4px solid #f59e0b;
+    border-radius: 10px; padding: 24px 28px;
+    margin-top: 24px;
+  }
+  .warning-box h3 { font-size: 16px; font-weight: 700; color: #fbbf24; margin-bottom: 10px; }
+  .warning-box ul { padding-left: 20px; }
+  .warning-box li { font-size: 14px; color: #fcd34d; margin-bottom: 6px; opacity: .85; }
+
+  /* ── CTA ────────────────────────────────────────────────────── */
+  .cta-bar {
+    margin-top: 72px;
+    background: linear-gradient(135deg, #1e1b4b, #0f0f1e);
+    border: 1px solid #3730a3; border-radius: 16px;
+    padding: 40px 40px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 24px;
+    justify-content: space-between;
+  }
+  .cta-bar h2 { font-size: 22px; margin-bottom: 6px; }
+  .cta-bar p { font-size: 14px; color: var(--muted2); margin: 0; }
+  .cta-links { display: flex; gap: 12px; flex-wrap: wrap; }
+  .cta-btn {
+    background: var(--accent); color: #fff;
+    font-size: 13px; font-weight: 600;
+    padding: 10px 20px; border-radius: 8px;
+    text-decoration: none; transition: background .15s;
+  }
+  .cta-btn:hover { background: var(--accent2); }
+  .cta-btn.ghost {
+    background: transparent; color: var(--accent2);
+    border: 1px solid #3730a3;
+  }
+  .cta-btn.ghost:hover { background: #1e1b4b; }
+
+  /* ── Footer ─────────────────────────────────────────────────── */
+  footer {
+    text-align: center; padding: 40px 24px;
+    font-size: 12px; color: var(--muted);
+    border-top: 1px solid var(--border);
+    margin-top: 40px;
+  }
+  footer a { color: var(--muted2); text-decoration: none; }
+
+  /* ── Divider ────────────────────────────────────────────────── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 64px 0; }
+
+  /* ── Scroll animation ───────────────────────────────────────── */
+  .fade-in { opacity: 0; transform: translateY(20px); transition: opacity .5s, transform .5s; }
+  .fade-in.visible { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="/">🦀 AgentClaw <span>v2</span></a>
+  <a href="/lab">Lab</a>
+  <a href="/lab/spacetime">Spacetime</a>
+  <a href="https://github.com/Jeuners/Time_Dilation_in_LLM_Agent_Systems" target="_blank">Paper</a>
+  <div class="nav-badge">⚠ Research / kein Consumer-Produkt</div>
+</nav>
+
+<main>
+
+  <!-- Hero -->
+  <div class="hero fade-in">
+    <div class="hero-kicker">🔬 Forschungsprojekt · Lokales KI-System</div>
+    <h1>AgentClaw — ein lokales<br>Multi-Agent-KI-System</h1>
+    <p class="hero-sub">
+      Kein Cloud-Dienst. Keine App. Ein Experiment darüber,
+      wie autonome KI-Agenten miteinander kommunizieren, delegieren
+      — und Zeit wahrnehmen.
+    </p>
+    <div class="hero-warning">
+      ⚠️ &nbsp; Dieses Projekt ist <strong>kein Produkt</strong> — es ist aktive Forschung für Entwickler und Forscher.
+    </div>
+  </div>
+
+  <!-- Was ist es? -->
+  <section class="fade-in">
+    <div class="section-label">Das Projekt</div>
+    <h2>Was ist AgentClaw?</h2>
+    <p>
+      AgentClaw ist ein lokal laufendes Multi-Agent-System, das auf dem eigenen Mac läuft —
+      ohne Cloud, ohne externe Abhängigkeiten. Es verbindet mehrere KI-Agenten, die
+      Aufgaben untereinander delegieren, Ergebnisse prüfen und dabei ihre eigene
+      „Zeitwahrnehmung" tracken.
+    </p>
+    <p>
+      Der Kern des Projekts ist die Erforschung der Frage: <strong>Wie nimmt ein KI-Agent
+      Zeit wahr?</strong> Nicht Wanduhrzeit — sondern Eigenzeit, definiert durch die Anzahl
+      der verarbeiteten Operationen. Daraus entsteht das Konzept der
+      <em>Causal-Dilation Clock (CDC)</em>.
+    </p>
+
+    <div class="what-grid">
+      <div class="what-card">
+        <div class="what-card-icon">🤖</div>
+        <h3>Mock-Agenten</h3>
+        <p>Spawnable Agenten mit verschiedenen Policies — von schnell bis absichtlich langsam, mit Fehlerwahrscheinlichkeit und QC-Überprüfung.</p>
+      </div>
+      <div class="what-card">
+        <div class="what-card-icon">⏱</div>
+        <h3>Causal-Dilation Clock</h3>
+        <p>Jede Message trägt eine Uhr, die kausale Reihenfolge <em>und</em> die Eigenzeit-Rate jedes Agenten erfasst — als (V, D)-Tupel.</p>
+      </div>
+      <div class="what-card">
+        <div class="what-card-icon">🎬</div>
+        <h3>LTX Video Batch</h3>
+        <p>WAV + Bild → Segmentierung → Prompts via Ollama → Video-Rendering via ComfyUI LTX 2.3, mit Frame-Chaining zwischen Segmenten.</p>
+      </div>
+      <div class="what-card">
+        <div class="what-card-icon">🌌</div>
+        <h3>Spacetime-Visualisierung</h3>
+        <p>Interaktives Diagramm: Agenten als Weltlinien, Messages als Pfeile, Drift-Erkennung farblich codiert — direkt aus den Live-Daten.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- Vor- und Nachteile -->
+  <section class="fade-in">
+    <div class="section-label">Ehrliche Einschätzung</div>
+    <h2>Stärken und Schwächen</h2>
+    <p>AgentClaw ist kein fertiges Produkt — es ist ein experimentelles System. Hier ist, was funktioniert und was noch nicht.</p>
+
+    <div class="procon-grid">
+      <div class="procon-box pro">
+        <div class="procon-title">✓ Stärken</div>
+
+        <div class="procon-item">
+          <div class="procon-dot">✓</div>
+          <div><strong style="color:#d1fae5">Vollständig lokal</strong> — keine Cloud, keine Daten verlassen den Mac. Volle Kontrolle über Modelle und Daten.</div>
+        </div>
+        <div class="procon-item">
+          <div class="procon-dot">✓</div>
+          <div><strong style="color:#d1fae5">Neuartiges Zeitkonzept</strong> — die CDC bringt echte Forschungsinnovation: Eigenzeit für KI-Agenten als messbares Konzept.</div>
+        </div>
+        <div class="procon-item">
+          <div class="procon-dot">✓</div>
+          <div><strong style="color:#d1fae5">Modulare Architektur</strong> — Lab, LTX-Batch, Chat, API sind klar getrennt. Neue Module lassen sich isoliert entwickeln.</div>
+        </div>
+        <div class="procon-item">
+          <div class="procon-dot">✓</div>
+          <div><strong style="color:#d1fae5">QC-Doppel-Agenten</strong> — automatische Qualitätsprüfung via Reviewer-Agent mit Score, Retry-Logik und konfigurierbarer Rate.</div>
+        </div>
+        <div class="procon-item">
+          <div class="procon-dot">✓</div>
+          <div><strong style="color:#d1fae5">Drift-kompensierter Scheduler</strong> — Agenten-Auswahl basiert auf gemessener Eigenzeit-Rate (γ_ij), nicht auf Heuristiken.</div>
+        </div>
+        <div class="procon-item">
+          <div class="procon-dot">✓</div>
+          <div><strong style="color:#d1fae5">Video-Produktion</strong> — vollständige Pipeline von Audio zu Video, inkl. Frame-Chaining und nachträglichem Concat.</div>
+        </div>
+      </div>
+
+      <div class="procon-box con">
+        <div class="procon-title">✗ Schwächen</div>
+
+        <div class="procon-item">
+          <div class="procon-dot">✗</div>
+          <div><strong style="color:#fecaca">Kein Neustart-Persistenz im Lab</strong> — Missionen und Agenten gehen nach Server-Neustart verloren. Kein JSONL-Replay für das Lab.</div>
+        </div>
+        <div class="procon-item">
+          <div class="procon-dot">✗</div>
+          <div><strong style="color:#fecaca">NiceGUI/Python-3.14-Bug</strong> — alle UI-Updates müssen client-seitig in JavaScript erfolgen. Schränkt Entwicklungskomfort ein.</div>
+        </div>
+        <div class="procon-item">
+          <div class="procon-dot">✗</div>
+          <div><strong style="color:#fecaca">Keine echten LLM-Agenten</strong> — das Lab nutzt Mock-Agenten. Echte LLM-Calls sind im Chat, aber nicht tief ins Agent-Protokoll integriert.</div>
+        </div>
+        <div class="procon-item">
+          <div class="procon-dot">✗</div>
+          <div><strong style="color:#fecaca">Hohe Hardware-Anforderungen</strong> — Ollama, ComfyUI, Redis, Qdrant — alles lokal. Mindestens 32 GB RAM und GPU empfohlen.</div>
+        </div>
+        <div class="procon-item">
+          <div class="procon-dot">✗</div>
+          <div><strong style="color:#fecaca">Keine Authentifizierung</strong> — das System hat keine Nutzer-Verwaltung, keine Rollen, kein Auth. Nur für lokalen Einzelbetrieb.</div>
+        </div>
+        <div class="procon-item">
+          <div class="procon-dot">✗</div>
+          <div><strong style="color:#fecaca">Kein UI-Onboarding</strong> — wer das System nicht selbst gebaut hat, findet sich kaum zurecht. Null Dokumentation für Endnutzer.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- Kein Consumer-Produkt -->
+  <section class="fade-in">
+    <div class="section-label">Wichtiger Hinweis</div>
+    <h2>Das ist (noch) kein Consumer-Produkt</h2>
+    <p>
+      AgentClaw ist ein aktives Forschungs- und Experimentierprojekt. Es wird täglich
+      verändert, bricht manchmal, und setzt technisches Verständnis voraus.
+      Es gibt keine stabile Version, kein Installer, keinen Support.
+    </p>
+
+    <div class="warning-box">
+      <h3>⚠️ Was das bedeutet</h3>
+      <ul>
+        <li>Kein Installer — Inbetriebnahme erfordert Python, Ollama, ComfyUI, Redis, Qdrant manuell einzurichten.</li>
+        <li>Keine Stabilität — Breaking Changes passieren ohne Ankündigung oder Migration.</li>
+        <li>Keine Dokumentation für Endnutzer — nur Code-Kommentare und dieses Projekt-CLAUDE.md.</li>
+        <li>Keine Sicherheit — kein Auth, kein Rate-Limiting, nicht für öffentliche Server geeignet.</li>
+        <li>Keine Garantien — Modell-Outputs sind experimentell, Ergebnisse nicht reproduzierbar.</li>
+        <li>Kein Support — wer es nutzt, muss es selbst verstehen und anpassen können.</li>
+      </ul>
+    </div>
+
+    <p style="margin-top:20px">
+      Das Ziel ist, Konzepte zu erforschen, Ideen auszuprobieren und die Grenzen von
+      Multi-Agent-Systemen zu verstehen — nicht, ein fertiges Produkt zu liefern.
+      Wenn daraus eines Tages etwas Produktreifes entsteht, wird das hier dokumentiert.
+    </p>
+  </section>
+
+  <hr/>
+
+  <!-- Tech Stack -->
+  <section class="fade-in">
+    <div class="section-label">Technologie</div>
+    <h2>Was steckt drin?</h2>
+    <p>Alles läuft lokal — kein Cloud-Anbieter ist involviert.</p>
+
+    <div class="stack-row">
+      <span class="stack-chip core">Python 3.14</span>
+      <span class="stack-chip core">NiceGUI 3.10</span>
+      <span class="stack-chip core">FastAPI</span>
+      <span class="stack-chip">Ollama + gemma4:e4b</span>
+      <span class="stack-chip">ComfyUI + LTX 2.3</span>
+      <span class="stack-chip">SQLite</span>
+      <span class="stack-chip">Redis</span>
+      <span class="stack-chip">Qdrant</span>
+      <span class="stack-chip">ffmpeg</span>
+      <span class="stack-chip">Whisper</span>
+      <span class="stack-chip">Playwright</span>
+      <span class="stack-chip core">Causal-Dilation Clock (§3.4)</span>
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- Roadmap -->
+  <section class="fade-in">
+    <div class="section-label">Wo stehen wir?</div>
+    <h2>Roadmap</h2>
+
+    <div class="roadmap">
+      <div class="roadmap-item">
+        <div class="roadmap-dot done">✓</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">Multi-Agent-Framework mit A2A-Protokoll</div>
+          <div class="roadmap-sub">Mock-Agenten, Conductor, Watchdog, QC-Doppel-Agenten — fertig</div>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-dot done">✓</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">Causal-Dilation Clock (CDC)</div>
+          <div class="roadmap-sub">Vector-Clock + Eigenzeit, 4-Relations-Klassifikator, γ_ij Frame-Transformation — fertig</div>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-dot done">✓</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">Spacetime-Visualisierung</div>
+          <div class="roadmap-sub">Interaktives Diagramm mit Weltlinien, Message-Pfeilen, Drift-Erkennung — fertig</div>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-dot done">✓</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">LTX Video Batch Pipeline</div>
+          <div class="roadmap-sub">WAV → Segmente → Prompts → ComfyUI → Master-Video mit Frame-Chaining — fertig</div>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-dot wip">●</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">Echte LLM-Agenten im Protokoll</div>
+          <div class="roadmap-sub">Ollama-Agenten als vollwertige Lab-Teilnehmer mit CDC — in Entwicklung</div>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-dot wip">●</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">Lab-Persistenz über Neustart</div>
+          <div class="roadmap-sub">JSONL-Persistenz für Missionen, Traces und Agenten-State — in Entwicklung</div>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-dot plan">○</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">Empirische CDC-Messungen</div>
+          <div class="roadmap-sub">Benchmark: reale Latenz-Divergenz zwischen verschiedenen LLM-Modellen messen</div>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-dot plan">○</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">Consumer-Ready Version</div>
+          <div class="roadmap-sub">Installer, Auth, stabile API, Onboarding — noch kein Datum</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta-bar fade-in">
+    <div>
+      <h2>Für Entwickler &amp; Forscher</h2>
+      <p>Quellcode auf GitHub — Issues, Forks und Diskussionen willkommen.</p>
+    </div>
+    <div class="cta-links">
+      <a class="cta-btn" href="https://github.com/Jeuners/agentclaw" target="_blank">GitHub →</a>
+      <a class="cta-btn ghost" href="https://github.com/Jeuners/Time_Dilation_in_LLM_Agent_Systems" target="_blank">Paper →</a>
+      <a class="cta-btn ghost" href="/lab">Lab öffnen</a>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  AgentClaw v2 — Forschungsprojekt · kein Consumer-Produkt · lokal, privat, experimentell<br>
+  <a href="/lab/spacetime">Spacetime-Viz</a> · <a href="/lab">Communication Lab</a> · <a href="https://github.com/Jeuners/Time_Dilation_in_LLM_Agent_Systems">CDC-Paper</a>
+</footer>
+
+<script>
+  // Fade-in beim Scrollen
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+</script>
+</body>
+</html>

@@ -31,6 +31,7 @@ def create_layout(page_name: str = "home"):
             _nav_link("Tasks",    "assignment", "/tasks",    page_name)
             _nav_link("Skills",   "extension",  "/skills",   page_name)
             _nav_link("Settings", "settings",   "/settings", page_name)
+            ui.html('<a href="/static/about.html" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;color:#a78bfa;text-decoration:none;background:#1e1b4b;border:1px solid #3730a3;margin-left:6px">ℹ About</a>')
             ui.html(
                 '<button onclick="location.reload()" title="Seite neu laden" '
                 'style="display:inline-flex;align-items:center;justify-content:center;'
