@@ -97,6 +97,7 @@ from api import (
     chrome_ws as _chrome_ws_api,
     ltx_batch as _ltx_batch_api,
     temporal as _temporal_api,
+    web_bridge as _web_bridge_api,
 )
 from lab.api import lab_router as _lab_api  # 🧪 Communication Lab — isoliert
 from lab.api import dilation_demo_router as _dilation_demo_api  # 🧪 Time Dilation Demo
@@ -113,6 +114,10 @@ _API_MODULES = (
 )
 for _mod in _API_MODULES:
     app.include_router(_mod.router)
+
+# Web-Bridge (externer Token-geschützter Mirror für dillenberg.net)
+app.include_router(_web_bridge_api.health_router)
+app.include_router(_web_bridge_api.router)
 
 logger.info("Alle FastAPI-Router registriert (%d Stück)", len(_API_MODULES))
 

@@ -736,9 +736,115 @@ def run_comfyui_edit(image_b64: str, prompt: str, use_lightning: bool = True) ->
     return _download_comfyui_file(base_url, img_info, default_mime="image/png")
 
 
+# ── Upscale (ImageScaleBy mit Lanczos, Faktor 2/3/4) ─────────────────────────
+# Nutzt ComfyUI's eingebauten ImageScaleBy-Node — kein externes Upscale-Modell
+# erforderlich (upscale_models-Ordner ist üblicherweise leer). Lanczos liefert
+# ordentliche Qualität für 2×–4× ohne ML-Roundtrip. Spätere Variante mit
+# RealESRGAN o.ä. kann diesen Workflow ersetzen wenn Modelle installiert sind.
+
+
+_UPSCALE_FACTOR_RX = re.compile(
+    # 1. „2x" / „3X" / „4x" (mit oder ohne Leerzeichen)
+    r"\b([234])\s*[xX]\b|"
+    # 2. „Faktor 3" / „faktor: 4"
+    r"\bfaktor\s*[:=]?\s*([234])\b|"
+    # 3. „2-fach" / „3fach" / „vierfach"
+    r"\b([234])\s*-?\s*fach\b|"
+    r"\b(zweifach|dreifach|vierfach)\b",
+    re.IGNORECASE,
+)
+_WORD_TO_FACTOR = {"zweifach": 2, "dreifach": 3, "vierfach": 4}
+
+
+def parse_upscale_factor(message: str, default: int = 2) -> int:
+    """Extrahiert den gewünschten Upscale-Faktor (2, 3 oder 4) aus der Message.
+
+    Greift Patterns: „2x", „Faktor 3", „4-fach", „zweifach". Defaultet auf 2.
+    Cap auf [2, 4] — ImageScaleBy erlaubt zwar bis 8x, aber wir halten das LLM
+    bei vernünftigen Faktoren.
+    """
+    if not message:
+        return default
+    m = _UPSCALE_FACTOR_RX.search(message)
+    if not m:
+        return default
+    for grp in m.groups():
+        if not grp:
+            continue
+        if grp.lower() in _WORD_TO_FACTOR:
+            return _WORD_TO_FACTOR[grp.lower()]
+        try:
+            v = int(grp)
+            if 2 <= v <= 4:
+                return v
+        except (ValueError, TypeError):
+            continue
+    return default
+
+
+def build_upscale_workflow(image_filename: str, factor: int) -> dict:
+    """Lädt das Template skills/workflows/image_upscale.json und patcht
+    LoadImage.image + ImageScaleBy.scale_by. Format aus Comfy-Export, damit
+    sich der Workflow auch in der ComfyUI-UI öffnen lässt zum Debuggen.
+    """
+    template_path = os.path.join(
+        os.path.dirname(__file__), "workflows", "image_upscale.json"
+    )
+    with open(template_path, encoding="utf-8") as f:
+        workflow = json.load(f)
+    workflow["2"]["inputs"]["image"] = image_filename
+    workflow["3"]["inputs"]["scale_by"] = float(factor)
+    return workflow
+
+
+def run_comfyui_upscale(image_b64: str, factor: int) -> str:
+    """Lädt Bild zu ComfyUI hoch, skaliert mit Lanczos um den angegebenen
+    Faktor, liefert das Ergebnis als data-URL zurück."""
+    if factor not in (2, 3, 4):
+        raise ValueError(f"Upscale-Faktor muss 2, 3 oder 4 sein (war: {factor})")
+    if not image_b64:
+        raise ValueError("Kein Bild zum Upscalen übergeben")
+
+    providers = _load_providers()
+    cfg = providers.get("comfyui", {})
+    base_url = cfg.get("url", "http://localhost:8188").rstrip("/")
+
+    filename = upload_image_to_comfyui(image_b64, base_url)
+    _dlog(f"upscale uploaded: {filename}", tag="UPSCALE")
+
+    workflow = build_upscale_workflow(filename, factor)
+    r = requests.post(
+        f"{base_url}/prompt",
+        json={"prompt": workflow, "client_id": "agentclaw-upscale"},
+        timeout=30,
+    )
+    r.raise_for_status()
+    resp = r.json()
+    if "prompt_id" not in resp:
+        raise RuntimeError(f"ComfyUI Antwort unerwartet: {resp}")
+    prompt_id = resp["prompt_id"]
+
+    outputs = _poll_comfyui(base_url, prompt_id, timeout=180, interval=2)
+    if not outputs:
+        raise RuntimeError("Timeout: ComfyUI Upscale hat nicht rechtzeitig geantwortet")
+
+    img_info = None
+    for node_out in outputs.values():
+        imgs = node_out.get("images", [])
+        if imgs:
+            img_info = imgs[0]
+            break
+    if not img_info:
+        raise RuntimeError("Keine Bilddaten in der ComfyUI-Upscale-Antwort")
+
+    return _download_comfyui_file(base_url, img_info, default_mime="image/png")
+
+
 # ── BaseSkill Wrapper ─────────────────────────────────────────────────────────
 from skills.base import BaseSkill, SkillResult
-from skills.triggers import IMG_TRIGGERS, VIDEO_TRIGGERS, IMAGE_EDIT_TRIGGERS
+from skills.triggers import (
+    IMG_TRIGGERS, VIDEO_TRIGGERS, IMAGE_EDIT_TRIGGERS, IMAGE_UPSCALE_TRIGGERS,
+)
 
 
 class ImageGenSkill(BaseSkill):
@@ -807,6 +913,42 @@ class ImageEditSkill(BaseSkill):
         try:
             result_b64 = run_comfyui_edit(image_b64, message)
             return SkillResult(image=result_b64, skill_used=self.id)
+        except Exception as e:
+            return SkillResult(error=str(e), skill_used=self.id)
+
+
+class ImageUpscaleSkill(BaseSkill):
+    id = "image_upscale"
+    name = "Image Upscale"
+    icon = "zoom_out_map"
+    description = (
+        "Upscales an existing image via ComfyUI (Lanczos). Factor 2, 3 or 4 — "
+        "the LLM picks the factor by writing e.g. '2x', 'Faktor 3' or '4-fach' "
+        "in the request."
+    )
+    triggers = [IMAGE_UPSCALE_TRIGGERS.pattern]
+    requires = ["comfyui"]
+
+    def matches(self, message: str) -> bool:
+        return bool(IMAGE_UPSCALE_TRIGGERS.search(message))
+
+    def execute(self, agent: dict, message: str, **context) -> SkillResult:
+        image_b64 = context.get("image_b64", "")
+        if not image_b64:
+            # Operator-Hinweis: ohne Bild gibt's nichts zu upscalen
+            return SkillResult(
+                error="Kein Bild für Upscale übergeben — dieser Skill braucht ein Eingabebild im Kontext.",
+                skill_used=self.id,
+            )
+        factor = parse_upscale_factor(message, default=2)
+        try:
+            result_b64 = run_comfyui_upscale(image_b64, factor)
+            return SkillResult(
+                text=f"✨ Upscale fertig (Faktor {factor}×, Lanczos)",
+                image=result_b64,
+                skill_used=self.id,
+                metadata={"upscale_factor": factor},
+            )
         except Exception as e:
             return SkillResult(error=str(e), skill_used=self.id)
 

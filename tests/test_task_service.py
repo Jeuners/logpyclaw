@@ -428,6 +428,69 @@ def test_cascade_fail_triggers_supervisor_callback(
     assert "SUPERVISOR-CALLBACK" in msg
 
 
+def test_supervisor_callback_carries_images_forward(
+    container, make_agent, clean_tasks, sync_spawn, recording_chat_service,
+):
+    """Wenn Sub-Tasks ein result_image produziert haben, muss der Callback
+    diese Bild-Pfade an handle_message(images=...) durchreichen — sonst
+    bekommen Folge-Tasks images=0 und Bild-Skills (upscale/video_gen)
+    schlagen mit 'Kein Bild übergeben' fehl. Bug-Fix Image-Bridge."""
+    from core.state import _tasks_lock
+    operator = make_agent("OpBridge", operator=True)
+    worker = make_agent("Renderer")
+
+    dispatch_id = "test-dispatch-bridge"
+    task = _build_task(worker["id"], worker["name"])
+    task["status"] = "completed"
+    task["result_image"] = "/static/img/result_42.png"
+    task["sender_agent_id"] = operator["id"]
+    task["sender_agent_name"] = operator["name"]
+    task["parent_dispatch_id"] = dispatch_id
+    task["supervisor_turn"] = 1
+    task["completed_at"] = datetime.now().isoformat()
+    with _tasks_lock:
+        _TASKS[task["id"]] = task
+
+    container.tasks._maybe_supervisor_callback(task)
+
+    assert len(recording_chat_service.calls) == 1
+    _, msg, kwargs = recording_chat_service.calls[0]
+    assert kwargs.get("images") == ["/static/img/result_42.png"], (
+        f"Erwartete images=['/static/img/result_42.png'], "
+        f"bekam {kwargs.get('images')!r}"
+    )
+    # Bild auch textuell sichtbar im Brief an Martin, damit das LLM weiß
+    # dass das Bild für Folge-Tasks bereit liegt.
+    assert "result_42.png" in msg
+
+
+def test_supervisor_callback_no_images_when_none_produced(
+    container, make_agent, clean_tasks, sync_spawn, recording_chat_service,
+):
+    """Pure Text-Tasks (keine result_image) → handle_message(images=None)."""
+    from core.state import _tasks_lock
+    operator = make_agent("OpTextOnly", operator=True)
+    worker = make_agent("Analyst")
+
+    dispatch_id = "test-dispatch-noimg"
+    task = _build_task(worker["id"], worker["name"])
+    task["status"] = "completed"
+    task["result_text"] = "Analyse fertig."
+    task["sender_agent_id"] = operator["id"]
+    task["sender_agent_name"] = operator["name"]
+    task["parent_dispatch_id"] = dispatch_id
+    task["supervisor_turn"] = 1
+    task["completed_at"] = datetime.now().isoformat()
+    with _tasks_lock:
+        _TASKS[task["id"]] = task
+
+    container.tasks._maybe_supervisor_callback(task)
+
+    assert len(recording_chat_service.calls) == 1
+    _, _, kwargs = recording_chat_service.calls[0]
+    assert kwargs.get("images") is None
+
+
 def test_supervisor_callback_double_fire_protection(
     container, make_agent, clean_tasks, sync_spawn, recording_chat_service,
 ):

@@ -12,8 +12,12 @@ watchdogs.json
 
 # Logs & DB
 *.log
+logs/
 agentclaw.db
 server.log
+
+# Laufzeit-PID des Servers
+.agentclaw.pid
 
 # Backups (Laufzeit-generiert)
 backups/

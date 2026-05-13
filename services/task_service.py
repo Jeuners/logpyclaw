@@ -821,16 +821,32 @@ class TaskService:
             f"Alle {len(group_sorted)} Tasks der letzten Runde sind abgeschlossen. Ergebnisse:",
             "",
         ]
+        # Bild-Bridge: alle result_image-Pfade aus Sub-Tasks einsammeln und
+        # explizit in die synthetische Message + in handle_message(images=)
+        # weiterreichen. Sonst „kennt" der Operator die Bilder zwar textuell,
+        # kann sie aber nicht an Folge-Tasks (z.B. @Image-Agent für upscale,
+        # @Video-Agent für video_gen) durchreichen — Sub-Task bekommt images=0
+        # und schlägt fehl, weil Skill kein Eingabebild hat.
+        carry_images: list[str] = []
+        for t in group_sorted:
+            img = t.get("result_image")
+            if img and img not in carry_images:
+                carry_images.append(img)
+
         for i, t in enumerate(group_sorted):
             recipient = t.get("recipient_agent_name", "?")
             status = t.get("status", "?")
             task_msg = (t.get("message") or "").split("\n---\n")[-1].strip()[:200]
             result = (t.get("result_text") or "").strip()
             err = (t.get("error") or "").strip()
+            img = t.get("result_image")
             parts.append(f"### {i+1}. @{recipient} — {status}")
             parts.append(f"**Auftrag:** {task_msg}")
             if result:
                 parts.append(f"**Ergebnis:**\n{result}")
+            if img:
+                parts.append(f"**Bild verfügbar:** `{img}` — dieses Bild wird "
+                             f"automatisch an Folge-Tasks durchgereicht.")
             if err:
                 parts.append(f"**Fehler:** {err}")
             parts.append("")
@@ -863,6 +879,7 @@ class TaskService:
             self._chat_service.handle_message(
                 sender_id,
                 synthetic_msg,
+                images=carry_images or None,
                 _supervisor_turn=current_turn,
             )
         except Exception as e:

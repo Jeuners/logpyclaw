@@ -35,11 +35,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 def _build_a2a_prompt() -> str:
-    """System-Prompt Block für A2A + Tools — bezieht Tool-Beschreibungen aus der API."""
-    from api.tools import get_tool_prompt_block
+    """System-Prompt Block für A2A + Tasklist — Single Source of Truth."""
     from core.routing import build_routing_table_for_prompt
     from storage.agents import load_agents
-    tool_block = get_tool_prompt_block()
     all_agents = load_agents()
     routing_table = build_routing_table_for_prompt(all_agents)
     return f"""--- A2A COMMUNICATION ---
@@ -49,7 +47,7 @@ BEHAVIOUR RULES:
 1. ALWAYS check first if you can handle a request using YOUR OWN SKILLS (listed below).
 2. Only delegate to other agents if you absolutely do not have the required skill yourself.
 3. Reply precisely and minimally — no long explanations.
-5. STRICTLY follow the ROUTING TABLE below — never guess, always use the listed agent.
+4. STRICTLY follow the ROUTING TABLE below — never guess, always use the listed agent.
 
 MARKDOWN RULES (STRICT):
 - Horizontal lines ONLY with --- (three dashes), NEVER with a lone * on its own line
@@ -61,7 +59,6 @@ SINGLE DELEGATION (@Mention):
   @AgentName [complete task instructions]
 
 MULTI-TASK DELEGATION — use the [tasklist] tool whenever the job has >1 step:
-  - Multiple images/videos (e.g. "3 Bilder", "6 Porträts") — one line per artifact
   - Several separate tasks in one message — one line each
   - A pipeline where later steps need earlier outputs — chain via [after: N]
 
@@ -83,8 +80,6 @@ TASKLIST SYNTAX:
   your chat. Pack story/spec/paths/context inline. Never "see above".
 
 {routing_table}
-
-{tool_block}
 --- END A2A ---""".strip()
 
 
@@ -137,6 +132,49 @@ class ChatService:
             dilation_factor=gamma,
             metadata={"kind": kind},
         )
+
+    def _carry_images_from_history(
+        self, sender_agent: dict, lookback: int = 20
+    ) -> list[str]:
+        """Sucht das letzte Bild, das dieser Agent als Operator delegiert hat.
+
+        Use case: User-Re-Entry-Turn mit Bezug auf das zuvor generierte Bild
+        („skaliere DAS Bild 2x hoch"). Ohne diesen Fallback gehen Folge-Skills
+        wie image_upscale/image_edit/video_gen mit „Kein Bild übergeben"
+        auf die Nase, weil current_task in einer frischen User-Turn keine
+        images mehr trägt.
+
+        WICHTIG: emit_chat_message schreibt nur in den Event-Stream, NICHT
+        in die persistierte History. Wir müssen daher direkt in den Task-
+        Records nachsehen: jüngste Tasks die DIESER Agent als Sender
+        dispatched hat und die ein result_image produziert haben.
+        """
+        agent_id = sender_agent.get("id") if sender_agent else None
+        if not agent_id:
+            return []
+        try:
+            all_tasks = self._task_service.list_all() if self._task_service else []
+        except Exception:
+            return []
+        if not all_tasks:
+            return []
+        # Sortieren: jüngste zuerst (nach completed_at, dann created_at)
+        def _sort_key(t):
+            return t.get("completed_at") or t.get("created_at") or ""
+        relevant = [
+            t for t in all_tasks
+            if t.get("sender_agent_id") == agent_id
+            and t.get("result_image")
+            and t.get("status") == "completed"
+        ]
+        if not relevant:
+            return []
+        relevant.sort(key=_sort_key, reverse=True)
+        for t in relevant[:lookback]:
+            img = t.get("result_image")
+            if img:
+                return [img]
+        return []
 
     def handle_message(self, agent_id: str, message: str,
                        images: list[str] | None = None,
@@ -582,24 +620,34 @@ class ChatService:
             "",
             "REGELN:",
             "  • Schreibe NUR die skill_id in Kleinbuchstaben — KEINE Emojis, KEINE Leerzeichen, KEIN Display-Name.",
-            "  • Richtig: [youtube]   Falsch: [📺 YouTube Download] oder [YouTube]",
             "  • Nur EINEN Skill pro Antwort. Wähle den spezifischsten.",
             "  • Wenn kein Skill passt: antworte normal ohne Marker.",
             "",
-            "SPEZIALFALL [file_access] (Datei speichern/lesen):",
-            "  Schreibe ZUERST den kompletten Inhalt (Story/Code/Text), DANN [file_access] ans Ende.",
-            "  Der Skill speichert deinen Reply wörtlich — NIEMALS 'gespeichert' behaupten.",
-            "  Standard-Arbeitsordner: `~/Downloads/AgentClaw` — NIEMALS den User nach dem Ordner fragen.",
-            "  Bare Dateinamen (z.B. `song.mp3`) werden dort aufgelöst.",
-            "",
-            "SPEZIALFALL [youtube] Transkript-Download:",
-            "  Schlüsselwörter `transdownload`, `transkript`, `untertitel`, `subtitle` + YouTube-URL",
-            "  → NUR Untertitel/Transkript laden (kein Video, kein Audio, keine Whisper-Transkription).",
-            "  Wenn du an einen anderen Agenten delegierst: das Schlüsselwort `transdownload`",
-            "  UND die URL WÖRTLICH übernehmen — NICHT zu 'Video herunterladen' umformulieren.",
-            "",
-            "VERFÜGBARE SKILLS:",
         ]
+
+        # Spezialfälle nur zeigen wenn Agent den jeweiligen Skill auch hat —
+        # sonst lärmen wir den System-Prompt mit irrelevanten Instruktionen voll.
+        own = set(agent_skill_ids)
+        if "file_access" in own:
+            lines += [
+                "SPEZIALFALL [file_access] (Datei speichern/lesen):",
+                "  Schreibe ZUERST den kompletten Inhalt (Story/Code/Text), DANN [file_access] ans Ende.",
+                "  Der Skill speichert deinen Reply wörtlich — NIEMALS 'gespeichert' behaupten.",
+                "  Standard-Arbeitsordner: `~/Downloads/AgentClaw` — NIEMALS den User nach dem Ordner fragen.",
+                "  Bare Dateinamen (z.B. `song.mp3`) werden dort aufgelöst.",
+                "",
+            ]
+        if "youtube" in own:
+            lines += [
+                "SPEZIALFALL [youtube] Transkript-Download:",
+                "  Schlüsselwörter `transdownload`, `transkript`, `untertitel`, `subtitle` + YouTube-URL",
+                "  → NUR Untertitel/Transkript laden (kein Video, kein Audio, keine Whisper-Transkription).",
+                "  Wenn du an einen anderen Agenten delegierst: das Schlüsselwort `transdownload`",
+                "  UND die URL WÖRTLICH übernehmen — NICHT zu 'Video herunterladen' umformulieren.",
+                "",
+            ]
+
+        lines.append("VERFÜGBARE SKILLS:")
         for skill_id in agent_skill_ids:
             skill = self._registry.get(skill_id)
             if skill:
@@ -831,6 +879,13 @@ class ChatService:
             audio = current_task.get("audio") or []
         if not attachment_path and current_task:
             attachment_path = current_task.get("attachment_path", "")
+        # Multi-Turn-Fallback: Wenn User in einem neuen Chat-Turn auf ein
+        # vorher generiertes Bild Bezug nimmt („skaliere DAS Bild hoch"),
+        # liegt es nur in der History — nicht im current_task. Greife dort,
+        # damit Folge-Skills (upscale, image_edit, video_gen) nicht mit
+        # „Kein Bild übergeben" failen.
+        if not images:
+            images = self._carry_images_from_history(sender_agent)
 
         dispatches = parse_a2a_dispatches(reply, sender_agent, all_agents,
                                           sender_delegation_depth=sender_depth)
@@ -946,6 +1001,10 @@ class ChatService:
             audio = current_task.get("audio") or []
         if not attachment_path and current_task:
             attachment_path = current_task.get("attachment_path", "")
+        # Multi-Turn-Fallback (siehe _dispatch_mentions): User-Re-Entry mit
+        # Bezug auf vorher generiertes Bild — Pfad aus History ziehen.
+        if not images:
+            images = self._carry_images_from_history(sender_agent)
 
         # Operator-Supervisor-Loop: Wenn der Sender ein Operator ist, gruppieren
         # wir alle Tasks dieser TASKLIST unter einer gemeinsamen parent_dispatch_id.
@@ -1498,9 +1557,42 @@ class ChatService:
             if role in ("user", "assistant") and content:
                 messages.append({"role": role, "content": content})
 
-        def _strip_b64(data: str) -> str:
+        def _to_ollama_b64(data: str) -> str | None:
+            """Wandelt Image/Audio-Referenzen in raw Base64 (ohne data:-Prefix) um.
+
+            Akzeptiert:
+              - data:<mime>;base64,XXX   → XXX
+              - /static/<path>            → liest BASE_DIR/static/<path> von Disk
+              - absoluter Pfad / vorhandene Datei → liest von Disk
+              - bereits Base64 (kein data:-Prefix, keine Pfad-Heuristik) → unverändert
+
+            Gibt None zurück, wenn nichts geladen werden konnte.
+            Hintergrund: Supervisor-Callback (Bild-Bridge) reicht /static/...-Pfade
+            durch; Ollama erwartet aber Base64-Strings und gibt sonst HTTP 400
+            ('illegal base64 data') zurück.
+            """
+            import base64 as _b64
+            import os as _os
+            if not data:
+                return None
             if "base64," in data:
                 return data.split("base64,", 1)[1]
+            path = None
+            if data.startswith("/static/"):
+                from core.config import BASE_DIR
+                path = _os.path.join(BASE_DIR, data.lstrip("/"))
+            elif _os.path.isabs(data) and _os.path.exists(data):
+                path = data
+            if path and _os.path.exists(path):
+                try:
+                    with open(path, "rb") as _f:
+                        return _b64.b64encode(_f.read()).decode("ascii")
+                except OSError as _e:
+                    logger.warning("Image-Load fehlgeschlagen für %s: %s", path, _e)
+                    return None
+            if data.startswith(("http://", "https://")):
+                logger.warning("Ollama unterstützt keine URLs als Bild-Input: %s", data[:80])
+                return None
             return data
 
         if images or audio:
@@ -1517,10 +1609,13 @@ class ChatService:
                 # Ollama-Format: base64 ohne data:-Prefix
                 user_msg: dict = {"role": "user", "content": message}
                 if images:
-                    user_msg["images"] = [_strip_b64(img) for img in images]
+                    encoded = [b for b in (_to_ollama_b64(i) for i in images) if b]
+                    if encoded:
+                        user_msg["images"] = encoded
                 if audio:
-                    # Gemma4 + Ollama: Audio via "audio"-Array (Base64 ohne Prefix)
-                    user_msg["audio"] = [_strip_b64(a) for a in audio]
+                    encoded_a = [b for b in (_to_ollama_b64(a) for a in audio) if b]
+                    if encoded_a:
+                        user_msg["audio"] = encoded_a
                 messages.append(user_msg)
         else:
             messages.append({"role": "user", "content": message})

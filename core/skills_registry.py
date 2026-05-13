@@ -251,12 +251,5 @@ def _build_agent_directory(current_agent_id: str = None) -> str:
         lines.extend(legacy_lines)
         lines.append("")
 
-    lines += [
-        "REGELN:",
-        "• Jede Delegation ist self-contained — der Empfänger hat KEINEN Zugriff auf deinen Chat.",
-        "  Pack alles Nötige in die Task (Story/Inhalt/Spec/Pfade inline, keine Rückreferenzen).",
-        "• Nutze [tasklist]...[/tasklist] für mehrteilige Aufträge, ketten via [after: N].",
-        "• Ein Agent der keine passende Fähigkeit hat → nutze deinen eigenen Skill oder antworte selbst.",
-        "--- ENDE AGENT NETZWERK ---",
-    ]
+    lines.append("--- ENDE AGENT NETZWERK ---")
     return "\n".join(lines)

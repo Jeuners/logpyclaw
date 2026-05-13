@@ -48,6 +48,20 @@ IMAGE_EDIT_TRIGGERS = re.compile(
     re.IGNORECASE,
 )
 
+IMAGE_UPSCALE_TRIGGERS = re.compile(
+    # Explizite Upscale-Verben (de/en)
+    r"\b(upscale|upscaling|upscaled|hochskalier\w*|hochauflös\w*|"
+    r"vergröße?r\w*|gröber|skaliere?\s+hoch|"
+    r"upsample\w*|enlarge\w*|enhance\s+resolution)\b|"
+    # Faktor-Hinweise direkt nach „bild/image" oder mit Faktor-Schlüsselwort
+    r"\b(bild|image|foto|photo)\b.{0,30}\b([234])\s*[xX]\b|"
+    r"\b([234])\s*[xX]\b.{0,30}\b(bild|image|foto|photo)\b|"
+    r"\bfaktor\s*([234])\b|"
+    r"\b(zweifach|dreifach|vierfach|2-fach|3-fach|4-fach)\b",
+    re.IGNORECASE,
+)
+
+
 PROMPT_OPTIMIZE_TRIGGERS = re.compile(
     r"\b(optimize|improve|refine|enhance|rewrite|restructure|upgrade)\b.{0,50}\b(prompt|instruction|system prompt|soul|query|text)\b|"
     r"\b(prompt|instruction|soul|text|query)\b.{0,50}\b(optimize|improve|refine|enhance|rewrite|better|fix)\b|"

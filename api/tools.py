@@ -42,20 +42,16 @@ TOOLS: dict[str, dict] = {
             "[priority: N]": "Priorität 1–10, Standard 5",
         },
         "rules": [
-            "Jede Zeile ist genau ein Task — EIN Bild pro Zeile!",
-            "Bild-Tasks an Picasso laufen automatisch parallel (ComfyUI Queue)",
-            "Jeder Task muss vollständig sein — kein 'wie zuvor' oder 'siehe oben'",
-            "Für Bildserien: Charakter-/Stil-Beschreibung in JEDEM Task wiederholen",
-            "NIEMALS 'Generiere 3 Bilder' als einen Task — immer 3 separate Zeilen!",
+            "Jede Zeile ist genau ein Task — kein 'wie zuvor' oder 'siehe oben'",
+            "Jede Task ist self-contained — der Empfänger sieht deinen Chat nicht",
+            "Mehrere Artefakte (Bilder/Texte/Videos) → eine Zeile pro Artefakt",
         ],
         "example": (
             "[tasklist]\n"
-            "Picasso: Porträt von Albert Einstein, lachend im Arbeitszimmer, "
-            "Ölgemälde-Stil, hochdetailliert, fotorealistisch\n"
-            "Picasso: Porträt von Marie Curie im Labor, konzentriert bei der Arbeit, "
-            "historisches Schwarz-Weiß-Foto, fotorealistisch\n"
-            "Picasso: Porträt von Nikola Tesla mit Blitzen, epische Beleuchtung, "
-            "dramatischer Stil, hochdetailliert, fotorealistisch\n"
+            "@Researcher: Sammle die wichtigsten Argumente für/gegen GDPR-Konformität "
+            "von lokalen LLMs. Liefere eine strukturierte Tabelle.\n"
+            "@Writer: Schreibe einen LinkedIn-Post (~200 Wörter) auf Basis der "
+            "Recherche-Ergebnisse aus dem vorherigen Task. [after: 0]\n"
             "[/tasklist]"
         ),
     },
