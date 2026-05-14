@@ -31,6 +31,7 @@ lsof -ti :5050 | xargs kill -9; sleep 1; nohup python app.py > /tmp/agentclaw.lo
 | `ui/theme.py` | CSS-Theme |
 | `api/ltx_batch.py` | LTX Batch API (Prepare/Render/QC/Concat) |
 | `api/temporal.py` | Temporal-API (Eigenzeit-Endpoints) |
+| `api/web_bridge.py` | Web-Bridge `/ext/dilles/v1/*` (dillenberg.net, Token-Auth) |
 | `core/causal_dilation_clock.py` | CDC-Implementierung (§3.4 Paper) |
 | `core/temporal_policy.py` | Temporal-Policy für Agenten |
 | `services/` | ServiceContainer (DI) |
@@ -221,6 +222,52 @@ chrome_browser, hacker_news, tagesschau, whatsapp, wiki_read, web_search, wikipe
 
 ---
 
+## Web-Bridge — dillenberg.net Integration
+AgentClaw stellt einen Token-geschützten Mirror für externe Web-Calls bereit.
+Aktiv genutzt vom Blog-Q&A-Widget („Interactive Helper") unter jedem
+dillenberg.net-Artikel.
+
+**Datenfluss** (Reader stellt Frage):
+```
+Browser → dillenberg.net (Apache + WP)
+       → mu-plugin dilles-article-agent.php (REST: /wp-json/dilles/v1/article-agent/stream)
+       → curl https://c2.webbinder.de via SSH-Tunnel → http://127.0.0.1:5050/ext/dilles/v1/chat/stream
+       → AgentClaw chat_service (Alice agent) → SSE chunks → ... → Browser
+```
+
+**AgentClaw Seite (in diesem Repo):**
+| Komponente | Pfad |
+|---|---|
+| Bridge-Router (Token-Auth) | `api/web_bridge.py` — Prefix `/ext/dilles/v1` |
+| Health-Endpoint | `GET /ext/dilles/v1/health` (no auth) |
+| Stream-Endpoint | `POST /ext/dilles/v1/chat/stream` (X-AgentClaw-Token Header) |
+| Access-Log | `logs/web_bridge_access.jsonl` (1 Zeile/Request) |
+| Env-Var | `WEB_BRIDGE_TOKEN` in `.env` — muss zum WP-Token passen |
+| Agent | **Alice** (`537b7972-bd36-4879-a812-72921ef0f06f`), Provider OpenRouter (`openai/gpt-oss-120b:free`), Soul siehe DB |
+
+**Server-Seite (`c2.webbinder.de`, separater Codebase):**
+| Komponente | Pfad |
+|---|---|
+| WordPress Plugin | `/var/www/wordpress/wp-content/mu-plugins/dilles-article-agent.php` |
+| Credentials | `/var/www/wordpress/wp-content/mu-plugins/.agentclaw-credentials.php` (gitignored, root-readable) |
+| Health-Probe | `/usr/local/bin/agentclaw-health.sh` + systemd timer (alle 2 min, Telegram-Alert nach 3 Fails) |
+| State/Log | `/var/lib/agentclaw-health.state`, `/var/log/agentclaw-health.log` |
+| AgentClaw-Erreichbarkeit | SSH-Tunnel von c2 nach Mac (lokal `127.0.0.1:5050`) |
+
+**Health-Check:**
+```bash
+# Lokal (Mac):
+curl -s http://localhost:5050/ext/dilles/v1/health
+# Server:
+ssh root@c2.webbinder.de "curl -s http://127.0.0.1:5050/ext/dilles/v1/health"
+```
+
+**Alice-Prompt aktualisieren:**
+Alice's `soul` (System-Prompt) liegt in `agentclaw.db` Tabelle `agents`. Änderungen
+brauchen einen Server-Neustart, damit der frische Prompt geladen wird.
+
+---
+
 ## Dev-Workflow
 ```bash
 source .venv/bin/activate
@@ -248,6 +295,7 @@ git add -A && git commit -m "feat: ..." && git push
 - **CDC-Paper/Explainer:** https://github.com/Jeuners/Time_Dilation_in_LLM_Agent_Systems
 - **ComfyUI:** http://192.168.4.15:8000
 - **Ollama:** http://localhost:11434
+- **dillenberg.net** (Blog, nutzt AgentClaw via Alice): https://dillenberg.net — Server `c2.webbinder.de` (SSH root)
 
 ---
 

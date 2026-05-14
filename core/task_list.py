@@ -198,8 +198,13 @@ def parse_task_list(
         first_line, _, rest = chunk.partition("\n")
         first_line = first_line.strip()
 
-        # Erst Colon-Format probieren, dann @Name-ohne-Colon
-        lm = _LINE_COLON_RX.match(first_line) or _LINE_AT_RX.match(first_line)
+        # @-Prefix → @Name-Regex bevorzugen (Colon-Regex erlaubt Spaces im Namen
+        # und würde sonst URLs wie "https://..." als Trenner missdeuten, weil
+        # "Recon youtube download https" als Name + "://..." als Task durchgeht).
+        if first_line.lstrip().startswith("@"):
+            lm = _LINE_AT_RX.match(first_line) or _LINE_COLON_RX.match(first_line)
+        else:
+            lm = _LINE_COLON_RX.match(first_line) or _LINE_AT_RX.match(first_line)
         if not lm:
             logger.debug("TASKLIST: Chunk übersprungen: %r", first_line[:60])
             continue

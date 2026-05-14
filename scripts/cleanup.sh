@@ -66,24 +66,27 @@ if [ -f "$LOG" ]; then
   fi
 fi
 
-# ── 3. SQLite DB — alte Events + Tasks ────────────────────────────────
+# ── 3. SQLite DB — alte Tasks + Messages ──────────────────────────────
 echo ""
 echo "▶ SQLite DB ($BASE/agentclaw.db)"
 DB="$BASE/agentclaw.db"
 if [ -f "$DB" ]; then
+  COUNT_TSK=$(sqlite3 "$DB" "SELECT count(*) FROM tasks;" 2>/dev/null || echo "?")
+  COUNT_MSG=$(sqlite3 "$DB" "SELECT count(*) FROM messages;" 2>/dev/null || echo "?")
   if [[ "$DRY" == "--dry-run" ]]; then
-    COUNT_EVT=$(sqlite3 "$DB" "SELECT count(*) FROM events;" 2>/dev/null || echo "?")
-    COUNT_HIS=$(sqlite3 "$DB" "SELECT count(*) FROM history;" 2>/dev/null || echo "?")
-    COUNT_TSK=$(sqlite3 "$DB" "SELECT count(*) FROM tasks;" 2>/dev/null || echo "?")
-    echo "  [DRY] Events: $COUNT_EVT | History: $COUNT_HIS | Tasks: $COUNT_TSK"
-    echo "  [DRY] Würde löschen: Events > 7 Tage, abgeschl. Tasks > 3 Tage, History > 14 Tage"
+    OLD_TSK=$(sqlite3 "$DB" "SELECT count(*) FROM tasks WHERE status IN ('completed','failed','canceled') AND datetime(COALESCE(completed_at, created_at)) < datetime('now', '-3 days');" 2>/dev/null || echo "?")
+    OLD_MSG=$(sqlite3 "$DB" "SELECT count(*) FROM messages WHERE datetime(ts) < datetime('now', '-14 days');" 2>/dev/null || echo "?")
+    echo "  [DRY] Tasks: $COUNT_TSK (davon $OLD_TSK > 3d abgeschlossen) | Messages: $COUNT_MSG (davon $OLD_MSG > 14d)"
   else
     sqlite3 "$DB" "
-      
-      DELETE FROM tasks WHERE state IN ('completed','failed','canceled') AND updated_at < datetime('now', '-3 days');
-      
+      DELETE FROM tasks
+        WHERE status IN ('completed','failed','canceled')
+        AND datetime(COALESCE(completed_at, created_at)) < datetime('now', '-3 days');
+      DELETE FROM messages
+        WHERE datetime(ts) < datetime('now', '-14 days');
       VACUUM;
-    " 2>/dev/null && echo "  ✓ DB bereinigt + VACUUM" || echo "  ⚠ DB-Cleanup fehlgeschlagen (Tabellen evtl. anders benannt)"
+    " 2>/dev/null && echo "  ✓ DB bereinigt + VACUUM (Tasks: ${COUNT_TSK} → $(sqlite3 "$DB" "SELECT count(*) FROM tasks;"), Messages: ${COUNT_MSG} → $(sqlite3 "$DB" "SELECT count(*) FROM messages;"))" \
+                  || echo "  ⚠ DB-Cleanup fehlgeschlagen"
   fi
 fi
 

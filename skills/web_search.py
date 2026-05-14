@@ -164,11 +164,16 @@ class WebSearchSkill(BaseSkill):
 
         query = extract_query(search_text)
         if not query:
-            return SkillResult(
-                text=None,
-                skill_used=self.id,
-                metadata={"passthrough": True},
-            )
+            # LLM hat das Skill via [web_search] direkt aufgerufen — die Intent-
+            # Entscheidung ist gefallen, also User-Message als Query verwenden.
+            # Bei reinem Trigger-Match (ohne [...]) würde extract_query greifen.
+            query = search_text.strip()
+            if len(query) < 2 or len(query) > 300:
+                return SkillResult(
+                    text=None,
+                    skill_used=self.id,
+                    metadata={"passthrough": True},
+                )
 
         # Limit aus Message extrahieren (optional)
         m = re.search(r"\btop\s*(\d+)\b", search_text, re.IGNORECASE)
