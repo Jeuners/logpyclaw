@@ -339,23 +339,49 @@ def transcribe_uploaded_video(video_data_b64: str, filename: str, task: str = ""
             pass
 
 
+_MEDIA_EXT = ("mp4", "mov", "avi", "mkv", "webm", "mp3", "wav", "m4a", "m4v")
+
+
+def _find_by_basename(fname: str) -> str | None:
+    """Sucht eine Datei (rekursiv) im ~/Downloads/AgentClaw/-Baum.
+    Erlaubt, dass das LLM einen falschen Subordner (z.B. 'workspace/') angibt."""
+    base = os.path.expanduser("~/Downloads/AgentClaw")
+    if not os.path.isdir(base):
+        return None
+    for root, _dirs, files in os.walk(base):
+        if fname in files:
+            return os.path.join(root, fname)
+    return None
+
+
 def run_transcription(message: str, attachment_path: str = None) -> str:
     """Wird direkt aus process_task() aufgerufen."""
     if attachment_path:
         return transcribe_file(attachment_path, task=message)
 
-    # Absoluter Pfad im Text
-    path_match = re.search(r"(?:/[\w\-./]+\.(?:mp4|mov|avi|mkv|webm|mp3|wav|m4a|m4v))", message, re.IGNORECASE)
+    ext_alt = "|".join(_MEDIA_EXT)
+    # Absoluter oder ~-Pfad im Text (auch in Backticks/Quotes)
+    path_match = re.search(rf"(~?/[\w\-./]+\.(?:{ext_alt}))", message, re.IGNORECASE)
     if path_match:
-        return transcribe_file(path_match.group(0), task=message)
+        p = os.path.expanduser(path_match.group(1))
+        if os.path.exists(p):
+            return transcribe_file(p, task=message)
+        # Pfad falsch (z.B. erfundener Subordner)? Per Basename nachsuchen.
+        found = _find_by_basename(os.path.basename(p))
+        if found:
+            return transcribe_file(found, task=message)
+        return f"❌ Datei nicht gefunden: {p}"
 
     # Bare Filename (z.B. "98ceb3ba.mp4") → in ~/Downloads/AgentClaw/ suchen
-    name_match = re.search(r"\b([\w\-\.]+\.(?:mp4|mov|avi|mkv|webm|mp3|wav|m4a|m4v))\b", message, re.IGNORECASE)
+    name_match = re.search(rf"\b([\w\-\.]+\.(?:{ext_alt}))\b", message, re.IGNORECASE)
     if name_match:
         fname = name_match.group(1)
         candidate = os.path.expanduser(f"~/Downloads/AgentClaw/{fname}")
         if os.path.exists(candidate):
             return transcribe_file(candidate, task=message)
+        found = _find_by_basename(fname)
+        if found:
+            return transcribe_file(found, task=message)
 
     return (
         "❓ Kein Video/Audio gefunden.\n\n"
