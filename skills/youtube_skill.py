@@ -71,12 +71,14 @@ def _get_downloads_dir() -> str:
 
 
 def _get_base_args(use_cookies: bool = False) -> list[str]:
-    """Standardargumente für yt-dlp. Cookies nur wenn explizit gewünscht."""
-    # android/ios brauchen keinen GVS PO Token, web-client dagegen schon
-    args = ["--extractor-args", "youtube:player_client=android,ios"]
+    """Standardargumente für yt-dlp. Cookies nur wenn explizit gewünscht.
+
+    Ohne Cookies: android/ios player_client (kein GVS PO Token nötig).
+    Mit Cookies: kein client-Override — android/ios unterstützen keine Cookies
+    und würden geskippt; yt-dlp wählt dann die default-Clients (tv, web)."""
     if use_cookies:
-        args += ["--cookies-from-browser", "chrome"]
-    return args
+        return ["--cookies-from-browser", "chrome"]
+    return ["--extractor-args", "youtube:player_client=android,ios"]
 
 
 def _run_yt_dlp(args: list[str], timeout: int = 120,
@@ -353,21 +355,37 @@ def _download_transcript(url: str, progress_cb=None) -> dict:
         except Exception:
             pass
 
-    stdout, stderr, rc = _run_yt_dlp(args, timeout=60, use_cookies=False)
-    if rc != 0 and ("Sign in" in stderr or "bot" in stderr.lower() or "cookies" in stderr.lower()):
-        stdout, stderr, rc = _run_yt_dlp(args, timeout=60, use_cookies=True)
-    if rc != 0:
-        return {"error": f"Sub-Download fehlgeschlagen: {stderr[:400]}"}
+    def _has_subs() -> list[str]:
+        try:
+            return sorted(
+                [f for f in os.listdir(dl_dir) if f.startswith(uid) and f.endswith(".vtt")],
+                key=lambda f: (not f.endswith(".de.vtt"), not f.endswith(".en.vtt"), f),
+            )
+        except Exception:
+            return []
 
-    try:
-        subs = sorted(
-            [f for f in os.listdir(dl_dir) if f.startswith(uid) and f.endswith(".vtt")],
-            key=lambda f: (not f.endswith(".de.vtt"), not f.endswith(".en.vtt"), f),
-        )
-    except Exception as e:
-        return {"error": f"Sub-Suche fehlgeschlagen: {e}"}
+    # PO-Token-Anti-Bot trifft seit Mitte 2026 alle Clients ohne Cookies →
+    # Cookie-Fallback nicht nur bei Sign-in/bot, sondern auch bei PO-Token-Hinweisen
+    # oder einfach wenn ohne Cookies KEINE Subs runterkamen.
+    _need_cookies = lambda err: (
+        "Sign in" in err
+        or "bot" in err.lower()
+        or "cookies" in err.lower()
+        or "po token" in err.lower()
+        or "missing subtitles" in err.lower()
+    )
+    stdout, stderr, rc = _run_yt_dlp(args, timeout=60, use_cookies=False)
+    # Cookie-Fallback wenn (a) Fehler mit Anti-Bot-Hinweis ODER (b) gar keine Subs.
+    # yt-dlp setzt rc=1 oft auch wenn EINE Sprache erfolgreich war (andere 429/403);
+    # darum primär an _has_subs() messen, nicht an rc.
+    if not _has_subs() and (rc != 0 or _need_cookies(stderr)):
+        stdout, stderr, rc = _run_yt_dlp(args, timeout=60, use_cookies=True)
+
+    subs = _has_subs()
 
     if not subs:
+        if rc != 0:
+            return {"error": f"Sub-Download fehlgeschlagen: {stderr[:400]}"}
         return {"error": "Keine Untertitel verfügbar (weder manuell noch auto-generiert)."}
 
     vtt_path = os.path.join(dl_dir, subs[0])
