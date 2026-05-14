@@ -922,9 +922,11 @@ class ChatService:
                 dispatch.attachment_path = attachment_path
 
             # Bild-Redirect: Ziel-Agent braucht ein bildverarbeitendes Skill.
+            # Nur greifen wenn die Task-Message tatsächlich Bild-Bezug hat (Bug C).
             if images:
                 redirect = dispatch_rules.redirect_for_images(
                     dispatch.recipient_id, dispatch.recipient_name, all_agents, "A2A",
+                    message=dispatch.task_text,
                 )
                 if redirect:
                     dispatch.recipient_id, dispatch.recipient_name = redirect
@@ -1045,9 +1047,11 @@ class ChatService:
             item.sender_name = sender_agent.get("name", "")
 
             # Bild-Redirect: Ziel-Agent braucht ein bildverarbeitendes Skill.
+            # Nur greifen wenn die Task-Message tatsächlich Bild-Bezug hat (Bug C).
             if images:
                 redirect = dispatch_rules.redirect_for_images(
                     item.recipient_id, item.recipient_name, all_agents, "TASKLIST",
+                    message=item.task_text,
                 )
                 if redirect:
                     item.recipient_id, item.recipient_name = redirect

@@ -258,15 +258,45 @@ def make_thumbnail(b64_data_url: str, max_size: int = 200) -> str:
 # ── ComfyUI helpers ─────────────────────────────────────────────────────────────
 
 def upload_image_to_comfyui(image_b64: str, base_url: str) -> str:
-    """Upload image to ComfyUI and return filename."""
+    """Upload image to ComfyUI and return filename.
+
+    Akzeptiert mehrere Eingabe-Formate (Carry-Bridge-tolerant):
+      - data:image/...;base64,XXX      → Base64-Body XXX
+      - /static/<path> | absoluter Pfad → vom Disk laden
+      - bestehender existierender Pfad → vom Disk laden
+      - reiner Base64-String (Fallback)
+    """
     filename = f"agentclaw_edit_{uuid.uuid4().hex[:8]}.png"
-    if "," in image_b64:
+    mime = "image/png"
+    img_bytes: bytes | None = None
+
+    if image_b64.startswith("data:") and "," in image_b64:
         header, b64data = image_b64.split(",", 1)
-        mime = "image/jpeg" if ("jpeg" in header or "jpg" in header) else "image/png"
-    else:
-        b64data = image_b64
-        mime = "image/png"
-    img_bytes = base64.b64decode(b64data)
+        if "jpeg" in header or "jpg" in header:
+            mime = "image/jpeg"
+            filename = filename[:-4] + ".jpg"
+        img_bytes = base64.b64decode(b64data)
+    elif image_b64.startswith("/static/"):
+        from core.config import BASE_DIR
+        path = os.path.join(BASE_DIR, image_b64.lstrip("/"))
+        if os.path.exists(path):
+            with open(path, "rb") as f:
+                img_bytes = f.read()
+            ext = os.path.splitext(path)[1].lower()
+            if ext in (".jpg", ".jpeg"):
+                mime = "image/jpeg"
+                filename = filename[:-4] + ".jpg"
+    elif os.path.isabs(image_b64) and os.path.exists(image_b64):
+        with open(image_b64, "rb") as f:
+            img_bytes = f.read()
+        ext = os.path.splitext(image_b64)[1].lower()
+        if ext in (".jpg", ".jpeg"):
+            mime = "image/jpeg"
+            filename = filename[:-4] + ".jpg"
+    if img_bytes is None:
+        # Fallback: rohen Base64-String annehmen
+        img_bytes = base64.b64decode(image_b64)
+
     files = {"image": (filename, img_bytes, mime)}
     resp = requests.post(f"{base_url}/upload/image", files=files, timeout=30)
     resp.raise_for_status()

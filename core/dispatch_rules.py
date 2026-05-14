@@ -33,14 +33,42 @@ def redirect_for_images(
     recipient_name: str,
     all_agents: list[dict],
     log_tag: str = "A2A",
+    message: str = "",
 ) -> Optional[tuple[str, str]]:
     """
     Prüft ob der Empfänger ein bildfähiges Skill hat. Falls nicht und ein
     Agent mit ``image_edit`` existiert, wird dessen ``(id, name)`` zurückgegeben.
 
+    Guard (Bug C, 2026-05-14): Nur umleiten wenn die Task-Message tatsächlich
+    Bild-Bezug hat. Ohne diesen Guard wurde jeder Dispatch mit Carry-Bild
+    (auch Code/Text/WhatsApp-Aufgaben) blind zu @Image-Agent umgeleitet,
+    sobald irgendein result_image vom Vor-Task durchgereicht wurde.
+
     Returns:
         ``(new_id, new_name)`` wenn umgeleitet werden soll, sonst ``None``.
     """
+    if message:
+        # Action-Verb DIREKT vor/nach Image-Noun gefordert. Sonst werden
+        # Code-Aufgaben wie "HTML die das Bild anzeigt" oder "verbessere
+        # das Design" fälschlich umgeleitet (Bug C-False-Positive).
+        import re as _re
+        _IMG_INTENT = _re.compile(
+            r"\b(generier\w*|erzeug\w*|render\w*|mal\w*|zeichn\w*|illustrier\w*|"
+            r"erstell\w*\s+(?:ein|einen|eine)?\s*(?:bild|foto|image|porträt|szene)|"
+            r"generate|draw|paint|create\s+an?\s+(?:image|picture|photo)|"
+            r"edit\w*|bearbei\w*|modifizier\w*|verwandle\w*|"
+            r"upscale\w*|hochskalier\w*|vergröße?r\w*|enlarge\w*|"
+            r"verbessere\s+(?:die|das)\s+(?:auflösung|qualität|bild|foto))"
+            r".{0,80}\b(bild\w*|foto\w*|image|picture|photo\w*|porträt\w*|szene\w*|illustration|render|gemälde\w*|illustration|wallpaper|artwork|portrait)\b|"
+            r"\b(bild\w*|foto\w*|image|picture|photo\w*|porträt\w*|szene\w*|portrait)\b.{0,80}\b"
+            r"(generier\w*|erzeug\w*|render\w*|mal\w*|zeichn\w*|illustrier\w*|"
+            r"edit\w*|bearbei\w*|modifizier\w*|upscale\w*|hochskalier\w*|"
+            r"generate|draw|paint|edit|modify|upscale|enlarge)",
+            _re.IGNORECASE,
+        )
+        if not _IMG_INTENT.search(message):
+            return None
+
     recipient = next((a for a in all_agents if a.get("id") == recipient_id), {})
     if IMAGE_CAPABLE_SKILLS & set(recipient.get("skills", [])):
         return None
