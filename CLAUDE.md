@@ -243,7 +243,7 @@ Browser → dillenberg.net (Apache + WP)
 | Stream-Endpoint | `POST /ext/dilles/v1/chat/stream` (X-AgentClaw-Token Header) |
 | Access-Log | `logs/web_bridge_access.jsonl` (1 Zeile/Request) |
 | Env-Var | `WEB_BRIDGE_TOKEN` in `.env` — muss zum WP-Token passen |
-| Agent | **Alice** (`537b7972-bd36-4879-a812-72921ef0f06f`), Provider OpenRouter (`openai/gpt-oss-120b:free`), Soul siehe DB |
+| Agent | **Alice** (`537b7972-bd36-4879-a812-72921ef0f06f`), Provider **Ollama** (`gemma4:e4b`, lokal), Soul in `agents.soul` DB |
 
 **Server-Seite (`c2.webbinder.de`, separater Codebase):**
 | Komponente | Pfad |
