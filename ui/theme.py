@@ -508,7 +508,7 @@ def apply_theme():
         .q-separator {{ background: var(--b1) !important; }}
 
         /* ─── Smooth scrolling ───────────────────────────── */
-        .ac-messages, .ac-agent-list {{
+        .ac-messages {{
             scroll-behavior: smooth;
         }}
 

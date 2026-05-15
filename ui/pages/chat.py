@@ -367,7 +367,7 @@ def chat_page(agent_id: str):
         }
 
         /* ── Activity-Pulse states ── */
-        @keyframes ac-pulse {
+        @keyframes ac-skills-pulse {
             0%, 100% { opacity: 1; transform: scale(1); }
             50%      { opacity: .55; transform: scale(1.12); }
         }
@@ -380,7 +380,7 @@ def chat_page(agent_id: str):
             animation: ac-border-pulse 1.6s ease-in-out infinite;
         }
         .ac-agent-item.is-active .ac-skills-row {
-            animation: ac-pulse 1.2s ease-in-out infinite;
+            animation: ac-skills-pulse 1.2s ease-in-out infinite;
         }
         .ac-activity-chip {
             display: none;
