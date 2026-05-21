@@ -18,15 +18,16 @@ from backend.core.protocol import (
     new_mission_id,
 )
 from backend.storage.mission_store import MissionStore
+from backend.storage.sqlite_store import make_store
 
 _DEFAULT_TASK_TIMEOUT = 120.0
 _WATCHDOG_INTERVAL    = 5.0
 
 
 class Conductor:
-    def __init__(self, store: MissionStore | None = None) -> None:
+    def __init__(self, store: MissionStore | None = None, db_url: str = "") -> None:
         self._agents: dict[str, object] = {}   # agent_id → AsyncAgent
-        self.store = store or MissionStore()
+        self.store = store or (make_store(db_url) if db_url else MissionStore())
         self._watchdog_task: asyncio.Task | None = None
 
     # ── Agenten-Registry ──────────────────────────────────────────────────────

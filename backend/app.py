@@ -27,7 +27,7 @@ from backend.skills.websearch import WebSearchSkill
 
 # ── Global instances ──────────────────────────────────────────────────────────
 
-conductor = Conductor()
+conductor = Conductor(db_url=get_settings().db_url)
 
 
 def _boot_agents() -> None:
