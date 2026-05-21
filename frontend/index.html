@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentClaw v3</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0f1117;
+    --surface:  #1a1d27;
+    --border:   #2a2d3a;
+    --accent:   #6366f1;
+    --accent2:  #10b981;
+    --warn:     #ef4444;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --font:     'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  }
+
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; }
+
+  /* Layout */
+  .layout { display: grid; grid-template-columns: 260px 1fr; grid-template-rows: 48px 1fr; height: 100vh; }
+
+  /* Header */
+  header {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; gap: 16px;
+    padding: 0 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { color: var(--accent); font-size: 15px; font-weight: 700; letter-spacing: .04em; }
+  .logo span { color: var(--accent2); }
+  .badge { font-size: 10px; background: var(--accent); color: #fff; padding: 2px 6px; border-radius: 3px; }
+  .header-right { margin-left: auto; display: flex; gap: 12px; align-items: center; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+
+  /* Sidebar */
+  aside {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 16px 12px;
+    overflow-y: auto;
+  }
+  .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 16px 0 8px; }
+  .section-label:first-child { margin-top: 0; }
+
+  .agent-card {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .agent-card:hover, .agent-card.active { border-color: var(--accent); background: rgba(99,102,241,.08); }
+  .agent-name { font-weight: 600; font-size: 12px; }
+  .agent-id { color: var(--muted); font-size: 10px; margin-top: 2px; }
+  .agent-ez { font-size: 10px; color: var(--accent2); margin-top: 4px; }
+
+  /* Main */
+  main { display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Tabs */
+  .tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 20px; background: var(--surface); }
+  .tab { padding: 12px 16px; font-size: 12px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; transition: .15s; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* Content */
+  .content { flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 20px; gap: 16px; }
+
+  /* Chat */
+  .chat-area { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 80%; padding: 10px 14px; border-radius: 8px; line-height: 1.5; font-size: 12px; }
+  .msg.user { align-self: flex-end; background: var(--accent); color: #fff; border-radius: 8px 8px 2px 8px; }
+  .msg.agent { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-radius: 8px 8px 8px 2px; }
+  .msg .meta { font-size: 10px; color: var(--muted); margin-top: 4px; }
+  .msg.agent .meta { color: var(--accent2); }
+
+  .chat-input-row { display: flex; gap: 8px; }
+  .chat-input-row input {
+    flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 14px; border-radius: 6px; font-family: var(--font); font-size: 12px; outline: none;
+    transition: border-color .15s;
+  }
+  .chat-input-row input:focus { border-color: var(--accent); }
+  button {
+    background: var(--accent); color: #fff; border: none; padding: 10px 18px;
+    border-radius: 6px; cursor: pointer; font-family: var(--font); font-size: 12px;
+    transition: opacity .15s;
+  }
+  button:hover { opacity: .85; }
+  button:disabled { opacity: .4; cursor: default; }
+
+  /* Missions table */
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { text-align: left; padding: 6px 10px; color: var(--muted); border-bottom: 1px solid var(--border); }
+  td { padding: 6px 10px; border-bottom: 1px solid var(--border); }
+  td.state-completed { color: var(--accent2); }
+  td.state-failed, td.state-timeout { color: var(--warn); }
+  td.state-running { color: var(--accent); }
+  tr { cursor: pointer; transition: background .1s; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+
+  /* Spacetime SVG container */
+  .spacetime-wrap { flex: 1; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+  #spacetime-svg { display: block; }
+
+  /* CDC Panel */
+  .cdc-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; font-size: 11px; }
+  .cdc-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border); }
+  .cdc-row:last-child { border: none; }
+  .cdc-key { color: var(--muted); }
+  .cdc-val { color: var(--accent2); font-weight: 600; }
+
+  /* Tag */
+  .tag { display: inline-block; font-size: 9px; padding: 2px 5px; border-radius: 3px; margin-left: 6px; }
+  .tag.drift { background: rgba(239,68,68,.15); color: var(--warn); border: 1px solid rgba(239,68,68,.3); }
+  .tag.ordered { background: rgba(99,102,241,.15); color: var(--accent); border: 1px solid rgba(99,102,241,.3); }
+
+  .empty { color: var(--muted); text-align: center; padding: 40px; }
+
+  /* hidden */
+  .view { display: none; flex-direction: column; flex: 1; overflow: hidden; gap: 16px; }
+  .view.active { display: flex; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">Agent<span>Claw</span></div>
+    <div class="badge">v3</div>
+    <div style="color:var(--muted);font-size:11px;">CDC-native · Team-Protocol · A2A-Gateway</div>
+    <div class="header-right">
+      <span id="agent-count" style="color:var(--muted);font-size:11px;">— agents</span>
+      <div class="status-dot" id="status-dot" style="background:var(--muted)"></div>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside>
+    <div class="section-label">Agenten</div>
+    <div id="agent-list"></div>
+    <div class="section-label">Schnellstart</div>
+    <div style="color:var(--muted);font-size:11px;line-height:1.6;">
+      Wähle einen Agenten links, tippe eine Nachricht im Chat-Tab.
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('chat')">Chat</div>
+      <div class="tab" onclick="switchTab('missions')">Missionen</div>
+      <div class="tab" onclick="switchTab('spacetime')">Spacetime</div>
+      <div class="tab" onclick="switchTab('status')">Status</div>
+    </div>
+
+    <div class="content">
+
+      <!-- Chat View -->
+      <div id="view-chat" class="view active">
+        <div class="chat-area" id="chat-area">
+          <div class="empty">Wähle einen Agenten und schreibe eine Nachricht.</div>
+        </div>
+        <div class="chat-input-row">
+          <input id="chat-input" placeholder="Nachricht …" onkeydown="if(event.key==='Enter')sendChat()">
+          <button id="send-btn" onclick="sendChat()">Senden</button>
+        </div>
+      </div>
+
+      <!-- Missions View -->
+      <div id="view-missions" class="view">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="color:var(--muted);font-size:11px;" id="missions-count">Keine Missionen</span>
+          <button onclick="loadMissions()" style="padding:6px 12px;font-size:11px;">Aktualisieren</button>
+        </div>
+        <div style="overflow:auto;flex:1;">
+          <table>
+            <thead><tr><th>ID</th><th>Titel</th><th>Status</th><th>Nachrichten</th></tr></thead>
+            <tbody id="missions-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Spacetime View -->
+      <div id="view-spacetime" class="view">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="spacetime-mid" placeholder="Mission-ID …" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-family:var(--font);font-size:12px;outline:none;flex:1;">
+          <button onclick="loadSpacetime()" style="padding:8px 14px;font-size:12px;">Laden</button>
+        </div>
+        <div class="spacetime-wrap" id="spacetime-wrap">
+          <div class="empty">Mission-ID eingeben und laden.</div>
+        </div>
+      </div>
+
+      <!-- Status View -->
+      <div id="view-status" class="view">
+        <div class="cdc-panel" id="status-panel">
+          <div class="empty">Lade …</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+const API = '';
+let selectedAgent = null;
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+async function boot() {
+  await loadAgents();
+  loadStatus();
+}
+
+// ── Agents ───────────────────────────────────────────────────────────────────
+async function loadAgents() {
+  try {
+    const res = await fetch(`${API}/api/agents`);
+    const agents = await res.json();
+    const dot = document.getElementById('status-dot');
+    dot.style.background = 'var(--accent2)';
+    dot.style.boxShadow = '0 0 6px var(--accent2)';
+    document.getElementById('agent-count').textContent = `${agents.length} agents`;
+
+    const list = document.getElementById('agent-list');
+    list.innerHTML = '';
+    agents.forEach(a => {
+      const ez = a.clock?.vector ? Object.values(a.clock.vector).reduce((s,v)=>s+v,0) : 0;
+      const rate = a.clock?.dilation ? Object.values(a.clock.dilation).reduce((s,v)=>s+v,0) : 0;
+      const card = document.createElement('div');
+      card.className = 'agent-card' + (selectedAgent === a.agent_id ? ' active' : '');
+      card.dataset.id = a.agent_id;
+      card.innerHTML = `
+        <div class="agent-name">${a.name}</div>
+        <div class="agent-id">${a.agent_id}</div>
+        <div class="agent-ez">ez=${ez} · ops=${a.op_count || 0}</div>
+      `;
+      card.addEventListener('click', () => selectAgent(a.agent_id, a.name, card));
+      list.appendChild(card);
+    });
+  } catch(e) {
+    document.getElementById('status-dot').style.background = 'var(--warn)';
+  }
+}
+
+function selectAgent(id, name, card) {
+  selectedAgent = id;
+  document.querySelectorAll('.agent-card').forEach(c => c.classList.remove('active'));
+  card.classList.add('active');
+  document.getElementById('chat-input').placeholder = `Nachricht an ${name} …`;
+}
+
+// ── Chat ─────────────────────────────────────────────────────────────────────
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const btn = document.getElementById('send-btn');
+  const msg = input.value.trim();
+  if (!msg) return;
+  if (!selectedAgent) { appendMsg('system', 'Bitte zuerst einen Agenten auswählen.'); return; }
+
+  appendMsg('user', msg);
+  input.value = '';
+  btn.disabled = true;
+
+  const thinkingEl = appendMsg('agent', '…', selectedAgent);
+
+  try {
+    const es = new EventSource(`${API}/api/chat/stream?agent_id=${encodeURIComponent(selectedAgent)}&message=${encodeURIComponent(msg)}`);
+    es.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.event === 'task_completed') {
+        es.close();
+        btn.disabled = false;
+        loadAgents(); // clock aktualisieren
+        loadMissions();
+      } else if (data.event === 'message' && data.type === 'response') {
+        const result = data.payload?.result || '';
+        thinkingEl.querySelector('.text').textContent = result;
+        const meta = thinkingEl.querySelector('.meta');
+        if (data.clock) {
+          const summary = clockSummary(data.clock);
+          meta.textContent = summary;
+        }
+      } else if (data.event === 'timeout') {
+        thinkingEl.querySelector('.text').textContent = '[Timeout]';
+        es.close();
+        btn.disabled = false;
+      }
+    };
+    es.onerror = () => {
+      es.close();
+      btn.disabled = false;
+    };
+  } catch(e) {
+    thinkingEl.querySelector('.text').textContent = `Fehler: ${e.message}`;
+    btn.disabled = false;
+  }
+}
+
+function appendMsg(type, text, agentId = '') {
+  const area = document.getElementById('chat-area');
+  const empties = area.querySelectorAll('.empty');
+  empties.forEach(e => e.remove());
+
+  const div = document.createElement('div');
+  div.className = `msg ${type}`;
+  div.innerHTML = `<div class="text">${escapeHtml(text)}</div><div class="meta">${agentId}</div>`;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+  return div;
+}
+
+function clockSummary(clock) {
+  if (!clock?.vector) return '';
+  const parts = Object.entries(clock.vector).map(([k, v]) => `${k.replace('agent:','')}: ez=${v}`);
+  return parts.join(' · ');
+}
+
+// ── Missions ─────────────────────────────────────────────────────────────────
+async function loadMissions() {
+  const res = await fetch(`${API}/api/missions`);
+  const missions = await res.json();
+  document.getElementById('missions-count').textContent = `${missions.length} Missionen`;
+  const tbody = document.getElementById('missions-tbody');
+  tbody.innerHTML = '';
+  missions.slice().reverse().forEach(m => {
+    const tr = document.createElement('tr');
+    const stateClass = `state-${m.state}`;
+    tr.innerHTML = `
+      <td style="font-size:10px;color:var(--muted)">${m.mission_id}</td>
+      <td>${escapeHtml(m.title || '')}</td>
+      <td class="${stateClass}">${m.state}</td>
+      <td>—</td>
+    `;
+    tr.addEventListener('click', () => {
+      document.getElementById('spacetime-mid').value = m.mission_id;
+      switchTab('spacetime');
+      loadSpacetime();
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Spacetime ─────────────────────────────────────────────────────────────────
+async function loadSpacetime() {
+  const mid = document.getElementById('spacetime-mid').value.trim();
+  if (!mid) return;
+  try {
+    const res = await fetch(`${API}/api/missions/${mid}/spacetime`);
+    if (!res.ok) { document.getElementById('spacetime-wrap').innerHTML = '<div class="empty">Nicht gefunden.</div>'; return; }
+    const data = await res.json();
+    renderSpacetime(data);
+  } catch(e) {
+    document.getElementById('spacetime-wrap').innerHTML = `<div class="empty">Fehler: ${e.message}</div>`;
+  }
+}
+
+function renderSpacetime(data) {
+  const wrap = document.getElementById('spacetime-wrap');
+  const agents = data.agents || [];
+  const nodes = data.nodes || [];
+  const edges = data.edges || [];
+
+  if (agents.length === 0) { wrap.innerHTML = '<div class="empty">Keine Daten.</div>'; return; }
+
+  const W = Math.max(600, agents.length * 180);
+  const H = 400;
+  const PAD = { top: 50, bottom: 30, left: 40, right: 40 };
+  const PLOT_W = W - PAD.left - PAD.right;
+  const PLOT_H = H - PAD.top - PAD.bottom;
+  const COL_W = PLOT_W / Math.max(agents.length, 1);
+
+  const agentX = {};
+  agents.forEach((a, i) => { agentX[a] = PAD.left + i * COL_W + COL_W / 2; });
+
+  const maxEZ = Math.max(1, ...nodes.map(n => n.eigenzeit || 0));
+  const ezY = ez => PAD.top + PLOT_H * (1 - ez / maxEZ);
+
+  const COLORS = ['#6366f1','#10b981','#f59e0b','#ec4899','#06b6d4','#84cc16'];
+  const agentColor = {};
+  agents.forEach((a, i) => { agentColor[a] = COLORS[i % COLORS.length]; });
+
+  const MSG_COLOR = { request:'#6366f1', response:'#10b981', error:'#ef4444', heartbeat:'#f59e0b', cancel:'#f87171' };
+
+  let svg = `<svg id="spacetime-svg" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arr-ord" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#a78bfa"/>
+    </marker>
+    <marker id="arr-drift" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#ef4444"/>
+    </marker>
+    <filter id="glow"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>`;
+
+  // Grid
+  svg += `<rect width="${W}" height="${H}" fill="#1a1d27" rx="8"/>`;
+  for (let y = PAD.top; y <= H - PAD.bottom; y += PLOT_H / 4) {
+    svg += `<line x1="${PAD.left}" y1="${y}" x2="${W-PAD.right}" y2="${y}" stroke="#2a2d3a" stroke-width="1"/>`;
+  }
+
+  // Weltlinien
+  agents.forEach(a => {
+    const x = agentX[a];
+    const col = agentColor[a];
+    svg += `<line x1="${x}" y1="${PAD.top}" x2="${x}" y2="${H-PAD.bottom}" stroke="${col}" stroke-width="1" stroke-opacity=".3"/>`;
+    const label = a.replace('agent:','').replace('ext:','').replace('a2a:','');
+    svg += `<rect x="${x-30}" y="${PAD.top-28}" width="60" height="20" rx="4" fill="${col}" fill-opacity=".15" stroke="${col}" stroke-opacity=".4"/>`;
+    svg += `<text x="${x}" y="${PAD.top-14}" text-anchor="middle" fill="${col}" font-size="11" font-family="monospace">${label}</text>`;
+  });
+
+  // Edges
+  edges.forEach(e => {
+    const x1 = agentX[e.from_agent], x2 = agentX[e.to_agent];
+    const y1 = ezY(e.from_ez || 0), y2 = ezY(e.to_ez || 0);
+    if (!x1 || !x2) return;
+    const isDrift = e.relation && e.relation.includes('drift');
+    const col = isDrift ? '#ef4444' : '#a78bfa';
+    const dash = isDrift ? '5,4' : '';
+    const cx = (x1 + x2) / 2;
+    svg += `<path d="M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}"
+      stroke="${col}" stroke-width="${isDrift?2:1.2}" fill="none"
+      stroke-dasharray="${dash}" marker-end="url(#${isDrift?'arr-drift':'arr-ord'})" opacity=".8"/>`;
+  });
+
+  // Nodes
+  nodes.forEach(n => {
+    const x = agentX[n.agent];
+    if (!x) return;
+    const y = ezY(n.eigenzeit || 0);
+    const col = MSG_COLOR[n.type] || '#6366f1';
+    svg += `<circle cx="${x}" cy="${y}" r="5" fill="${col}" filter="url(#glow)" opacity=".9"/>`;
+  });
+
+  // Y-Achsen-Labels
+  for (let i = 0; i <= 4; i++) {
+    const ez = Math.round(maxEZ * i / 4);
+    const y = ezY(ez);
+    svg += `<text x="${PAD.left - 4}" y="${y + 4}" text-anchor="end" fill="#64748b" font-size="9" font-family="monospace">${ez}</text>`;
+  }
+
+  svg += `</svg>`;
+
+  wrap.innerHTML = svg;
+
+  // Drift-Hinweis
+  if (data.drift_segments && data.drift_segments.length > 0) {
+    const hint = document.createElement('div');
+    hint.style.cssText = 'padding:8px 14px;font-size:11px;color:#ef4444;border-top:1px solid var(--border)';
+    hint.innerHTML = `⚠ ${data.drift_segments.length} Kausaler-Drift-Kante(n) erkannt (rot gestrichelt)`;
+    wrap.appendChild(hint);
+  }
+}
+
+// ── Status ────────────────────────────────────────────────────────────────────
+async function loadStatus() {
+  try {
+    const res = await fetch(`${API}/api/status`);
+    const data = await res.json();
+    const panel = document.getElementById('status-panel');
+    panel.innerHTML = data.agents.map(a => {
+      const ez = a.clock?.vector ? JSON.stringify(a.clock.vector) : '{}';
+      return `<div class="cdc-row">
+        <span class="cdc-key">${a.agent_id}</span>
+        <span class="cdc-val">ops=${a.op_count} · V=${ez}</span>
+      </div>`;
+    }).join('') || '<div class="empty">Keine Agenten.</div>';
+  } catch(e) {}
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const names = ['chat','missions','spacetime','status'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(`view-${name}`).classList.add('active');
+  if (name === 'missions') loadMissions();
+  if (name === 'status') loadStatus();
+}
+
+// ── Util ──────────────────────────────────────────────────────────────────────
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+boot();
+setInterval(loadAgents, 10000);
+</script>
+</body>
+</html>
