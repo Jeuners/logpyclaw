@@ -4,7 +4,7 @@ Default: English. Unterstützt: en, de.
 """
 from __future__ import annotations
 
-from backend.i18n import en, de
+from backend.i18n import de, en
 
 _LOCALES: dict[str, dict[str, str]] = {
     "en": en.STRINGS,

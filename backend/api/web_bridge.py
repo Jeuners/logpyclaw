@@ -8,7 +8,8 @@ Chat-Stream: wird in Phase 5 an Alice angebunden.
 from __future__ import annotations
 
 import os
-from fastapi import APIRouter, Request, Header
+
+from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 router = APIRouter(prefix="/ext/dilles/v1")
@@ -48,8 +49,11 @@ async def chat_stream(
     if agent is None:
         agent_id = "agent:echo"
 
-    import json, asyncio, time
-    from backend.core.protocol import new_mission_id, external_ref, Message
+    import asyncio
+    import json
+    import time
+
+    from backend.core.protocol import Message, external_ref, new_mission_id
 
     mission_id = new_mission_id()
     conductor.store.register_mission(mission_id, {

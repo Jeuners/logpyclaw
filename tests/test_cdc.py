@@ -1,5 +1,6 @@
 """Tests für CausalDilationClock — alle 4 Relationen + Serialisierung."""
 import pytest
+
 from backend.core.cdc import CausalDilationClock, CDCRelation
 
 

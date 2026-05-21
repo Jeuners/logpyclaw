@@ -10,14 +10,14 @@ Phase 5: vollständige Google A2A 2025 Spec. Hier: funktionaler Stub.
 """
 from __future__ import annotations
 
-import time
-import uuid
-from typing import Optional
-
 from backend.agents.base import AsyncAgent
 from backend.core.cdc import CausalDilationClock
 from backend.core.protocol import (
-    Message, MessageType, new_mission_id, external_ref, agent_ref,
+    Message,
+    MessageType,
+    agent_ref,
+    external_ref,
+    new_mission_id,
 )
 
 
@@ -28,7 +28,7 @@ class A2AGatewayAgent(AsyncAgent):
         self,
         agent_id: str = "a2a:gateway",
         name: str = "A2A Gateway",
-        default_recipient: Optional[str] = None,
+        default_recipient: str | None = None,
         conductor=None,
     ) -> None:
         super().__init__(agent_id, name)

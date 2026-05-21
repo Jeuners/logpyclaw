@@ -1,5 +1,6 @@
 """Tests für das CDC-Team-Protokoll."""
 import pytest
+
 from backend.core.cdc import CausalDilationClock
 from backend.core.protocol import Message, new_mission_id
 from backend.core.team_protocol import Team, TeamMessage, TeamState

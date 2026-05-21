@@ -1,10 +1,16 @@
 """Tests für das CDC-native Message-Protokoll."""
 import time
-import pytest
+
 from backend.core.cdc import CausalDilationClock
 from backend.core.protocol import (
-    Message, MessageType, TaskRecord, TaskState,
-    new_task_id, new_msg_id, new_mission_id, agent_ref,
+    Message,
+    MessageType,
+    TaskRecord,
+    TaskState,
+    agent_ref,
+    new_mission_id,
+    new_msg_id,
+    new_task_id,
 )
 
 

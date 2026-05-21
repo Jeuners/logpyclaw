@@ -12,13 +12,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.agents.conductor import Conductor
 from backend.agents.a2a_gateway import A2AGatewayAgent
+from backend.agents.conductor import Conductor
 from backend.agents.llm_agent import LLMAgent
+from backend.api.a2a.gateway_router import router as a2a_router
 from backend.api.agents import router as agents_router
 from backend.api.chat import router as chat_router
 from backend.api.missions import router as missions_router
-from backend.api.a2a.gateway_router import router as a2a_router
 from backend.api.web_bridge import router as web_bridge_router
 from backend.i18n import locale_from_header
 

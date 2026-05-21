@@ -7,7 +7,6 @@ Jeder LLM-Call tickt die CDC-Clock mit aktueller Eigenzeit-Rate.
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 import httpx
 

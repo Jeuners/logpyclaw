@@ -15,9 +15,9 @@ from __future__ import annotations
 import json
 import threading
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Mapping, Optional
 
 
 class CDCRelation(Enum):
@@ -52,7 +52,7 @@ class CausalDilationClock:
             self.vector[agent_id] = self.vector.get(agent_id, 0) + 1
             self.dilation[agent_id] = self.dilation.get(agent_id, 0.0) + float(op_weight)
 
-    def tick_with_rate(self, agent_id: str, rate: float) -> "CausalDilationClock":
+    def tick_with_rate(self, agent_id: str, rate: float) -> CausalDilationClock:
         """Tick + Eigenzeit-Rate (ops/s) in dilation speichern. Gibt self zurück."""
         self.tick(agent_id, op_weight=1.0)
         if rate > 0:
@@ -60,7 +60,7 @@ class CausalDilationClock:
                 self.dilation[agent_id] = round(rate, 4)
         return self
 
-    def merge(self, other: "CausalDilationClock") -> "CausalDilationClock":
+    def merge(self, other: CausalDilationClock) -> CausalDilationClock:
         """Max-Merge beim Empfang einer Nachricht. Gibt self zurück (fluent)."""
         with self._lock:  # type: ignore[attr-defined]
             for a, v in other.vector.items():
@@ -87,8 +87,8 @@ class CausalDilationClock:
 
     def relate(
         self,
-        other: "CausalDilationClock",
-        gamma: Optional[Mapping[tuple[str, str], float]] = None,
+        other: CausalDilationClock,
+        gamma: Mapping[tuple[str, str], float] | None = None,
         drift_tolerance: float = 0.0,
     ) -> CDCRelation:
         gamma = gamma or {}
@@ -117,14 +117,18 @@ class CausalDilationClock:
         parts = []
         for agent, val in sorted(self.dilation.items(), key=lambda x: -x[1]):
             ez = self.vector.get(agent, 0)
-            if val >= 2.0:   feel = "fast"
-            elif val >= 0.8: feel = "normal"
-            elif val >= 0.3: feel = "slow"
-            else:            feel = "dilated"
+            if val >= 2.0:
+                feel = "fast"
+            elif val >= 0.8:
+                feel = "normal"
+            elif val >= 0.3:
+                feel = "slow"
+            else:
+                feel = "dilated"
             parts.append(f"{agent}:{feel}(ez={ez},rate={val:.2f})")
         return " | ".join(parts)
 
-    def relate_str(self, other: "CausalDilationClock") -> str:
+    def relate_str(self, other: CausalDilationClock) -> str:
         return self.relate(other).value
 
     # ── Serialisierung ────────────────────────────────────────────────────────
@@ -141,17 +145,17 @@ class CausalDilationClock:
         return json.dumps(self.to_dict(), separators=(",", ":"))
 
     @classmethod
-    def from_dict(cls, d: Mapping) -> "CausalDilationClock":
+    def from_dict(cls, d: Mapping) -> CausalDilationClock:
         return cls(
             vector=dict(d.get("vector", {})),
             dilation={k: float(v) for k, v in dict(d.get("dilation", {})).items()},
         )
 
     @classmethod
-    def from_json(cls, s: str) -> "CausalDilationClock":
+    def from_json(cls, s: str) -> CausalDilationClock:
         return cls.from_dict(json.loads(s))
 
-    def copy(self) -> "CausalDilationClock":
+    def copy(self) -> CausalDilationClock:
         with self._lock:  # type: ignore[attr-defined]
             return CausalDilationClock(
                 vector=dict(self.vector),

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from backend.core.cdc import CausalDilationClock
 from backend.core.protocol import Message
@@ -34,7 +33,7 @@ class AsyncAgent(ABC):
     async def stop(self) -> None:
         pass
 
-    def advance_clock(self, incoming: Optional[CausalDilationClock] = None) -> CausalDilationClock:
+    def advance_clock(self, incoming: CausalDilationClock | None = None) -> CausalDilationClock:
         """Merge eingehende Clock + eigener Tick. Gibt Snapshot zurück."""
         if incoming:
             self._clock.merge(incoming)

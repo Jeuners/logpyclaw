@@ -10,9 +10,8 @@ import asyncio
 import threading
 import time
 from collections import defaultdict
-from typing import Optional
 
-from backend.core.protocol import Message, TaskRecord, TaskState
+from backend.core.protocol import Message, TaskRecord
 
 
 class MissionStore:
@@ -33,7 +32,7 @@ class MissionStore:
         with self._lock:
             self._missions[mission_id] = {**metadata, "registered_at": time.time()}
 
-    def get_mission(self, mission_id: str) -> Optional[dict]:
+    def get_mission(self, mission_id: str) -> dict | None:
         return self._missions.get(mission_id)
 
     def list_missions(self) -> list[dict]:
@@ -65,7 +64,7 @@ class MissionStore:
         self._emit(task.mission_id, f"task_{task.state.value}", task_id=task.task_id,
                    state=task.state.value, owner=task.owner)
 
-    def get_task(self, task_id: str) -> Optional[TaskRecord]:
+    def get_task(self, task_id: str) -> TaskRecord | None:
         return self._tasks.get(task_id)
 
     def list_tasks(self, mission_id: str) -> list[TaskRecord]:

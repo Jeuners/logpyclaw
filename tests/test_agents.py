@@ -1,14 +1,12 @@
 """Tests für AsyncAgent Basis + Conductor + A2A-Gateway."""
-import pytest
-import asyncio
-from unittest.mock import AsyncMock, patch
 
-from backend.core.cdc import CausalDilationClock
-from backend.core.protocol import Message, MessageType, new_mission_id, agent_ref
+import pytest
+
+from backend.agents.a2a_gateway import A2AGatewayAgent
 from backend.agents.base import AsyncAgent
 from backend.agents.conductor import Conductor
-from backend.agents.a2a_gateway import A2AGatewayAgent
-
+from backend.core.cdc import CausalDilationClock
+from backend.core.protocol import Message, MessageType, new_mission_id
 
 # ── Hilfs-Agent für Tests ────────────────────────────────────────────────────
 

@@ -8,24 +8,26 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Optional
 
 from backend.core.protocol import (
-    Message, MessageType, TaskRecord, TaskState,
-    new_mission_id, new_task_id, external_ref,
+    Message,
+    MessageType,
+    TaskRecord,
+    TaskState,
+    external_ref,
+    new_mission_id,
 )
 from backend.storage.mission_store import MissionStore
-
 
 _DEFAULT_TASK_TIMEOUT = 120.0
 _WATCHDOG_INTERVAL    = 5.0
 
 
 class Conductor:
-    def __init__(self, store: Optional[MissionStore] = None) -> None:
+    def __init__(self, store: MissionStore | None = None) -> None:
         self._agents: dict[str, object] = {}   # agent_id → AsyncAgent
         self.store = store or MissionStore()
-        self._watchdog_task: Optional[asyncio.Task] = None
+        self._watchdog_task: asyncio.Task | None = None
 
     # ── Agenten-Registry ──────────────────────────────────────────────────────
 
@@ -114,7 +116,7 @@ class Conductor:
                 agent.handle(msg),
                 timeout=_DEFAULT_TASK_TIMEOUT,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             task.transition(TaskState.TIMEOUT)
             self.store.upsert_task(task)
             return Message.error(msg, "task timeout")

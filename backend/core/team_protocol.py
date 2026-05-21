@@ -18,18 +18,17 @@ from __future__ import annotations
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
-from backend.core.cdc import CausalDilationClock, CDCRelation
+from backend.core.cdc import CausalDilationClock
 from backend.core.protocol import (
-    Message, MessageType, new_msg_id, new_team_id,
+    Message,
+    new_team_id,
 )
-
 
 # ── Team States ───────────────────────────────────────────────────────────────
 
-class TeamState(str, Enum):
+class TeamState(StrEnum):
     FORMING      = "forming"       # Mitglieder werden registriert
     ACTIVE       = "active"        # Quorum erreicht, bereit für Tasks
     QUORUM_LOST  = "quorum_lost"   # Zu wenige Mitglieder erreichbar
@@ -67,7 +66,7 @@ class TeamMessage(Message):
         team_clock: CausalDilationClock,
         gamma_matrix: dict[str, dict[str, float]],
         team_state: TeamState = TeamState.ACTIVE,
-    ) -> "TeamMessage":
+    ) -> TeamMessage:
         """Upgrade einer normalen Message zu einer TeamMessage."""
         return cls(
             msg_id=msg.msg_id,
@@ -179,14 +178,14 @@ class Team:
     def recommend_next(
         self,
         candidates: list[str] | None = None,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Empfiehlt das Mitglied mit kleinstem Drift-Score (nicht busy, erreichbar).
 
         drift_score = |γ_i - 1.0| — 0 bedeutet kein Drift gegenüber Referenz.
         recommendation_score = avg_rate / (1 + drift_score) - (0.5 if busy)
         """
         pool = candidates or list(self._members.keys())
-        best_agent: Optional[str] = None
+        best_agent: str | None = None
         best_score = -float("inf")
 
         for agent_id in pool:

@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass, field, asdict
-from enum import Enum
+from dataclasses import asdict, dataclass, field
+from enum import StrEnum
 from typing import Any
 
 from backend.core.cdc import CausalDilationClock
-
 
 # ── ID-Factories ─────────────────────────────────────────────────────────────
 
@@ -40,7 +39,7 @@ def external_ref(name: str) -> str:
 
 # ── Enums ────────────────────────────────────────────────────────────────────
 
-class TaskState(str, Enum):
+class TaskState(StrEnum):
     CREATED   = "created"
     ASSIGNED  = "assigned"
     RUNNING   = "running"
@@ -58,7 +57,7 @@ class TaskState(str, Enum):
         )
 
 
-class MessageType(str, Enum):
+class MessageType(StrEnum):
     REQUEST   = "request"
     RESPONSE  = "response"
     ERROR     = "error"
@@ -100,7 +99,7 @@ class Message:
         parent_task_id: str | None = None,
         task_id: str | None = None,
         clock: CausalDilationClock | None = None,
-    ) -> "Message":
+    ) -> Message:
         return cls(
             msg_id=new_msg_id(),
             mission_id=mission_id,
@@ -116,10 +115,10 @@ class Message:
     @classmethod
     def response(
         cls,
-        request_msg: "Message",
+        request_msg: Message,
         result: Any,
         clock: CausalDilationClock | None = None,
-    ) -> "Message":
+    ) -> Message:
         return cls(
             msg_id=new_msg_id(),
             mission_id=request_msg.mission_id,
@@ -135,10 +134,10 @@ class Message:
     @classmethod
     def error(
         cls,
-        request_msg: "Message",
+        request_msg: Message,
         reason: str,
         clock: CausalDilationClock | None = None,
-    ) -> "Message":
+    ) -> Message:
         return cls(
             msg_id=new_msg_id(),
             mission_id=request_msg.mission_id,
@@ -154,10 +153,10 @@ class Message:
     @classmethod
     def heartbeat(
         cls,
-        request_msg: "Message",
+        request_msg: Message,
         progress: str = "",
         clock: CausalDilationClock | None = None,
-    ) -> "Message":
+    ) -> Message:
         return cls(
             msg_id=new_msg_id(),
             mission_id=request_msg.mission_id,
@@ -185,7 +184,7 @@ class Message:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "Message":
+    def from_dict(cls, d: dict) -> Message:
         return cls(
             msg_id=d["msg_id"],
             mission_id=d["mission_id"],
