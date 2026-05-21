@@ -30,6 +30,47 @@ from backend.skills.websearch import WebSearchSkill
 conductor = Conductor(db_url=get_settings().db_url)
 
 
+def _make_router_fn(cfg):
+    """Baut eine async Router-Funktion für Martin, die Ollama als LLM-Router nutzt."""
+    import json as _json
+
+    import httpx
+
+    async def router_fn(content: str) -> str | None:
+        agents = [a for a in conductor.list_agents()
+                  if a.agent_id not in ("agent:martin", "a2a:gateway")]
+        agent_list = "\n".join(f"- {a.agent_id}: {a.name}" for a in agents)
+        prompt = (
+            f"Du bist ein Routing-Agent. Wähle den besten Agenten für diese Anfrage.\n\n"
+            f"Verfügbare Agenten:\n{agent_list}\n\n"
+            f"Anfrage: {content[:300]}\n\n"
+            f'Antworte NUR mit JSON: {{"target": "<agent_id>", "reason": "<kurz>"}}'
+        )
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.post(
+                    f"{cfg.ollama_url}/api/chat",
+                    json={
+                        "model": cfg.ollama_model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "stream": False,
+                    },
+                )
+                r.raise_for_status()
+                raw = r.json()["message"]["content"]
+            # JSON aus der Antwort extrahieren
+            start = raw.find("{")
+            end = raw.rfind("}") + 1
+            if start >= 0 and end > start:
+                data = _json.loads(raw[start:end])
+                return data.get("target")
+        except Exception:
+            pass
+        return None
+
+    return router_fn
+
+
 def _boot_agents() -> None:
     from backend.agents.base import AsyncAgent
     from backend.agents.martin import QCConfig
@@ -61,7 +102,7 @@ def _boot_agents() -> None:
         max_retries=cfg.martin_qc_max_retries,
         auditor_id=cfg.martin_qc_auditor_id,
     )
-    martin = MartinAgent(conductor=conductor, qc=qc)
+    martin = MartinAgent(conductor=conductor, qc=qc, llm_router_fn=_make_router_fn(cfg))
     conductor.register(martin)
 
     conductor.register(SkillAgent(WebSearchSkill()))

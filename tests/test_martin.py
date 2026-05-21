@@ -252,3 +252,75 @@ class TestMartinCDC:
         d = m.to_dict()
         assert d["faction"] == "operators"
         assert "qc" in d
+
+
+# ── LLM-Router ────────────────────────────────────────────────────────────────
+
+class TestMartinLLMRouter:
+    @pytest.mark.asyncio
+    async def test_llm_router_called_when_no_prefix(self):
+        """Router-Fn wird aufgerufen wenn kein @/# Prefix vorhanden."""
+        router_called = {"n": 0}
+
+        async def fake_router(content: str) -> str | None:
+            router_called["n"] += 1
+            return "agent:echo"
+
+        c = Conductor()
+        c.register(EchoAgent("agent:echo", "Echo"))
+        await c.start()
+
+        m = MartinAgent(conductor=c, qc=QCConfig(enabled=False), llm_router_fn=fake_router)
+        c.register(m)
+        await m.start()
+
+        mid = new_mission_id()
+        msg = Message.request(mid, "ext:user", MartinAgent.AGENT_ID, "Erkläre was CDC ist")
+        resp = await m.handle(msg)
+        assert router_called["n"] == 1
+        assert "echo" in resp.payload.get("result", "").lower()
+        await c.stop()
+
+    @pytest.mark.asyncio
+    async def test_llm_router_not_called_with_at_prefix(self):
+        """@-Prefix überspringt den LLM-Router."""
+        router_called = {"n": 0}
+
+        async def fake_router(content: str) -> str | None:
+            router_called["n"] += 1
+            return "agent:echo"
+
+        c = Conductor()
+        c.register(EchoAgent("agent:echo", "Echo"))
+        await c.start()
+
+        m = MartinAgent(conductor=c, qc=QCConfig(enabled=False), llm_router_fn=fake_router)
+        c.register(m)
+        await m.start()
+
+        mid = new_mission_id()
+        msg = Message.request(mid, "ext:user", MartinAgent.AGENT_ID, "@agent:echo direkt")
+        await m.handle(msg)
+        assert router_called["n"] == 0
+        await c.stop()
+
+    @pytest.mark.asyncio
+    async def test_llm_router_fallback_when_returns_none(self):
+        """Wenn Router None zurückgibt, greift der Fallback auf ersten Agenten."""
+        async def null_router(content: str) -> str | None:
+            return None
+
+        c = Conductor()
+        c.register(EchoAgent("agent:echo", "Echo"))
+        await c.start()
+
+        m = MartinAgent(conductor=c, qc=QCConfig(enabled=False), llm_router_fn=null_router)
+        c.register(m)
+        await m.start()
+
+        mid = new_mission_id()
+        msg = Message.request(mid, "ext:user", MartinAgent.AGENT_ID, "keine Präferenz")
+        resp = await m.handle(msg)
+        # Fallback greift, Antwort kommt (nicht leer)
+        assert resp.payload.get("result") is not None
+        await c.stop()
