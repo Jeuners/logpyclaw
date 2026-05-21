@@ -1,5 +1,5 @@
 """
-backend/core/protocol.py — CDC-natives Message-Protokoll für AgentClaw v3.
+backend/core/protocol.py — CDC-natives Message-Protokoll für LogpyClaw v3.
 
 Jede Message trägt eine CausalDilationClock. CDC ist kein optionales Feld.
 ID-Prefixe verhindern Verwechslungen zwischen Task-, Message- und Mission-IDs.

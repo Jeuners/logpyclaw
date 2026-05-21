@@ -1,5 +1,5 @@
 """
-backend/app.py — AgentClaw v3 FastAPI entry point.
+backend/app.py — LogpyClaw v3 FastAPI entry point.
 """
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ async def lifespan(app: FastAPI):
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
-app = FastAPI(title="AgentClaw v3", version="3.0.0", lifespan=lifespan)
+app = FastAPI(title="LogpyClaw v3", version="3.0.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
@@ -97,7 +97,7 @@ async def root():
     index = Path(__file__).parent.parent / "frontend" / "index.html"
     if index.exists():
         return index.read_text()
-    return HTMLResponse("<h1>AgentClaw v3</h1>")
+    return HTMLResponse("<h1>LogpyClaw v3</h1>")
 
 
 @app.get("/ping")

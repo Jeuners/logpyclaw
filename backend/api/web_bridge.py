@@ -2,7 +2,7 @@
 backend/api/web_bridge.py — Web-Bridge Compatibility Layer.
 
 Stellt /ext/dilles/v1/* für dillenberg.net bereit.
-Health-Endpoint: agentclaw-health.sh auf c2.webbinder.de pollt alle 2 Minuten.
+Health-Endpoint: logpyclaw-health.sh auf c2.webbinder.de pollt alle 2 Minuten.
 Chat-Stream: wird in Phase 5 an Alice angebunden.
 """
 from __future__ import annotations
@@ -25,7 +25,7 @@ def _check_token(token: str | None) -> bool:
 async def health():
     return {
         "ok": True,
-        "service": "agentclaw-web-bridge",
+        "service": "logpyclaw-web-bridge",
         "version": "3.0.0",
         "token_configured": bool(_TOKEN),
     }
@@ -34,9 +34,9 @@ async def health():
 @router.post("/chat/stream")
 async def chat_stream(
     request: Request,
-    x_agentclaw_token: str | None = Header(default=None),
+    x_logpyclaw_token: str | None = Header(default=None),
 ):
-    if not _check_token(x_agentclaw_token):
+    if not _check_token(x_logpyclaw_token):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
 
     body = await request.json()

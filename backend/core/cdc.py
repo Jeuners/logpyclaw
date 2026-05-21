@@ -1,7 +1,7 @@
 """
 backend/core/cdc.py — Causal-Dilation Clock (V,D)-Tupel (§3.4).
 
-Jede interne Message in AgentClaw v3 trägt eine CDC-Instanz.
+Jede interne Message in LogpyClaw v3 trägt eine CDC-Instanz.
 Keine optionale Metadata-Ergänzung — CDC ist Pflicht.
 
 4-Relations-Klassifikator:

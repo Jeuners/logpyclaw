@@ -1,10 +1,10 @@
-# AgentClaw v3
+# LogpyClaw v3
 
 CDC-native multi-agent system with time-dilation-aware coordination.
 
 ## What makes it different
 
-AgentClaw v3 uses a **Causal-Dilation Clock (CDC)** on every message — not as optional metadata, but as a first-class protocol field. Each agent carries a `(Vector, Dilation)` tuple that tracks both causal ordering and subjective eigenzeit (operation rate). This enables:
+LogpyClaw v3 uses a **Causal-Dilation Clock (CDC)** on every message — not as optional metadata, but as a first-class protocol field. Each agent carries a `(Vector, Dilation)` tuple that tracks both causal ordering and subjective eigenzeit (operation rate). This enables:
 
 - **Team scheduling** that compensates for agent drift (γ_ij matrix)
 - **Spacetime visualization** of agent interactions over eigenzeit

@@ -1,7 +1,7 @@
 """
 backend/agents/base.py — AsyncAgent Basisklasse.
 
-Jeder Agent in AgentClaw v3 hat:
+Jeder Agent in LogpyClaw v3 hat:
 - eine eigene CausalDilationClock
 - handle(msg) → verarbeitet eingehende CDC-Message, gibt Response/Error zurück
 - advance_clock() → merged eingehende Clock + eigener Tick

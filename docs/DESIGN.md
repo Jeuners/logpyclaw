@@ -1,4 +1,4 @@
-# AgentClaw v3 — Design System
+# LogpyClaw v3 — Design System
 
 ## Color Tokens
 

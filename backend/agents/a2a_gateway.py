@@ -84,7 +84,7 @@ class A2AGatewayAgent(AsyncAgent):
     @staticmethod
     def agent_card(base_url: str = "http://localhost:5050") -> dict:
         return {
-            "name":        "AgentClaw v3",
+            "name":        "LogpyClaw v3",
             "description": "CDC-native multi-agent system with time-dilation awareness",
             "url":         base_url,
             "version":     "3.0.0",
@@ -97,7 +97,7 @@ class A2AGatewayAgent(AsyncAgent):
                 {
                     "id":          "chat",
                     "name":        "Chat",
-                    "description": "Send a message to an AgentClaw agent",
+                    "description": "Send a message to an LogpyClaw agent",
                     "inputModes":  ["text"],
                     "outputModes": ["text"],
                 }
