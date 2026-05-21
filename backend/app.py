@@ -19,7 +19,9 @@ from backend.agents.skill_agent import SkillAgent
 from backend.api.a2a.gateway_router import router as a2a_router
 from backend.api.agents import router as agents_router
 from backend.api.chat import router as chat_router
+from backend.api.factions import router as factions_router
 from backend.api.missions import router as missions_router
+from backend.api.teams import router as teams_router
 from backend.api.web_bridge import router as web_bridge_router
 from backend.config import get_settings
 from backend.i18n import locale_from_header
@@ -143,6 +145,8 @@ if static_dir.exists():
 app.include_router(agents_router,     prefix="/api")
 app.include_router(chat_router,       prefix="/api")
 app.include_router(missions_router,   prefix="/api")
+app.include_router(factions_router,   prefix="/api")
+app.include_router(teams_router,      prefix="/api")
 app.include_router(a2a_router)
 app.include_router(web_bridge_router)
 
