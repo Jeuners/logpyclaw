@@ -8,162 +8,258 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg:       #0f1117;
-    --surface:  #1a1d27;
-    --border:   #2a2d3a;
-    --accent:   #6366f1;
-    --accent2:  #10b981;
-    --warn:     #ef4444;
-    --text:     #e2e8f0;
-    --muted:    #64748b;
-    --font:     'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --bg:       #080c14;
+    --surface:  #0f1623;
+    --surface2: #151f30;
+    --border:   #1e2d45;
+    --border2:  #243550;
+    --accent:   #7c3aed;
+    --accent-h: #9055f5;
+    --accent2:  #059669;
+    --accent2-h:#10b981;
+    --warn:     #dc2626;
+    --gold:     #d97706;
+    --gold-dim: rgba(217,119,6,.15);
+    --text:     #e8f0fe;
+    --text2:    #94a3b8;
+    --muted:    #4a5e7a;
+    --font:     'JetBrains Mono','Fira Code','Cascadia Code',monospace;
   }
 
   html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; }
 
-  .layout { display: grid; grid-template-columns: 260px 1fr; grid-template-rows: 48px 1fr; height: 100vh; }
+  /* ── Layout ── */
+  .layout { display: grid; grid-template-columns: 256px 1fr; grid-template-rows: 48px 1fr; height: 100vh; }
 
+  /* ── Header ── */
   header {
     grid-column: 1 / -1;
-    display: flex; align-items: center; gap: 16px;
-    padding: 0 20px;
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 18px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
   }
-  .logo { color: var(--accent); font-size: 15px; font-weight: 700; letter-spacing: .04em; }
-  .logo span { color: var(--accent2); }
-  .badge { font-size: 10px; background: var(--accent); color: #fff; padding: 2px 6px; border-radius: 3px; }
-  .header-right { margin-left: auto; display: flex; gap: 12px; align-items: center; }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-  .lang-toggle { display: flex; gap: 4px; }
+  .logo { color: var(--accent-h); font-size: 15px; font-weight: 700; letter-spacing: .05em; }
+  .logo span { color: var(--accent2-h); }
+  .badge {
+    font-size: 10px; background: var(--accent); color: #fff;
+    padding: 2px 6px; border-radius: 3px; letter-spacing: .05em;
+  }
+  .header-meta { font-size: 10px; color: var(--muted); letter-spacing: .03em; }
+  .header-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  .agent-count-badge {
+    font-size: 10px; color: var(--text2); padding: 2px 8px;
+    border: 1px solid var(--border2); border-radius: 10px;
+  }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); transition: .4s; }
+  .lang-toggle { display: flex; gap: 3px; }
   .lang-btn {
     font-size: 10px; padding: 3px 7px; border-radius: 3px; cursor: pointer; border: none;
-    background: transparent; color: var(--muted); font-family: var(--font); transition: .15s;
+    background: transparent; color: var(--muted); font-family: var(--font); transition: .12s;
   }
-  .lang-btn.active { background: var(--border); color: var(--text); }
+  .lang-btn.active { background: var(--border2); color: var(--text); }
 
+  /* ── Sidebar ── */
   aside {
     background: var(--surface);
     border-right: 1px solid var(--border);
-    padding: 16px 12px;
+    padding: 14px 10px;
     overflow-y: auto;
   }
-  .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 16px 0 8px; }
+  .section-label {
+    font-size: 9px; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--muted); margin: 14px 0 6px 2px;
+  }
   .section-label:first-child { margin-top: 0; }
+
   .agent-card {
-    padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
-    margin-bottom: 6px; cursor: pointer; transition: border-color .15s, background .15s;
+    padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px;
+    margin-bottom: 5px; cursor: pointer; transition: border-color .15s, background .15s;
   }
-  .agent-card:hover, .agent-card.active { border-color: var(--accent); background: rgba(99,102,241,.08); }
-  .agent-name { font-weight: 600; font-size: 12px; }
-  .agent-id { color: var(--muted); font-size: 10px; margin-top: 2px; }
-  .agent-ez { font-size: 10px; color: var(--accent2); margin-top: 4px; }
+  .agent-card:hover { border-color: var(--border2); background: rgba(255,255,255,.02); }
+  .agent-card.active { border-color: var(--accent); background: rgba(124,58,237,.08); }
+  .agent-card.martin { border-color: var(--gold); background: var(--gold-dim); }
+  .agent-card.martin:hover, .agent-card.martin.active {
+    border-color: var(--gold); background: rgba(217,119,6,.22);
+  }
+  .agent-name { font-weight: 600; font-size: 11px; display: flex; align-items: center; gap: 6px; }
+  .agent-name .crown { font-size: 11px; }
+  .agent-id { color: var(--muted); font-size: 9px; margin-top: 2px; }
+  .agent-ez { font-size: 9px; color: var(--accent2); margin-top: 3px; }
+  .faction-badge {
+    font-size: 8px; padding: 1px 5px; border-radius: 3px;
+    background: rgba(124,58,237,.2); color: var(--accent-h); margin-top: 3px; display: inline-block;
+  }
+  .faction-badge.gatherers { background: rgba(5,150,105,.15); color: var(--accent2-h); }
 
+  /* ── Main ── */
   main { display: flex; flex-direction: column; overflow: hidden; }
-  .tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 20px; background: var(--surface); }
-  .tab { padding: 12px 16px; font-size: 12px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; transition: .15s; }
-  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-
-  .content { flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 20px; gap: 16px; }
-
-  .chat-area { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-  .msg { max-width: 80%; padding: 10px 14px; border-radius: 8px; line-height: 1.5; font-size: 12px; }
-  .msg.user  { align-self: flex-end; background: var(--accent); color: #fff; border-radius: 8px 8px 2px 8px; }
-  .msg.agent { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-radius: 8px 8px 8px 2px; }
-  .msg .meta { font-size: 10px; color: var(--muted); margin-top: 4px; }
-  .msg.agent .meta { color: var(--accent2); }
-
-  .chat-input-row { display: flex; gap: 8px; }
-  .chat-input-row input {
-    flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text);
-    padding: 10px 14px; border-radius: 6px; font-family: var(--font); font-size: 12px; outline: none;
-    transition: border-color .15s;
+  .tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 16px; background: var(--surface); }
+  .tab {
+    padding: 12px 14px; font-size: 11px; cursor: pointer; color: var(--muted);
+    border-bottom: 2px solid transparent; transition: .12s; white-space: nowrap;
   }
-  .chat-input-row input:focus { border-color: var(--accent); }
+  .tab.active { color: var(--accent-h); border-bottom-color: var(--accent); }
+  .tab:hover:not(.active) { color: var(--text2); }
 
-  button {
-    background: var(--accent); color: #fff; border: none; padding: 10px 18px;
-    border-radius: 6px; cursor: pointer; font-family: var(--font); font-size: 12px; transition: opacity .15s;
-  }
-  button:hover { opacity: .85; }
-  button:disabled { opacity: .4; cursor: default; }
-
-  table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  th { text-align: left; padding: 6px 10px; color: var(--muted); border-bottom: 1px solid var(--border); }
-  td { padding: 6px 10px; border-bottom: 1px solid var(--border); }
-  td.state-completed { color: var(--accent2); }
-  td.state-failed, td.state-timeout { color: var(--warn); }
-  td.state-running { color: var(--accent); }
-  tr { cursor: pointer; transition: background .1s; }
-  tr:hover td { background: rgba(255,255,255,.02); }
-
-  .spacetime-wrap { flex: 1; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
-  .cdc-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; font-size: 11px; }
-  .cdc-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border); }
-  .cdc-row:last-child { border: none; }
-  .cdc-key { color: var(--muted); }
-  .cdc-val { color: var(--accent2); font-weight: 600; }
-
-  .empty { color: var(--muted); text-align: center; padding: 40px; }
-  .view { display: none; flex-direction: column; flex: 1; overflow: hidden; gap: 16px; }
+  .content { flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 18px; gap: 14px; }
+  .view { display: none; flex-direction: column; flex: 1; overflow: hidden; gap: 14px; }
   .view.active { display: flex; }
 
-  .thinking { opacity: .5; animation: pulse 1.2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:.5} 50%{opacity:.9} }
+  /* ── Chat ── */
+  .chat-area { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 9px; padding-right: 4px; }
+  .msg { max-width: 82%; padding: 10px 14px; border-radius: 8px; line-height: 1.55; font-size: 12px; }
+  .msg.user  { align-self: flex-end; background: var(--accent); color: #fff; border-radius: 8px 8px 2px 8px; }
+  .msg.agent { align-self: flex-start; background: var(--surface); border: 1px solid var(--border2); border-radius: 8px 8px 8px 2px; }
+  .msg.system { align-self: center; color: var(--muted); font-size: 10px; font-style: italic; }
+  .msg .meta { font-size: 9px; color: var(--muted); margin-top: 4px; }
+  .msg.agent .meta { color: var(--accent2); }
+  .chat-input-row { display: flex; gap: 8px; }
+
+  /* ── Inputs & Buttons ── */
+  .inp {
+    background: var(--surface); border: 1px solid var(--border2); color: var(--text);
+    padding: 9px 13px; border-radius: 6px; font-family: var(--font); font-size: 12px; outline: none;
+    transition: border-color .15s;
+  }
+  .inp:focus { border-color: var(--accent); }
+  .inp::placeholder { color: var(--muted); }
+  input { flex: 1; }
+  textarea.inp { resize: vertical; min-height: 60px; }
+  select.inp { cursor: pointer; }
+
+  button {
+    background: var(--accent); color: #fff; border: none; padding: 9px 16px;
+    border-radius: 6px; cursor: pointer; font-family: var(--font); font-size: 11px;
+    transition: background .15s, opacity .15s; white-space: nowrap;
+  }
+  button:hover { background: var(--accent-h); }
+  button:disabled { opacity: .35; cursor: default; }
+  .btn-sm { padding: 5px 10px; font-size: 10px; }
+  .btn-secondary { background: var(--surface2); color: var(--text2); border: 1px solid var(--border2); }
+  .btn-secondary:hover { background: var(--border2); color: var(--text); }
+  .btn-warn { background: var(--warn); }
+  .btn-warn:hover { background: #ef4444; }
+
+  /* ── Tables ── */
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { text-align: left; padding: 6px 10px; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 400; }
+  td { padding: 6px 10px; border-bottom: 1px solid var(--border); color: var(--text2); }
+  td.s-completed { color: var(--accent2-h); }
+  td.s-failed, td.s-timeout { color: var(--warn); }
+  td.s-running { color: var(--accent-h); }
+  tr { cursor: pointer; }
+  tr:hover td { background: rgba(255,255,255,.025); color: var(--text); }
+
+  /* ── Spacetime ── */
+  .spacetime-wrap {
+    flex: 1; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  }
+
+  /* ── Status / CDC ── */
+  .cdc-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .cdc-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .cdc-row:last-child { border: none; }
+  .cdc-key { color: var(--text2); font-size: 11px; }
+  .cdc-val { color: var(--accent2); font-weight: 600; font-size: 10px; max-width: 60%; text-align: right; word-break: break-all; }
+
+  /* ── Factions View ── */
+  .factions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; overflow-y: auto; }
+  .faction-card {
+    background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; padding: 14px;
+  }
+  .faction-card.operators { border-color: var(--gold); }
+  .faction-title { font-weight: 700; font-size: 12px; margin-bottom: 6px; }
+  .faction-title.operators { color: var(--gold); }
+  .faction-title.makers { color: var(--accent-h); }
+  .faction-title.auditors { color: #f59e0b; }
+  .faction-title.gatherers { color: var(--accent2-h); }
+  .faction-title.guardians { color: #06b6d4; }
+  .faction-title.scribes { color: #a78bfa; }
+  .faction-desc { font-size: 10px; color: var(--muted); margin-bottom: 8px; line-height: 1.4; }
+  .faction-members { font-size: 10px; color: var(--text2); }
+  .faction-member { padding: 2px 0; }
+
+  /* ── Admin View ── */
+  .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; overflow-y: auto; }
+  .admin-card { background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; padding: 16px; }
+  .admin-title { font-size: 11px; font-weight: 700; color: var(--text2); margin-bottom: 12px; letter-spacing: .04em; text-transform: uppercase; }
+  .form-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+  .form-label { font-size: 10px; color: var(--muted); }
+
+  .pill { display: inline-block; font-size: 9px; padding: 2px 7px; border-radius: 10px; border: 1px solid var(--border2); color: var(--muted); }
+  .pill.allied { border-color: var(--accent2); color: var(--accent2-h); }
+  .pill.adversarial { border-color: var(--warn); color: var(--warn); }
+  .pill.cooperative { border-color: var(--accent); color: var(--accent-h); }
+  .pill.skeptical { border-color: #f59e0b; color: #fbbf24; }
+
+  /* ── Misc ── */
+  .empty { color: var(--muted); text-align: center; padding: 36px; font-size: 11px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .thinking { animation: pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:.45} 50%{opacity:.85} }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 </style>
 </head>
 <body>
 <div class="layout">
 
+  <!-- Header -->
   <header>
     <div class="logo">Logpy<span>Claw</span></div>
     <div class="badge">v3</div>
-    <div style="color:var(--muted);font-size:11px;">CDC-native · Team Protocol · A2A Gateway</div>
+    <div class="header-meta">CDC-native · Factions · A2A Gateway</div>
     <div class="header-right">
-      <span id="agent-count" style="color:var(--muted);font-size:11px;">— agents</span>
+      <span class="agent-count-badge" id="agent-count">— agents</span>
       <div class="lang-toggle">
         <button class="lang-btn active" id="lang-en" onclick="setLocale('en')">EN</button>
         <button class="lang-btn" id="lang-de" onclick="setLocale('de')">DE</button>
       </div>
-      <div class="status-dot" id="status-dot"></div>
+      <div class="status-dot" id="status-dot" title="API status"></div>
     </div>
   </header>
 
+  <!-- Sidebar -->
   <aside>
-    <div class="section-label" data-i18n="sidebar.agents">Agents</div>
     <div id="agent-list"></div>
-    <div class="section-label" data-i18n="sidebar.quickstart">Quick Start</div>
-    <div style="color:var(--muted);font-size:11px;line-height:1.6;" data-i18n="sidebar.hint">
+    <div class="section-label" style="margin-top:20px;">Info</div>
+    <div style="font-size:10px;color:var(--muted);line-height:1.7;" data-i18n="sidebar.hint">
       Select an agent, type a message in Chat.
     </div>
   </aside>
 
+  <!-- Main -->
   <main>
     <div class="tabs">
       <div class="tab active" onclick="switchTab('chat')" data-i18n="nav.chat">Chat</div>
       <div class="tab" onclick="switchTab('missions')" data-i18n="nav.missions">Missions</div>
       <div class="tab" onclick="switchTab('spacetime')" data-i18n="nav.spacetime">Spacetime</div>
+      <div class="tab" onclick="switchTab('factions')" data-i18n="nav.factions">Factions</div>
       <div class="tab" onclick="switchTab('status')" data-i18n="nav.status">Status</div>
+      <div class="tab" onclick="switchTab('admin')" data-i18n="nav.admin">Admin</div>
     </div>
 
     <div class="content">
 
-      <!-- Chat -->
+      <!-- ── Chat ── -->
       <div id="view-chat" class="view active">
         <div class="chat-area" id="chat-area">
           <div class="empty" data-i18n="chat.empty">Select an agent and write a message.</div>
         </div>
         <div class="chat-input-row">
-          <input id="chat-input" data-i18n-placeholder="chat.placeholder" placeholder="Message …" onkeydown="if(event.key==='Enter')sendChat()">
+          <input class="inp" id="chat-input" placeholder="Message …" onkeydown="if(event.key==='Enter')sendChat()">
           <button id="send-btn" onclick="sendChat()" data-i18n="chat.send">Send</button>
         </div>
       </div>
 
-      <!-- Missions -->
+      <!-- ── Missions ── -->
       <div id="view-missions" class="view">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span style="color:var(--muted);font-size:11px;" id="missions-count">—</span>
-          <button onclick="loadMissions()" style="padding:6px 12px;font-size:11px;" data-i18n="missions.refresh">Refresh</button>
+        <div class="row">
+          <span style="color:var(--muted);font-size:10px;" id="missions-count">—</span>
+          <button class="btn-sm btn-secondary" onclick="loadMissions()" data-i18n="missions.refresh">Refresh</button>
         </div>
         <div style="overflow:auto;flex:1;">
           <table>
@@ -177,22 +273,82 @@
         </div>
       </div>
 
-      <!-- Spacetime -->
+      <!-- ── Spacetime ── -->
       <div id="view-spacetime" class="view">
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input id="spacetime-mid" data-i18n-placeholder="spacetime.placeholder" placeholder="Mission ID …"
-            style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-family:var(--font);font-size:12px;outline:none;flex:1;">
-          <button onclick="loadSpacetime()" style="padding:8px 14px;font-size:12px;" data-i18n="spacetime.load">Load</button>
+        <div class="row">
+          <input class="inp" id="spacetime-mid" placeholder="Mission ID …" style="flex:1;">
+          <button class="btn-sm" onclick="loadSpacetime()" data-i18n="spacetime.load">Load</button>
         </div>
         <div class="spacetime-wrap" id="spacetime-wrap">
           <div class="empty" data-i18n="spacetime.empty">Enter a Mission ID and load.</div>
         </div>
       </div>
 
-      <!-- Status -->
+      <!-- ── Factions ── -->
+      <div id="view-factions" class="view">
+        <div class="row">
+          <span style="color:var(--muted);font-size:10px;flex:1;" data-i18n="factions.title">Faction Registry — Trust · Stance · CDC Tempo</span>
+          <button class="btn-sm btn-secondary" onclick="loadFactions()">↻</button>
+        </div>
+        <div class="factions-grid" id="factions-grid">
+          <div class="empty" data-i18n="factions.loading">Loading factions…</div>
+        </div>
+      </div>
+
+      <!-- ── Status ── -->
       <div id="view-status" class="view">
         <div class="cdc-panel" id="status-panel">
           <div class="empty" data-i18n="status.loading">Loading…</div>
+        </div>
+      </div>
+
+      <!-- ── Admin ── -->
+      <div id="view-admin" class="view">
+        <div class="admin-grid">
+
+          <!-- Spawn Agent -->
+          <div class="admin-card">
+            <div class="admin-title" data-i18n="admin.spawn.title">Spawn Agent</div>
+            <div class="form-row">
+              <label class="form-label" data-i18n="admin.spawn.name">Name</label>
+              <input class="inp" id="spawn-name" placeholder="e.g. Bob">
+            </div>
+            <div class="form-row">
+              <label class="form-label" data-i18n="admin.spawn.model">Model</label>
+              <input class="inp" id="spawn-model" value="gemma4:e4b">
+            </div>
+            <div class="form-row">
+              <label class="form-label" data-i18n="admin.spawn.faction">Faction</label>
+              <select class="inp" id="spawn-faction">
+                <option value="">— none —</option>
+                <option value="operators">operators</option>
+                <option value="makers">makers</option>
+                <option value="auditors">auditors</option>
+                <option value="gatherers">gatherers</option>
+                <option value="guardians">guardians</option>
+                <option value="scribes">scribes</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="form-label" data-i18n="admin.spawn.soul">Soul / System Prompt</label>
+              <textarea class="inp" id="spawn-soul" placeholder="Optional system prompt…"></textarea>
+            </div>
+            <button onclick="spawnAgent()" id="spawn-btn" data-i18n="admin.spawn.btn">Spawn</button>
+            <div id="spawn-result" style="margin-top:8px;font-size:10px;color:var(--accent2);"></div>
+          </div>
+
+          <!-- Martin Config -->
+          <div class="admin-card">
+            <div class="admin-title" data-i18n="admin.martin.title">Martin — Ops Config</div>
+            <div id="admin-martin-info" style="font-size:10px;color:var(--text2);line-height:1.8;"></div>
+          </div>
+
+          <!-- System Status -->
+          <div class="admin-card">
+            <div class="admin-title" data-i18n="admin.system.title">System</div>
+            <div id="admin-system-info" style="font-size:10px;color:var(--text2);line-height:1.8;"></div>
+          </div>
+
         </div>
       </div>
 
@@ -201,41 +357,55 @@
 </div>
 
 <script>
-// ── i18n ──────────────────────────────────────────────────────────────────────
+// ── i18n ─────────────────────────────────────────────────────────────────────
 const I18N = {
   en: {
-    "nav.chat": "Chat", "nav.missions": "Missions", "nav.spacetime": "Spacetime", "nav.status": "Status",
-    "sidebar.agents": "Agents", "sidebar.quickstart": "Quick Start",
-    "sidebar.hint": "Select an agent, type a message in Chat.",
-    "chat.empty": "Select an agent and write a message.",
-    "chat.placeholder": "Message …", "chat.send": "Send",
-    "chat.select_agent": "Please select an agent first.",
-    "missions.refresh": "Refresh", "missions.col.id": "ID",
-    "missions.col.title": "Title", "missions.col.state": "State",
-    "missions.count": "{n} missions",
-    "spacetime.placeholder": "Mission ID …", "spacetime.load": "Load",
-    "spacetime.empty": "Enter a Mission ID and load.",
-    "spacetime.not_found": "Mission not found.",
-    "spacetime.no_data": "No data.",
-    "spacetime.drift_warning": "⚠ {n} causal drift edge(s) detected (red dashed)",
-    "status.loading": "Loading…",
+    "nav.chat":"Chat","nav.missions":"Missions","nav.spacetime":"Spacetime",
+    "nav.factions":"Factions","nav.status":"Status","nav.admin":"Admin",
+    "sidebar.hint":"Select an agent, type a message in Chat.",
+    "chat.empty":"Select an agent and write a message.",
+    "chat.placeholder":"Message …","chat.send":"Send",
+    "chat.select_agent":"Please select an agent first.",
+    "missions.refresh":"Refresh","missions.col.id":"ID",
+    "missions.col.title":"Title","missions.col.state":"State",
+    "missions.count":"{n} missions",
+    "spacetime.placeholder":"Mission ID …","spacetime.load":"Load",
+    "spacetime.empty":"Enter a Mission ID and load.",
+    "spacetime.not_found":"Mission not found.","spacetime.no_data":"No data.",
+    "spacetime.drift_warning":"⚠ {n} causal drift edge(s) — red dashed",
+    "factions.title":"Faction Registry — Trust · Stance · CDC Tempo",
+    "factions.loading":"Loading factions…","factions.members":"Members:",
+    "factions.no_members":"(no members)","factions.trust":"trust",
+    "status.loading":"Loading…",
+    "admin.spawn.title":"Spawn Agent","admin.spawn.name":"Name",
+    "admin.spawn.model":"Model","admin.spawn.faction":"Faction",
+    "admin.spawn.soul":"Soul / System Prompt","admin.spawn.btn":"Spawn",
+    "admin.martin.title":"Martin — Ops Config",
+    "admin.system.title":"System",
   },
   de: {
-    "nav.chat": "Chat", "nav.missions": "Missionen", "nav.spacetime": "Raumzeit", "nav.status": "Status",
-    "sidebar.agents": "Agenten", "sidebar.quickstart": "Schnellstart",
-    "sidebar.hint": "Wähle einen Agenten und schreibe eine Nachricht.",
-    "chat.empty": "Wähle einen Agenten und schreibe eine Nachricht.",
-    "chat.placeholder": "Nachricht …", "chat.send": "Senden",
-    "chat.select_agent": "Bitte zuerst einen Agenten auswählen.",
-    "missions.refresh": "Aktualisieren", "missions.col.id": "ID",
-    "missions.col.title": "Titel", "missions.col.state": "Status",
-    "missions.count": "{n} Missionen",
-    "spacetime.placeholder": "Mission-ID …", "spacetime.load": "Laden",
-    "spacetime.empty": "Mission-ID eingeben und laden.",
-    "spacetime.not_found": "Mission nicht gefunden.",
-    "spacetime.no_data": "Keine Daten.",
-    "spacetime.drift_warning": "⚠ {n} Kausaler-Drift-Kante(n) erkannt (rot gestrichelt)",
-    "status.loading": "Lade …",
+    "nav.chat":"Chat","nav.missions":"Missionen","nav.spacetime":"Raumzeit",
+    "nav.factions":"Fraktionen","nav.status":"Status","nav.admin":"Admin",
+    "sidebar.hint":"Wähle einen Agenten und schreibe eine Nachricht.",
+    "chat.empty":"Wähle einen Agenten und schreibe eine Nachricht.",
+    "chat.placeholder":"Nachricht …","chat.send":"Senden",
+    "chat.select_agent":"Bitte zuerst einen Agenten auswählen.",
+    "missions.refresh":"Aktualisieren","missions.col.id":"ID",
+    "missions.col.title":"Titel","missions.col.state":"Status",
+    "missions.count":"{n} Missionen",
+    "spacetime.placeholder":"Mission-ID …","spacetime.load":"Laden",
+    "spacetime.empty":"Mission-ID eingeben und laden.",
+    "spacetime.not_found":"Mission nicht gefunden.","spacetime.no_data":"Keine Daten.",
+    "spacetime.drift_warning":"⚠ {n} kausale Drift-Kante(n) — rot gestrichelt",
+    "factions.title":"Fraktions-Registry — Vertrauen · Haltung · CDC-Tempo",
+    "factions.loading":"Lade Fraktionen …","factions.members":"Mitglieder:",
+    "factions.no_members":"(keine Mitglieder)","factions.trust":"Vertrauen",
+    "status.loading":"Lade …",
+    "admin.spawn.title":"Agent spawnen","admin.spawn.name":"Name",
+    "admin.spawn.model":"Modell","admin.spawn.faction":"Fraktion",
+    "admin.spawn.soul":"Soul / System-Prompt","admin.spawn.btn":"Spawnen",
+    "admin.martin.title":"Martin — Ops-Konfiguration",
+    "admin.system.title":"System",
   },
 };
 
@@ -246,25 +416,16 @@ function t(key, vars = {}) {
   Object.entries(vars).forEach(([k, v]) => { s = s.replace(`{${k}}`, v); });
   return s;
 }
-
 function applyI18n() {
-  document.querySelectorAll('[data-i18n]').forEach(el => {
-    el.textContent = t(el.dataset.i18n);
-  });
-  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-    el.placeholder = t(el.dataset.i18nPlaceholder);
-  });
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
   document.getElementById('lang-en').classList.toggle('active', locale === 'en');
   document.getElementById('lang-de').classList.toggle('active', locale === 'de');
   document.documentElement.lang = locale;
 }
+function setLocale(l) { locale = l; applyI18n(); }
 
-function setLocale(l) {
-  locale = l;
-  applyI18n();
-}
-
-// ── State ─────────────────────────────────────────────────────────────────────
+// ── State ────────────────────────────────────────────────────────────────────
 const API = '';
 let selectedAgent = null;
 
@@ -275,43 +436,47 @@ async function boot() {
   loadStatus();
 }
 
-// ── Agents ────────────────────────────────────────────────────────────────────
+// ── Agents ───────────────────────────────────────────────────────────────────
 async function loadAgents() {
   try {
     const res = await fetch(`${API}/api/agents`);
     const agents = await res.json();
     const dot = document.getElementById('status-dot');
     dot.style.background = 'var(--accent2)';
-    dot.style.boxShadow = '0 0 6px var(--accent2)';
+    dot.style.boxShadow = '0 0 5px var(--accent2)';
     document.getElementById('agent-count').textContent = `${agents.length} agents`;
 
     const list = document.getElementById('agent-list');
     list.innerHTML = '';
 
     const groups = {};
-    agents.forEach(a => {
-      const g = a.faction || 'agents';
-      (groups[g] = groups[g] || []).push(a);
-    });
-
-    const order = ['operators', 'makers', 'auditors', 'gatherers', 'guardians', 'scribes', 'agents'];
+    agents.forEach(a => { const g = a.faction || 'agents'; (groups[g] = groups[g] || []).push(a); });
+    const order = ['operators','makers','auditors','gatherers','guardians','scribes','agents'];
     const sorted = [...new Set([...order, ...Object.keys(groups)])].filter(g => groups[g]);
 
     sorted.forEach(group => {
       const label = document.createElement('div');
       label.className = 'section-label';
-      label.textContent = group.charAt(0).toUpperCase() + group.slice(1);
+      label.textContent = group.toUpperCase();
       list.appendChild(label);
 
       groups[group].forEach(a => {
+        const isMartin = a.agent_id === 'agent:martin';
+        const isSkill  = a.agent_id?.startsWith('skill:');
         const ez = a.clock?.vector ? Object.values(a.clock.vector).reduce((s,v)=>s+v,0) : 0;
         const card = document.createElement('div');
-        card.className = 'agent-card' + (selectedAgent === a.agent_id ? ' active' : '');
+        let cls = 'agent-card';
+        if (isMartin) cls += ' martin';
+        if (selectedAgent === a.agent_id) cls += ' active';
+        card.className = cls;
         card.dataset.id = a.agent_id;
+        const crown = isMartin ? '<span class="crown">👑</span>' : '';
+        const badge = a.faction ? `<span class="faction-badge ${a.faction}">${a.faction}</span>` : '';
         card.innerHTML = `
-          <div class="agent-name">${esc(a.name)}</div>
+          <div class="agent-name">${crown}${esc(a.name)}</div>
           <div class="agent-id">${esc(a.agent_id)}</div>
           <div class="agent-ez">ez=${ez} · ops=${a.op_count || 0}</div>
+          ${badge}
         `;
         card.addEventListener('click', () => selectAgent(a.agent_id, a.name, card));
         list.appendChild(card);
@@ -319,6 +484,7 @@ async function loadAgents() {
     });
   } catch {
     document.getElementById('status-dot').style.background = 'var(--warn)';
+    document.getElementById('status-dot').style.boxShadow = '0 0 5px var(--warn)';
   }
 }
 
@@ -326,10 +492,13 @@ function selectAgent(id, name, card) {
   selectedAgent = id;
   document.querySelectorAll('.agent-card').forEach(c => c.classList.remove('active'));
   card.classList.add('active');
-  document.getElementById('chat-input').placeholder = `${t('chat.placeholder').replace('…', '')}${name} …`;
+  const inp = document.getElementById('chat-input');
+  inp.placeholder = `→ ${name}: …`;
+  inp.focus();
+  switchTab('chat');
 }
 
-// ── Chat ──────────────────────────────────────────────────────────────────────
+// ── Chat ─────────────────────────────────────────────────────────────────────
 async function sendChat() {
   const input = document.getElementById('chat-input');
   const btn = document.getElementById('send-btn');
@@ -346,31 +515,20 @@ async function sendChat() {
 
   const es = new EventSource(`${API}/api/chat/stream?agent_id=${encodeURIComponent(selectedAgent)}&message=${encodeURIComponent(msg)}`);
   es.onmessage = (e) => {
-    const data = JSON.parse(e.data);
-
-    if (data.event === 'message' && data.type === 'response') {
-      const result = data.payload?.result ?? '';
-      thinkingEl.classList.remove('thinking');
-      thinkingEl.querySelector('.text').textContent = result;
-      if (data.clock) {
-        thinkingEl.querySelector('.meta').textContent = clockSummary(data.clock);
+    try {
+      const data = JSON.parse(e.data);
+      if (data.event === 'message' && data.type === 'response') {
+        const result = data.payload?.result ?? '';
+        thinkingEl.classList.remove('thinking');
+        thinkingEl.querySelector('.text').textContent = result;
+        if (data.clock) thinkingEl.querySelector('.meta').textContent = clockSummary(data.clock);
       }
-    }
-
-    if (data.event === 'task_completed' || data.event === 'task_failed' || data.event === 'task_timeout') {
-      es.close();
-      btn.disabled = false;
-      thinkingEl.classList.remove('thinking');
-      loadAgents();
-      loadMissions();
-    }
-
-    if (data.event === 'timeout') {
-      thinkingEl.querySelector('.text').textContent = '[timeout]';
-      thinkingEl.classList.remove('thinking');
-      es.close();
-      btn.disabled = false;
-    }
+      if (['task_completed','task_failed','task_timeout'].includes(data.event)) {
+        es.close(); btn.disabled = false;
+        thinkingEl.classList.remove('thinking');
+        loadAgents();
+      }
+    } catch {}
   };
   es.onerror = () => { es.close(); btn.disabled = false; thinkingEl.classList.remove('thinking'); };
 }
@@ -388,42 +546,39 @@ function appendMsg(type, text, agentId = '') {
 
 function clockSummary(clock) {
   if (!clock?.vector) return '';
-  return Object.entries(clock.vector).map(([k, v]) => `${k.replace('agent:','')}:ez=${v}`).join(' · ');
+  return Object.entries(clock.vector).map(([k,v])=>`${k.replace('agent:','')}:${v}`).join(' · ');
 }
 
-// ── Missions ──────────────────────────────────────────────────────────────────
+// ── Missions ─────────────────────────────────────────────────────────────────
 async function loadMissions() {
-  const res = await fetch(`${API}/api/missions`);
-  const missions = await res.json();
-  document.getElementById('missions-count').textContent = t('missions.count', {n: missions.length});
-  const tbody = document.getElementById('missions-tbody');
-  tbody.innerHTML = '';
-  missions.slice().reverse().forEach(m => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td style="font-size:10px;color:var(--muted)">${esc(m.mission_id)}</td>
-      <td>${esc(m.title || '')}</td>
-      <td class="state-${m.state}">${m.state}</td>
-    `;
-    tr.addEventListener('click', () => {
-      document.getElementById('spacetime-mid').value = m.mission_id;
-      switchTab('spacetime');
-      loadSpacetime();
+  try {
+    const ms = await (await fetch(`${API}/api/missions`)).json();
+    document.getElementById('missions-count').textContent = t('missions.count', {n: ms.length});
+    const tbody = document.getElementById('missions-tbody');
+    tbody.innerHTML = '';
+    ms.slice().reverse().forEach(m => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="font-size:9px;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis">${esc(m.mission_id)}</td>
+        <td>${esc(m.title||'')}</td>
+        <td class="s-${m.state}">${m.state}</td>
+      `;
+      tr.addEventListener('click', () => {
+        document.getElementById('spacetime-mid').value = m.mission_id;
+        switchTab('spacetime'); loadSpacetime();
+      });
+      tbody.appendChild(tr);
     });
-    tbody.appendChild(tr);
-  });
+  } catch {}
 }
 
-// ── Spacetime ─────────────────────────────────────────────────────────────────
+// ── Spacetime ────────────────────────────────────────────────────────────────
 async function loadSpacetime() {
   const mid = document.getElementById('spacetime-mid').value.trim();
   if (!mid) return;
   try {
     const res = await fetch(`${API}/api/missions/${mid}/spacetime`);
-    if (!res.ok) {
-      document.getElementById('spacetime-wrap').innerHTML = `<div class="empty">${t('spacetime.not_found')}</div>`;
-      return;
-    }
+    if (!res.ok) { document.getElementById('spacetime-wrap').innerHTML = `<div class="empty">${t('spacetime.not_found')}</div>`; return; }
     renderSpacetime(await res.json());
   } catch(e) {
     document.getElementById('spacetime-wrap').innerHTML = `<div class="empty">${esc(e.message)}</div>`;
@@ -432,103 +587,154 @@ async function loadSpacetime() {
 
 function renderSpacetime(data) {
   const wrap = document.getElementById('spacetime-wrap');
-  const agents = data.agents || [];
-  const nodes = data.nodes || [];
-  const edges = data.edges || [];
-
+  const agents = data.agents || [], nodes = data.nodes || [], edges = data.edges || [];
   if (!agents.length) { wrap.innerHTML = `<div class="empty">${t('spacetime.no_data')}</div>`; return; }
-
-  const W = Math.max(600, agents.length * 180);
-  const H = 400;
-  const PAD = {top:50, bottom:30, left:40, right:40};
-  const PLOT_W = W - PAD.left - PAD.right;
-  const PLOT_H = H - PAD.top - PAD.bottom;
-  const COL_W = PLOT_W / Math.max(agents.length, 1);
-  const agentX = {};
-  agents.forEach((a, i) => { agentX[a] = PAD.left + i * COL_W + COL_W / 2; });
-  const maxEZ = Math.max(1, ...nodes.map(n => n.eigenzeit || 0));
-  const ezY = ez => PAD.top + PLOT_H * (1 - ez / maxEZ);
-  const COLORS = ['#6366f1','#10b981','#f59e0b','#ec4899','#06b6d4','#84cc16'];
-  const agentColor = {};
-  agents.forEach((a, i) => { agentColor[a] = COLORS[i % COLORS.length]; });
-  const MSG_COLOR = {request:'#6366f1', response:'#10b981', error:'#ef4444', heartbeat:'#f59e0b', cancel:'#f87171'};
-
-  let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+  const W=Math.max(600,agents.length*180), H=420;
+  const P={top:52,bottom:32,left:42,right:42};
+  const PW=W-P.left-P.right, PH=H-P.top-P.bottom;
+  const CW=PW/Math.max(agents.length,1);
+  const ax={};
+  agents.forEach((a,i)=>{ax[a]=P.left+i*CW+CW/2;});
+  const maxEZ=Math.max(1,...nodes.map(n=>n.eigenzeit||0));
+  const ezy=ez=>P.top+PH*(1-ez/maxEZ);
+  const COLS=['#7c3aed','#059669','#d97706','#ec4899','#06b6d4','#84cc16'];
+  const ac={};
+  agents.forEach((a,i)=>{ac[a]=COLS[i%COLS.length];});
+  const MC={request:'#7c3aed',response:'#059669',error:'#dc2626',heartbeat:'#d97706'};
+  let svg=`<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <marker id="arr-ord" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#a78bfa"/></marker>
-    <marker id="arr-drift" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#ef4444"/></marker>
+    <marker id="ao" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#a78bfa"/></marker>
+    <marker id="ad" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#dc2626"/></marker>
     <filter id="glow"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   </defs>
-  <rect width="${W}" height="${H}" fill="#1a1d27" rx="8"/>`;
-
-  for (let i = 0; i <= 4; i++) {
-    const y = PAD.top + (PLOT_H * i / 4);
-    svg += `<line x1="${PAD.left}" y1="${y}" x2="${W-PAD.right}" y2="${y}" stroke="#2a2d3a"/>`;
-  }
-
-  agents.forEach(a => {
-    const x = agentX[a]; const col = agentColor[a];
-    const label = a.replace(/^(agent:|ext:|a2a:)/, '');
-    svg += `<line x1="${x}" y1="${PAD.top}" x2="${x}" y2="${H-PAD.bottom}" stroke="${col}" stroke-opacity=".3"/>`;
-    svg += `<rect x="${x-30}" y="${PAD.top-28}" width="60" height="20" rx="4" fill="${col}" fill-opacity=".15" stroke="${col}" stroke-opacity=".4"/>`;
-    svg += `<text x="${x}" y="${PAD.top-14}" text-anchor="middle" fill="${col}" font-size="11" font-family="monospace">${label}</text>`;
+  <rect width="${W}" height="${H}" fill="${getComputedStyle(document.documentElement).getPropertyValue('--surface').trim()||'#0f1623'}" rx="8"/>`;
+  for(let i=0;i<=4;i++){const y=P.top+PH*i/4;svg+=`<line x1="${P.left}" y1="${y}" x2="${W-P.right}" y2="${y}" stroke="#1e2d45"/>`;}
+  agents.forEach(a=>{const x=ax[a],c=ac[a],l=a.replace(/^(agent:|ext:|a2a:|skill:)/,'');
+    svg+=`<line x1="${x}" y1="${P.top}" x2="${x}" y2="${H-P.bottom}" stroke="${c}" stroke-opacity=".25"/>`;
+    svg+=`<rect x="${x-32}" y="${P.top-26}" width="64" height="18" rx="4" fill="${c}" fill-opacity=".12" stroke="${c}" stroke-opacity=".35"/>`;
+    svg+=`<text x="${x}" y="${P.top-12}" text-anchor="middle" fill="${c}" font-size="10" font-family="monospace">${l}</text>`;
   });
-
-  edges.forEach(e => {
-    const x1 = agentX[e.from_agent], x2 = agentX[e.to_agent];
-    const y1 = ezY(e.from_ez||0), y2 = ezY(e.to_ez||0);
-    if (!x1 || !x2) return;
-    const isDrift = e.relation?.includes('drift');
-    const col = isDrift ? '#ef4444' : '#a78bfa';
-    const cx = (x1+x2)/2;
-    svg += `<path d="M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}" stroke="${col}" stroke-width="${isDrift?2:1.2}" fill="none" ${isDrift?'stroke-dasharray="5,4"':''} marker-end="url(#${isDrift?'arr-drift':'arr-ord'})" opacity=".8"/>`;
+  edges.forEach(e=>{const x1=ax[e.from_agent],x2=ax[e.to_agent],y1=ezy(e.from_ez||0),y2=ezy(e.to_ez||0);
+    if(!x1||!x2)return;const dr=e.relation?.includes('drift');const c=dr?'#dc2626':'#a78bfa';
+    const cx=(x1+x2)/2;
+    svg+=`<path d="M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}" stroke="${c}" stroke-width="${dr?1.8:1.2}" fill="none" ${dr?'stroke-dasharray="5,4"':''} marker-end="url(#${dr?'ad':'ao'})" opacity=".75"/>`;
   });
-
-  nodes.forEach(n => {
-    const x = agentX[n.agent]; if (!x) return;
-    const y = ezY(n.eigenzeit||0);
-    const col = MSG_COLOR[n.type] || '#6366f1';
-    svg += `<circle cx="${x}" cy="${y}" r="5" fill="${col}" filter="url(#glow)" opacity=".9"/>`;
+  nodes.forEach(n=>{const x=ax[n.agent];if(!x)return;const y=ezy(n.eigenzeit||0);const c=MC[n.type]||'#7c3aed';
+    svg+=`<circle cx="${x}" cy="${y}" r="5" fill="${c}" filter="url(#glow)" opacity=".88"/>`;
   });
+  for(let i=0;i<=4;i++){const ez=Math.round(maxEZ*i/4);svg+=`<text x="${P.left-4}" y="${ezy(ez)+4}" text-anchor="end" fill="#4a5e7a" font-size="9" font-family="monospace">${ez}</text>`;}
+  svg+=`</svg>`;wrap.innerHTML=svg;
+  if(data.drift_segments?.length){const h=document.createElement('div');h.style.cssText='padding:6px 14px;font-size:10px;color:var(--warn);border-top:1px solid var(--border)';h.textContent=t('spacetime.drift_warning',{n:data.drift_segments.length});wrap.appendChild(h);}
+}
 
-  for (let i = 0; i <= 4; i++) {
-    const ez = Math.round(maxEZ * i / 4);
-    svg += `<text x="${PAD.left-4}" y="${ezY(ez)+4}" text-anchor="end" fill="#64748b" font-size="9" font-family="monospace">${ez}</text>`;
-  }
-
-  svg += `</svg>`;
-  wrap.innerHTML = svg;
-
-  if (data.drift_segments?.length) {
-    const hint = document.createElement('div');
-    hint.style.cssText = 'padding:8px 14px;font-size:11px;color:#ef4444;border-top:1px solid var(--border)';
-    hint.textContent = t('spacetime.drift_warning', {n: data.drift_segments.length});
-    wrap.appendChild(hint);
+// ── Factions ─────────────────────────────────────────────────────────────────
+async function loadFactions() {
+  try {
+    const factions = await (await fetch(`${API}/api/factions`)).json();
+    const grid = document.getElementById('factions-grid');
+    grid.innerHTML = '';
+    factions.forEach(f => {
+      const card = document.createElement('div');
+      card.className = `faction-card ${f.id}`;
+      const members = [...(f.members||[])].map(m=>
+        `<div class="faction-member">· ${esc(m)}</div>`
+      ).join('') || `<div class="faction-member" style="color:var(--muted)">${t('factions.no_members')}</div>`;
+      card.innerHTML = `
+        <div class="faction-title ${f.id}">${esc(f.label||f.id)}</div>
+        <div class="faction-desc">${esc(f.charter?.mission_lens || '')}</div>
+        <div class="faction-members">
+          <span style="color:var(--muted);font-size:9px;">${t('factions.members')}</span>
+          ${members}
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  } catch(e) {
+    document.getElementById('factions-grid').innerHTML = `<div class="empty">${esc(e.message)}</div>`;
   }
 }
 
-// ── Status ────────────────────────────────────────────────────────────────────
+// ── Status ───────────────────────────────────────────────────────────────────
 async function loadStatus() {
   try {
     const data = await (await fetch(`${API}/api/status`)).json();
     const panel = document.getElementById('status-panel');
-    panel.innerHTML = data.agents.map(a =>
-      `<div class="cdc-row"><span class="cdc-key">${esc(a.agent_id)}</span><span class="cdc-val">ops=${a.op_count} V=${JSON.stringify(a.clock?.vector||{})}</span></div>`
-    ).join('') || `<div class="empty">${t('status.loading')}</div>`;
+    if (!data.agents?.length) { panel.innerHTML = `<div class="empty">${t('status.loading')}</div>`; return; }
+    panel.innerHTML = data.agents.map(a=>{
+      const vec = JSON.stringify(a.clock?.vector||{});
+      return `<div class="cdc-row"><span class="cdc-key">${esc(a.agent_id)}</span><span class="cdc-val">ops=${a.op_count} · V=${esc(vec)}</span></div>`;
+    }).join('');
   } catch {}
 }
 
-// ── Tabs ──────────────────────────────────────────────────────────────────────
-function switchTab(name) {
-  const names = ['chat','missions','spacetime','status'];
-  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', names[i] === name));
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.getElementById(`view-${name}`).classList.add('active');
-  if (name === 'missions') loadMissions();
-  if (name === 'status') loadStatus();
+// ── Admin ────────────────────────────────────────────────────────────────────
+async function loadAdmin() {
+  try {
+    const status = await (await fetch(`${API}/api/status`)).json();
+    const martin = status.agents?.find(a => a.agent_id === 'agent:martin');
+    const info = document.getElementById('admin-martin-info');
+    if (martin) {
+      const qc = martin.qc || {};
+      info.innerHTML = `
+        <div>enabled: <b style="color:var(--accent2)">${qc.enabled ?? '—'}</b></div>
+        <div>min_score: <b style="color:var(--accent-h)">${qc.min_score ?? '—'}</b></div>
+        <div>max_retries: <b style="color:var(--accent-h)">${qc.max_retries ?? '—'}</b></div>
+        <div>auditor: <b style="color:var(--muted)">${qc.auditor_id || '(none)'}</b></div>
+        <div style="margin-top:6px;">ops: <b>${martin.op_count}</b></div>
+        <div>faction: <span class="faction-badge operators">operators</span></div>
+      `;
+    } else {
+      info.textContent = 'Martin not registered.';
+    }
+    const sysEl = document.getElementById('admin-system-info');
+    sysEl.innerHTML = `
+      <div>agents: <b>${status.agents?.length ?? 0}</b></div>
+      <div>missions: <b>${status.missions ?? 0}</b></div>
+    `;
+  } catch {}
 }
 
-// ── Util ──────────────────────────────────────────────────────────────────────
+async function spawnAgent() {
+  const btn = document.getElementById('spawn-btn');
+  const res = document.getElementById('spawn-result');
+  const name = document.getElementById('spawn-name').value.trim();
+  const model = document.getElementById('spawn-model').value.trim();
+  const faction = document.getElementById('spawn-faction').value;
+  const soul = document.getElementById('spawn-soul').value.trim();
+  if (!name) { res.style.color='var(--warn)'; res.textContent='Name is required.'; return; }
+  btn.disabled = true; res.textContent = '…';
+  try {
+    const r = await fetch(`${API}/api/agents/spawn`, {
+      method: 'POST',
+      headers: {'content-type':'application/json'},
+      body: JSON.stringify({name, model, faction, soul}),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || r.statusText);
+    res.style.color = 'var(--accent2)';
+    res.textContent = `✓ Spawned ${data.agent_id}`;
+    document.getElementById('spawn-name').value = '';
+    await loadAgents();
+  } catch(e) {
+    res.style.color = 'var(--warn)';
+    res.textContent = `✗ ${e.message}`;
+  } finally { btn.disabled = false; }
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  const names = ['chat','missions','spacetime','factions','status','admin'];
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i]===name));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(`view-${name}`).classList.add('active');
+  if (name==='missions') loadMissions();
+  if (name==='spacetime') {}
+  if (name==='factions') loadFactions();
+  if (name==='status') loadStatus();
+  if (name==='admin') { loadAdmin(); }
+}
+
+// ── Util ─────────────────────────────────────────────────────────────────────
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 boot();
