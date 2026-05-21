@@ -287,18 +287,35 @@ async function loadAgents() {
 
     const list = document.getElementById('agent-list');
     list.innerHTML = '';
+
+    const groups = {};
     agents.forEach(a => {
-      const ez = a.clock?.vector ? Object.values(a.clock.vector).reduce((s,v)=>s+v,0) : 0;
-      const card = document.createElement('div');
-      card.className = 'agent-card' + (selectedAgent === a.agent_id ? ' active' : '');
-      card.dataset.id = a.agent_id;
-      card.innerHTML = `
-        <div class="agent-name">${esc(a.name)}</div>
-        <div class="agent-id">${esc(a.agent_id)}</div>
-        <div class="agent-ez">ez=${ez} · ops=${a.op_count || 0}</div>
-      `;
-      card.addEventListener('click', () => selectAgent(a.agent_id, a.name, card));
-      list.appendChild(card);
+      const g = a.faction || 'agents';
+      (groups[g] = groups[g] || []).push(a);
+    });
+
+    const order = ['operators', 'makers', 'auditors', 'gatherers', 'guardians', 'scribes', 'agents'];
+    const sorted = [...new Set([...order, ...Object.keys(groups)])].filter(g => groups[g]);
+
+    sorted.forEach(group => {
+      const label = document.createElement('div');
+      label.className = 'section-label';
+      label.textContent = group.charAt(0).toUpperCase() + group.slice(1);
+      list.appendChild(label);
+
+      groups[group].forEach(a => {
+        const ez = a.clock?.vector ? Object.values(a.clock.vector).reduce((s,v)=>s+v,0) : 0;
+        const card = document.createElement('div');
+        card.className = 'agent-card' + (selectedAgent === a.agent_id ? ' active' : '');
+        card.dataset.id = a.agent_id;
+        card.innerHTML = `
+          <div class="agent-name">${esc(a.name)}</div>
+          <div class="agent-id">${esc(a.agent_id)}</div>
+          <div class="agent-ez">ez=${ez} · ops=${a.op_count || 0}</div>
+        `;
+        card.addEventListener('click', () => selectAgent(a.agent_id, a.name, card));
+        list.appendChild(card);
+      });
     });
   } catch {
     document.getElementById('status-dot').style.background = 'var(--warn)';

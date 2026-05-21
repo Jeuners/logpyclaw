@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.agents.a2a_gateway import A2AGatewayAgent
 from backend.agents.conductor import Conductor
 from backend.agents.llm_agent import LLMAgent
+from backend.agents.martin import MartinAgent
 from backend.api.a2a.gateway_router import router as a2a_router
 from backend.api.agents import router as agents_router
 from backend.api.chat import router as chat_router
@@ -49,6 +50,9 @@ def _boot_agents() -> None:
         soul=t("agent.default_soul"),
         ollama_url=ollama_url,
     ))
+
+    martin = MartinAgent(conductor=conductor)
+    conductor.register(martin)
 
     gw = A2AGatewayAgent(
         agent_id="a2a:gateway",
