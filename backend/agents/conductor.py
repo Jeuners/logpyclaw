@@ -130,8 +130,8 @@ class Conductor:
         )
         task.transition(final_state)
         task.result = response.payload.get("result")
+        self.store.record_message(response)  # response message first → JS sees it before task_completed
         self.store.upsert_task(task)
-        self.store.record_message(response)
         return response
 
     # ── Watchdog ──────────────────────────────────────────────────────────────
