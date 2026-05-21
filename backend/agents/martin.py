@@ -100,7 +100,15 @@ class MartinAgent(AsyncAgent):
         # @AgentName Syntax
         m = re.search(r"@([\w:]+)", content)
         if m:
-            return m.group(1) if m.group(1).startswith("agent:") else f"agent:{m.group(1)}"
+            ref = m.group(1)
+            if ref.startswith("skill:") or ref.startswith("agent:"):
+                return ref
+            return f"agent:{ref}"
+
+        # #skill:X Syntax → skill:<id>
+        m = re.search(r"#skill:([\w]+)", content)
+        if m:
+            return f"skill:{m.group(1)}"
 
         # #faction:X Syntax
         m = re.search(r"#faction:([\w]+)", content)

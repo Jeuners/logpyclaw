@@ -7,18 +7,17 @@ Chat-Stream: wird in Phase 5 an Alice angebunden.
 """
 from __future__ import annotations
 
-import os
-
 from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-router = APIRouter(prefix="/ext/dilles/v1")
+from backend.config import get_settings
 
-_TOKEN = os.environ.get("WEB_BRIDGE_TOKEN", "")
+router = APIRouter(prefix="/ext/dilles/v1")
 
 
 def _check_token(token: str | None) -> bool:
-    return not _TOKEN or token == _TOKEN
+    expected = get_settings().web_bridge_token
+    return not expected or token == expected
 
 
 @router.get("/health")
@@ -27,7 +26,7 @@ async def health():
         "ok": True,
         "service": "logpyclaw-web-bridge",
         "version": "3.0.0",
-        "token_configured": bool(_TOKEN),
+        "token_configured": bool(get_settings().web_bridge_token),
     }
 
 

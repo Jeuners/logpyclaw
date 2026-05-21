@@ -3,7 +3,6 @@ backend/app.py — LogpyClaw v3 FastAPI entry point.
 """
 from __future__ import annotations
 
-import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -16,12 +15,15 @@ from backend.agents.a2a_gateway import A2AGatewayAgent
 from backend.agents.conductor import Conductor
 from backend.agents.llm_agent import LLMAgent
 from backend.agents.martin import MartinAgent
+from backend.agents.skill_agent import SkillAgent
 from backend.api.a2a.gateway_router import router as a2a_router
 from backend.api.agents import router as agents_router
 from backend.api.chat import router as chat_router
 from backend.api.missions import router as missions_router
 from backend.api.web_bridge import router as web_bridge_router
+from backend.config import get_settings
 from backend.i18n import locale_from_header
+from backend.skills.websearch import WebSearchSkill
 
 # ── Global instances ──────────────────────────────────────────────────────────
 
@@ -30,8 +32,11 @@ conductor = Conductor()
 
 def _boot_agents() -> None:
     from backend.agents.base import AsyncAgent
+    from backend.agents.martin import QCConfig
     from backend.core.protocol import Message
     from backend.i18n import t
+
+    cfg = get_settings()
 
     class EchoAgent(AsyncAgent):
         async def handle(self, msg: Message) -> Message:
@@ -41,18 +46,25 @@ def _boot_agents() -> None:
 
     conductor.register(EchoAgent("agent:echo", "Echo"))
 
-    ollama_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
     conductor.register(LLMAgent(
         agent_id="agent:alice",
         name="Alice",
-        model=os.environ.get("OLLAMA_MODEL", "gemma4:e4b"),
+        model=cfg.ollama_model,
         provider="ollama",
         soul=t("agent.default_soul"),
-        ollama_url=ollama_url,
+        ollama_url=cfg.ollama_url,
     ))
 
-    martin = MartinAgent(conductor=conductor)
+    qc = QCConfig(
+        enabled=cfg.martin_qc_enabled,
+        min_score=cfg.martin_qc_min_score,
+        max_retries=cfg.martin_qc_max_retries,
+        auditor_id=cfg.martin_qc_auditor_id,
+    )
+    martin = MartinAgent(conductor=conductor, qc=qc)
     conductor.register(martin)
+
+    conductor.register(SkillAgent(WebSearchSkill()))
 
     gw = A2AGatewayAgent(
         agent_id="a2a:gateway",
@@ -106,7 +118,8 @@ async def root():
 
 @app.get("/ping")
 async def ping():
-    return {"pong": True, "version": "3.0.0"}
+    cfg = get_settings()
+    return {"pong": True, "version": "3.0.0", "model": cfg.ollama_model}
 
 
 @app.get("/api/status")

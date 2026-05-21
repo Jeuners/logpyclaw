@@ -6,11 +6,10 @@ Jeder LLM-Call tickt die CDC-Clock mit aktueller Eigenzeit-Rate.
 """
 from __future__ import annotations
 
-import os
-
 import httpx
 
 from backend.agents.base import AsyncAgent
+from backend.config import get_settings
 from backend.core.protocol import Message
 
 
@@ -68,7 +67,7 @@ class LLMAgent(AsyncAgent):
             return r.json()["message"]["content"]
 
     async def _anthropic(self, content: str) -> str:
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        api_key = get_settings().anthropic_api_key
         system = self.soul or "You are a helpful assistant."
         async with httpx.AsyncClient(timeout=120) as client:
             r = await client.post(
@@ -89,7 +88,7 @@ class LLMAgent(AsyncAgent):
             return r.json()["content"][0]["text"]
 
     async def _openai(self, content: str) -> str:
-        api_key = os.environ.get("OPENAI_API_KEY", "")
+        api_key = get_settings().openai_api_key
         messages = []
         if self.soul:
             messages.append({"role": "system", "content": self.soul})
