@@ -10,6 +10,7 @@ Keine optionale Metadata-Ergänzung — CDC ist Pflicht.
   CONCURRENT_DRIFT    — nebenläufig mit Divergenz
   INCONSISTENT        — V und D widersprechen sich (Clock-Korruption)
 """
+
 from __future__ import annotations
 
 import json
@@ -21,10 +22,10 @@ from enum import Enum
 
 
 class CDCRelation(Enum):
-    ORDERED          = "causally_and_temporally_ordered"
-    CAUSAL_DRIFT     = "causally_ordered_temporally_divergent"
+    ORDERED = "causally_and_temporally_ordered"
+    CAUSAL_DRIFT = "causally_ordered_temporally_divergent"
     CONCURRENT_DRIFT = "concurrent_with_divergence"
-    INCONSISTENT     = "inconsistent"
+    INCONSISTENT = "inconsistent"
 
 
 @dataclass
@@ -34,7 +35,8 @@ class CausalDilationClock:
     vector   : logische Kausalordnung (Lamport-style)
     dilation : kumulative Eigenzeit τ pro Agent (Σ op_weights)
     """
-    vector: dict[str, int]   = field(default_factory=dict)
+
+    vector: dict[str, int] = field(default_factory=dict)
     dilation: dict[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:

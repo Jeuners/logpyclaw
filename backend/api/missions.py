@@ -49,35 +49,39 @@ async def get_spacetime(mission_id: str, request: Request):
             agents_seen.append(msg.recipient)
 
         sender_ez = msg.clock.vector.get(msg.sender, 0)
-        nodes.append({
-            "id":        msg.msg_id,
-            "agent":     msg.sender,
-            "eigenzeit": sender_ez,
-            "wall_ts":   msg.timestamp,
-            "type":      msg.type.value,
-            "label":     f"{msg.type.value[:3].upper()} → {msg.recipient}",
-        })
+        nodes.append(
+            {
+                "id": msg.msg_id,
+                "agent": msg.sender,
+                "eigenzeit": sender_ez,
+                "wall_ts": msg.timestamp,
+                "type": msg.type.value,
+                "label": f"{msg.type.value[:3].upper()} → {msg.recipient}",
+            }
+        )
 
     for i in range(len(messages) - 1):
         a = messages[i]
         b = messages[i + 1]
         relation = a.clock.relate_str(b.clock)
-        edges.append({
-            "id":         f"e_{a.msg_id}",
-            "from_agent": a.sender,
-            "to_agent":   b.sender,
-            "from_ez":    a.clock.vector.get(a.sender, 0),
-            "to_ez":      b.clock.vector.get(b.sender, 0),
-            "type":       b.type.value,
-            "relation":   relation,
-            "wall_ts":    b.timestamp,
-        })
+        edges.append(
+            {
+                "id": f"e_{a.msg_id}",
+                "from_agent": a.sender,
+                "to_agent": b.sender,
+                "from_ez": a.clock.vector.get(a.sender, 0),
+                "to_ez": b.clock.vector.get(b.sender, 0),
+                "type": b.type.value,
+                "relation": relation,
+                "wall_ts": b.timestamp,
+            }
+        )
 
     return {
-        "mission_id":    mission_id,
-        "agents":        agents_seen,
-        "nodes":         nodes,
-        "edges":         edges,
+        "mission_id": mission_id,
+        "agents": agents_seen,
+        "nodes": nodes,
+        "edges": edges,
         "drift_segments": [e for e in edges if "drift" in e["relation"]],
         "total_messages": len(messages),
     }

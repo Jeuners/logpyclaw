@@ -1,6 +1,7 @@
 """
 backend/api/factions.py — Faction REST-API.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
@@ -12,7 +13,7 @@ router = APIRouter()
 class StanceRequest(BaseModel):
     source_faction: str
     target_faction: str
-    stance: str   # allied | cooperative | neutral | skeptical | adversarial
+    stance: str  # allied | cooperative | neutral | skeptical | adversarial
 
 
 class OutcomeRequest(BaseModel):
@@ -24,6 +25,7 @@ class OutcomeRequest(BaseModel):
 @router.get("/factions")
 async def list_factions():
     from backend.core.faction_protocol import FactionRegistry
+
     reg = FactionRegistry.get()
     return [f.to_dict() for f in reg.list_factions()]
 
@@ -31,6 +33,7 @@ async def list_factions():
 @router.get("/factions/{faction_id}")
 async def get_faction(faction_id: str):
     from backend.core.faction_protocol import FactionRegistry
+
     reg = FactionRegistry.get()
     f = reg.get_faction(faction_id)
     if not f:
@@ -45,18 +48,25 @@ async def get_faction(faction_id: str):
 @router.post("/factions/stance")
 async def set_stance(body: StanceRequest):
     from backend.core.faction_protocol import FactionRegistry, FactionStance
+
     reg = FactionRegistry.get()
     try:
         stance = FactionStance[body.stance.upper()]
     except KeyError:
         raise HTTPException(400, f"Unknown stance: {body.stance}")
     reg.set_stance(body.source_faction, body.target_faction, stance)
-    return {"ok": True, "source": body.source_faction, "target": body.target_faction, "stance": stance.value}
+    return {
+        "ok": True,
+        "source": body.source_faction,
+        "target": body.target_faction,
+        "stance": stance.value,
+    }
 
 
 @router.post("/factions/outcome")
 async def record_outcome(body: OutcomeRequest):
     from backend.core.faction_protocol import FactionRegistry
+
     reg = FactionRegistry.get()
     reg.record_cross_faction_outcome(body.source_agent, body.target_agent, body.success)
     return {"ok": True}

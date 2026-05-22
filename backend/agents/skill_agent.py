@@ -4,6 +4,7 @@ backend/agents/skill_agent.py — SkillAgent wraps einen Skill als AsyncAgent.
 Jeder registrierte Skill bekommt einen eigenen SkillAgent.
 Agent-ID: "skill:<skill_id>"  (z.B. "skill:websearch")
 """
+
 from __future__ import annotations
 
 from backend.agents.base import AsyncAgent

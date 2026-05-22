@@ -5,6 +5,7 @@ PersistentMissionStore erweitert MissionStore: schreibt missions/traces/tasks
 zusätzlich in SQLite und lädt sie beim Start zurück in den In-Memory-Cache.
 SSE-Queues bleiben rein in-memory (sind transient).
 """
+
 from __future__ import annotations
 
 import json
@@ -17,27 +18,29 @@ from backend.storage.mission_store import MissionStore
 
 # ── SQLModel-Tabellen ─────────────────────────────────────────────────────────
 
+
 class MissionRow(SQLModel, table=True):
     __tablename__ = "missions"
     mission_id: str = Field(primary_key=True)
-    meta_json: str = Field(default="{}")          # JSON-serialisierte Metadaten
+    meta_json: str = Field(default="{}")  # JSON-serialisierte Metadaten
 
 
 class MessageRow(SQLModel, table=True):
     __tablename__ = "messages"
     id: int | None = Field(default=None, primary_key=True)
     mission_id: str = Field(index=True)
-    msg_json: str                                  # JSON-serialisierte Message
+    msg_json: str  # JSON-serialisierte Message
 
 
 class TaskRow(SQLModel, table=True):
     __tablename__ = "tasks"
     task_id: str = Field(primary_key=True)
     mission_id: str = Field(index=True)
-    task_json: str                                 # JSON-serialisierter TaskRecord
+    task_json: str  # JSON-serialisierter TaskRecord
 
 
 # ── PersistentMissionStore ────────────────────────────────────────────────────
+
 
 class PersistentMissionStore(MissionStore):
     """MissionStore mit SQLite-Backend.
@@ -95,15 +98,19 @@ class PersistentMissionStore(MissionStore):
             if existing:
                 existing.meta_json = json.dumps(meta, default=str)
             else:
-                session.add(MissionRow(mission_id=mission_id, meta_json=json.dumps(meta, default=str)))
+                session.add(
+                    MissionRow(mission_id=mission_id, meta_json=json.dumps(meta, default=str))
+                )
             session.commit()
 
     def _db_insert_message(self, msg: Message) -> None:
         with Session(self._engine) as session:
-            session.add(MessageRow(
-                mission_id=msg.mission_id,
-                msg_json=json.dumps(msg.to_dict()),
-            ))
+            session.add(
+                MessageRow(
+                    mission_id=msg.mission_id,
+                    msg_json=json.dumps(msg.to_dict()),
+                )
+            )
             session.commit()
 
     def _db_upsert_task(self, task: TaskRecord) -> None:
@@ -113,30 +120,33 @@ class PersistentMissionStore(MissionStore):
             if existing:
                 existing.task_json = data
             else:
-                session.add(TaskRow(
-                    task_id=task.task_id,
-                    mission_id=task.mission_id,
-                    task_json=data,
-                ))
+                session.add(
+                    TaskRow(
+                        task_id=task.task_id,
+                        mission_id=task.mission_id,
+                        task_json=data,
+                    )
+                )
             session.commit()
 
 
 # ── Helpers: TaskRecord ↔ dict ────────────────────────────────────────────────
 
+
 def _task_to_dict(task: TaskRecord) -> dict:
     return {
-        "task_id":        task.task_id,
-        "mission_id":     task.mission_id,
+        "task_id": task.task_id,
+        "mission_id": task.mission_id,
         "parent_task_id": task.parent_task_id,
-        "owner":          task.owner,
-        "requester":      task.requester,
-        "content":        task.content,
-        "state":          task.state.value,
-        "created_at":     task.created_at,
-        "started_at":     task.started_at,
-        "finished_at":    task.finished_at,
+        "owner": task.owner,
+        "requester": task.requester,
+        "content": task.content,
+        "state": task.state.value,
+        "created_at": task.created_at,
+        "started_at": task.started_at,
+        "finished_at": task.finished_at,
         "last_heartbeat": task.last_heartbeat,
-        "sub_task_ids":   list(task.sub_task_ids),
+        "sub_task_ids": list(task.sub_task_ids),
     }
 
 
@@ -159,6 +169,7 @@ def _task_from_dict(d: dict) -> TaskRecord:
 
 
 # ── Factory ───────────────────────────────────────────────────────────────────
+
 
 def make_store(db_url: str) -> MissionStore:
     """Gibt PersistentMissionStore für SQLite-URLs, sonst In-Memory zurück."""

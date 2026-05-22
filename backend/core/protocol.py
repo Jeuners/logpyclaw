@@ -4,6 +4,7 @@ backend/core/protocol.py — CDC-natives Message-Protokoll für LogpyClaw v3.
 Jede Message trägt eine CausalDilationClock. CDC ist kein optionales Feld.
 ID-Prefixe verhindern Verwechslungen zwischen Task-, Message- und Mission-IDs.
 """
+
 from __future__ import annotations
 
 import time
@@ -16,21 +17,27 @@ from backend.core.cdc import CausalDilationClock
 
 # ── ID-Factories ─────────────────────────────────────────────────────────────
 
+
 def new_task_id() -> str:
     return f"t_{uuid.uuid4().hex[:10]}"
+
 
 def new_msg_id() -> str:
     return f"m_{uuid.uuid4().hex[:10]}"
 
+
 def new_mission_id() -> str:
     return f"mis_{uuid.uuid4().hex[:8]}"
+
 
 def new_team_id() -> str:
     return f"team_{uuid.uuid4().hex[:8]}"
 
+
 def agent_ref(name: str) -> str:
     """Kanonische Agent-Referenz: 'agent:alice'. Präfix verhindert Kollisionen."""
     return f"agent:{name}"
+
 
 def external_ref(name: str) -> str:
     """Externe Referenz (A2A-Gateway, User): 'ext:name'."""
@@ -39,33 +46,37 @@ def external_ref(name: str) -> str:
 
 # ── Enums ────────────────────────────────────────────────────────────────────
 
+
 class TaskState(StrEnum):
-    CREATED   = "created"
-    ASSIGNED  = "assigned"
-    RUNNING   = "running"
-    WAITING   = "waiting"
+    CREATED = "created"
+    ASSIGNED = "assigned"
+    RUNNING = "running"
+    WAITING = "waiting"
     COMPLETED = "completed"
-    FAILED    = "failed"
-    TIMEOUT   = "timeout"
-    CANCELED  = "canceled"
+    FAILED = "failed"
+    TIMEOUT = "timeout"
+    CANCELED = "canceled"
 
     @property
     def is_terminal(self) -> bool:
         return self in (
-            TaskState.COMPLETED, TaskState.FAILED,
-            TaskState.TIMEOUT, TaskState.CANCELED,
+            TaskState.COMPLETED,
+            TaskState.FAILED,
+            TaskState.TIMEOUT,
+            TaskState.CANCELED,
         )
 
 
 class MessageType(StrEnum):
-    REQUEST   = "request"
-    RESPONSE  = "response"
-    ERROR     = "error"
+    REQUEST = "request"
+    RESPONSE = "response"
+    ERROR = "error"
     HEARTBEAT = "heartbeat"
-    CANCEL    = "cancel"
+    CANCEL = "cancel"
 
 
 # ── Message ───────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class Message:
@@ -76,16 +87,17 @@ class Message:
     - parent_task_id   : Delegations-Hierarchie (None = Root)
     - clock            : CausalDilationClock zum Sendezeitpunkt (Pflicht)
     """
-    msg_id:         str
-    mission_id:     str
-    task_id:        str
+
+    msg_id: str
+    mission_id: str
+    task_id: str
     parent_task_id: str | None
-    type:           MessageType
-    sender:         str
-    recipient:      str
-    payload:        dict
-    timestamp:      float                = field(default_factory=time.time)
-    clock:          CausalDilationClock  = field(default_factory=CausalDilationClock)
+    type: MessageType
+    sender: str
+    recipient: str
+    payload: dict
+    timestamp: float = field(default_factory=time.time)
+    clock: CausalDilationClock = field(default_factory=CausalDilationClock)
 
     # ── Factory-Methoden ─────────────────────────────────────────────────────
 
@@ -171,16 +183,16 @@ class Message:
 
     def to_dict(self) -> dict:
         return {
-            "msg_id":         self.msg_id,
-            "mission_id":     self.mission_id,
-            "task_id":        self.task_id,
+            "msg_id": self.msg_id,
+            "mission_id": self.mission_id,
+            "task_id": self.task_id,
             "parent_task_id": self.parent_task_id,
-            "type":           self.type.value,
-            "sender":         self.sender,
-            "recipient":      self.recipient,
-            "payload":        self.payload,
-            "timestamp":      self.timestamp,
-            "clock":          self.clock.to_dict(),
+            "type": self.type.value,
+            "sender": self.sender,
+            "recipient": self.recipient,
+            "payload": self.payload,
+            "timestamp": self.timestamp,
+            "clock": self.clock.to_dict(),
         }
 
     @classmethod
@@ -201,23 +213,24 @@ class Message:
 
 # ── TaskRecord ────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class TaskRecord:
-    task_id:        str
-    mission_id:     str
+    task_id: str
+    mission_id: str
     parent_task_id: str | None
-    owner:          str
-    requester:      str
-    content:        str
-    state:          TaskState = TaskState.CREATED
-    created_at:     float     = field(default_factory=time.time)
-    updated_at:     float     = field(default_factory=time.time)
-    started_at:     float | None = None
-    finished_at:    float | None = None
-    last_heartbeat: float     = field(default_factory=time.time)
-    result:         Any       = None
-    error:          str | None = None
-    sub_task_ids:   list[str] = field(default_factory=list)
+    owner: str
+    requester: str
+    content: str
+    state: TaskState = TaskState.CREATED
+    created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
+    started_at: float | None = None
+    finished_at: float | None = None
+    last_heartbeat: float = field(default_factory=time.time)
+    result: Any = None
+    error: str | None = None
+    sub_task_ids: list[str] = field(default_factory=list)
 
     def transition(self, new_state: TaskState) -> None:
         self.state = new_state

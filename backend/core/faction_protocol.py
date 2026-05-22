@@ -10,6 +10,7 @@ Kernprinzipien (aus Opus-Architekt-Report):
 - γ_factions ist Fallback unter γ_agents in CDC.transform().
 - EXPECTED_DRIFT: cross-faction Drift ist strukturell erwartet, kein Alarm.
 """
+
 from __future__ import annotations
 
 import threading
@@ -19,43 +20,48 @@ from enum import StrEnum
 
 # ── Archetypen ────────────────────────────────────────────────────────────────
 
+
 class FactionArchetype(StrEnum):
-    OPERATORS = "operators"   # Routing, Delegation, Orchestration — Martin
-    MAKERS    = "makers"      # Generative Arbeit: Code, Bild, Video, Text
-    AUDITORS  = "auditors"    # Verifikation, QC, Review
-    GATHERERS = "gatherers"   # Wahrnehmung: Web, Mail, Files
-    GUARDIANS = "guardians"   # Policy, Safety, Watchdog
-    SCRIBES   = "scribes"     # Gedächtnis, Embeddings, History
+    OPERATORS = "operators"  # Routing, Delegation, Orchestration — Martin
+    MAKERS = "makers"  # Generative Arbeit: Code, Bild, Video, Text
+    AUDITORS = "auditors"  # Verifikation, QC, Review
+    GATHERERS = "gatherers"  # Wahrnehmung: Web, Mail, Files
+    GUARDIANS = "guardians"  # Policy, Safety, Watchdog
+    SCRIBES = "scribes"  # Gedächtnis, Embeddings, History
 
 
 # ── Beziehungstypen ───────────────────────────────────────────────────────────
 
+
 class FactionStance(StrEnum):
-    ALLIED      = "allied"        # freie Delegation, kein Review
-    COOPERATIVE = "cooperative"   # Delegation + Plausi-Check
-    NEUTRAL     = "neutral"       # Standard
-    SKEPTICAL   = "skeptical"     # nur über definierte Schnittstelle
-    ADVERSARIAL = "adversarial"   # nur über Operator-Bridge
+    ALLIED = "allied"  # freie Delegation, kein Review
+    COOPERATIVE = "cooperative"  # Delegation + Plausi-Check
+    NEUTRAL = "neutral"  # Standard
+    SKEPTICAL = "skeptical"  # nur über definierte Schnittstelle
+    ADVERSARIAL = "adversarial"  # nur über Operator-Bridge
 
 
 # ── Erweiterte CDC-Relationen ─────────────────────────────────────────────────
 # Werden in cdc.py als zusätzliche Werte registriert, wenn FactionRegistry
 # beim relate()-Call übergeben wird.
 
+
 class FactionCDCRelation(StrEnum):
-    EXPECTED_DRIFT = "expected_drift"   # cross-faction CAUSAL_DRIFT — strukturell ok
-    FACTION_RACE   = "faction_race"     # cross-faction CONCURRENT_DRIFT — oft gewollt
+    EXPECTED_DRIFT = "expected_drift"  # cross-faction CAUSAL_DRIFT — strukturell ok
+    FACTION_RACE = "faction_race"  # cross-faction CONCURRENT_DRIFT — oft gewollt
 
 
 # ── Tempo-Profil ──────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class TempoProfile:
     """Erwartete Eigenzeit-Rate dieser Fraktion (ops/s)."""
+
     expected_rate: float = 1.0
-    min_rate: float      = 0.3
-    max_rate: float      = 3.0
-    tolerance: float     = 0.5
+    min_rate: float = 0.3
+    max_rate: float = 3.0
+    tolerance: float = 0.5
 
     def is_normal(self, rate: float) -> bool:
         return self.min_rate <= rate <= self.max_rate
@@ -71,27 +77,29 @@ class TempoProfile:
 
 # ── Charter ───────────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class FactionCharter:
-    mission_lens:      str             # wie Tasks gelesen werden
-    do_principles:     tuple[str, ...] # was die Fraktion immer tut
-    dont_principles:   tuple[str, ...] # was sie ablehnt
-    delegation_policy: str             # wann darf delegiert werden
+    mission_lens: str  # wie Tasks gelesen werden
+    do_principles: tuple[str, ...]  # was die Fraktion immer tut
+    dont_principles: tuple[str, ...]  # was sie ablehnt
+    delegation_policy: str  # wann darf delegiert werden
 
 
 # ── Fraktion ──────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class Faction:
-    id:                   str
-    archetype:            FactionArchetype
-    label:                str
-    charter:              FactionCharter
-    tempo:                TempoProfile
-    capability_classes:   frozenset[str]
-    skill_ids:            frozenset[str]   = field(default_factory=frozenset)
-    members:              set[str]         = field(default_factory=set)
-    created_at:           float            = field(default_factory=time.time)
+    id: str
+    archetype: FactionArchetype
+    label: str
+    charter: FactionCharter
+    tempo: TempoProfile
+    capability_classes: frozenset[str]
+    skill_ids: frozenset[str] = field(default_factory=frozenset)
+    members: set[str] = field(default_factory=set)
+    created_at: float = field(default_factory=time.time)
 
     def add_member(self, agent_id: str) -> None:
         self.members.add(agent_id)
@@ -101,42 +109,44 @@ class Faction:
 
     def to_dict(self) -> dict:
         return {
-            "id":        self.id,
+            "id": self.id,
             "archetype": self.archetype.value,
-            "label":     self.label,
+            "label": self.label,
             "charter": {
                 "mission_lens": self.charter.mission_lens,
-                "do":    list(self.charter.do_principles),
-                "dont":  list(self.charter.dont_principles),
+                "do": list(self.charter.do_principles),
+                "dont": list(self.charter.dont_principles),
                 "delegation": self.charter.delegation_policy,
             },
             "tempo": {
-                "expected":  self.tempo.expected_rate,
-                "min":       self.tempo.min_rate,
-                "max":       self.tempo.max_rate,
+                "expected": self.tempo.expected_rate,
+                "min": self.tempo.min_rate,
+                "max": self.tempo.max_rate,
                 "tolerance": self.tempo.tolerance,
             },
             "capability_classes": sorted(self.capability_classes),
             "skill_ids": sorted(self.skill_ids),
-            "members":   sorted(self.members),
+            "members": sorted(self.members),
         }
 
 
 # ── FactionRelation ───────────────────────────────────────────────────────────
 
+
 @dataclass
 class FactionRelation:
     """Gerichtete Beziehung source → target. Trust und γ werden gelernt."""
-    source:       str
-    target:       str
-    stance:       FactionStance = FactionStance.NEUTRAL
-    trust:        float         = 0.5   # P(brauchbare Antwort), Beta(1,1)-Prior
-    gamma:        float         = 1.0   # Tempo-Verhältnis source/target, EWMA
-    interactions: int           = 0
-    successes:    int           = 0
-    failures:     int           = 0
-    last_updated: float         = field(default_factory=time.time)
-    _lock: threading.Lock       = field(default_factory=threading.Lock, repr=False)
+
+    source: str
+    target: str
+    stance: FactionStance = FactionStance.NEUTRAL
+    trust: float = 0.5  # P(brauchbare Antwort), Beta(1,1)-Prior
+    gamma: float = 1.0  # Tempo-Verhältnis source/target, EWMA
+    interactions: int = 0
+    successes: int = 0
+    failures: int = 0
+    last_updated: float = field(default_factory=time.time)
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def record_outcome(self, success: bool) -> None:
         with self._lock:
@@ -160,39 +170,42 @@ class FactionRelation:
 
     def to_dict(self) -> dict:
         return {
-            "source":       self.source,
-            "target":       self.target,
-            "stance":       self.stance.value,
-            "trust":        round(self.trust, 4),
-            "gamma":        round(self.gamma, 4),
+            "source": self.source,
+            "target": self.target,
+            "stance": self.stance.value,
+            "trust": round(self.trust, 4),
+            "gamma": round(self.gamma, 4),
             "interactions": self.interactions,
-            "successes":    self.successes,
-            "failures":     self.failures,
+            "successes": self.successes,
+            "failures": self.failures,
         }
 
 
 # ── FactionEnvelope ───────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class FactionEnvelope:
     """Wird in payload["_faction"] serialisiert — kein Breaking Change an Message."""
-    sender_faction:    str
+
+    sender_faction: str
     recipient_faction: str
-    stance:            FactionStance
-    requires_bridge:   bool = False
-    expected_drift:    bool = False   # True = cross-faction, Drift ist strukturell
+    stance: FactionStance
+    requires_bridge: bool = False
+    expected_drift: bool = False  # True = cross-faction, Drift ist strukturell
 
     def to_dict(self) -> dict:
         return {
-            "sender_faction":    self.sender_faction,
+            "sender_faction": self.sender_faction,
             "recipient_faction": self.recipient_faction,
-            "stance":            self.stance.value,
-            "requires_bridge":   self.requires_bridge,
-            "expected_drift":    self.expected_drift,
+            "stance": self.stance.value,
+            "requires_bridge": self.requires_bridge,
+            "expected_drift": self.expected_drift,
         }
 
 
 # ── FactionRegistry ───────────────────────────────────────────────────────────
+
 
 class FactionRegistry:
     """In-Memory Single Source of Truth für alle Fraktionen.
@@ -324,6 +337,7 @@ class FactionRegistry:
 
 # ── Standard-Fraktionen ───────────────────────────────────────────────────────
 
+
 def _register_defaults(reg: FactionRegistry) -> None:
     factions = [
         Faction(
@@ -332,8 +346,15 @@ def _register_defaults(reg: FactionRegistry) -> None:
             label="Operators",
             charter=FactionCharter(
                 mission_lens="Route tasks to the right faction, translate intent.",
-                do_principles=("delegate explicitly", "log routing decisions", "preserve task_id chain"),
-                dont_principles=("execute domain work directly", "skip bridge for adversarial pairs"),
+                do_principles=(
+                    "delegate explicitly",
+                    "log routing decisions",
+                    "preserve task_id chain",
+                ),
+                dont_principles=(
+                    "execute domain work directly",
+                    "skip bridge for adversarial pairs",
+                ),
                 delegation_policy="free within cooperative+; bridge for adversarial",
             ),
             tempo=TempoProfile(expected_rate=1.0, min_rate=0.5, max_rate=2.0),
@@ -379,12 +400,23 @@ def _register_defaults(reg: FactionRegistry) -> None:
             ),
             tempo=TempoProfile(expected_rate=0.5, min_rate=0.1, max_rate=1.5, tolerance=1.0),
             capability_classes=frozenset({"fetch", "observe", "listen"}),
-            skill_ids=frozenset({
-                "url_fetch", "web_search", "mac_mail", "whatsapp",
-                "file_access", "chrome_browser", "transcription",
-                "wikipedia", "tagesschau", "hacker_news", "linkedin",
-                "youtube", "wiki_read",
-            }),
+            skill_ids=frozenset(
+                {
+                    "url_fetch",
+                    "web_search",
+                    "mac_mail",
+                    "whatsapp",
+                    "file_access",
+                    "chrome_browser",
+                    "transcription",
+                    "wikipedia",
+                    "tagesschau",
+                    "hacker_news",
+                    "linkedin",
+                    "youtube",
+                    "wiki_read",
+                }
+            ),
         ),
         Faction(
             id="guardians",
@@ -418,20 +450,20 @@ def _register_defaults(reg: FactionRegistry) -> None:
 
     # Initiale Stance-Matrix (asymmetrisch — gelernt aus Semantik)
     stances = [
-        ("auditors", "makers",    FactionStance.SKEPTICAL),
-        ("makers",   "auditors",  FactionStance.COOPERATIVE),
-        ("makers",   "operators", FactionStance.COOPERATIVE),
-        ("gatherers","makers",    FactionStance.COOPERATIVE),
-        ("gatherers","operators", FactionStance.COOPERATIVE),
-        ("guardians","operators", FactionStance.ALLIED),
-        ("guardians","makers",    FactionStance.SKEPTICAL),
-        ("guardians","gatherers", FactionStance.SKEPTICAL),
-        ("scribes",  "operators", FactionStance.ALLIED),
-        ("operators","makers",    FactionStance.ALLIED),
-        ("operators","auditors",  FactionStance.ALLIED),
-        ("operators","gatherers", FactionStance.ALLIED),
-        ("operators","guardians", FactionStance.ALLIED),
-        ("operators","scribes",   FactionStance.ALLIED),
+        ("auditors", "makers", FactionStance.SKEPTICAL),
+        ("makers", "auditors", FactionStance.COOPERATIVE),
+        ("makers", "operators", FactionStance.COOPERATIVE),
+        ("gatherers", "makers", FactionStance.COOPERATIVE),
+        ("gatherers", "operators", FactionStance.COOPERATIVE),
+        ("guardians", "operators", FactionStance.ALLIED),
+        ("guardians", "makers", FactionStance.SKEPTICAL),
+        ("guardians", "gatherers", FactionStance.SKEPTICAL),
+        ("scribes", "operators", FactionStance.ALLIED),
+        ("operators", "makers", FactionStance.ALLIED),
+        ("operators", "auditors", FactionStance.ALLIED),
+        ("operators", "gatherers", FactionStance.ALLIED),
+        ("operators", "guardians", FactionStance.ALLIED),
+        ("operators", "scribes", FactionStance.ALLIED),
     ]
     for src, tgt, stance in stances:
         reg.set_stance(src, tgt, stance)

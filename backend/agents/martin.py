@@ -11,6 +11,7 @@ Martin ist der kanonische OPERATORS-Fraktions-Agent. Er:
 Als einziger Agent hat Martin Meta-Sicht auf das Fraktionssystem.
 Domain-Arbeit macht er nicht — nur Routing, Übersetzung und Korrektur.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -24,16 +25,19 @@ from backend.core.protocol import Message, MessageType
 
 # ── QC-Konfiguration ──────────────────────────────────────────────────────────
 
+
 @dataclass
 class QCConfig:
     """Steuert den QC-Loop den Martin nach jeder Maker-Delegation durchführt."""
-    enabled: bool     = True
-    min_score: int    = 7       # 1-10 — unter diesem Wert → Retry
-    max_retries: int  = 2
-    auditor_id: str   = ""      # leer = kein QC (oder kein Auditor verfügbar)
+
+    enabled: bool = True
+    min_score: int = 7  # 1-10 — unter diesem Wert → Retry
+    max_retries: int = 2
+    auditor_id: str = ""  # leer = kein QC (oder kein Auditor verfügbar)
 
 
 # ── DelegationPlan ────────────────────────────────────────────────────────────
+
 
 @dataclass
 class DelegationStep:
@@ -43,6 +47,7 @@ class DelegationStep:
 
 
 # ── MartinAgent ───────────────────────────────────────────────────────────────
+
 
 class MartinAgent(AsyncAgent):
     """Martin — CDC-bewusster Operator.
@@ -61,14 +66,18 @@ class MartinAgent(AsyncAgent):
         self,
         conductor=None,
         qc: QCConfig | None = None,
-        llm_router_fn=None,       # async fn(content) → agent_id | None
+        llm_router_fn=None,  # async fn(content) → agent_id | None  (legacy)
+        llm_planner_fn=None,  # async fn(content) → list[DelegationStep] | None
         registry: FactionRegistry | None = None,
+        model: str = "",
     ) -> None:
         super().__init__(self.AGENT_ID, "Martin")
-        self.conductor    = conductor
-        self.qc           = qc or QCConfig()
-        self._router_fn   = llm_router_fn
-        self._registry    = registry or FactionRegistry.get()
+        self.conductor = conductor
+        self.qc = qc or QCConfig()
+        self._router_fn = llm_router_fn
+        self._planner_fn = llm_planner_fn
+        self._registry = registry or FactionRegistry.get()
+        self.model = model
 
     # ── Handle ────────────────────────────────────────────────────────────────
 
@@ -81,18 +90,24 @@ class MartinAgent(AsyncAgent):
         if envelope and envelope.get("requires_bridge"):
             return await self._bridge(msg, content, clock)
 
-        # 2. Routing bestimmen
+        # 2. Planer aufrufen (multi-step) oder Router (single-step)
+        if self._planner_fn:
+            steps = await self._planner_fn(content)
+            if not steps:
+                return Message.response(
+                    msg, f"[Martin] No plan found for: {content[:80]}", clock=clock
+                )
+            if len(steps) == 1:
+                return await self._delegate_with_qc(msg, steps[0].agent_id, steps[0].content, clock)
+            return await self._execute_plan(msg, steps, clock)
+
+        # Legacy: single router
         target = await self._resolve_target(content, msg)
         if not target:
             return Message.response(
-                msg,
-                f"[Martin] No route found for: {content[:80]}",
-                clock=clock,
+                msg, f"[Martin] No route found for: {content[:80]}", clock=clock
             )
-
-        # 3. Delegation
-        result = await self._delegate_with_qc(msg, target, content, clock)
-        return result
+        return await self._delegate_with_qc(msg, target, content, clock)
 
     # ── Routing ───────────────────────────────────────────────────────────────
 
@@ -173,13 +188,41 @@ class MartinAgent(AsyncAgent):
                     f"Improve: {result_text[:200]}"
                 )
             else:
-                result_text = f"[QC failed after {attempt+1} attempts, best score {score}/10] {result_text}"
+                result_text = (
+                    f"[QC failed after {attempt + 1} attempts, best score {score}/10] {result_text}"
+                )
 
         return Message.response(
             original,
             result_text,
             clock=self.advance_clock(response.clock),
         )
+
+    async def _execute_plan(
+        self,
+        original: Message,
+        steps: list[DelegationStep],
+        clock: CausalDilationClock,
+    ) -> Message:
+        """Führt mehrere DelegationSteps sequenziell aus und aggregiert die Ergebnisse."""
+        results: list[str] = []
+        step_results: dict[int, str] = {}
+
+        for i, step in enumerate(steps):
+            # Kontext aus Abhängigkeiten einbauen
+            context = ""
+            if step.depends_on:
+                deps = "\n".join(step_results[j] for j in step.depends_on if j in step_results)
+                context = f"[Vorherige Ergebnisse]\n{deps}\n\n"
+
+            content = f"{context}{step.content}"
+            resp = await self._delegate_with_qc(original, step.agent_id, content, clock)
+            text = resp.payload.get("result", "")
+            step_results[i] = text
+            results.append(f"**Schritt {i + 1}/{len(steps)}** → `{step.agent_id}`\n{text}")
+
+        combined = "\n\n".join(results)
+        return Message.response(original, combined, clock=self.advance_clock())
 
     async def _qc_check(self, original: Message, result: str) -> int:
         """Delegiert an Auditor, extrahiert Score 1-10. Gibt 0 bei Fehler zurück."""
@@ -251,10 +294,12 @@ class MartinAgent(AsyncAgent):
     def to_dict(self) -> dict:
         d = super().to_dict()
         d["faction"] = "operators"
+        if self.model:
+            d["model"] = self.model
         d["qc"] = {
-            "enabled":     self.qc.enabled,
-            "min_score":   self.qc.min_score,
+            "enabled": self.qc.enabled,
+            "min_score": self.qc.min_score,
             "max_retries": self.qc.max_retries,
-            "auditor_id":  self.qc.auditor_id,
+            "auditor_id": self.qc.auditor_id,
         }
         return d

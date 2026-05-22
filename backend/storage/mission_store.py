@@ -4,6 +4,7 @@ backend/storage/mission_store.py — In-Memory Mission-State.
 Append-only Traces, Task-State, Mission-Metadaten, SSE-Tracer.
 Kein Disk-Persist — nach Neustart leer. Für Persistenz: Phase 3 DB-Layer.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -49,7 +50,7 @@ class MissionStore:
         with self._lock:
             self._traces[msg.mission_id].append(msg)
         d = msg.to_dict()
-        d.pop("mission_id", None)   # bereits als erster _emit-Parameter übergeben
+        d.pop("mission_id", None)  # bereits als erster _emit-Parameter übergeben
         self._emit(msg.mission_id, "message", **d)
 
     def get_trace(self, mission_id: str) -> list[Message]:
@@ -61,8 +62,13 @@ class MissionStore:
     def upsert_task(self, task: TaskRecord) -> None:
         with self._lock:
             self._tasks[task.task_id] = task
-        self._emit(task.mission_id, f"task_{task.state.value}", task_id=task.task_id,
-                   state=task.state.value, owner=task.owner)
+        self._emit(
+            task.mission_id,
+            f"task_{task.state.value}",
+            task_id=task.task_id,
+            state=task.state.value,
+            owner=task.owner,
+        )
 
     def get_task(self, task_id: str) -> TaskRecord | None:
         return self._tasks.get(task_id)

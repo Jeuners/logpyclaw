@@ -5,6 +5,7 @@ Stellt /ext/dilles/v1/* für dillenberg.net bereit.
 Health-Endpoint: logpyclaw-health.sh auf c2.webbinder.de pollt alle 2 Minuten.
 Chat-Stream: wird in Phase 5 an Alice angebunden.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Header, Request
@@ -55,13 +56,16 @@ async def chat_stream(
     from backend.core.protocol import Message, external_ref, new_mission_id
 
     mission_id = new_mission_id()
-    conductor.store.register_mission(mission_id, {
-        "mission_id": mission_id,
-        "title": "web-bridge",
-        "state": "running",
-        "started_at": time.time(),
-        "source": "dillenberg.net",
-    })
+    conductor.store.register_mission(
+        mission_id,
+        {
+            "mission_id": mission_id,
+            "title": "web-bridge",
+            "state": "running",
+            "started_at": time.time(),
+            "source": "dillenberg.net",
+        },
+    )
     queue = conductor.store.subscribe(mission_id)
     msg = Message.request(
         mission_id=mission_id,

@@ -8,6 +8,7 @@ Externe Agenten sehen nur Standard-A2A. Das interne CDC-Protokoll bleibt verborg
 
 Phase 5: vollständige Google A2A 2025 Spec. Hier: funktionaler Stub.
 """
+
 from __future__ import annotations
 
 from backend.agents.base import AsyncAgent
@@ -33,7 +34,7 @@ class A2AGatewayAgent(AsyncAgent):
     ) -> None:
         super().__init__(agent_id, name)
         self.default_recipient = default_recipient
-        self.conductor = conductor    # wird von app.py injiziert
+        self.conductor = conductor  # wird von app.py injiziert
 
     # ── AsyncAgent handle ─────────────────────────────────────────────────────
 
@@ -65,16 +66,16 @@ class A2AGatewayAgent(AsyncAgent):
         """Konvertiert eine CDC-Response zurück zu einem A2A-Artifact."""
         if response.type == MessageType.RESPONSE:
             status = "completed"
-            parts  = [{"type": "text", "text": str(response.payload.get("result", ""))}]
+            parts = [{"type": "text", "text": str(response.payload.get("result", ""))}]
         else:
             status = "failed"
-            parts  = [{"type": "text", "text": str(response.payload.get("reason", "error"))}]
+            parts = [{"type": "text", "text": str(response.payload.get("reason", "error"))}]
         return {
-            "id":     a2a_task_id,
+            "id": a2a_task_id,
             "status": {"state": status},
             "artifacts": [{"parts": parts}],
             "metadata": {
-                "cdc_clock":      response.clock.to_dict(),
+                "cdc_clock": response.clock.to_dict(),
                 "cdc_llm_summary": response.clock.llm_summary(),
             },
         }
@@ -84,21 +85,21 @@ class A2AGatewayAgent(AsyncAgent):
     @staticmethod
     def agent_card(base_url: str = "http://localhost:5050") -> dict:
         return {
-            "name":        "LogpyClaw v3",
+            "name": "LogpyClaw v3",
             "description": "CDC-native multi-agent system with time-dilation awareness",
-            "url":         base_url,
-            "version":     "3.0.0",
+            "url": base_url,
+            "version": "3.0.0",
             "capabilities": {
-                "streaming":          False,
-                "pushNotifications":  False,
+                "streaming": False,
+                "pushNotifications": False,
                 "stateTransitionHistory": True,
             },
             "skills": [
                 {
-                    "id":          "chat",
-                    "name":        "Chat",
+                    "id": "chat",
+                    "name": "Chat",
                     "description": "Send a message to an LogpyClaw agent",
-                    "inputModes":  ["text"],
+                    "inputModes": ["text"],
                     "outputModes": ["text"],
                 }
             ],

@@ -6,6 +6,7 @@ Jeder Agent in LogpyClaw v3 hat:
 - handle(msg) → verarbeitet eingehende CDC-Message, gibt Response/Error zurück
 - advance_clock() → merged eingehende Clock + eigener Tick
 """
+
 from __future__ import annotations
 
 import time
@@ -49,8 +50,8 @@ class AsyncAgent(ABC):
 
     def to_dict(self) -> dict:
         return {
-            "agent_id":  self.agent_id,
-            "name":      self.name,
-            "op_count":  self._op_count,
-            "clock":     self._clock.to_dict(),
+            "agent_id": self.agent_id,
+            "name": self.name,
+            "op_count": self._op_count,
+            "clock": self._clock.to_dict(),
         }

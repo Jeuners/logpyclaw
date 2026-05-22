@@ -1,9 +1,12 @@
 import asyncio
 import json
+import time
 
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+
+from backend.core.protocol import Message, external_ref, new_mission_id
 
 router = APIRouter()
 
@@ -28,17 +31,16 @@ async def chat(req: ChatRequest, request: Request):
 async def chat_stream(agent_id: str, message: str, request: Request):
     """SSE-Streaming: sendet Mission-Events live."""
     conductor = request.app.state.conductor
-    import time
-
-    from backend.core.protocol import Message, external_ref, new_mission_id
-
     mission_id = new_mission_id()
-    conductor.store.register_mission(mission_id, {
-        "mission_id": mission_id,
-        "title": f"chat:{agent_id}",
-        "state": "running",
-        "started_at": time.time(),
-    })
+    conductor.store.register_mission(
+        mission_id,
+        {
+            "mission_id": mission_id,
+            "title": f"chat:{agent_id}",
+            "state": "running",
+            "started_at": time.time(),
+        },
+    )
 
     queue = conductor.store.subscribe(mission_id)
     msg = Message.request(
@@ -47,25 +49,32 @@ async def chat_stream(agent_id: str, message: str, request: Request):
         recipient=agent_id,
         content=message,
     )
+    root_task_id = msg.task_id  # nur auf diesen Root-Task warten
 
     async def stream():
-        # Dispatch starten (im Hintergrund)
         async def run():
             await conductor.dispatch(msg)
             conductor.store.update_mission(mission_id, state="completed")
 
         asyncio.create_task(run())
+        yield f"data: {json.dumps({'event': 'init', 'root_task_id': root_task_id})}\n\n"
 
+        total = 0
+        max_wait = 300
         try:
-            while True:
+            while total < max_wait:
                 try:
-                    event = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    event = await asyncio.wait_for(queue.get(), timeout=5.0)
                     yield f"data: {json.dumps(event)}\n\n"
+                    # Nur schließen wenn der ROOT-Task fertig ist, nicht Sub-Tasks
                     if event.get("event") in ("task_completed", "task_failed", "task_timeout"):
-                        break
+                        if event.get("task_id") == root_task_id:
+                            break
                 except TimeoutError:
-                    yield "data: {\"event\":\"timeout\"}\n\n"
-                    break
+                    total += 5
+                    yield 'data: {"event":"heartbeat"}\n\n'
+            else:
+                yield 'data: {"event":"timeout"}\n\n'
         finally:
             conductor.store.unsubscribe(mission_id, queue)
 

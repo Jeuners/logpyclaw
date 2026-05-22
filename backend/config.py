@@ -4,6 +4,7 @@ backend/config.py — Typisierte Konfiguration via pydantic-settings.
 Lädt Werte aus .env (falls vorhanden), dann aus Umgebungsvariablen.
 Singleton via get_settings() — wird einmal beim Import initialisiert.
 """
+
 from __future__ import annotations
 
 from functools import lru_cache
@@ -31,6 +32,13 @@ class Settings(BaseSettings):
 
     # ── Auth ──────────────────────────────────────────────────────────────────
     web_bridge_token: str = Field("", description="Auth token for /ext/dilles/v1/*")
+
+    # ── Skills ────────────────────────────────────────────────────────────────
+    comfyui_url: str = Field("http://192.168.4.15:8000", description="ComfyUI endpoint")
+
+    # ── Server ────────────────────────────────────────────────────────────────
+    host: str = Field("0.0.0.0", description="Bind host")
+    port: int = Field(6060, description="HTTP port")
 
     # ── Martin QC ─────────────────────────────────────────────────────────────
     martin_qc_enabled: bool = Field(True, description="Enable Martin's QC loop")

@@ -1,6 +1,7 @@
 """
 backend/api/teams.py — Team REST-API.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
@@ -30,6 +31,7 @@ async def list_teams():
 @router.post("/teams")
 async def create_team(body: CreateTeamRequest):
     from backend.core.protocol import new_team_id
+
     team_id = new_team_id()
     team = Team(team_id=team_id, name=body.name)
     _teams[team_id] = team

@@ -13,6 +13,7 @@ TeamMessage erweitert Message um team_id, team_clock, gamma_matrix, team_state.
 Team verwaltet Mitglieder, berechnet γ_ij aus Mission-History und empfiehlt
 den nächsten Executor basierend auf drift_score.
 """
+
 from __future__ import annotations
 
 import time
@@ -28,14 +29,16 @@ from backend.core.protocol import (
 
 # ── Team States ───────────────────────────────────────────────────────────────
 
+
 class TeamState(StrEnum):
-    FORMING      = "forming"       # Mitglieder werden registriert
-    ACTIVE       = "active"        # Quorum erreicht, bereit für Tasks
-    QUORUM_LOST  = "quorum_lost"   # Zu wenige Mitglieder erreichbar
-    DISSOLVED    = "dissolved"     # Team aufgelöst
+    FORMING = "forming"  # Mitglieder werden registriert
+    ACTIVE = "active"  # Quorum erreicht, bereit für Tasks
+    QUORUM_LOST = "quorum_lost"  # Zu wenige Mitglieder erreichbar
+    DISSOLVED = "dissolved"  # Team aufgelöst
 
 
 # ── TeamMessage ───────────────────────────────────────────────────────────────
+
 
 @dataclass
 class TeamMessage(Message):
@@ -45,17 +48,18 @@ class TeamMessage(Message):
     gamma_matrix  : γ_ij für alle Paare zum Sendezeitpunkt
     team_state    : Zustand des Teams
     """
-    team_id:      str                          = ""
-    team_clock:   CausalDilationClock          = field(default_factory=CausalDilationClock)
-    gamma_matrix: dict[str, dict[str, float]]  = field(default_factory=dict)
-    team_state:   TeamState                    = TeamState.ACTIVE
+
+    team_id: str = ""
+    team_clock: CausalDilationClock = field(default_factory=CausalDilationClock)
+    gamma_matrix: dict[str, dict[str, float]] = field(default_factory=dict)
+    team_state: TeamState = TeamState.ACTIVE
 
     def to_dict(self) -> dict:
         d = super().to_dict()
-        d["team_id"]      = self.team_id
-        d["team_clock"]   = self.team_clock.to_dict()
+        d["team_id"] = self.team_id
+        d["team_clock"] = self.team_clock.to_dict()
         d["gamma_matrix"] = self.gamma_matrix
-        d["team_state"]   = self.team_state.value
+        d["team_state"] = self.team_state.value
         return d
 
     @classmethod
@@ -88,15 +92,16 @@ class TeamMessage(Message):
 
 # ── MemberRecord ─────────────────────────────────────────────────────────────
 
+
 @dataclass
 class MemberRecord:
-    agent_id:    str
-    joined_at:   float = field(default_factory=time.time)
-    last_seen:   float = field(default_factory=time.time)
-    busy:        bool  = False
-    clock:       CausalDilationClock = field(default_factory=CausalDilationClock)
-    avg_rate:    float = 1.0   # ops/s aus Mission-History
-    task_count:  int   = 0
+    agent_id: str
+    joined_at: float = field(default_factory=time.time)
+    last_seen: float = field(default_factory=time.time)
+    busy: bool = False
+    clock: CausalDilationClock = field(default_factory=CausalDilationClock)
+    avg_rate: float = 1.0  # ops/s aus Mission-History
+    task_count: int = 0
 
     def mark_seen(self, clock: CausalDilationClock) -> None:
         self.last_seen = time.time()
@@ -109,13 +114,14 @@ class MemberRecord:
 
 # ── Team ─────────────────────────────────────────────────────────────────────
 
+
 class Team:
     """Verwaltet Mitglieder, Team-Eigenzeit, γ_ij-Matrix und Dispatch-Empfehlung."""
 
     def __init__(self, team_id: str | None = None, name: str = "") -> None:
-        self.team_id:  str         = team_id or new_team_id()
-        self.name:     str         = name
-        self.state:    TeamState   = TeamState.FORMING
+        self.team_id: str = team_id or new_team_id()
+        self.name: str = name
+        self.state: TeamState = TeamState.FORMING
         self._members: dict[str, MemberRecord] = {}
         self._rate_history: dict[str, list[float]] = defaultdict(list)
 
@@ -212,18 +218,20 @@ class Team:
             m = self._members.get(agent_id)
             if m is None:
                 continue
-            gamma      = m.avg_rate
-            drift      = abs(gamma - 1.0)
-            score      = m.avg_rate / (1.0 + drift) - (0.5 if m.busy else 0)
-            results.append({
-                "agent_id":           agent_id,
-                "avg_rate":           round(m.avg_rate, 4),
-                "gamma":              round(gamma, 4),
-                "drift_score":        round(drift, 4),
-                "recommendation_score": round(score, 4),
-                "busy":               m.busy,
-                "reachable":          m.is_reachable,
-            })
+            gamma = m.avg_rate
+            drift = abs(gamma - 1.0)
+            score = m.avg_rate / (1.0 + drift) - (0.5 if m.busy else 0)
+            results.append(
+                {
+                    "agent_id": agent_id,
+                    "avg_rate": round(m.avg_rate, 4),
+                    "gamma": round(gamma, 4),
+                    "drift_score": round(drift, 4),
+                    "recommendation_score": round(score, 4),
+                    "busy": m.busy,
+                    "reachable": m.is_reachable,
+                }
+            )
         return sorted(results, key=lambda x: -x["recommendation_score"])
 
     # ── Quorum ────────────────────────────────────────────────────────────────
@@ -252,21 +260,21 @@ class Team:
 
     def to_dict(self) -> dict:
         return {
-            "team_id":     self.team_id,
-            "name":        self.name,
-            "state":       self.state.value,
-            "members":     [
+            "team_id": self.team_id,
+            "name": self.name,
+            "state": self.state.value,
+            "members": [
                 {
-                    "agent_id":  m.agent_id,
-                    "busy":      m.busy,
+                    "agent_id": m.agent_id,
+                    "busy": m.busy,
                     "reachable": m.is_reachable,
-                    "avg_rate":  round(m.avg_rate, 4),
+                    "avg_rate": round(m.avg_rate, 4),
                     "task_count": m.task_count,
                 }
                 for m in self._members.values()
             ],
-            "quorum":      self.is_quorum(),
-            "team_clock":  self.merge_team_clock().to_dict(),
+            "quorum": self.is_quorum(),
+            "team_clock": self.merge_team_clock().to_dict(),
             "gamma_matrix": self.compute_gamma_matrix(),
         }
 

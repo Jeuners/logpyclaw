@@ -4,6 +4,7 @@ backend/skills/websearch.py — WebSearch Skill via DuckDuckGo.
 Nutzt die DuckDuckGo Instant Answer API (kein API-Key nötig).
 Fallback: liefert strukturierten Hinweis wenn API nichts zurückgibt.
 """
+
 from __future__ import annotations
 
 import httpx

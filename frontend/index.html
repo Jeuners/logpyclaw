@@ -8,21 +8,21 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg:       #080c14;
-    --surface:  #0f1623;
-    --surface2: #151f30;
-    --border:   #1e2d45;
-    --border2:  #243550;
-    --accent:   #7c3aed;
-    --accent-h: #9055f5;
-    --accent2:  #059669;
-    --accent2-h:#10b981;
-    --warn:     #dc2626;
-    --gold:     #d97706;
-    --gold-dim: rgba(217,119,6,.15);
-    --text:     #e8f0fe;
-    --text2:    #94a3b8;
-    --muted:    #4a5e7a;
+    --bg:       #111113;
+    --surface:  #1c1c1f;
+    --surface2: #242428;
+    --border:   #38383d;
+    --border2:  #48484e;
+    --accent:   #5e81f4;
+    --accent-h: #7c9bf8;
+    --accent2:  #30c46a;
+    --accent2-h:#4dd882;
+    --warn:     #ff5a52;
+    --gold:     #ff9f0a;
+    --gold-dim: rgba(255,159,10,.13);
+    --text:     #f5f5f7;
+    --text2:    #aeaeb2;
+    --muted:    #636366;
     --font:     'JetBrains Mono','Fira Code','Cascadia Code',monospace;
   }
 
@@ -82,9 +82,12 @@
   .agent-card.martin:hover, .agent-card.martin.active {
     border-color: var(--gold); background: rgba(217,119,6,.22);
   }
+  @keyframes pulse-border { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .agent-card.pulse { animation: pulse-border 1s ease-in-out infinite; box-shadow: 0 0 0 2px var(--accent); }
   .agent-name { font-weight: 600; font-size: 11px; display: flex; align-items: center; gap: 6px; }
   .agent-name .crown { font-size: 11px; }
   .agent-id { color: var(--muted); font-size: 9px; margin-top: 2px; }
+  .agent-model { font-size: 9px; color: var(--accent-h); margin-top: 2px; opacity: .8; }
   .agent-ez { font-size: 9px; color: var(--accent2); margin-top: 3px; }
   .faction-badge {
     font-size: 8px; padding: 1px 5px; border-radius: 3px;
@@ -125,7 +128,7 @@
   .inp:focus { border-color: var(--accent); }
   .inp::placeholder { color: var(--muted); }
   input { flex: 1; }
-  textarea.inp { resize: vertical; min-height: 60px; }
+  textarea.inp { resize: none; min-height: 36px; max-height: 160px; overflow-y: auto; line-height: 1.5; }
   select.inp { cursor: pointer; }
 
   button {
@@ -193,6 +196,22 @@
   .pill.cooperative { border-color: var(--accent); color: var(--accent-h); }
   .pill.skeptical { border-color: #f59e0b; color: #fbbf24; }
 
+  /* ── Log View ── */
+  .log-stream {
+    flex: 1; overflow-y: auto; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px; font-size: 10px; line-height: 1.6;
+    font-family: var(--font); white-space: pre-wrap; word-break: break-all;
+  }
+  .log-line { padding: 1px 0; }
+  .log-line.level-ERROR { color: #f87171; }
+  .log-line.level-WARNING { color: #fbbf24; }
+  .log-line.level-INFO { color: var(--text2); }
+  .log-line.level-DEBUG { color: var(--muted); }
+
+  .log-line.error { color: var(--warn); }
+  .log-line.warning { color: #fbbf24; }
+  .log-line.debug { color: var(--muted); }
+
   /* ── Misc ── */
   .empty { color: var(--muted); text-align: center; padding: 36px; font-size: 11px; }
   .row { display: flex; gap: 8px; align-items: center; }
@@ -239,6 +258,7 @@
       <div class="tab" onclick="switchTab('spacetime')" data-i18n="nav.spacetime">Spacetime</div>
       <div class="tab" onclick="switchTab('factions')" data-i18n="nav.factions">Factions</div>
       <div class="tab" onclick="switchTab('status')" data-i18n="nav.status">Status</div>
+      <div class="tab" onclick="switchTab('logs')" data-i18n="nav.logs">Log</div>
       <div class="tab" onclick="switchTab('admin')" data-i18n="nav.admin">Admin</div>
     </div>
 
@@ -250,7 +270,8 @@
           <div class="empty" data-i18n="chat.empty">Select an agent and write a message.</div>
         </div>
         <div class="chat-input-row">
-          <input class="inp" id="chat-input" placeholder="Message …" onkeydown="if(event.key==='Enter')sendChat()">
+          <textarea class="inp" id="chat-input" placeholder="Message …" rows="1"
+  onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
           <button id="send-btn" onclick="sendChat()" data-i18n="chat.send">Send</button>
         </div>
       </div>
@@ -300,6 +321,15 @@
         <div class="cdc-panel" id="status-panel">
           <div class="empty" data-i18n="status.loading">Loading…</div>
         </div>
+      </div>
+
+      <!-- ── Log ── -->
+      <div id="view-logs" class="view">
+        <div class="row">
+          <span style="color:var(--muted);font-size:10px;flex:1;" data-i18n="logs.title">Live Log Stream</span>
+          <button class="btn-sm btn-secondary" onclick="clearLog()" data-i18n="logs.clear">Clear</button>
+        </div>
+        <div class="log-stream" id="log-stream"></div>
       </div>
 
       <!-- ── Admin ── -->
@@ -382,10 +412,11 @@ const I18N = {
     "admin.spawn.soul":"Soul / System Prompt","admin.spawn.btn":"Spawn",
     "admin.martin.title":"Martin — Ops Config",
     "admin.system.title":"System",
+    "nav.logs":"Log","logs.title":"Live Log Stream","logs.clear":"Clear",
   },
   de: {
     "nav.chat":"Chat","nav.missions":"Missionen","nav.spacetime":"Raumzeit",
-    "nav.factions":"Fraktionen","nav.status":"Status","nav.admin":"Admin",
+    "nav.factions":"Fraktionen","nav.status":"Status","nav.admin":"Admin","nav.logs":"Log",
     "sidebar.hint":"Wähle einen Agenten und schreibe eine Nachricht.",
     "chat.empty":"Wähle einen Agenten und schreibe eine Nachricht.",
     "chat.placeholder":"Nachricht …","chat.send":"Senden",
@@ -406,6 +437,7 @@ const I18N = {
     "admin.spawn.soul":"Soul / System-Prompt","admin.spawn.btn":"Spawnen",
     "admin.martin.title":"Martin — Ops-Konfiguration",
     "admin.system.title":"System",
+    "logs.title":"Live Log Stream","logs.clear":"Leeren",
   },
 };
 
@@ -495,6 +527,7 @@ function selectAgent(id, name, card) {
   const inp = document.getElementById('chat-input');
   inp.placeholder = `→ ${name}: …`;
   inp.focus();
+  inp.addEventListener('input', () => { inp.style.height='auto'; inp.style.height=inp.scrollHeight+'px'; }, {once:false});
   switchTab('chat');
 }
 
@@ -505,32 +538,43 @@ async function sendChat() {
   const msg = input.value.trim();
   if (!msg) return;
   if (!selectedAgent) { appendMsg('system', t('chat.select_agent')); return; }
-
   appendMsg('user', msg);
   input.value = '';
+  input.style.height = 'auto';
   btn.disabled = true;
-
   const thinkingEl = appendMsg('agent', '…', selectedAgent);
   thinkingEl.classList.add('thinking');
-
   const es = new EventSource(`${API}/api/chat/stream?agent_id=${encodeURIComponent(selectedAgent)}&message=${encodeURIComponent(msg)}`);
+  setAgentPulse(selectedAgent, true);
+  let rootTaskId = null;
   es.onmessage = (e) => {
     try {
       const data = JSON.parse(e.data);
+      if (data.event === 'heartbeat') return;
+      if (data.event === 'init') { rootTaskId = data.root_task_id; return; }
       if (data.event === 'message' && data.type === 'response') {
         const result = data.payload?.result ?? '';
-        thinkingEl.classList.remove('thinking');
-        thinkingEl.querySelector('.text').textContent = result;
-        if (data.clock) thinkingEl.querySelector('.meta').textContent = clockSummary(data.clock);
+        if (data.sender === selectedAgent || data.recipient === 'ext:user') {
+          thinkingEl.classList.remove('thinking');
+          renderMsgContent(thinkingEl.querySelector('.text'), result);
+          if (data.clock) thinkingEl.querySelector('.meta').textContent = clockSummary(data.clock);
+        }
       }
       if (['task_completed','task_failed','task_timeout'].includes(data.event)) {
-        es.close(); btn.disabled = false;
-        thinkingEl.classList.remove('thinking');
-        loadAgents();
+        if (data.task_id === rootTaskId) {
+          es.close(); btn.disabled = false;
+          thinkingEl.classList.remove('thinking');
+          setAgentPulse(selectedAgent, false);
+          loadAgents();
+        }
       }
     } catch {}
   };
-  es.onerror = () => { es.close(); btn.disabled = false; thinkingEl.classList.remove('thinking'); };
+  es.onerror = () => {
+    es.close(); btn.disabled = false;
+    thinkingEl.classList.remove('thinking');
+    setAgentPulse(selectedAgent, false);
+  };
 }
 
 function appendMsg(type, text, agentId = '') {
@@ -542,6 +586,30 @@ function appendMsg(type, text, agentId = '') {
   area.appendChild(div);
   area.scrollTop = area.scrollHeight;
   return div;
+}
+
+function renderMsgContent(el, text) {
+  const imgRe = /(https?:\/\/[^\s]+\.(?:png|jpg|jpeg|gif|webp)[^\s]*)/gi;
+  const parts = [];
+  let last = 0, m;
+  imgRe.lastIndex = 0;
+  while ((m = imgRe.exec(text)) !== null) {
+    if (m.index > last) parts.push({t:'text', v: text.slice(last, m.index)});
+    parts.push({t:'img', v: m[1]});
+    last = m.index + m[1].length;
+  }
+  if (last < text.length) parts.push({t:'text', v: text.slice(last)});
+  el.innerHTML = parts.map(p => p.t === 'img'
+    ? `<a href="${esc(p.v)}" target="_blank"><img src="${esc(p.v)}" style="max-width:100%;max-height:320px;border-radius:6px;margin-top:6px;display:block;"></a>`
+    : esc(p.v).replace(/\n/g,'<br>')
+  ).join('');
+  const area = el.closest('.chat-area');
+  if (area) area.scrollTop = area.scrollHeight;
+}
+function setAgentPulse(agentId, on) {
+  document.querySelectorAll('.agent-card').forEach(c => {
+    if (c.dataset.id === agentId) c.classList.toggle('pulse', on);
+  });
 }
 
 function clockSummary(clock) {
@@ -721,9 +789,56 @@ async function spawnAgent() {
   } finally { btn.disabled = false; }
 }
 
+// ── Log Stream ───────────────────────────────────────────────────────────────
+let _logES = null;
+
+function _levelClass(line) {
+  if (/\[ERROR\]/.test(line))   return 'level-ERROR';
+  if (/\[WARNING\]/.test(line)) return 'level-WARNING';
+  if (/\[DEBUG\]/.test(line))   return 'level-DEBUG';
+  return 'level-INFO';
+}
+
+function appendLogLine(line) {
+  const container = document.getElementById('log-stream');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.className = `log-line ${_levelClass(line)}`;
+  div.textContent = line;
+  container.appendChild(div);
+  // auto-scroll to bottom
+  container.scrollTop = container.scrollHeight;
+  // keep DOM lean — trim to last 500 lines
+  while (container.children.length > 500) {
+    container.removeChild(container.firstChild);
+  }
+}
+
+function clearLog() {
+  const container = document.getElementById('log-stream');
+  if (container) container.innerHTML = '';
+}
+
+function startLogStream() {
+  if (_logES) return;   // already connected
+  _logES = new EventSource(`${API}/api/logs`);
+  _logES.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.line) appendLogLine(data.line);
+    } catch {}
+  };
+  _logES.onerror = () => {
+    _logES && _logES.close();
+    _logES = null;
+    // retry after 5 s
+    setTimeout(() => { if (document.getElementById('view-logs').classList.contains('active')) startLogStream(); }, 5000);
+  };
+}
+
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 function switchTab(name) {
-  const names = ['chat','missions','spacetime','factions','status','admin'];
+  const names = ['chat','missions','spacetime','factions','status','logs','admin'];
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i]===name));
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById(`view-${name}`).classList.add('active');
@@ -731,6 +846,7 @@ function switchTab(name) {
   if (name==='spacetime') {}
   if (name==='factions') loadFactions();
   if (name==='status') loadStatus();
+  if (name==='logs') startLogStream();
   if (name==='admin') { loadAdmin(); }
 }
 

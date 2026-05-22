@@ -4,6 +4,7 @@ backend/agents/conductor.py — Mission-Dispatcher.
 Registriert Agenten, dispatcht CDC-Messages, überwacht Timeouts (Watchdog).
 Asyncio-basiert — kein Threading.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,12 +22,12 @@ from backend.storage.mission_store import MissionStore
 from backend.storage.sqlite_store import make_store
 
 _DEFAULT_TASK_TIMEOUT = 120.0
-_WATCHDOG_INTERVAL    = 5.0
+_WATCHDOG_INTERVAL = 5.0
 
 
 class Conductor:
     def __init__(self, store: MissionStore | None = None, db_url: str = "") -> None:
-        self._agents: dict[str, object] = {}   # agent_id → AsyncAgent
+        self._agents: dict[str, object] = {}  # agent_id → AsyncAgent
         self.store = store or (make_store(db_url) if db_url else MissionStore())
         self._watchdog_task: asyncio.Task | None = None
 
@@ -67,13 +68,16 @@ class Conductor:
         timeout_sec: float = _DEFAULT_TASK_TIMEOUT,
     ) -> dict:
         mission_id = new_mission_id()
-        self.store.register_mission(mission_id, {
-            "mission_id": mission_id,
-            "title":      title,
-            "state":      "running",
-            "started_at": time.time(),
-            "timeout_sec": timeout_sec,
-        })
+        self.store.register_mission(
+            mission_id,
+            {
+                "mission_id": mission_id,
+                "title": title,
+                "state": "running",
+                "started_at": time.time(),
+                "timeout_sec": timeout_sec,
+            },
+        )
         msg = Message.request(
             mission_id=mission_id,
             sender=external_ref("user"),
@@ -85,8 +89,8 @@ class Conductor:
         self.store.update_mission(mission_id, state=state, finished_at=time.time())
         return {
             "mission_id": mission_id,
-            "state":      state,
-            "result":     result_msg.payload,
+            "state": state,
+            "result": result_msg.payload,
         }
 
     # ── Dispatch ──────────────────────────────────────────────────────────────
@@ -128,12 +132,13 @@ class Conductor:
             return Message.error(msg, str(e))
 
         final_state = (
-            TaskState.COMPLETED if response.type == MessageType.RESPONSE
-            else TaskState.FAILED
+            TaskState.COMPLETED if response.type == MessageType.RESPONSE else TaskState.FAILED
         )
         task.transition(final_state)
         task.result = response.payload.get("result")
-        self.store.record_message(response)  # response message first → JS sees it before task_completed
+        self.store.record_message(
+            response
+        )  # response message first → JS sees it before task_completed
         self.store.upsert_task(task)
         return response
 
@@ -148,7 +153,11 @@ class Conductor:
                     continue
                 age = now - task.last_heartbeat
                 mission = self.store.get_mission(task.mission_id)
-                timeout = mission.get("timeout_sec", _DEFAULT_TASK_TIMEOUT) if mission else _DEFAULT_TASK_TIMEOUT
+                timeout = (
+                    mission.get("timeout_sec", _DEFAULT_TASK_TIMEOUT)
+                    if mission
+                    else _DEFAULT_TASK_TIMEOUT
+                )
                 if age > timeout:
                     task.transition(TaskState.TIMEOUT)
                     self.store.upsert_task(task)

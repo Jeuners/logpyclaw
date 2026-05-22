@@ -4,6 +4,7 @@ backend/agents/llm_agent.py — LLM-gestützter Agent.
 Unterstützt Ollama, Anthropic, OpenAI. Provider wird über `provider`-Feld gewählt.
 Jeder LLM-Call tickt die CDC-Clock mit aktueller Eigenzeit-Rate.
 """
+
 from __future__ import annotations
 
 import httpx
@@ -19,15 +20,15 @@ class LLMAgent(AsyncAgent):
         agent_id: str,
         name: str,
         model: str,
-        provider: str,          # "ollama" | "anthropic" | "openai"
+        provider: str,  # "ollama" | "anthropic" | "openai"
         soul: str = "",
         ollama_url: str = "http://localhost:11434",
         max_tokens: int = 2048,
     ) -> None:
         super().__init__(agent_id, name)
-        self.model      = model
-        self.provider   = provider
-        self.soul       = soul
+        self.model = model
+        self.provider = provider
+        self.soul = soul
         self.ollama_url = ollama_url
         self.max_tokens = max_tokens
 
@@ -78,10 +79,10 @@ class LLMAgent(AsyncAgent):
                     "content-type": "application/json",
                 },
                 json={
-                    "model":      self.model,
+                    "model": self.model,
                     "max_tokens": self.max_tokens,
-                    "system":     system,
-                    "messages":   [{"role": "user", "content": content}],
+                    "system": system,
+                    "messages": [{"role": "user", "content": content}],
                 },
             )
             r.raise_for_status()

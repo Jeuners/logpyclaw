@@ -7,6 +7,7 @@ router = APIRouter()
 @router.get("/.well-known/agent.json")
 async def agent_card(request: Request):
     from backend.agents.a2a_gateway import A2AGatewayAgent
+
     base = str(request.base_url).rstrip("/")
     return A2AGatewayAgent.agent_card(base)
 

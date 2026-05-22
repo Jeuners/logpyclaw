@@ -2,6 +2,7 @@
 backend/i18n — Einfaches dict-basiertes Übersetzungssystem.
 Default: English. Unterstützt: en, de.
 """
+
 from __future__ import annotations
 
 from backend.i18n import de, en

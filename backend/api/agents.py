@@ -1,4 +1,5 @@
 """backend/api/agents.py — Agent REST-API inkl. Spawn."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
@@ -12,7 +13,7 @@ class SpawnRequest(BaseModel):
     model: str = "gemma4:e4b"
     provider: str = "ollama"
     soul: str = ""
-    faction: str = ""   # Faction-ID zum Zuweisen (optional)
+    faction: str = ""  # Faction-ID zum Zuweisen (optional)
 
 
 @router.get("/agents")
@@ -56,6 +57,7 @@ async def spawn_agent(body: SpawnRequest, request: Request):
 
     if body.faction:
         from backend.core.faction_protocol import FactionRegistry
+
         FactionRegistry.get().assign(agent_id, body.faction)
 
     return agent.to_dict()
