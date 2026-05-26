@@ -7,8 +7,8 @@ agents:
   - type: llm
     id: agent:alice
     name: Alice
-    model: "gemma4:e4b"
-    provider: ollama
+    model: "llama-3.3-70b-versatile"
+    provider: groq
     soul: ""           # leer → i18n default
     faction: makers
     enabled: true
@@ -16,13 +16,13 @@ agents:
     max_tokens: 2048
 
   - type: martin
-    model: "gemma4:e4b"
+    model: "llama-3.3-70b-versatile"  # Groq — schnelles Routing (~500ms statt 3-5s lokal)
     temperature: 0.3   # niedrig → präzise Routing-Entscheidungen
     qc:
       enabled: true
       min_score: 7
       max_retries: 2
-      auditor_id: "agent:claude"
+      auditor_id: "agent:alice"  # Groq → schnelle QC (war agent:claude, lokal lahm)
 
   - type: skill
     skill_id: websearch

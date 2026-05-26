@@ -141,18 +141,22 @@ def _make_planner_fn(cfg, temperature: float = 0.3):
         )
 
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            from backend.core.key_pool import get_groq_key
+            async with httpx.AsyncClient(timeout=30.0) as client:
                 r = await client.post(
-                    f"{cfg.ollama_url}/api/chat",
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {get_groq_key()}",
+                        "Content-Type": "application/json",
+                    },
                     json={
-                        "model": cfg.ollama_model,
+                        "model": "llama-3.3-70b-versatile",
                         "messages": [{"role": "user", "content": prompt}],
-                        "stream": False,
-                        "options": {"temperature": temperature},
+                        "temperature": temperature,
                     },
                 )
                 r.raise_for_status()
-                raw = r.json()["message"]["content"]
+                raw = r.json()["choices"][0]["message"]["content"]
 
             data = _extract_json(raw)
             tasks = data.get("tasks", [])
