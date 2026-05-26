@@ -212,6 +212,9 @@ class MartinAgent(AsyncAgent):
         results: list[str] = []
         step_results: dict[int, str] = {}
 
+        store = self.conductor.store if self.conductor else None
+        total = len(steps)
+
         for i, step in enumerate(steps):
             # Kontext aus Abhängigkeiten einbauen
             context = ""
@@ -219,11 +222,22 @@ class MartinAgent(AsyncAgent):
                 deps = "\n".join(step_results[j] for j in step.depends_on if j in step_results)
                 context = f"[Vorherige Ergebnisse]\n{deps}\n\n"
 
+            if store:
+                store.emit_step_progress(
+                    original.mission_id, i + 1, total, step.agent_id, "started"
+                )
+
             content = f"{context}{step.content}"
             resp = await self._delegate_with_qc(original, step.agent_id, content, clock)
             text = resp.payload.get("result", "")
             step_results[i] = text
-            results.append(f"**Schritt {i + 1}/{len(steps)}** → `{step.agent_id}`\n{text}")
+            results.append(f"**Schritt {i + 1}/{total}** → `{step.agent_id}`\n{text}")
+
+            if store:
+                state_str = "completed" if resp.type == MessageType.RESPONSE else "failed"
+                store.emit_step_progress(
+                    original.mission_id, i + 1, total, step.agent_id, state_str, text
+                )
 
         combined = "\n\n".join(results)
         return Message.response(original, combined, clock=self.advance_clock())

@@ -126,6 +126,23 @@ class MissionStore:
         """Streamt ein LLM-Token live an alle SSE-Subscriber."""
         self._emit(mission_id, "thinking_token", task_id=task_id, token=token)
 
+    def emit_step_progress(
+        self,
+        mission_id: str,
+        step_idx: int,
+        total: int,
+        agent_id: str,
+        state: str,  # "started" | "completed" | "failed"
+        result: str = "",
+    ) -> None:
+        """Streamt Zwischen-Updates während Multi-Step-Plans (Martin)."""
+        self._emit(
+            mission_id, "step_progress",
+            step_idx=step_idx, total=total,
+            agent_id=agent_id, state=state,
+            result=result[:500],
+        )
+
     def _emit(self, mission_id: str, event: str, **data) -> None:
         payload = {"event": event, "ts": time.time(), **data}
         with self._lock:

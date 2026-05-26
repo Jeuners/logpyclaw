@@ -562,6 +562,37 @@
   .gn:hover:not(.active) .gn-bg { fill: rgba(255,255,255,.04); }
   .ge { fill: none; stroke: #38383d; stroke-width: 1.2; opacity: .55; }
 
+  /* Step-Progress (Multi-Step-Pipelines) */
+  .steps {
+    margin-top: 8px; display: flex; flex-direction: column; gap: 6px;
+    border-top: 1px dashed rgba(167,139,250,.25); padding-top: 8px;
+  }
+  .step-row { font-size: 11px; line-height: 1.4; }
+  .step-head {
+    display: flex; align-items: center; gap: 6px;
+    color: var(--text2);
+  }
+  .step-row code {
+    background: rgba(94,129,244,.1); color: var(--accent-h);
+    padding: 1px 5px; border-radius: 3px; font-size: 10px;
+  }
+  .step-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; border-radius: 50%;
+    font-size: 10px; font-weight: 700;
+  }
+  .step-row.live .step-icon { background: rgba(94,129,244,.2); color: var(--accent-h); animation: pulse-border 1s ease-in-out infinite; }
+  .step-row.done .step-icon { background: rgba(48,196,106,.2); color: var(--accent2); }
+  .step-row.fail .step-icon { background: rgba(255,90,82,.2); color: var(--warn); }
+  .step-row.done .step-head { color: var(--text); }
+  .step-row.fail .step-head { color: var(--warn); }
+  .step-result {
+    margin-top: 4px; margin-left: 22px; padding: 5px 8px;
+    background: rgba(255,255,255,.03); border-left: 2px solid var(--border2);
+    border-radius: 3px; font-size: 10px; color: var(--text2);
+    white-space: pre-wrap; word-break: break-all;
+  }
+
   /* Mission-Delete */
   .m-del {
     background: transparent; border: 1px solid var(--border);
@@ -1346,6 +1377,35 @@ async function sendChat() {
         }
         thinkingEl.querySelector('.text').textContent = streamBuffer;
         // Auto-scroll
+        const area = document.getElementById('chat-area');
+        area.scrollTop = area.scrollHeight;
+        return;
+      }
+
+      // ── Step-Progress: live Status für Multi-Step-Pläne ──
+      if (data.event === 'step_progress') {
+        let stepBox = thinkingEl.querySelector('.steps');
+        if (!stepBox) {
+          stepBox = document.createElement('div');
+          stepBox.className = 'steps';
+          thinkingEl.appendChild(stepBox);
+        }
+        const key = `s${data.step_idx}`;
+        let row = stepBox.querySelector(`[data-step="${key}"]`);
+        if (!row) {
+          row = document.createElement('div');
+          row.className = 'step-row';
+          row.dataset.step = key;
+          stepBox.appendChild(row);
+        }
+        const icon = data.state === 'completed' ? '✓'
+                   : data.state === 'failed'    ? '✗' : '▶';
+        const cls  = data.state === 'completed' ? 'done'
+                   : data.state === 'failed'    ? 'fail' : 'live';
+        row.className = `step-row ${cls}`;
+        const result = data.result ? `<div class="step-result">${esc(data.result.slice(0, 200))}</div>` : '';
+        row.innerHTML = `<div class="step-head"><span class="step-icon">${icon}</span>`
+          + `<span>Schritt ${data.step_idx}/${data.total} · <code>${esc(data.agent_id)}</code></span></div>${result}`;
         const area = document.getElementById('chat-area');
         area.scrollTop = area.scrollHeight;
         return;
