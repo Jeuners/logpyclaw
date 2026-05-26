@@ -309,8 +309,12 @@ def _boot_agents() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    from backend.core.faction_protocol import FactionRegistry
     from backend.services.dream import run_dream_cycle
     from backend.services.rss import fetch_all as rss_fetch_all
+
+    # Standard-Faktionen (operators/makers/gatherers/auditors/scribes/guardians)
+    FactionRegistry.load_defaults()
 
     _boot_agents()
     await conductor.start()
