@@ -99,6 +99,18 @@ class Message:
     timestamp: float = field(default_factory=time.time)
     clock: CausalDilationClock = field(default_factory=CausalDilationClock)
 
+    # ── PQC Audit-Trail (optional, ab Phase r9) ──
+    # chain_idx:  0-basierter Index innerhalb der Mission
+    # prev_hash:  SHA-256 hex der vorherigen Message (Genesis: "0"*64)
+    # msg_hash:   SHA-256(prev_hash || canonical_payload) — diese Message
+    # signer_id:  ID des Signer-Keypairs ("signer-<ts>")
+    # sig:        base64 ML-DSA-65 Signatur über canonical_payload
+    chain_idx: int | None = None
+    prev_hash: str | None = None
+    msg_hash:  str | None = None
+    signer_id: str | None = None
+    sig: str | None = None
+
     # ── Factory-Methoden ─────────────────────────────────────────────────────
 
     @classmethod
@@ -182,7 +194,7 @@ class Message:
         )
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "msg_id": self.msg_id,
             "mission_id": self.mission_id,
             "task_id": self.task_id,
@@ -194,6 +206,39 @@ class Message:
             "timestamp": self.timestamp,
             "clock": self.clock.to_dict(),
         }
+        if self.chain_idx is not None: d["chain_idx"] = self.chain_idx
+        if self.prev_hash is not None: d["prev_hash"] = self.prev_hash
+        if self.msg_hash  is not None: d["msg_hash"]  = self.msg_hash
+        if self.signer_id is not None: d["signer_id"] = self.signer_id
+        if self.sig       is not None: d["sig"]       = self.sig
+        return d
+
+    def signing_payload(self) -> bytes:
+        """Was tatsächlich signiert wird — canonical über die Kern-Felder
+        OHNE sig/msg_hash (zirkulär), aber MIT prev_hash + chain_idx
+        (in die Chain integriert).
+
+        Vom Clock nur vector + dilation — wall_ts ist Konvenienz, nicht
+        Teil der kausalen Identität (wäre wegen time.time() instabil).
+        """
+        from backend.core.pqsign import canonical_json
+        return canonical_json({
+            "msg_id":    self.msg_id,
+            "mission_id": self.mission_id,
+            "task_id":   self.task_id,
+            "parent_task_id": self.parent_task_id,
+            "type":      self.type.value,
+            "sender":    self.sender,
+            "recipient": self.recipient,
+            "payload":   self.payload,
+            "timestamp": self.timestamp,
+            "clock":     {
+                "vector":   dict(self.clock.vector),
+                "dilation": {k: float(v) for k, v in self.clock.dilation.items()},
+            },
+            "chain_idx": self.chain_idx,
+            "prev_hash": self.prev_hash,
+        })
 
     @classmethod
     def from_dict(cls, d: dict) -> Message:
@@ -208,6 +253,11 @@ class Message:
             payload=d.get("payload", {}),
             timestamp=d.get("timestamp", time.time()),
             clock=CausalDilationClock.from_dict(d.get("clock", {})),
+            chain_idx=d.get("chain_idx"),
+            prev_hash=d.get("prev_hash"),
+            msg_hash=d.get("msg_hash"),
+            signer_id=d.get("signer_id"),
+            sig=d.get("sig"),
         )
 
 

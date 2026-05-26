@@ -38,6 +38,7 @@ from backend.api.rss import router as rss_router
 from backend.api.logs import router as logs_router
 from backend.api.web_bridge import router as web_bridge_router
 from backend.api.chrome_ws import router as chrome_ws_router
+from backend.api.keys import router as keys_router
 from backend.config import get_settings
 from backend.i18n import locale_from_header
 from backend.skills.browser import BrowserSkill
@@ -373,6 +374,7 @@ app.include_router(teams_router, prefix="/api")
 app.include_router(a2a_router)
 app.include_router(web_bridge_router)
 app.include_router(chrome_ws_router)
+app.include_router(keys_router)
 app.include_router(files_router)
 app.include_router(rss_router)
 app.include_router(logs_router, prefix="/api")

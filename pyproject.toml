@@ -14,6 +14,8 @@ dependencies = [
     "python-dotenv>=1.0",
     "pydantic-settings>=2.0",
     "pyyaml>=6.0",
+    "pqcrypto>=0.4",                # ML-DSA-65 (FIPS 204) für Audit-Log-Signatur
+    "apscheduler>=3.10",            # Daily Dream-Cycle, RSS-Fetcher
 ]
 
 [project.optional-dependencies]

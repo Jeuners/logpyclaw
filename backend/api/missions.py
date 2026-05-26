@@ -38,6 +38,16 @@ async def delete_mission(mission_id: str, request: Request):
     return {"deleted": mission_id}
 
 
+@router.get("/missions/{mission_id}/verify")
+async def verify_mission(mission_id: str, request: Request):
+    """Prüft Hash-Chain + ML-DSA-65 Signaturen aller Messages der Mission."""
+    conductor = request.app.state.conductor
+    result = conductor.store.verify_chain(mission_id)
+    if result["count"] == 0:
+        raise HTTPException(404, "Mission not found or empty")
+    return result
+
+
 @router.get("/missions/{mission_id}/trace")
 async def get_trace(mission_id: str, request: Request):
     conductor = request.app.state.conductor

@@ -593,6 +593,15 @@
     white-space: pre-wrap; word-break: break-all;
   }
 
+  /* PQC-Badges */
+  .pqc-cell { font-size: 10px; text-align: center; }
+  .pqc-ok      { color: var(--accent2); font-weight: 600; }
+  .pqc-bad     { color: var(--warn);    font-weight: 700; }
+  .pqc-legacy  { color: var(--muted);   opacity: .6; }
+  .pqc-na      { color: var(--muted);   opacity: .4; }
+  .pqc-spin    { color: var(--muted);   animation: pqc-spin 1s linear infinite; display: inline-block; }
+  @keyframes pqc-spin { from { opacity: .3; } 50% { opacity: 1; } to { opacity: .3; } }
+
   /* Mission-Delete */
   .m-del {
     background: transparent; border: 1px solid var(--border);
@@ -722,6 +731,7 @@
               <th data-i18n="missions.col.id">ID</th>
               <th data-i18n="missions.col.title">Title</th>
               <th data-i18n="missions.col.state">State</th>
+              <th style="width:54px" title="PQC-Audit-Status">🔒</th>
               <th style="width:32px"></th>
             </tr></thead>
             <tbody id="missions-tbody"></tbody>
@@ -1563,6 +1573,7 @@ async function loadMissions() {
         <td style="font-size:9px;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis">${esc(m.mission_id)}</td>
         <td>${esc(m.title||'')}</td>
         <td class="s-${m.state}">${m.state}</td>
+        <td class="pqc-cell" data-mid="${esc(m.mission_id)}" title="Lade PQC-Verifikation…"><span class="pqc-spin">·</span></td>
         <td><button class="m-del" title="Mission löschen" data-mid="${esc(m.mission_id)}">×</button></td>
       `;
       tr.querySelectorAll('td:not(:last-child)').forEach(td => {
@@ -1576,7 +1587,29 @@ async function loadMissions() {
       });
       tbody.appendChild(tr);
     });
+    loadPqcBadges();
   } catch {}
+}
+
+async function loadPqcBadges() {
+  const cells = document.querySelectorAll('.pqc-cell[data-mid]');
+  for (const c of cells) {
+    const mid = c.dataset.mid;
+    try {
+      const r = await fetch(`${API}/api/missions/${mid}/verify`);
+      if (!r.ok) { c.innerHTML = '<span class="pqc-na" title="keine Daten">—</span>'; continue; }
+      const d = await r.json();
+      if (d.signed === 0) {
+        c.innerHTML = `<span class="pqc-legacy" title="Legacy (vor PQC) · ${d.count} msgs">∅</span>`;
+      } else if (d.valid) {
+        c.innerHTML = `<span class="pqc-ok" title="${d.verified}/${d.signed} signed verified · ML-DSA-65">🔒 ${d.verified}</span>`;
+      } else {
+        c.innerHTML = `<span class="pqc-bad" title="Broken @${d.broken_at}: ${d.broken_reason}">⚠</span>`;
+      }
+    } catch {
+      c.innerHTML = '<span class="pqc-na">?</span>';
+    }
+  }
 }
 
 async function cleanupStaleMissions() {

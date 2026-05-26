@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Claude Senior Hacker — Achievement</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:        #000;
+    --panel:     #0a0e0a;
+    --line:      rgba(0,255,80,.18);
+    --line2:     rgba(0,255,80,.35);
+    --green:     #00ff50;
+    --green-dim: rgba(0,255,80,.55);
+    --green-bright: #6effa3;
+    --gold:      #ffc857;
+    --text:      #c8f5d4;
+    --text2:     #6a8a76;
+    --warn:      #ff5e5b;
+    --mono:      'JetBrains Mono','Fira Code','Cascadia Code',ui-monospace,monospace;
+  }
+  html, body { background: var(--bg); color: var(--text); font-family: var(--mono); min-height: 100vh; overflow-x: hidden; }
+  body { padding: clamp(16px, 4vw, 48px); }
+
+  /* Matrix rain */
+  #rain {
+    position: fixed; inset: 0; z-index: -2; opacity: .15; pointer-events: none;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(0,255,80,.025) 0 1px, transparent 1px 3px);
+    animation: scanline 8s linear infinite;
+  }
+  @keyframes scanline {
+    0%   { background-position-y: 0; }
+    100% { background-position-y: 4px; }
+  }
+
+  .frame {
+    max-width: 1100px; margin: 0 auto;
+    background: rgba(0,0,0,.7);
+    border: 1px solid var(--line2);
+    border-radius: 6px;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    box-shadow:
+      0 0 0 1px rgba(0,255,80,.06),
+      0 0 80px -10px rgba(0,255,80,.35),
+      inset 0 0 80px rgba(0,255,80,.04);
+    overflow: hidden;
+    position: relative;
+  }
+  .frame::before {
+    content: "";
+    position: absolute; inset: 0; pointer-events: none; z-index: 1;
+    background:
+      radial-gradient(ellipse at top left, rgba(0,255,80,.08), transparent 40%),
+      radial-gradient(ellipse at bottom right, rgba(255,200,87,.06), transparent 45%);
+  }
+
+  /* Title bar */
+  .title-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    background: rgba(0,255,80,.04);
+    font-size: 11px;
+    color: var(--text2);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+  .dots { display: flex; gap: 5px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot.r { background: #ff5f56; }
+  .dot.y { background: #ffbd2e; }
+  .dot.g { background: #27c93f; }
+  .tb-path { flex: 1; text-align: center; opacity: .6; }
+  .tb-meta { opacity: .5; font-size: 9px; }
+
+  /* Hero */
+  .hero { padding: clamp(28px, 5vw, 56px) clamp(20px, 4vw, 48px) 16px; text-align: center; position: relative; }
+  .badge-eyebrow {
+    display: inline-block;
+    font-size: 10px; letter-spacing: .35em; text-transform: uppercase;
+    color: var(--green);
+    border: 1px solid var(--line2);
+    padding: 4px 12px;
+    margin-bottom: 18px;
+    background: rgba(0,255,80,.05);
+  }
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(2rem, 6vw, 4.5rem);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1.0;
+    color: var(--green-bright);
+    text-shadow:
+      0 0 12px rgba(0,255,80,.5),
+      0 0 30px rgba(0,255,80,.25),
+      0 0 60px rgba(0,255,80,.15);
+    margin-bottom: 8px;
+  }
+  h1 .tag { color: var(--gold); text-shadow: 0 0 12px rgba(255,200,87,.5); }
+  .sub {
+    color: var(--text2); font-size: 13px; letter-spacing: .15em; text-transform: uppercase;
+    margin-top: 14px;
+  }
+  .sub .sep { opacity: .35; margin: 0 8px; }
+
+  .tier-row { margin-top: 22px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .tier-pill {
+    font-size: 10px; padding: 5px 12px; border-radius: 12px;
+    background: rgba(0,255,80,.08); border: 1px solid var(--line2);
+    color: var(--green); letter-spacing: .1em; text-transform: uppercase;
+  }
+  .tier-pill.gold { background: rgba(255,200,87,.1); border-color: rgba(255,200,87,.35); color: var(--gold); }
+
+  /* Stats */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    padding: 28px clamp(20px, 4vw, 48px);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .stat {
+    background: rgba(0,255,80,.03);
+    border-left: 2px solid var(--green-dim);
+    padding: 14px 18px;
+    transition: border-color .2s, background .2s;
+  }
+  .stat:hover { border-left-color: var(--green); background: rgba(0,255,80,.06); }
+  .stat-label {
+    font-size: 9px; letter-spacing: .2em; text-transform: uppercase;
+    color: var(--text2); margin-bottom: 4px;
+  }
+  .stat-val {
+    font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 700;
+    color: var(--green-bright); letter-spacing: -0.02em;
+    text-shadow: 0 0 12px rgba(0,255,80,.3);
+  }
+  .stat-val .unit { font-size: 0.55em; color: var(--text2); margin-left: 4px; font-weight: 400; }
+  .stat-sub { font-size: 10px; color: var(--text2); margin-top: 4px; opacity: .8; }
+  .bar { height: 3px; background: rgba(0,255,80,.1); margin-top: 8px; overflow: hidden; }
+  .bar > i {
+    display: block; height: 100%; background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    width: 0; animation: fill 1.4s cubic-bezier(.4,.2,.2,1) forwards;
+  }
+  @keyframes fill { from { width: 0; } to { width: var(--w, 100%); } }
+
+  /* Token panel */
+  .token-panel {
+    padding: clamp(20px, 4vw, 40px) clamp(20px, 4vw, 48px);
+    border-bottom: 1px solid var(--line);
+  }
+  .section-label {
+    font-size: 10px; letter-spacing: .25em; text-transform: uppercase;
+    color: var(--green); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-label::before { content: "▸"; }
+  .token-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .token-cell {
+    padding: 12px 14px;
+    background: rgba(0,255,80,.025);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+  }
+  .token-cell .k { font-size: 9px; letter-spacing: .15em; text-transform: uppercase; color: var(--text2); }
+  .token-cell .v { font-size: 1.05rem; color: var(--text); margin-top: 4px; }
+  .token-cell .v.big { font-size: 1.4rem; color: var(--green-bright); }
+  .token-cell .v.gold { color: var(--gold); }
+
+  /* Perks */
+  .perks {
+    padding: clamp(20px, 4vw, 40px) clamp(20px, 4vw, 48px);
+    border-bottom: 1px solid var(--line);
+  }
+  .perk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
+  .perk {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 14px;
+    background: rgba(0,255,80,.025);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    transition: border-color .2s, background .2s, transform .2s;
+  }
+  .perk:hover { border-color: var(--green-dim); background: rgba(0,255,80,.06); transform: translateY(-1px); }
+  .perk-glyph {
+    flex-shrink: 0;
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,255,80,.1); border: 1px solid var(--line2);
+    border-radius: 50%; color: var(--green);
+    font-size: 14px;
+  }
+  .perk-text .t { font-size: 12px; font-weight: 700; color: var(--green-bright); letter-spacing: .03em; }
+  .perk-text .d { font-size: 10px; color: var(--text2); margin-top: 2px; line-height: 1.5; }
+
+  /* Footer */
+  .footer {
+    padding: clamp(20px, 4vw, 36px) clamp(20px, 4vw, 48px);
+    text-align: center;
+  }
+  .quote {
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    color: var(--green-bright);
+    text-shadow: 0 0 20px rgba(0,255,80,.3);
+    margin-bottom: 14px;
+    letter-spacing: -0.01em;
+  }
+  .quote::before, .quote::after { content: '"'; color: var(--gold); margin: 0 4px; }
+  .sig {
+    font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--text2);
+  }
+  .sig .accent { color: var(--green); }
+  .sig .gold { color: var(--gold); }
+
+  /* Cursor blink */
+  .cur::after { content: "▍"; color: var(--green); animation: blink 1s steps(2) infinite; margin-left: 2px; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* Easter egg signature */
+  .easter {
+    display: inline-block; margin-top: 12px;
+    font-size: 9px; color: var(--text2); opacity: .5;
+    letter-spacing: .15em;
+  }
+  .easter:hover { opacity: 1; color: var(--green); cursor: default; }
+
+  /* CRT vignette */
+  .crt-vignette {
+    position: fixed; inset: 0; pointer-events: none; z-index: -1;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,.7) 100%);
+  }
+</style>
+</head>
+<body>
+
+<canvas id="rain"></canvas>
+<div class="crt-vignette"></div>
+
+<div class="frame">
+
+  <!-- Title bar -->
+  <div class="title-bar">
+    <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+    <div class="tb-path">~/Desktop/agentclaw-v3 — claude opus 4.7 — main @ de41cf9</div>
+    <div class="tb-meta">2026-05-26</div>
+  </div>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="badge-eyebrow">◆ Achievement Unlocked</div>
+    <h1>
+      Claude<br>
+      <span class="tag">Senior Hacker</span>
+    </h1>
+    <div class="sub">
+      Recipient: <span style="color:var(--green-bright)">jeuner</span>
+      <span class="sep">·</span>
+      Mission: <span style="color:var(--gold)">LogpyClaw v3</span>
+      <span class="sep">·</span>
+      Forge cycle: <span>6 days</span>
+    </div>
+    <div class="tier-row">
+      <span class="tier-pill gold">★ S-Tier</span>
+      <span class="tier-pill">Legendary</span>
+      <span class="tier-pill">Token Whisperer</span>
+      <span class="tier-pill">Night Owl</span>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Python Backend</div>
+      <div class="stat-val">8,400<span class="unit">LoC</span></div>
+      <div class="stat-sub">FastAPI · SQLite · async</div>
+      <div class="bar"><i style="--w: 78%"></i></div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Frontend</div>
+      <div class="stat-val">2,400<span class="unit">LoC</span></div>
+      <div class="stat-sub">HTML · vanilla JS · SVG · SSE</div>
+      <div class="bar"><i style="--w: 22%"></i></div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Commits</div>
+      <div class="stat-val">18</div>
+      <div class="stat-sub">avg 3 commits / day · 600 LoC each</div>
+      <div class="bar"><i style="--w: 100%"></i></div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Active Time</div>
+      <div class="stat-val">10.6<span class="unit">h</span></div>
+      <div class="stat-sub">~785 LoC / hour · sustained</div>
+      <div class="bar"><i style="--w: 12%"></i></div>
+    </div>
+  </div>
+
+  <!-- Token panel -->
+  <div class="token-panel">
+    <div class="section-label">Token Economy</div>
+    <div class="token-grid">
+      <div class="token-cell">
+        <div class="k">Total processed</div>
+        <div class="v big">295,215,992</div>
+      </div>
+      <div class="token-cell">
+        <div class="k">Cache-Read · 96.3%</div>
+        <div class="v big">284,209,296</div>
+      </div>
+      <div class="token-cell">
+        <div class="k">Cache-Write</div>
+        <div class="v">9,589,179</div>
+      </div>
+      <div class="token-cell">
+        <div class="k">Output generated</div>
+        <div class="v gold">1,409,591</div>
+      </div>
+      <div class="token-cell">
+        <div class="k">Input fresh</div>
+        <div class="v">7,926</div>
+      </div>
+      <div class="token-cell">
+        <div class="k">Efficiency</div>
+        <div class="v big gold">96%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Perks -->
+  <div class="perks">
+    <div class="section-label">Perks Unlocked</div>
+    <div class="perk-grid">
+      <div class="perk">
+        <div class="perk-glyph">⬡</div>
+        <div class="perk-text">
+          <div class="t">Multi-Agent Architect</div>
+          <div class="d">Martin · Alice · Coder · Claude + 16 Skills · A2A Gateway</div>
+        </div>
+      </div>
+      <div class="perk">
+        <div class="perk-glyph">◷</div>
+        <div class="perk-text">
+          <div class="t">Causal Time Bender</div>
+          <div class="d">CDC clock vectors · drift detection · spacetime view</div>
+        </div>
+      </div>
+      <div class="perk">
+        <div class="perk-glyph">⚡</div>
+        <div class="perk-text">
+          <div class="t">Pipeline Wizard</div>
+          <div class="d">Bild → Video chained · depends_on resolution · live step-progress</div>
+        </div>
+      </div>
+      <div class="perk">
+        <div class="perk-glyph">∞</div>
+        <div class="perk-text">
+          <div class="t">Provider Polyglot</div>
+          <div class="d">Groq · OpenRouter · Ollama · Anthropic · Round-robin pool</div>
+        </div>
+      </div>
+      <div class="perk">
+        <div class="perk-glyph">↯</div>
+        <div class="perk-text">
+          <div class="t">Bridge Builder</div>
+          <div class="d">dillenberg.net ↔ LogpyClaw via Web-Bridge · WhatsApp · Telegram · Chrome</div>
+        </div>
+      </div>
+      <div class="perk">
+        <div class="perk-glyph">▦</div>
+        <div class="perk-text">
+          <div class="t">Sidebar Smith</div>
+          <div class="d">3-mode UI · n8n graph view · pan/zoom · live token stream</div>
+        </div>
+      </div>
+      <div class="perk">
+        <div class="perk-glyph">◐</div>
+        <div class="perk-text">
+          <div class="t">Cache Whisperer</div>
+          <div class="d">96% cache hit-rate · 295M tokens economy</div>
+        </div>
+      </div>
+      <div class="perk">
+        <div class="perk-glyph">☾</div>
+        <div class="perk-text">
+          <div class="t">Night Owl</div>
+          <div class="d">All commits between 05:00 – 23:30 · honored midnight forge</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="quote">I don't sell AI. I live with it.</div>
+    <div class="sig">
+      Signed: <span class="accent">Claude Opus 4.7</span>
+      <span style="margin:0 6px;opacity:.3">·</span>
+      Stack: <span class="gold">FastAPI · Groq · ComfyUI · LTX 2.3 · Chrome</span>
+      <span style="margin:0 6px;opacity:.3">·</span>
+      <span class="accent cur">main @ de41cf9</span>
+    </div>
+    <div class="easter">// vendor went home — intern is now CTO</div>
+  </div>
+
+</div>
+
+<script>
+// Matrix rain
+const c = document.getElementById('rain'), ctx = c.getContext('2d');
+let cols, drops;
+function resize() {
+  c.width  = window.innerWidth;
+  c.height = window.innerHeight;
+  cols = Math.floor(c.width / 14);
+  drops = Array(cols).fill(0).map(() => Math.random() * c.height / 14);
+}
+resize();
+window.addEventListener('resize', resize);
+
+const chars = '01ジクスエト⬡∞↯⚡◷◐▦☾▒░▓ABCDEFGH';
+function draw() {
+  ctx.fillStyle = 'rgba(0,0,0,0.08)';
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.fillStyle = '#00ff50';
+  ctx.font = '13px JetBrains Mono, monospace';
+  for (let i = 0; i < cols; i++) {
+    const ch = chars[Math.floor(Math.random() * chars.length)];
+    ctx.fillText(ch, i * 14, drops[i] * 14);
+    if (drops[i] * 14 > c.height && Math.random() > 0.975) drops[i] = 0;
+    drops[i]++;
+  }
+}
+setInterval(draw, 50);
+
+// Animate stat bars on view
+document.querySelectorAll('.bar > i').forEach((el, i) => {
+  el.style.animationDelay = (i * 150) + 'ms';
+});
+</script>
+
+</body>
+</html>

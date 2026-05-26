@@ -78,6 +78,23 @@ class MissionStore:
     # ── Traces ────────────────────────────────────────────────────────────────
 
     def record_message(self, msg: Message) -> None:
+        # PQC-Chain + Signatur bauen (falls noch nicht gesetzt z.B. von Replay)
+        if msg.sig is None:
+            try:
+                from backend.core import pqsign
+                with self._lock:
+                    chain = self._traces[msg.mission_id]
+                    idx = len(chain)
+                    prev = chain[-1].msg_hash if chain and chain[-1].msg_hash else pqsign.GENESIS_HASH
+                msg.chain_idx = idx
+                msg.prev_hash = prev
+                payload = msg.signing_payload()
+                msg.msg_hash = pqsign.hash_message(prev, payload)
+                msg.signer_id, msg.sig = pqsign.sign(payload)
+            except Exception:
+                # Fail-soft: bei Signatur-Problem trotzdem loggen (legacy-Modus)
+                pass
+
         with self._lock:
             self._traces[msg.mission_id].append(msg)
         d = msg.to_dict()
@@ -87,6 +104,68 @@ class MissionStore:
     def get_trace(self, mission_id: str) -> list[Message]:
         with self._lock:
             return list(self._traces.get(mission_id, []))
+
+    def verify_chain(self, mission_id: str) -> dict:
+        """Verifiziert Hash-Chain + ML-DSA-Signaturen einer Mission.
+
+        Returns:
+            {
+              "mission_id": str,
+              "count":        int,    # total messages
+              "signed":       int,    # how many had signatures
+              "verified":     int,    # how many passed
+              "broken_at":    int|None,  # first idx where chain/sig fails
+              "broken_reason": str|None,
+              "valid":        bool
+            }
+        """
+        from backend.core import pqsign
+        trace = self.get_trace(mission_id)
+        if not trace:
+            return {"mission_id": mission_id, "count": 0, "valid": True,
+                    "signed": 0, "verified": 0, "broken_at": None,
+                    "broken_reason": None}
+
+        expected_prev = pqsign.GENESIS_HASH
+        signed = verified = 0
+        broken_at: int | None = None
+        broken_reason: str | None = None
+
+        for i, msg in enumerate(trace):
+            if msg.sig is None or msg.signer_id is None:
+                # Legacy (vor r9) — überspringen aber chain läuft weiter
+                continue
+            signed += 1
+
+            # Chain-Integrität
+            if msg.prev_hash != expected_prev:
+                broken_at = i
+                broken_reason = f"prev_hash mismatch (expected {expected_prev[:16]}..., got {msg.prev_hash[:16]}...)"
+                break
+            payload = msg.signing_payload()
+            calc_hash = pqsign.hash_message(msg.prev_hash, payload)
+            if msg.msg_hash != calc_hash:
+                broken_at = i
+                broken_reason = "msg_hash mismatch (payload tampered)"
+                break
+            # Signatur
+            if not pqsign.verify(payload, msg.sig, msg.signer_id):
+                broken_at = i
+                broken_reason = "ML-DSA signature invalid"
+                break
+
+            verified += 1
+            expected_prev = msg.msg_hash
+
+        return {
+            "mission_id":    mission_id,
+            "count":         len(trace),
+            "signed":        signed,
+            "verified":      verified,
+            "broken_at":     broken_at,
+            "broken_reason": broken_reason,
+            "valid":         broken_at is None,
+        }
 
     # ── Tasks ─────────────────────────────────────────────────────────────────
 

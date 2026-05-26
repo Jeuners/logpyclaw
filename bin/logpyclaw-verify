@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""
+bin/logpyclaw-verify — Offline-Verifikation von Mission-Traces.
+
+Liest direkt aus SQLite, ohne den Server zu starten. Damit lässt sich
+ein DB-Backup unabhängig prüfen — Sovereignty-Test: jeder mit dem
+Public-Key kann die Logs verifizieren.
+
+Usage:
+  logpyclaw-verify <mission_id>           # verifiziert eine Mission
+  logpyclaw-verify --all                  # alle Missions
+  logpyclaw-verify --db /pfad/foo.db <id> # andere DB
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sqlite3
+import sys
+from pathlib import Path
+
+# Pfad zum Repo-Root setzen damit backend.* importierbar
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO))
+
+from backend.core import pqsign  # noqa: E402
+from backend.core.protocol import Message  # noqa: E402
+
+
+COLOR_GREEN = "\033[32m"
+COLOR_RED   = "\033[31m"
+COLOR_GRAY  = "\033[90m"
+COLOR_BOLD  = "\033[1m"
+COLOR_RESET = "\033[0m"
+
+
+def verify_mission(con: sqlite3.Connection, mission_id: str) -> dict:
+    cur = con.cursor()
+    cur.execute(
+        "SELECT msg_json FROM messages WHERE mission_id = ? ORDER BY id",
+        (mission_id,),
+    )
+    rows = cur.fetchall()
+    if not rows:
+        return {"mission_id": mission_id, "count": 0, "valid": True, "signed": 0, "verified": 0}
+
+    expected_prev = pqsign.GENESIS_HASH
+    signed = verified = 0
+    broken_at = broken_reason = None
+
+    for i, (mj,) in enumerate(rows):
+        msg = Message.from_dict(json.loads(mj))
+        if msg.sig is None or msg.signer_id is None:
+            continue
+        signed += 1
+        if msg.prev_hash != expected_prev:
+            broken_at, broken_reason = i, f"prev_hash mismatch (got {msg.prev_hash[:16]}..., expected {expected_prev[:16]}...)"
+            break
+        payload = msg.signing_payload()
+        if msg.msg_hash != pqsign.hash_message(msg.prev_hash, payload):
+            broken_at, broken_reason = i, "msg_hash mismatch (payload tampered)"
+            break
+        if not pqsign.verify(payload, msg.sig, msg.signer_id):
+            broken_at, broken_reason = i, "ML-DSA signature invalid"
+            break
+        verified += 1
+        expected_prev = msg.msg_hash
+
+    return {
+        "mission_id":    mission_id,
+        "count":         len(rows),
+        "signed":        signed,
+        "verified":      verified,
+        "broken_at":     broken_at,
+        "broken_reason": broken_reason,
+        "valid":         broken_at is None,
+    }
+
+
+def fmt(r: dict) -> str:
+    valid = r["valid"]
+    icon  = f"{COLOR_GREEN}✓{COLOR_RESET}" if valid else f"{COLOR_RED}✗{COLOR_RESET}"
+    state = f"{COLOR_GREEN}VALID{COLOR_RESET}" if valid else f"{COLOR_RED}BROKEN{COLOR_RESET}"
+    line = f"  {icon} {r['mission_id']:20} {state:6}  msgs={r['count']:3} signed={r['signed']:3} verified={r['verified']:3}"
+    if not valid:
+        line += f"\n    {COLOR_RED}↳ broken @{r['broken_at']}: {r['broken_reason']}{COLOR_RESET}"
+    elif r["signed"] == 0:
+        line += f"  {COLOR_GRAY}(legacy, no signatures){COLOR_RESET}"
+    return line
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("mission_id", nargs="?")
+    p.add_argument("--db", default=str(REPO / "logpyclaw.db"))
+    p.add_argument("--all", action="store_true")
+    p.add_argument("--json", action="store_true", help="JSON-Output statt formatiert")
+    args = p.parse_args()
+
+    if not args.mission_id and not args.all:
+        p.error("missing mission_id (or --all)")
+
+    db_path = Path(args.db)
+    if not db_path.exists():
+        print(f"DB not found: {db_path}", file=sys.stderr)
+        sys.exit(2)
+
+    print(f"{COLOR_BOLD}LogpyClaw — Audit-Log Verify{COLOR_RESET}")
+    print(f"{COLOR_GRAY}DB: {db_path}{COLOR_RESET}")
+    print(f"{COLOR_GRAY}Algorithm: {pqsign.ALGORITHM}{COLOR_RESET}")
+    print()
+
+    con = sqlite3.connect(db_path)
+
+    if args.all:
+        cur = con.cursor()
+        cur.execute("SELECT DISTINCT mission_id FROM messages ORDER BY mission_id")
+        mids = [r[0] for r in cur.fetchall()]
+        results = [verify_mission(con, m) for m in mids]
+        if args.json:
+            print(json.dumps(results, indent=2))
+        else:
+            for r in results:
+                print(fmt(r))
+            print()
+            total = len(results)
+            ok    = sum(1 for r in results if r["valid"])
+            print(f"  {COLOR_BOLD}Summary:{COLOR_RESET} {ok}/{total} valid")
+        sys.exit(0 if all(r["valid"] for r in results) else 1)
+
+    r = verify_mission(con, args.mission_id)
+    if args.json:
+        print(json.dumps(r, indent=2))
+    else:
+        print(fmt(r))
+    sys.exit(0 if r["valid"] else 1)
+
+
+if __name__ == "__main__":
+    main()
