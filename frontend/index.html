@@ -1511,8 +1511,9 @@ function appendMsg(type, text, agentId = '') {
 // > Quote, - / * Unordered List, 1. Ordered List, [text](url), Bilder,
 // Hash-Hex (msg_hash etc.), Code-Fences.
 function renderMarkdown(src) {
-  // Pull out images first (sie sollen NICHT in <p> landen)
-  const imgRe = /(https?:\/\/[^\s)]+?\.(?:png|jpg|jpeg|gif|webp))(?:[?&][^\s)]*)?/gi;
+  // Pull out images first (sie sollen NICHT in <p> landen).
+  // Erkennt http(s)-URLs UND relative Pfade wie /static/screenshots/foo.png
+  const imgRe = /((?:https?:\/\/[^\s)]+?|\/[^\s)]+?)\.(?:png|jpg|jpeg|gif|webp))(?:[?&][^\s)]*)?/gi;
   const tokens = [];
   let last = 0, m;
   imgRe.lastIndex = 0;

@@ -124,8 +124,14 @@ class BrowserSkill(Skill):
         script = Path(_SCREENSHOT_SCRIPT)
         if not script.exists():
             return f"[BrowserSkill] Screenshot-Script nicht gefunden: {_SCREENSHOT_SCRIPT}"
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
-            out_path = f.name
+
+        # In frontend/screenshots/ ablegen — wird via /static/screenshots/ ausgeliefert
+        import time as _time
+        screenshots_dir = Path(__file__).resolve().parent.parent.parent / "frontend" / "screenshots"
+        screenshots_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"shot-{int(_time.time()*1000)}.png"
+        out_path = str(screenshots_dir / filename)
+
         try:
             proc = await asyncio.create_subprocess_exec(
                 "bash", str(script), "--url", url, "--out", out_path,
@@ -137,7 +143,13 @@ class BrowserSkill(Skill):
                 err = stderr.decode(errors="replace")[:300]
                 return f"[BrowserSkill] Screenshot fehlgeschlagen (exit {proc.returncode}): {err}"
             if Path(out_path).exists() and Path(out_path).stat().st_size > 0:
-                return f"[BrowserSkill] Screenshot gespeichert: {out_path}"
+                # Public-URL (Static-Mount in app.py: /static → frontend/)
+                http_url = f"/static/screenshots/{filename}"
+                size_kb = Path(out_path).stat().st_size // 1024
+                return (
+                    f"[BrowserSkill] 📸 Screenshot von {url} ({size_kb}KB)\n"
+                    f"{http_url}"
+                )
             return f"[BrowserSkill] Screenshot erzeugt, aber Datei leer oder fehlt: {out_path}"
         except asyncio.TimeoutError:
             return f"[BrowserSkill] Screenshot Timeout für {url}"

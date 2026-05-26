@@ -13,6 +13,7 @@ dist/
 .DS_Store
 .claude/
 dreams/
+frontend/screenshots/
 
 # PQC Audit-Log Signer-Keys — ONLY .pub darf ins Repo, .sk + .json niemals
 keys/*.sk
