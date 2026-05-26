@@ -26,8 +26,13 @@ class SkillAgent(AsyncAgent):
         except Exception as e:
             return Message.error(msg, f"[{self._skill.skill_id}] {e}", clock=clock)
 
+    @property
+    def description(self) -> str:
+        return self._skill.description
+
     def to_dict(self) -> dict:
         d = super().to_dict()
-        d["skill_id"] = self._skill.skill_id
-        d["faction"] = "gatherers"
+        d["skill_id"]    = self._skill.skill_id
+        d["description"] = self._skill.description
+        d["faction"]     = "gatherers"
         return d

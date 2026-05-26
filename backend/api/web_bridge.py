@@ -8,12 +8,15 @@ Chat-Stream: wird in Phase 5 an Alice angebunden.
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from backend.config import get_settings
 
 router = APIRouter(prefix="/ext/dilles/v1")
+log = logging.getLogger("logpyclaw.bridge")
 
 
 def _check_token(token: str | None) -> bool:
@@ -36,18 +39,23 @@ async def chat_stream(
     request: Request,
     x_logpyclaw_token: str | None = Header(default=None),
 ):
+    client_ip = request.client.host if request.client else "?"
     if not _check_token(x_logpyclaw_token):
+        log.warning("🌐 BRIDGE 401 from %s — bad/missing token", client_ip)
         return JSONResponse({"error": "unauthorized"}, status_code=401)
 
     body = await request.json()
     message = body.get("message", "")
     conductor = request.app.state.conductor
 
+    log.info("🌐 BRIDGE ← dillenberg.net [%s] %r", client_ip, message[:120])
+
     # Route to Alice (web bridge agent)
     agent_id = "agent:alice"
     agent = conductor.get_agent(agent_id)
     if agent is None:
         agent_id = "agent:echo"
+        log.warning("🌐 BRIDGE: alice nicht verfügbar → fallback echo")
 
     import asyncio
     import json
@@ -75,6 +83,7 @@ async def chat_stream(
     )
 
     async def stream():
+        final_state = "failed"
         async def run():
             await conductor.dispatch(msg)
 
@@ -84,11 +93,21 @@ async def chat_stream(
                 event = await asyncio.wait_for(queue.get(), timeout=30.0)
                 if event.get("event") == "message" and event.get("type") == "response":
                     result = event.get("payload", {}).get("result", "")
+                    log.info("🌐 BRIDGE → dillenberg.net [%d chars] %r", len(result), result[:120])
+                    final_state = "completed"
                     yield f"data: {json.dumps({'chunk': result, 'done': True})}\n\n"
                     break
-                if event.get("event") in ("task_completed", "task_failed", "task_timeout"):
+                if event.get("event") == "task_completed":
+                    final_state = "completed"
                     break
+                if event.get("event") in ("task_failed", "task_timeout"):
+                    final_state = event["event"].replace("task_", "")
+                    break
+        except TimeoutError:
+            final_state = "timeout"
+            log.warning("🌐 BRIDGE timeout for mission %s", mission_id)
         finally:
             conductor.store.unsubscribe(mission_id, queue)
+            conductor.store.update_mission(mission_id, state=final_state, finished_at=time.time())
 
     return StreamingResponse(stream(), media_type="text/event-stream")

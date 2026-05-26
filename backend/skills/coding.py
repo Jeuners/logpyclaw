@@ -17,12 +17,12 @@ from backend.skills import Skill
 _TIMEOUT = 30  # Sekunden
 
 
-def _extract_code(query: str) -> str:
-    """Extrahiert Python-Code aus Markdown-Codeblock oder nimmt Query direkt."""
+def _extract_code(query: str) -> str | None:
+    """Extrahiert Python-Code. Gibt None zurück wenn kein expliziter Code erkannt."""
     # ```python ... ``` oder ``` ... ```
     m = re.search(r"```(?:python)?\s*\n?(.*?)```", query, re.DOTALL | re.IGNORECASE)
     if m:
-        return textwrap.dedent(m.group(1)).strip()
+        return textwrap.dedent(m.group(1)).strip() or None
 
     # Schlüsselwörter wie "führe aus:", "execute:", "run:" → danach den Rest nehmen
     m2 = re.search(
@@ -31,9 +31,19 @@ def _extract_code(query: str) -> str:
         re.IGNORECASE | re.DOTALL,
     )
     if m2:
-        return textwrap.dedent(m2.group(1)).strip()
+        code = textwrap.dedent(m2.group(1)).strip()
+        return code or None
 
-    return query.strip()
+    # Sieht die Query selbst nach Python aus? Mindest-Heuristik.
+    _PY_INDICATORS = re.compile(
+        r"\b(import|def |class |print\(|for |while |if |return |=|raise |assert )",
+        re.IGNORECASE,
+    )
+    stripped = query.strip()
+    if _PY_INDICATORS.search(stripped) and len(stripped) > 4:
+        return stripped
+
+    return None  # kein Code erkennbar
 
 
 class CodingSkill(Skill):
@@ -46,7 +56,10 @@ class CodingSkill(Skill):
     async def execute(self, query: str) -> str:
         code = _extract_code(query)
         if not code:
-            return "[CodingSkill] Kein Code gefunden. Bitte Python-Code angeben."
+            return (
+                "[CodingSkill] Kein ausführbarer Python-Code erkannt.\n"
+                "Formate: ```python\\ncode\\n``` oder 'führe aus: <code>'"
+            )
 
         try:
             result = subprocess.run(

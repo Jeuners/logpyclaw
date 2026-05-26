@@ -21,7 +21,7 @@ from backend.core.protocol import (
 from backend.storage.mission_store import MissionStore
 from backend.storage.sqlite_store import make_store
 
-_DEFAULT_TASK_TIMEOUT = 120.0
+_DEFAULT_TASK_TIMEOUT = 900.0  # 15 min — LTX-Video braucht auf RTX 4070 ~10-12 min
 _WATCHDOG_INTERVAL = 5.0
 
 

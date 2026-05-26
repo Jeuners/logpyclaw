@@ -82,6 +82,12 @@ class PersistentMissionStore(MissionStore):
         super().update_mission(mission_id, **kwargs)
         self._db_upsert_mission(mission_id, self._missions.get(mission_id, {}))
 
+    def delete_mission(self, mission_id: str) -> bool:
+        existed = super().delete_mission(mission_id)
+        if existed:
+            self._db_delete_mission(mission_id)
+        return existed
+
     def record_message(self, msg: Message) -> None:
         super().record_message(msg)
         self._db_insert_message(msg)
@@ -101,6 +107,17 @@ class PersistentMissionStore(MissionStore):
                 session.add(
                     MissionRow(mission_id=mission_id, meta_json=json.dumps(meta, default=str))
                 )
+            session.commit()
+
+    def _db_delete_mission(self, mission_id: str) -> None:
+        with Session(self._engine) as session:
+            mission = session.get(MissionRow, mission_id)
+            if mission:
+                session.delete(mission)
+            for row in session.exec(select(MessageRow).where(MessageRow.mission_id == mission_id)).all():
+                session.delete(row)
+            for row in session.exec(select(TaskRow).where(TaskRow.mission_id == mission_id)).all():
+                session.delete(row)
             session.commit()
 
     def _db_insert_message(self, msg: Message) -> None:

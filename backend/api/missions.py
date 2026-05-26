@@ -22,6 +22,22 @@ async def list_missions(request: Request):
     return conductor.store.list_missions()
 
 
+@router.delete("/missions/stale")
+async def cleanup_stale_missions(request: Request, min_age_sec: float = 600.0):
+    """Löscht hängende Missionen (default: running/timeout/failed älter als 10min)."""
+    conductor = request.app.state.conductor
+    deleted = conductor.store.delete_stale_missions(min_age_sec=min_age_sec)
+    return {"deleted": deleted, "count": len(deleted)}
+
+
+@router.delete("/missions/{mission_id}")
+async def delete_mission(mission_id: str, request: Request):
+    conductor = request.app.state.conductor
+    if not conductor.store.delete_mission(mission_id):
+        raise HTTPException(404, "Mission not found")
+    return {"deleted": mission_id}
+
+
 @router.get("/missions/{mission_id}/trace")
 async def get_trace(mission_id: str, request: Request):
     conductor = request.app.state.conductor

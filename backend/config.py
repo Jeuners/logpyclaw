@@ -26,6 +26,18 @@ class Settings(BaseSettings):
     ollama_model: str = Field("gemma4:e4b", description="Default Ollama model")
     anthropic_api_key: str = Field("", description="Anthropic API key")
     openai_api_key: str = Field("", description="OpenAI API key")
+    openrouter_api_key: str = Field("", description="OpenRouter API key")
+    openrouter_default_model: str = Field("deepseek/deepseek-v4-flash:free", description="Default OpenRouter model")
+    groq_api_key: str = Field("", description="Groq API key (einzeln oder als Fallback)")
+    groq_api_keys: str = Field("", description="Groq API key-Pool (kommagetrennt)")
+
+    @property
+    def groq_key_pool(self) -> list[str]:
+        """Alle konfigurierten Groq-Keys, dedupliziert."""
+        keys = [k.strip() for k in self.groq_api_keys.split(",") if k.strip()]
+        if self.groq_api_key and self.groq_api_key not in keys:
+            keys.insert(0, self.groq_api_key)
+        return keys
 
     # ── Storage ───────────────────────────────────────────────────────────────
     db_url: str = Field("sqlite:///./logpyclaw.db", description="SQLAlchemy DB URL")

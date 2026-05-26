@@ -133,6 +133,12 @@ def _configure_root() -> None:
     bh.setFormatter(fmt)
     root.addHandler(bh)
 
+    # Lärmige Bibliotheken auf WARN drosseln (DEBUG geht trotzdem in die Datei)
+    for noisy in ("httpcore", "httpx", "tzlocal", "watchfiles", "asyncio"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
+    # apscheduler nur INFO (kein "Next wakeup is due..."-Spam)
+    logging.getLogger("apscheduler.scheduler").setLevel(logging.INFO)
+
 
 # ── Öffentliche API ───────────────────────────────────────────────────────────
 

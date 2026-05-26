@@ -7,18 +7,22 @@ agents:
   - type: llm
     id: agent:alice
     name: Alice
-    model: ""          # leer → OLLAMA_MODEL aus .env
+    model: "gemma4:e4b"
     provider: ollama
     soul: ""           # leer → i18n default
+    faction: makers
     enabled: true
+    temperature: 0.7
+    max_tokens: 2048
 
   - type: martin
-    model: ""          # leer → OLLAMA_MODEL aus .env
+    model: "gemma4:e4b"
+    temperature: 0.3   # niedrig → präzise Routing-Entscheidungen
     qc:
       enabled: true
       min_score: 7
       max_retries: 2
-      auditor_id: ""
+      auditor_id: "agent:claude"
 
   - type: skill
     skill_id: websearch
@@ -31,16 +35,27 @@ agents:
       endpoint: ""     # leer → COMFYUI_URL aus .env
 
   - type: skill
+    skill_id: ltxvideo
+    enabled: true
+    config:
+      endpoint: ""     # leer → COMFYUI_URL aus .env
+
+  - type: skill
     skill_id: whatsapp
     enabled: true
+    config:
+      default_group: "120363408604509341@g.us"  # H.G.O.D. — einzige Gruppe
 
   - type: llm
     id: agent:coder
     name: Coder
-    model: qwen2.5-coder:7b
-    provider: ollama
+    model: "llama-3.3-70b-versatile"
+    provider: groq
     soul: "Du bist ein Experten-Programmierer. Schreibe sauberen, effizienten Code. Erkläre kurz was du tust. Nutze Codeblöcke."
+    faction: makers
     enabled: true
+    temperature: 0.15
+    max_tokens: 4096
 
   - type: skill
     skill_id: coding
@@ -57,6 +72,56 @@ agents:
   - type: skill
     skill_id: urlfetch
     enabled: true
+
+  - type: skill
+    skill_id: file
+    enabled: true
+
+  - type: skill
+    skill_id: rss
+    enabled: true
+
+  - type: skill
+    skill_id: linkedin
+    enabled: true
+    config:
+      access_token: ""   # LINKEDIN_ACCESS_TOKEN
+      client_id: ""      # LINKEDIN_CLIENT_ID
+      client_secret: ""  # LINKEDIN_CLIENT_SECRET → für Token-Introspection (Member-URN auto)
+      person_urn: ""     # LINKEDIN_PERSON_URN (alternativ: direkte numerische ID)
+
+  - type: skill
+    skill_id: telegram
+    enabled: true
+    config:
+      token: ""     # TELEGRAM_BOT_TOKEN
+      chat_id: ""   # TELEGRAM_CHAT_ID
+
+  - type: skill
+    skill_id: wikipedia
+    enabled: true
+
+  - type: skill
+    skill_id: youtube
+    enabled: true
+
+  - type: skill
+    skill_id: transcription
+    enabled: true
+    config:
+      whisper_model: ""   # WHISPER_MODEL_PATH
+      whisper_cli: ""     # WHISPER_CLI_PATH
+      ollama_url: ""      # OLLAMA_URL (default: http://localhost:11434)
+
+  - type: claude
+    id: agent:claude
+    name: Claude
+    faction: makers
+    enabled: true
+    claude_bin: "/Users/jeuner/.local/bin/claude"
+    model: "claude-opus-4-7"
+    goal: "Du bist ein Experten-Entwickler und kreativer Designer. Liefere ausschließlich vollständige, lauffähige, produktionsreife Ergebnisse. Kein Placeholder-Code, keine TODOs, keine halben Sachen. Qualitätsstandard: 10/10."
+    timeout: 120
 
   - type: a2a_gateway
     default_recipient: agent:alice

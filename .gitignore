@@ -11,3 +11,5 @@ dist/
 .vite/
 *.log
 .DS_Store
+.claude/
+dreams/

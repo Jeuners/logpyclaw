@@ -70,6 +70,7 @@ class MartinAgent(AsyncAgent):
         llm_planner_fn=None,  # async fn(content) → list[DelegationStep] | None
         registry: FactionRegistry | None = None,
         model: str = "",
+        temperature: float = 0.3,
     ) -> None:
         super().__init__(self.AGENT_ID, "Martin")
         self.conductor = conductor
@@ -78,6 +79,7 @@ class MartinAgent(AsyncAgent):
         self._planner_fn = llm_planner_fn
         self._registry = registry or FactionRegistry.get()
         self.model = model
+        self.temperature = temperature
 
     # ── Handle ────────────────────────────────────────────────────────────────
 
@@ -174,8 +176,9 @@ class MartinAgent(AsyncAgent):
 
             result_text = str(response.payload.get("result", ""))
 
-            # QC-Check
-            if not self.qc.enabled or not self.qc.auditor_id:
+            # QC-Check — Skills sind deterministisch, kein Feedback-Loop sinnvoll
+            is_skill = target_id.startswith("skill:")
+            if not self.qc.enabled or not self.qc.auditor_id or is_skill:
                 break
 
             score = await self._qc_check(original, result_text)
@@ -184,8 +187,9 @@ class MartinAgent(AsyncAgent):
 
             if attempt < self.qc.max_retries:
                 content = (
-                    f"Previous attempt scored {score}/10 (min {self.qc.min_score}). "
-                    f"Improve: {result_text[:200]}"
+                    f"Vorherige Antwort war unzureichend (Score {score}/10). "
+                    f"Verbessere und vervollständige: {content}\n\n"
+                    f"Vorherige Antwort zur Referenz: {result_text[:300]}"
                 )
             else:
                 result_text = (
@@ -296,6 +300,7 @@ class MartinAgent(AsyncAgent):
         d["faction"] = "operators"
         if self.model:
             d["model"] = self.model
+        d["temperature"] = self.temperature
         d["qc"] = {
             "enabled": self.qc.enabled,
             "min_score": self.qc.min_score,

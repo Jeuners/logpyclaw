@@ -21,7 +21,10 @@ class LLMAgentConfig(BaseModel):
     model: str = ""
     provider: str = "ollama"
     soul: str = ""
+    faction: str = ""
     enabled: bool = True
+    temperature: float = 0.7
+    max_tokens: int = 2048
 
 
 class QCSettings(BaseModel):
@@ -34,6 +37,7 @@ class QCSettings(BaseModel):
 class MartinAgentConfig(BaseModel):
     type: Literal["martin"]
     model: str = ""
+    temperature: float = 0.3   # niedriger → konsistentere Routing-Entscheidungen
     qc: QCSettings = Field(default_factory=QCSettings)
 
 
@@ -49,6 +53,18 @@ class A2AGatewayConfig(BaseModel):
     default_recipient: str = "agent:alice"
 
 
+class ClaudeAgentConfig(BaseModel):
+    type: Literal["claude"]
+    id: str = "agent:claude"
+    name: str = "Claude"
+    faction: str = "makers"
+    enabled: bool = True
+    claude_bin: str = "claude"
+    model: str = "claude-opus-4-7"
+    goal: str = ""
+    timeout: int = 120
+
+
 AgentConfig = Annotated[
     Union[
         EchoAgentConfig,
@@ -56,6 +72,7 @@ AgentConfig = Annotated[
         MartinAgentConfig,
         SkillAgentConfig,
         A2AGatewayConfig,
+        ClaudeAgentConfig,
     ],
     Field(discriminator="type"),
 ]

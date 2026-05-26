@@ -7,12 +7,21 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+# Logging früh initialisieren: BroadcastHandler an Root anhängen,
+# damit Live-Log alle module-level logger erfasst.
+from backend.core.logging import get_logger  # noqa: E402
+get_logger("logpyclaw.boot").info("LogpyClaw v3 boot")
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.agents.a2a_gateway import A2AGatewayAgent
+from backend.agents.claude_agent import ClaudeSSHAgent
 from backend.agents.conductor import Conductor
 from backend.agents.llm_agent import LLMAgent
 from backend.agents.martin import MartinAgent
@@ -23,24 +32,35 @@ from backend.api.chat import router as chat_router
 from backend.api.factions import router as factions_router
 from backend.api.missions import router as missions_router
 from backend.api.teams import router as teams_router
+from backend.api.dreams import router as dreams_router
+from backend.api.files import router as files_router
+from backend.api.rss import router as rss_router
 from backend.api.logs import router as logs_router
 from backend.api.web_bridge import router as web_bridge_router
 from backend.config import get_settings
 from backend.i18n import locale_from_header
 from backend.skills.browser import BrowserSkill
+from backend.skills.file import FileSkill
+from backend.skills.linkedin import LinkedInSkill
+from backend.skills.rss import RSSSkill
 from backend.skills.coding import CodingSkill
 from backend.skills.comfyui import ComfyUISkill
 from backend.skills.gmail import GmailSkill
+from backend.skills.ltxvideo import LTXVideoSkill
+from backend.skills.telegram import TelegramSkill
+from backend.skills.transcription import TranscriptionSkill
 from backend.skills.urlfetch import UrlFetchSkill
 from backend.skills.websearch import WebSearchSkill
 from backend.skills.whatsapp import WhatsAppSkill
+from backend.skills.wikipedia import WikipediaSkill
+from backend.skills.youtube import YouTubeSkill
 
 # ── Global instances ──────────────────────────────────────────────────────────
 
 conductor = Conductor(db_url=get_settings().db_url)
 
 
-def _make_planner_fn(cfg):
+def _make_planner_fn(cfg, temperature: float = 0.3):
     """Baut eine async Planner-Funktion für Martin.
 
     Gibt eine Liste von DelegationSteps zurück — ein Step für einfache
@@ -78,18 +98,44 @@ def _make_planner_fn(cfg):
             a for a in conductor.list_agents() if a.agent_id not in ("agent:martin", "a2a:gateway")
         ]
         valid_ids = {a.agent_id for a in agents}
-        agent_list = "\n".join(f"- {a.agent_id}: {a.name}" for a in agents)
+
+        # Agentenliste mit Beschreibungen für besseres Routing
+        def _agent_desc(a) -> str:
+            desc = getattr(a, "description", "") or getattr(getattr(a, "_skill", None), "description", "")
+            name = a.name
+            return f"- {a.agent_id}: {name}" + (f" — {desc}" if desc else "")
+
+        agent_list = "\n".join(_agent_desc(a) for a in agents)
 
         prompt = (
-            "Du bist ein Planungs-Agent. Analysiere die Anfrage und erstelle einen Ausführungsplan.\n\n"
+            "Du bist ein Planungs-Agent. Weise die Anfrage dem passenden Agenten zu.\n\n"
             f"Verfügbare Agenten:\n{agent_list}\n\n"
-            f"Anfrage: {content[:400]}\n\n"
-            "Regeln:\n"
-            "- Wenn die Anfrage MEHRERE gleichartige Aufgaben enthält (z.B. '5 Bilder', '3 Texte'), "
-            "erstelle einen Task pro Einheit mit variierten Inhalten.\n"
-            "- Wenn die Anfrage einen einzelnen Schritt erfordert, erstelle genau einen Task.\n"
-            "- 'content' ist die konkrete Anweisung an den Agenten.\n\n"
-            'Antworte NUR mit JSON: {"tasks": [{"agent": "<agent_id>", "content": "<anweisung>"}, ...]}'
+            f"Anfrage: {content[:600]}\n\n"
+            "Routing-Regeln (höchste Priorität zuerst):\n"
+            "- 'linkedin' im Text → skill:linkedin\n"
+            "- 'whatsapp', 'sende nachricht' → skill:whatsapp\n"
+            "- 'telegram' → skill:telegram\n"
+            "- 'bild', 'generiere', 'comfyui', 'zeichne' → skill:comfyui\n"
+            "- 'video', 'ltx', 'animier' → skill:ltxvideo\n"
+            "- 'suche', 'search', 'web', 'google' → skill:websearch\n"
+            "- 'wikipedia', 'wiki' → skill:wikipedia\n"
+            "- 'youtube', 'video herunterladen' → skill:youtube\n"
+            "- 'rss', 'news', 'feed', 'hackernews', 'tagesschau' → skill:rss\n"
+            "- 'datei', 'verzeichnis', 'ls', 'cat', 'lese datei' → skill:file\n"
+            "- 'code', 'programmier', 'python', 'skript' → skill:coding oder agent:coder\n"
+            "- 'transkrib', 'audio', 'video transkript' → skill:transcription\n"
+            "- 'claude', 'frontier', 'komplex', 'schreib', 'essay', 'analyse', 'refactor', 'architektur' → agent:claude\n"
+            "- Allgemeine Fragen, Texte schreiben, Analyse → agent:alice\n"
+            "- Mehrere gleichartige Tasks (z.B. '5 Bilder') → einen Task pro Einheit\n\n"
+            "CHAINING: Wenn ein Task das Ergebnis eines vorherigen braucht (z.B. Bild → Video),\n"
+            'setze "depends_on": [<index>] mit dem 0-basierten Index des vorherigen Steps.\n'
+            "Der Folge-Task bekommt den Output (inkl. Dateinamen) automatisch in seinem Kontext.\n\n"
+            "Beispiel: 'Bild von Katze, dann Video draus':\n"
+            '  {"tasks": [\n'
+            '    {"agent": "skill:comfyui", "content": "cat sitting in garden, photorealistic"},\n'
+            '    {"agent": "skill:ltxvideo", "content": "prompt: cat slowly looks around, gentle breeze", "depends_on": [0]}\n'
+            "  ]}\n\n"
+            'Antworte NUR mit JSON: {"tasks": [{"agent": "<agent_id>", "content": "<anweisung>", "depends_on": [<idx>]}, ...]}'
         )
 
         try:
@@ -100,6 +146,7 @@ def _make_planner_fn(cfg):
                         "model": cfg.ollama_model,
                         "messages": [{"role": "user", "content": prompt}],
                         "stream": False,
+                        "options": {"temperature": temperature},
                     },
                 )
                 r.raise_for_status()
@@ -114,7 +161,14 @@ def _make_planner_fn(cfg):
             for t in tasks:
                 aid = _validate_id(t.get("agent", ""), valid_ids)
                 if aid:
-                    steps.append(DelegationStep(agent_id=aid, content=t.get("content", content)))
+                    deps = t.get("depends_on") or []
+                    if not isinstance(deps, list):
+                        deps = [int(deps)] if str(deps).isdigit() else []
+                    steps.append(DelegationStep(
+                        agent_id=aid,
+                        content=t.get("content", content),
+                        depends_on=[int(d) for d in deps if str(d).strip().lstrip("-").isdigit()],
+                    ))
             return steps or None
 
         except Exception:
@@ -152,6 +206,7 @@ def _boot_agents() -> None:
     from backend.agents.martin import QCConfig
     from backend.core.agent_config import (
         A2AGatewayConfig,
+        ClaudeAgentConfig,
         EchoAgentConfig,
         LLMAgentConfig,
         MartinAgentConfig,
@@ -164,13 +219,21 @@ def _boot_agents() -> None:
     agents_file = _load_agents_yaml()
 
     skill_map = {
-        "websearch": lambda c: WebSearchSkill(),
-        "comfyui":   lambda c: ComfyUISkill(endpoint=c.get("endpoint") or cfg.comfyui_url),
-        "whatsapp":  lambda c: WhatsAppSkill(),
-        "coding":    lambda c: CodingSkill(),
-        "gmail":     lambda c: GmailSkill(),
-        "browser":   lambda c: BrowserSkill(),
-        "urlfetch":  lambda c: UrlFetchSkill(),
+        "websearch":     lambda c: WebSearchSkill(),
+        "comfyui":       lambda c: ComfyUISkill(endpoint=c.get("endpoint") or cfg.comfyui_url),
+        "ltxvideo":      lambda c: LTXVideoSkill(endpoint=c.get("endpoint") or cfg.comfyui_url),
+        "whatsapp":      lambda c: WhatsAppSkill(),
+        "coding":        lambda c: CodingSkill(),
+        "gmail":         lambda c: GmailSkill(),
+        "browser":       lambda c: BrowserSkill(),
+        "urlfetch":      lambda c: UrlFetchSkill(),
+        "file":          lambda c: FileSkill(**c),
+        "rss":           lambda c: RSSSkill(),
+        "linkedin":      lambda c: LinkedInSkill(**c),
+        "telegram":      lambda c: TelegramSkill(**c),
+        "wikipedia":     lambda c: WikipediaSkill(),
+        "youtube":       lambda c: YouTubeSkill(),
+        "transcription": lambda c: TranscriptionSkill(**c),
     }
 
     class EchoAgent(AsyncAgent):
@@ -192,7 +255,11 @@ def _boot_agents() -> None:
                 model=entry.model or cfg.ollama_model,
                 provider=entry.provider,
                 soul=entry.soul or t("agent.default_soul"),
+                faction=entry.faction,
                 ollama_url=cfg.ollama_url,
+                temperature=entry.temperature,
+                max_tokens=entry.max_tokens,
+                conductor=conductor,
             ))
 
         elif isinstance(entry, MartinAgentConfig):
@@ -205,8 +272,9 @@ def _boot_agents() -> None:
             conductor.register(MartinAgent(
                 conductor=conductor,
                 qc=qc,
-                llm_planner_fn=_make_planner_fn(cfg),
+                llm_planner_fn=_make_planner_fn(cfg, entry.temperature),
                 model=entry.model or cfg.ollama_model,
+                temperature=entry.temperature,
             ))
 
         elif isinstance(entry, SkillAgentConfig):
@@ -216,6 +284,19 @@ def _boot_agents() -> None:
             if not builder:
                 raise SystemExit(f"[boot] Unbekannte skill_id: {entry.skill_id}")
             conductor.register(SkillAgent(builder(entry.config)))
+
+        elif isinstance(entry, ClaudeAgentConfig):
+            if not entry.enabled:
+                continue
+            conductor.register(ClaudeSSHAgent(
+                agent_id=entry.id,
+                name=entry.name,
+                claude_bin=entry.claude_bin,
+                model=entry.model,
+                goal=entry.goal,
+                faction=entry.faction,
+                timeout=entry.timeout,
+            ))
 
         elif isinstance(entry, A2AGatewayConfig):
             conductor.register(A2AGatewayAgent(
@@ -227,9 +308,32 @@ def _boot_agents() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    from backend.services.dream import run_dream_cycle
+    from backend.services.rss import fetch_all as rss_fetch_all
+
     _boot_agents()
     await conductor.start()
+
+    cfg = get_settings()
+    scheduler = AsyncIOScheduler()
+    # täglich um 3:00 Uhr nachts
+    scheduler.add_job(
+        run_dream_cycle,
+        "cron", hour=3, minute=0,
+        args=[conductor, cfg.comfyui_url],
+    )
+    # RSS alle 30 Minuten
+    scheduler.add_job(rss_fetch_all, "interval", minutes=30, id="rss_fetch")
+    scheduler.start()
+
+    # Initialer RSS-Fetch beim Start
+    import asyncio as _asyncio
+    _asyncio.create_task(rss_fetch_all())
+
     yield
+
+    scheduler.shutdown(wait=False)
     await conductor.stop()
 
 
@@ -257,7 +361,10 @@ app.include_router(factions_router, prefix="/api")
 app.include_router(teams_router, prefix="/api")
 app.include_router(a2a_router)
 app.include_router(web_bridge_router)
+app.include_router(files_router)
+app.include_router(rss_router)
 app.include_router(logs_router, prefix="/api")
+app.include_router(dreams_router, prefix="/api")
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
