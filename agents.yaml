@@ -70,6 +70,10 @@ agents:
     enabled: true
 
   - type: skill
+    skill_id: chrome_browser
+    enabled: true
+
+  - type: skill
     skill_id: urlfetch
     enabled: true
 
