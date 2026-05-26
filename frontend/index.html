@@ -593,6 +593,40 @@
     white-space: pre-wrap; word-break: break-all;
   }
 
+  /* Markdown in Chat-Messages */
+  .msg .text p { margin: 0 0 .6em 0; line-height: 1.55; }
+  .msg .text p:last-child { margin-bottom: 0; }
+  .msg .text strong { color: var(--accent-h); font-weight: 700; }
+  .msg .text em { color: var(--text); font-style: italic; opacity: .9; }
+  .msg .text code {
+    background: rgba(94,129,244,.12); color: var(--accent-h);
+    padding: 1px 6px; border-radius: 3px;
+    font-size: .9em; font-family: var(--font);
+  }
+  .msg .text pre {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 5px; padding: 10px 12px; margin: .6em 0;
+    overflow-x: auto; font-size: 11px;
+  }
+  .msg .text pre code {
+    background: transparent; padding: 0; color: var(--text);
+    font-size: inherit;
+  }
+  .msg .text h2 { font-size: 1.05em; margin: .8em 0 .3em; color: var(--text); font-weight: 700; }
+  .msg .text h3 { font-size: 1em;    margin: .6em 0 .25em; color: var(--text2); font-weight: 600; }
+  .msg .text ul, .msg .text ol { margin: .3em 0 .6em 1.2em; padding-left: .8em; }
+  .msg .text li { margin: .15em 0; line-height: 1.5; }
+  .msg .text blockquote {
+    border-left: 3px solid var(--accent); padding: .2em 0 .2em .8em;
+    margin: .5em 0; color: var(--text2); font-style: italic;
+  }
+  .msg .text a { color: var(--accent-h); text-decoration: underline; text-underline-offset: 2px; }
+  .msg .text a:hover { color: var(--accent2-h); }
+  .msg .text img.md-img {
+    max-width: 100%; max-height: 360px; border-radius: 6px;
+    margin: .4em 0; display: block; border: 1px solid var(--border);
+  }
+
   /* PQC-Badges */
   .pqc-cell { font-size: 10px; text-align: center; }
   .pqc-ok      { color: var(--accent2); font-weight: 600; }
@@ -1472,21 +1506,113 @@ function appendMsg(type, text, agentId = '') {
   return div;
 }
 
-function renderMsgContent(el, text) {
-  const imgRe = /(https?:\/\/[^\s]+\.(?:png|jpg|jpeg|gif|webp)[^\s]*)/gi;
-  const parts = [];
+// Minimaler Markdown-Renderer (kein 3rd-party — escape-safe für unsere Use-Cases).
+// Unterstützt: ``` Code-Blocks, `inline code`, **bold**, *italic*, # H1-3,
+// > Quote, - / * Unordered List, 1. Ordered List, [text](url), Bilder,
+// Hash-Hex (msg_hash etc.), Code-Fences.
+function renderMarkdown(src) {
+  // Pull out images first (sie sollen NICHT in <p> landen)
+  const imgRe = /(https?:\/\/[^\s)]+?\.(?:png|jpg|jpeg|gif|webp))(?:[?&][^\s)]*)?/gi;
+  const tokens = [];
   let last = 0, m;
   imgRe.lastIndex = 0;
-  while ((m = imgRe.exec(text)) !== null) {
-    if (m.index > last) parts.push({t:'text', v: text.slice(last, m.index)});
-    parts.push({t:'img', v: m[1]});
-    last = m.index + m[1].length;
+  while ((m = imgRe.exec(src)) !== null) {
+    if (m.index > last) tokens.push({t:'md', v: src.slice(last, m.index)});
+    tokens.push({t:'img', v: src.slice(m.index, m.index + m[0].length)});
+    last = m.index + m[0].length;
   }
-  if (last < text.length) parts.push({t:'text', v: text.slice(last)});
-  el.innerHTML = parts.map(p => p.t === 'img'
-    ? `<a href="${esc(p.v)}" target="_blank"><img src="${esc(p.v)}" style="max-width:100%;max-height:320px;border-radius:6px;margin-top:6px;display:block;"></a>`
-    : esc(p.v).replace(/\n/g,'<br>')
-  ).join('');
+  if (last < src.length) tokens.push({t:'md', v: src.slice(last)});
+
+  return tokens.map(tok => {
+    if (tok.t === 'img') {
+      const safe = esc(tok.v);
+      return `<a href="${safe}" target="_blank" rel="noopener"><img src="${safe}" class="md-img" alt=""></a>`;
+    }
+    return mdToHtml(tok.v);
+  }).join('');
+}
+
+function mdToHtml(s) {
+  // Code-Fences ```lang\n...\n``` zuerst raus (vor Escape)
+  const fences = [];
+  s = s.replace(/```([a-z0-9_-]*)\n([\s\S]*?)```/gi, (_, lang, code) => {
+    fences.push({lang, code});
+    return ` FENCE${fences.length - 1} `;
+  });
+
+  // Escape HTML
+  s = s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Headers (# H1, ## H2, ### H3)
+  s = s.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  s = s.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  s = s.replace(/^# (.+)$/gm,  '<h2>$1</h2>');
+
+  // Quotes
+  s = s.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  // Inline code `code`
+  s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+
+  // Bold **text** (vor italic — sonst overlap)
+  s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  // Italic *text* (nur wenn nicht Teil von **)
+  s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+
+  // Links [text](url)
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  // Bare-URLs (nur die nicht schon in <a> stecken)
+  s = s.replace(/(^|[\s(])((?:https?|ftp):\/\/[^\s<)]+)/g,
+    '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+
+  // Lists — gruppieren per Zeile
+  const lines = s.split('\n');
+  const out = [];
+  let inUl = false, inOl = false;
+  for (let i = 0; i < lines.length; i++) {
+    const ln = lines[i];
+    const ulMatch = /^[-*]\s+(.+)$/.exec(ln);
+    const olMatch = /^\d+\.\s+(.+)$/.exec(ln);
+    if (ulMatch) {
+      if (inOl) { out.push('</ol>'); inOl = false; }
+      if (!inUl) { out.push('<ul>'); inUl = true; }
+      out.push(`<li>${ulMatch[1]}</li>`);
+    } else if (olMatch) {
+      if (inUl) { out.push('</ul>'); inUl = false; }
+      if (!inOl) { out.push('<ol>'); inOl = true; }
+      out.push(`<li>${olMatch[1]}</li>`);
+    } else {
+      if (inUl) { out.push('</ul>'); inUl = false; }
+      if (inOl) { out.push('</ol>'); inOl = false; }
+      out.push(ln);
+    }
+  }
+  if (inUl) out.push('</ul>');
+  if (inOl) out.push('</ol>');
+  s = out.join('\n');
+
+  // Paragraphs/Linebreaks
+  // Doppelte newlines → <p>, einzelne → <br>
+  const blocks = s.split(/\n{2,}/).map(b => {
+    if (/^<(h[1-6]|ul|ol|li|blockquote|pre|p)/.test(b.trim())) return b;
+    if (!b.trim()) return '';
+    return `<p>${b.replace(/\n/g, '<br>')}</p>`;
+  });
+  s = blocks.join('\n');
+
+  // Fences zurück
+  s = s.replace(/ FENCE(\d+) /g, (_, i) => {
+    const f = fences[+i];
+    const safe = f.code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `<pre><code class="lang-${esc(f.lang||'')}">${safe}</code></pre>`;
+  });
+
+  return s;
+}
+
+function renderMsgContent(el, text) {
+  el.innerHTML = renderMarkdown(text);
   const area = el.closest('.chat-area');
   if (area) area.scrollTop = area.scrollHeight;
 }
