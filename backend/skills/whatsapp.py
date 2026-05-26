@@ -83,7 +83,7 @@ class WhatsAppSkill(Skill):
 
     async def _dispatch(self, query: str) -> str:
         q = query.lower()
-        send_intent = bool(re.search(r"\b(schick|send|sende|nachricht|warnung|meldung|info)\b", q, re.I))
+        send_intent = bool(re.search(r"\b(schick\w*|send\w*|nachricht|warnung|meldung|info)\b", q, re.I))
 
         # Explizite Quote: "text" → Inhalt ist klar
         m = re.search(r'["„“]([^"“”]{1,1000})["”"]', query)
@@ -94,7 +94,7 @@ class WhatsAppSkill(Skill):
 
         # send text: "schick/sende [an] <kontakt/gruppe>:  <nachricht>"
         m = re.search(
-            r"(?:schick|sende?|send)\s+(?:an\s+)?([^\s:,\"]+)\s*:\s*(.+)", query, re.IGNORECASE
+            r"(?:schicke?|sende?|send)\s+(?:an\s+)?([^\s:,\"]+)\s*:\s*(.+)", query, re.IGNORECASE
         )
         if m:
             to   = self._resolve_to(m.group(1).strip())
