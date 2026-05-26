@@ -955,6 +955,7 @@ async function boot() {
   applyI18n();
   await loadAgents();
   loadStatus();
+  restoreLastChat();
 }
 
 // ── Agents ───────────────────────────────────────────────────────────────────
@@ -1360,6 +1361,10 @@ async function sendChat() {
 
       if (data.event === 'init') {
         rootTaskId = data.root_task_id;
+        if (data.mission_id) {
+          _currentMissionId = data.mission_id;
+          _saveChatState();
+        }
         return;
       }
 
@@ -1486,6 +1491,65 @@ function clockSummary(clock) {
   return Object.entries(clock.vector).map(([k,v])=>`${k.replace('agent:','')}:${v}`).join(' · ');
 }
 
+// ── Chat-Persistenz: letzte Mission(en) merken ──────────────────────────────
+let _currentMissionId = null;
+const _CHAT_HISTORY_KEY = 'logpyclaw_chat_missions';
+
+function _saveChatState() {
+  try {
+    const list = JSON.parse(localStorage.getItem(_CHAT_HISTORY_KEY) || '[]');
+    if (_currentMissionId && !list.includes(_currentMissionId)) {
+      list.push(_currentMissionId);
+      while (list.length > 20) list.shift();  // letzte 20 Missions
+      localStorage.setItem(_CHAT_HISTORY_KEY, JSON.stringify(list));
+    }
+  } catch {}
+}
+
+async function loadChatFromMission(missionId) {
+  try {
+    const r = await fetch(`${API}/api/missions/${missionId}/trace`);
+    if (!r.ok) return;
+    const msgs = await r.json();
+    const area = document.getElementById('chat-area');
+    area.innerHTML = '';
+    let agentName = '';
+    for (const m of msgs) {
+      const c = m.payload?.content || m.payload?.result || '';
+      if (!c) continue;
+      if (m.sender === 'ext:user') {
+        appendMsg('user', c);
+      } else if (m.recipient === 'ext:user') {
+        agentName = m.sender;
+        const el = appendMsg('agent', '', m.sender);
+        renderMsgContent(el.querySelector('.text'), c);
+        if (m.clock) el.querySelector('.meta').textContent = clockSummary(m.clock);
+      }
+    }
+    _currentMissionId = missionId;
+    _saveChatState();
+    // Wenn der Agent noch existiert, auch selektieren
+    if (agentName && _agentsData?.[agentName]) {
+      const a = _agentsData[agentName];
+      const card = document.querySelector(`.agent-card[data-id="${agentName}"]`);
+      if (card) selectAgent(agentName, a.name, card, a);
+    }
+    switchTab('chat');
+    document.getElementById('chat-agent-header')?.classList.add('visible');
+  } catch (e) {
+    console.warn('loadChatFromMission failed', e);
+  }
+}
+
+async function restoreLastChat() {
+  try {
+    const list = JSON.parse(localStorage.getItem(_CHAT_HISTORY_KEY) || '[]');
+    const last = list[list.length - 1];
+    if (!last) return;
+    await loadChatFromMission(last);
+  } catch {}
+}
+
 // ── Missions ─────────────────────────────────────────────────────────────────
 async function loadMissions() {
   try {
@@ -1501,9 +1565,8 @@ async function loadMissions() {
         <td class="s-${m.state}">${m.state}</td>
         <td><button class="m-del" title="Mission löschen" data-mid="${esc(m.mission_id)}">×</button></td>
       `;
-      tr.querySelector('td:not(:last-child)').addEventListener('click', () => {
-        document.getElementById('spacetime-mid').value = m.mission_id;
-        switchTab('spacetime'); loadSpacetime();
+      tr.querySelectorAll('td:not(:last-child)').forEach(td => {
+        td.addEventListener('click', () => loadChatFromMission(m.mission_id));
       });
       tr.querySelector('.m-del').addEventListener('click', async (e) => {
         e.stopPropagation();

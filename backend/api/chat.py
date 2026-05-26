@@ -57,7 +57,7 @@ async def chat_stream(agent_id: str, message: str, request: Request):
             conductor.store.update_mission(mission_id, state="completed")
 
         asyncio.create_task(run())
-        yield f"data: {json.dumps({'event': 'init', 'root_task_id': root_task_id})}\n\n"
+        yield f"data: {json.dumps({'event': 'init', 'root_task_id': root_task_id, 'mission_id': mission_id})}\n\n"
 
         total = 0
         max_wait = 1200  # 20 min — synchron zum Conductor-Timeout (900s) + Puffer
