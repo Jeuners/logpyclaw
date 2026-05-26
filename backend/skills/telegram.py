@@ -43,6 +43,11 @@ def _extract_text(message: str) -> str:
     )
     if m:
         return m.group(1).strip()
+    # "sende: <text>" / "send: <text>" am Anfang → alles nach erstem ":" nehmen
+    m = re.match(r"\s*(sende?|send|nachricht|message)\s*[:\-]\s*(.+)",
+                 message, re.IGNORECASE | re.DOTALL)
+    if m:
+        return m.group(2).strip()
     return message.strip()
 
 
