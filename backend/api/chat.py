@@ -60,7 +60,7 @@ async def chat_stream(agent_id: str, message: str, request: Request):
         yield f"data: {json.dumps({'event': 'init', 'root_task_id': root_task_id})}\n\n"
 
         total = 0
-        max_wait = 300
+        max_wait = 1200  # 20 min — synchron zum Conductor-Timeout (900s) + Puffer
         try:
             while total < max_wait:
                 try:
