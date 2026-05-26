@@ -61,8 +61,8 @@ def _parse(content: str) -> dict:
         "image":    image,
         "prompt":   prompt,
         "duration": _find(r'duration\s*[:=]\s*(\d+)', int, 5),
-        "width":    _find(r'width\s*[:=]\s*(\d+)',    int, 1280),
-        "height":   _find(r'height\s*[:=]\s*(\d+)',   int, 720),
+        "width":    _find(r'width\s*[:=]\s*(\d+)',    int, 1200),
+        "height":   _find(r'height\s*[:=]\s*(\d+)',   int, 675),
         "fps":      _find(r'fps\s*[:=]\s*(\d+)',       int, 25),
         "seed":     _find(r'seed\s*[:=]\s*(\d+)',      int, None),
     }

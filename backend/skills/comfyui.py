@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import random
+import re
 import urllib.parse
 
 import httpx
@@ -35,7 +36,7 @@ _WORKFLOW_TEMPLATE = {
     "57:27": {"class_type": "CLIPTextEncode", "inputs": {"text": "", "clip": ["57:30", 0]}},
     "57:13": {
         "class_type": "EmptySD3LatentImage",
-        "inputs": {"width": 1024, "height": 1024, "batch_size": 1},
+        "inputs": {"width": 1200, "height": 675, "batch_size": 1},  # 16:9 — matched LTX-Video
     },
     "57:11": {"class_type": "ModelSamplingAuraFlow", "inputs": {"shift": 3, "model": ["57:28", 0]}},
     "57:3": {
@@ -71,7 +72,19 @@ class ComfyUISkill(Skill):
 
     async def _generate(self, prompt: str) -> str:
         wf = json.loads(json.dumps(_WORKFLOW_TEMPLATE))
-        wf["57:27"]["inputs"]["text"] = prompt
+
+        # Optionale Inline-Parameter: "width: 1280", "height: 720" — Rest ist Prompt
+        clean = prompt
+        w = re.search(r'width\s*[:=]\s*(\d+)', prompt, re.I)
+        h = re.search(r'height\s*[:=]\s*(\d+)', prompt, re.I)
+        if w:
+            wf["57:13"]["inputs"]["width"] = int(w.group(1))
+            clean = clean.replace(w.group(0), "")
+        if h:
+            wf["57:13"]["inputs"]["height"] = int(h.group(1))
+            clean = clean.replace(h.group(0), "")
+
+        wf["57:27"]["inputs"]["text"] = clean.strip()
         wf["57:3"]["inputs"]["seed"] = random.randint(0, 2**32)
 
         async with httpx.AsyncClient(timeout=5.0) as client:
