@@ -74,23 +74,53 @@ class BrowserSkill(Skill):
     async def execute(self, query: str) -> str:
         query = query.strip()
 
-        # Screenshot-Modus
-        if re.match(r"(?i)^screenshot\s+", query):
-            url = query.split(None, 1)[1].strip()
-            return await self._screenshot(url)
+        # Modus erkennen: screenshot vs. fetch
+        wants_screenshot = bool(re.search(r"\b(screenshot|snap|capture|shot|bild|aufnahme)\b", query, re.I))
 
-        # fetch / navigate Alias
+        # 1. Explizites screenshot mit URL: "screenshot https://..."
+        m = re.match(r"(?i)^screenshot\s+(https?://\S+)", query)
+        if m:
+            return await self._screenshot(m.group(1).rstrip(".,;\"')}]"))
+
+        # 2. fetch/navigate Alias
         m = re.match(r"(?i)^(?:fetch|navigate|open|go to|goto)\s+(https?://\S+)", query)
         if m:
             return await self._fetch(m.group(1))
 
-        # Direkte URL
-        url_m = re.search(r"https?://\S+", query)
-        if url_m:
-            url = url_m.group(0).rstrip(".,;\"')}]")
-            return await self._fetch(url)
+        # 3. URLs aus dem Query/Kontext extrahieren (auch wenn Vorgänger-Step
+        #    eine Liste von URLs als [Vorherige Ergebnisse] reingab)
+        urls = self._extract_urls(query)
+        if urls:
+            if wants_screenshot:
+                # Screenshot je URL — bei vielen URLs: nur erste 5
+                limited = urls[:5]
+                results = []
+                for url in limited:
+                    res = await self._screenshot(url)
+                    results.append(res)
+                more = f"\n\n_(+ {len(urls) - len(limited)} weitere URLs übersprungen)_" if len(urls) > len(limited) else ""
+                return "\n\n".join(results) + more
+            # Default: erste URL fetchen
+            return await self._fetch(urls[0])
 
-        return "[BrowserSkill] Kein gültiger Befehl erkannt. Nutze: 'fetch <url>', 'screenshot <url>'."
+        return (
+            "[BrowserSkill] Keine URL gefunden im Input.\n"
+            "Nutze: 'fetch <url>', 'screenshot <url>', oder reiche URL via "
+            "Vorgänger-Step durch."
+        )
+
+    @staticmethod
+    def _extract_urls(text: str) -> list[str]:
+        """Extrahiert HTTP(S)-URLs aus beliebigem Text — dedupliziert."""
+        urls = re.findall(r"https?://[^\s<>\"'\\]+", text)
+        seen: set[str] = set()
+        out: list[str] = []
+        for u in urls:
+            u = u.rstrip(".,;:\"')}]>")
+            if u not in seen:
+                seen.add(u)
+                out.append(u)
+        return out
 
     async def _fetch(self, url: str) -> str:
         try:
@@ -134,14 +164,22 @@ class BrowserSkill(Skill):
 
         try:
             proc = await asyncio.create_subprocess_exec(
-                "bash", str(script), "--url", url, "--out", out_path,
+                "bash", str(script), "--url", url, "--out", out_path, "--wait", "3000",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
-            if proc.returncode != 0:
-                err = stderr.decode(errors="replace")[:300]
-                return f"[BrowserSkill] Screenshot fehlgeschlagen (exit {proc.returncode}): {err}"
+            try:
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=45)
+                if proc.returncode != 0:
+                    err = stderr.decode(errors="replace")[:300]
+                    return f"[BrowserSkill] Screenshot fehlgeschlagen (exit {proc.returncode}): {err}"
+            except asyncio.TimeoutError:
+                # Chrome hängt manchmal im Cleanup obwohl PNG schon geschrieben ist
+                proc.kill()
+                await asyncio.sleep(0.5)
+                if not (Path(out_path).exists() and Path(out_path).stat().st_size > 0):
+                    return f"[BrowserSkill] Screenshot Timeout für {url}"
+                # Datei existiert → akzeptieren
             if Path(out_path).exists() and Path(out_path).stat().st_size > 0:
                 # Public-URL (Static-Mount in app.py: /static → frontend/)
                 http_url = f"/static/screenshots/{filename}"

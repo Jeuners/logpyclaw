@@ -129,7 +129,7 @@ agents:
     claude_bin: "/Users/jeuner/.local/bin/claude"
     model: "claude-opus-4-7"
     goal: "Du bist ein Experten-Entwickler und kreativer Designer. Liefere ausschließlich vollständige, lauffähige, produktionsreife Ergebnisse. Kein Placeholder-Code, keine TODOs, keine halben Sachen. Qualitätsstandard: 10/10."
-    timeout: 120
+    timeout: 600   # 10min — reicht für komplette HTML-Builds (~1500+ Zeilen)
 
   - type: a2a_gateway
     default_recipient: agent:alice
