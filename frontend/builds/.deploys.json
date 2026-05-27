@@ -1,0 +1,11 @@
+{
+  "deploys": {
+    "logpy-grid": {
+      "slug": "logpy-grid",
+      "deployed_at": "2026-05-27T03:50:43",
+      "size_kb": 48,
+      "source": "logpy-grid.html",
+      "url": "https://dev.dillenberg.net/logpy-grid/"
+    }
+  }
+}

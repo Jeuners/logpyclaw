@@ -74,6 +74,10 @@ agents:
     enabled: true
 
   - type: skill
+    skill_id: deploy
+    enabled: true
+
+  - type: skill
     skill_id: urlfetch
     enabled: true
 

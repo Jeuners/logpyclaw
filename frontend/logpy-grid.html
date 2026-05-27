@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Logpy:grid — Europe's freight grid, fully autonomous.</title>
+<meta name="description" content="Europas erstes KI-orchestriertes Frachtnetzwerk. Live seit 2030.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..900&family=Geist+Mono:wght@300..700&family=Geist:wght@300..800&display=swap" rel="stylesheet">
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0a0a0b;
+  --bg-2:      #111114;
+  --surface:   #15151a;
+  --line:      rgba(255,255,255,.06);
+  --line-2:    rgba(255,255,255,.12);
+
+  --text:      #f5f6f7;
+  --text-2:    #a9adb4;
+  --text-3:    #6e7480;
+  --muted:     #4a4f59;
+
+  --brand:     #ff5e1f;     /* Logpy:grid-Orange neu interpretiert */
+  --brand-hi:  #ff7a3d;
+  --signal:    #00ffae;     /* AI-Match-Signal */
+  --signal-glow: rgba(0,255,174,.5);
+
+  --display:   'Fraunces', ui-serif, Georgia, serif;
+  --sans:      'Geist', system-ui, -apple-system, 'Inter', sans-serif;
+  --mono:      'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+
+  --section-py: clamp(5rem, 10vw, 10rem);
+  --container:  1320px;
+}
+
+html { scroll-behavior: smooth; }
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: clamp(15px, 0.95vw, 17px);
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection { background: var(--brand); color: #fff; }
+
+a { color: inherit; text-decoration: none; }
+img { display: block; max-width: 100%; }
+
+.wrap {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 0 clamp(20px, 4vw, 56px);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   NAVIGATION
+────────────────────────────────────────────────────────────────────── */
+nav.top {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  padding: 16px clamp(20px, 4vw, 56px);
+  display: flex; align-items: center; gap: 32px;
+  background: rgba(10,10,11,.6);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  border-bottom: 1px solid var(--line);
+  transition: background .25s;
+}
+.brand {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--text);
+  display: flex; align-items: center; gap: 8px;
+}
+.brand .glyph {
+  width: 22px; height: 22px;
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-hi) 100%);
+  border-radius: 5px;
+  display: grid; place-items: center;
+  font-size: 12px; color: #000; font-weight: 900;
+}
+.brand .meta { font-weight: 400; color: var(--text-3); letter-spacing: 0.2em; font-size: 10px; margin-left: 6px; }
+nav.top ul {
+  list-style: none; display: flex; gap: 30px;
+  margin-left: 22px;
+}
+nav.top ul a {
+  font-size: 13px; color: var(--text-2);
+  transition: color .15s;
+}
+nav.top ul a:hover { color: var(--text); }
+nav.top .right { margin-left: auto; display: flex; gap: 12px; align-items: center; }
+.btn {
+  font-family: var(--sans);
+  font-size: 13px; font-weight: 500;
+  padding: 9px 18px; border-radius: 8px;
+  border: 1px solid var(--line-2); color: var(--text);
+  background: transparent;
+  cursor: pointer;
+  transition: all .18s;
+  white-space: nowrap;
+}
+.btn:hover { border-color: var(--text-2); background: rgba(255,255,255,.04); }
+.btn.primary {
+  background: var(--brand); border-color: var(--brand);
+  color: #0a0a0b; font-weight: 600;
+}
+.btn.primary:hover { background: var(--brand-hi); border-color: var(--brand-hi); transform: translateY(-1px); }
+.btn .arr { display: inline-block; margin-left: 6px; transition: transform .18s; }
+.btn:hover .arr { transform: translateX(2px); }
+
+/* ──────────────────────────────────────────────────────────────────────
+   HERO
+────────────────────────────────────────────────────────────────────── */
+.hero {
+  position: relative;
+  min-height: 100vh;
+  padding: 140px 0 80px;
+  display: flex; align-items: center;
+  overflow: hidden;
+}
+.hero-bg {
+  position: absolute; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 70% 30%, rgba(255,94,31,.13), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 20% 70%, rgba(0,255,174,.06), transparent 60%);
+}
+#routes-canvas { position: absolute; inset: 0; z-index: 0; opacity: .35; }
+.grid-overlay {
+  position: absolute; inset: 0; z-index: 1;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+  pointer-events: none;
+}
+.hero-wrap { position: relative; z-index: 2; width: 100%; }
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 80px;
+  align-items: center;
+}
+@media (max-width: 980px) {
+  .hero-grid { grid-template-columns: 1fr; gap: 50px; }
+}
+
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--mono);
+  font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--signal);
+  padding: 6px 12px;
+  border: 1px solid rgba(0,255,174,.25);
+  border-radius: 100px;
+  background: rgba(0,255,174,.04);
+  margin-bottom: 28px;
+}
+.eyebrow .pulse {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--signal); box-shadow: 0 0 8px var(--signal);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(.8); } }
+
+h1.headline {
+  font-family: var(--display);
+  font-weight: 400;
+  font-variation-settings: "opsz" 144, "wght" 350;
+  font-size: clamp(2.6rem, 6.5vw, 5.8rem);
+  line-height: 1.0;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+  margin-bottom: 24px;
+}
+h1.headline em {
+  font-style: italic;
+  font-variation-settings: "opsz" 144, "wght" 400;
+  color: var(--brand);
+}
+h1.headline .accent {
+  background: linear-gradient(120deg, var(--text) 0%, var(--text) 50%, var(--brand-hi) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.lead {
+  font-size: clamp(1.05rem, 1.4vw, 1.3rem);
+  color: var(--text-2);
+  max-width: 560px;
+  text-wrap: pretty;
+  line-height: 1.55;
+  margin-bottom: 36px;
+}
+.cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+/* Live-Panel */
+.live {
+  background: linear-gradient(180deg, var(--surface) 0%, rgba(21,21,26,.5) 100%);
+  border: 1px solid var(--line-2);
+  border-radius: 20px;
+  padding: 28px;
+  position: relative;
+  box-shadow:
+    0 30px 60px -20px rgba(0,0,0,.6),
+    0 0 80px -30px rgba(255,94,31,.3);
+}
+.live::before {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: 20px;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(255,94,31,.3), transparent 40%, rgba(0,255,174,.2) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.live-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.live-title {
+  font-family: var(--mono);
+  font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--text-3);
+}
+.live-status {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 10px;
+  color: var(--signal);
+}
+.live-status .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--signal); box-shadow: 0 0 8px var(--signal);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.live-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--line);
+  font-family: var(--mono);
+}
+.live-row:last-child { border-bottom: none; }
+.live-row .k {
+  font-size: 11px; color: var(--text-3);
+  letter-spacing: 0.04em;
+}
+.live-row .v {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.live-row .v .unit { font-size: 11px; color: var(--text-3); margin-left: 4px; font-weight: 400; }
+.live-row .delta {
+  font-size: 10px; color: var(--signal);
+  margin-left: 6px;
+}
+.live-foot {
+  margin-top: 18px; padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text-3); letter-spacing: 0.04em;
+  display: flex; justify-content: space-between;
+}
+
+/* trust badges row */
+.trust-row {
+  margin-top: 80px;
+  padding-top: 32px;
+  border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap;
+  gap: 14px 60px;
+  align-items: center;
+  justify-content: space-between;
+  opacity: .7;
+}
+.trust-row .label {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text-3); letter-spacing: 0.18em; text-transform: uppercase;
+}
+.trust-row .logos {
+  display: flex; gap: 36px; flex-wrap: wrap;
+  font-family: var(--display); font-size: 18px;
+  font-style: italic;
+  font-variation-settings: "opsz" 144, "wght" 400;
+  color: var(--text-2);
+  letter-spacing: -0.02em;
+}
+.trust-row .logos span:nth-child(2n) { font-style: normal; font-family: var(--sans); font-weight: 600; }
+
+/* ──────────────────────────────────────────────────────────────────────
+   SECTION SCAFFOLD
+────────────────────────────────────────────────────────────────────── */
+section {
+  padding: var(--section-py) 0;
+  position: relative;
+}
+.section-head {
+  margin-bottom: 64px;
+  max-width: 720px;
+}
+.section-tag {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--brand);
+  margin-bottom: 20px;
+}
+.section-tag::before {
+  content: ""; display: inline-block;
+  width: 24px; height: 1px; background: var(--brand);
+}
+h2.section-title {
+  font-family: var(--display);
+  font-weight: 350;
+  font-variation-settings: "opsz" 144, "wght" 360;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+  margin-bottom: 20px;
+}
+h2.section-title em {
+  font-style: italic;
+  color: var(--text-2);
+  font-variation-settings: "opsz" 144, "wght" 350;
+}
+.section-sub {
+  font-size: clamp(1rem, 1.2vw, 1.15rem);
+  color: var(--text-2);
+  max-width: 600px;
+  text-wrap: pretty;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   MATCH ENGINE
+────────────────────────────────────────────────────────────────────── */
+.match {
+  border-top: 1px solid var(--line);
+}
+.match-grid {
+  display: grid;
+  grid-template-columns: 0.95fr 1.1fr;
+  gap: 80px;
+  align-items: stretch;
+}
+@media (max-width: 980px) { .match-grid { grid-template-columns: 1fr; gap: 50px; } }
+
+.match-viz {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: 24px;
+  padding: 28px;
+  min-height: 480px;
+  overflow: hidden;
+}
+.match-viz::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(0,0,0,.4) 100%);
+  pointer-events: none; border-radius: 24px;
+}
+#match-svg { width: 100%; height: 100%; min-height: 420px; }
+.viz-legend {
+  position: absolute; top: 28px; left: 28px;
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-3);
+  z-index: 2;
+}
+.viz-callout {
+  position: absolute; bottom: 28px; right: 28px;
+  background: rgba(0,0,0,.7);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-family: var(--mono); font-size: 10px;
+  color: var(--signal);
+  z-index: 2;
+}
+.viz-callout strong { color: var(--text); font-size: 13px; display: block; }
+
+.match-features { display: grid; gap: 18px; align-content: center; }
+.match-feature {
+  display: grid; grid-template-columns: 48px 1fr; gap: 18px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+.match-feature:last-child { border-bottom: none; }
+.feat-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-3);
+  letter-spacing: 0.1em;
+  padding-top: 4px;
+}
+.feat-title {
+  font-family: var(--display);
+  font-size: 1.45rem;
+  font-variation-settings: "opsz" 144, "wght" 400;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+.feat-title em { color: var(--brand); font-style: italic; }
+.feat-desc { color: var(--text-2); font-size: 0.95rem; }
+
+/* ──────────────────────────────────────────────────────────────────────
+   PILLARS
+────────────────────────────────────────────────────────────────────── */
+.pillars { border-top: 1px solid var(--line); }
+.pillar-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 18px;
+}
+.pillar {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 36px;
+  position: relative; overflow: hidden;
+  transition: border-color .22s, transform .22s, background .22s;
+}
+.pillar:hover {
+  border-color: var(--line-2);
+  background: var(--bg-2);
+  transform: translateY(-3px);
+}
+.pillar-icon {
+  width: 44px; height: 44px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--line-2);
+  border-radius: 11px;
+  display: grid; place-items: center;
+  font-family: var(--mono); font-size: 18px;
+  color: var(--brand);
+  margin-bottom: 28px;
+}
+.pillar h3 {
+  font-family: var(--display);
+  font-size: 1.6rem;
+  font-variation-settings: "opsz" 144, "wght" 400;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+  line-height: 1.15;
+}
+.pillar p { color: var(--text-2); font-size: 0.95rem; }
+.pillar .stat {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--mono);
+}
+.pillar .stat .num {
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.pillar .stat .lbl {
+  font-size: 10px; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: 0.15em;
+}
+.pillar.wide { grid-column: span 7; }
+.pillar.medium { grid-column: span 5; }
+.pillar.third { grid-column: span 4; }
+.pillar.feature {
+  grid-column: span 12;
+  background: linear-gradient(120deg, var(--surface), rgba(255,94,31,.05));
+}
+@media (max-width: 980px) {
+  .pillar.wide, .pillar.medium, .pillar.third { grid-column: span 12; }
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   SUSTAINABILITY
+────────────────────────────────────────────────────────────────────── */
+.sustain { border-top: 1px solid var(--line); }
+.sustain-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: center;
+}
+@media (max-width: 980px) { .sustain-grid { grid-template-columns: 1fr; } }
+
+.co2-display {
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: 24px;
+  padding: 48px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.co2-display::before {
+  content: "";
+  position: absolute; inset: -20%;
+  background: radial-gradient(circle, rgba(0,255,174,.08) 0%, transparent 60%);
+  animation: breathe 4s ease-in-out infinite;
+}
+@keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+.co2-label {
+  font-family: var(--mono);
+  font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--signal); margin-bottom: 24px; position: relative;
+}
+.co2-num {
+  font-family: var(--display);
+  font-variation-settings: "opsz" 144, "wght" 300;
+  font-size: clamp(4rem, 12vw, 8rem);
+  line-height: 1;
+  letter-spacing: -0.05em;
+  background: linear-gradient(180deg, var(--text), var(--signal));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  position: relative;
+}
+.co2-unit {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--text-2);
+  margin-top: 14px;
+  letter-spacing: 0.1em;
+  position: relative;
+}
+.co2-meta {
+  margin-top: 28px; padding-top: 24px;
+  border-top: 1px solid var(--line);
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  font-family: var(--mono);
+  position: relative;
+}
+.co2-meta .col { text-align: left; }
+.co2-meta .col .v { font-size: 18px; color: var(--text); font-weight: 500; }
+.co2-meta .col .l { font-size: 9px; color: var(--text-3); letter-spacing: 0.18em; text-transform: uppercase; margin-top: 4px; }
+
+/* ──────────────────────────────────────────────────────────────────────
+   CTA
+────────────────────────────────────────────────────────────────────── */
+.cta {
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+.cta h2 {
+  font-family: var(--display);
+  font-variation-settings: "opsz" 144, "wght" 300;
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  line-height: 1.0;
+  letter-spacing: -0.045em;
+  margin-bottom: 24px;
+  text-wrap: balance;
+}
+.cta h2 em { font-style: italic; color: var(--brand); }
+.cta p {
+  font-size: 1.15rem; color: var(--text-2);
+  max-width: 540px; margin: 0 auto 40px;
+  text-wrap: pretty;
+}
+.cta .cta-row { justify-content: center; }
+.cta .form {
+  display: flex; gap: 0; max-width: 480px; margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  padding: 5px;
+}
+.cta .form input {
+  flex: 1;
+  background: transparent;
+  border: none; outline: none;
+  padding: 12px 16px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+}
+.cta .form input::placeholder { color: var(--text-3); }
+.cta .form .btn { padding: 10px 22px; }
+
+/* ──────────────────────────────────────────────────────────────────────
+   FOOTER
+────────────────────────────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--line);
+  padding: 64px 0 36px;
+  background: var(--bg);
+}
+.foot-grid {
+  display: grid;
+  grid-template-columns: 1.6fr repeat(4, 1fr);
+  gap: 40px;
+  margin-bottom: 56px;
+}
+@media (max-width: 980px) { .foot-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.foot-brand .brand { margin-bottom: 18px; }
+.foot-brand p {
+  color: var(--text-3); font-size: 13px;
+  max-width: 360px; line-height: 1.6;
+}
+.foot-col h4 {
+  font-family: var(--mono);
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 18px;
+  font-weight: 400;
+}
+.foot-col ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.foot-col a { color: var(--text-2); font-size: 13px; transition: color .15s; }
+.foot-col a:hover { color: var(--text); }
+.foot-bot {
+  border-top: 1px solid var(--line);
+  padding-top: 28px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-3); gap: 18px;
+  flex-wrap: wrap;
+}
+.foot-bot .iso {
+  display: flex; gap: 12px; align-items: center;
+}
+.foot-bot .iso span {
+  border: 1px solid var(--line);
+  padding: 4px 10px; border-radius: 100px;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   REDUCED MOTION
+────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═════════════ NAV ═════════════ -->
+<nav class="top">
+  <div class="brand">
+    <span class="glyph">L</span>
+    <span>Logpy<span style="color:var(--brand)">:</span>grid</span>
+    <span class="meta">v.2030</span>
+  </div>
+  <ul>
+    <li><a href="#match">Match Engine</a></li>
+    <li><a href="#pillars">Network</a></li>
+    <li><a href="#sustain">Climate</a></li>
+    <li><a href="#cta">Pricing</a></li>
+  </ul>
+  <div class="right">
+    <a class="btn" href="#">Sign in</a>
+    <a class="btn primary" href="#cta">Get Access<span class="arr">→</span></a>
+  </div>
+</nav>
+
+<!-- ═════════════ HERO ═════════════ -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <canvas id="routes-canvas"></canvas>
+  <div class="grid-overlay"></div>
+  <div class="hero-wrap wrap">
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow"><span class="pulse"></span> LIVE · Berlin · Madrid · Warsaw · Lyon</div>
+        <h1 class="headline">
+          Freight,<br>
+          <em>fully</em> <span class="accent">autonomous.</span>
+        </h1>
+        <p class="lead">
+          Europas erstes KI-orchestriertes Frachtnetzwerk. 2,3&nbsp;Mio. Sendungen
+          gematched&nbsp;— heute, in&nbsp;Echtzeit, zwischen 47 Ländern und 850.000 Carriern.
+        </p>
+        <div class="cta-row">
+          <a class="btn primary" href="#cta">Start matching<span class="arr">→</span></a>
+          <a class="btn" href="#match">How it works</a>
+        </div>
+      </div>
+
+      <!-- Live-Panel -->
+      <div class="live">
+        <div class="live-head">
+          <div class="live-title">Network · Live Feed</div>
+          <div class="live-status"><span class="dot"></span>STREAMING</div>
+        </div>
+        <div class="live-row">
+          <div class="k">Shipments matched today</div>
+          <div class="v"><span data-counter="2358472">2,358,472</span><span class="delta">+14%</span></div>
+        </div>
+        <div class="live-row">
+          <div class="k">Avg. match latency</div>
+          <div class="v"><span data-counter="8" data-unit="ms">8</span><span class="unit">ms</span></div>
+        </div>
+        <div class="live-row">
+          <div class="k">Active carriers</div>
+          <div class="v"><span data-counter="847291">847,291</span></div>
+        </div>
+        <div class="live-row">
+          <div class="k">GMV · last 24h</div>
+          <div class="v">€&nbsp;<span data-counter="2148000000">2.14B</span></div>
+        </div>
+        <div class="live-row">
+          <div class="k">Autonomous fleet share</div>
+          <div class="v"><span data-counter="34">34</span><span class="unit">%</span><span class="delta">+0.3</span></div>
+        </div>
+        <div class="live-foot">
+          <span>EU · CH · UK · NO · TR</span>
+          <span id="live-ts">15:42:08 UTC</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="trust-row">
+      <div class="label">Trusted by Europe's logistics backbone</div>
+      <div class="logos">
+        <span>NORDFRACHT</span>
+        <span>MERIDIAN HAUL</span>
+        <span>PANEUROPA</span>
+        <span>HELIX CARGO</span>
+        <span>AUREA Logistik</span>
+        <span>ROVR · Autonomous</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════ MATCH ENGINE ═════════════ -->
+<section class="match" id="match">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="section-tag">// AI Match Engine</div>
+      <h2 class="section-title">
+        What used to take <em>three hours</em>,<br>
+        now takes <span style="color:var(--brand)">8 milliseconds.</span>
+      </h2>
+      <p class="section-sub">
+        Unsere Match-Engine wertet 14.000 Variablen pro Sendung aus — Route, Wetter,
+        Lenkzeit, CO2-Fußabdruck, dynamic pricing — und findet die optimale Paarung,
+        bevor du den Ladeschein zu Ende gelesen hast.
+      </p>
+    </div>
+
+    <div class="match-grid">
+      <div class="match-viz">
+        <div class="viz-legend">Real-time match · Berlin → Lyon · €&nbsp;2.840</div>
+        <svg id="match-svg" viewBox="0 0 500 420" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="cnGrad" cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0%" stop-color="#ff5e1f" stop-opacity="0.9"/>
+              <stop offset="100%" stop-color="#ff5e1f" stop-opacity="0"/>
+            </radialGradient>
+            <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#ff5e1f" stop-opacity="0"/>
+              <stop offset="50%" stop-color="#00ffae" stop-opacity="0.6"/>
+              <stop offset="100%" stop-color="#00ffae" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+
+          <!-- background nodes (carriers, freights) -->
+          <g id="match-nodes"></g>
+          <!-- edges -->
+          <g id="match-edges"></g>
+          <!-- match flash -->
+          <g id="match-flash"></g>
+        </svg>
+        <div class="viz-callout">
+          ⌁ MATCHED · 6.4ms
+          <strong>Carrier #4471 ⇄ Freight #82.119</strong>
+        </div>
+      </div>
+
+      <div class="match-features">
+        <div class="match-feature">
+          <div class="feat-num">01</div>
+          <div>
+            <div class="feat-title">Predictive <em>routing</em></div>
+            <div class="feat-desc">
+              Vorhersage von Stau, Wetter und Lenkzeitlimits bis 72h voraus.
+              Routen passen sich live an — kein Disponent muss eingreifen.
+            </div>
+          </div>
+        </div>
+        <div class="match-feature">
+          <div class="feat-num">02</div>
+          <div>
+            <div class="feat-title">Carbon-aware <em>dispatch</em></div>
+            <div class="feat-desc">
+              Jede Sendung bekommt einen Emissions-Score. Die Engine bevorzugt
+              die effizienteste Kombination — auch wenn sie nicht die billigste ist.
+            </div>
+          </div>
+        </div>
+        <div class="match-feature">
+          <div class="feat-num">03</div>
+          <div>
+            <div class="feat-title">Autonomous-ready <em>contracts</em></div>
+            <div class="feat-desc">
+              Smart Contracts via Logpy:grid-Chain. Maschinenlesbar, EU-Norm-konform,
+              automatisch abgerechnet bei Übergabe — inklusive autonomer Flotten.
+            </div>
+          </div>
+        </div>
+        <div class="match-feature">
+          <div class="feat-num">04</div>
+          <div>
+            <div class="feat-title">Dispute resolution in <em>seconds</em></div>
+            <div class="feat-desc">
+              Streitfälle: Sensordaten, Foto-Evidenz, Telematik. KI-Schlichter
+              entscheidet in 90% der Fälle ohne menschliches Eingreifen.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════ PILLARS ═════════════ -->
+<section class="pillars" id="pillars">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="section-tag">// Network</div>
+      <h2 class="section-title">
+        Mehr als eine Frachtenbörse.<br>
+        <em>Eine logistische Nervenbahn für Europa.</em>
+      </h2>
+    </div>
+
+    <div class="pillar-grid">
+      <div class="pillar wide">
+        <div class="pillar-icon">◈</div>
+        <h3>Smart Freight Cells</h3>
+        <p>
+          Cluster aus Verladern, Carriern und Lägern, die als ein einziges
+          logistisches Organ agieren. Lokale Optimierung — globale Kohärenz.
+        </p>
+        <div class="stat">
+          <div class="num">2,400+</div>
+          <div class="lbl">Active cells</div>
+        </div>
+      </div>
+      <div class="pillar medium">
+        <div class="pillar-icon">⊡</div>
+        <h3>IoT Telematics</h3>
+        <p>
+          Jedes Fahrzeug, jeder Anhänger, jede Palette — in Echtzeit. ETA-Updates
+          alle 90 Sekunden. Temperaturkurven mit Block-Signatur.
+        </p>
+        <div class="stat">
+          <div class="num">12M+</div>
+          <div class="lbl">Live assets</div>
+        </div>
+      </div>
+      <div class="pillar third">
+        <div class="pillar-icon">⌬</div>
+        <h3>Customs · Zero-Touch</h3>
+        <p>EU-, UK- und Schweizer Zollverfahren vollständig automatisiert. KI-Klassifizierung der Ware. Mensch nur bei Anomalien.</p>
+        <div class="stat"><div class="num">98.4%</div><div class="lbl">Touchless rate</div></div>
+      </div>
+      <div class="pillar third">
+        <div class="pillar-icon">◑</div>
+        <h3>Dynamic Pricing</h3>
+        <p>Marktpreis-Engine mit Liquiditäts-Tiefe für 480 Lanes. Spread &lt; 1,2%. Spotpreise auf Sekundenebene.</p>
+        <div class="stat"><div class="num">&lt; 1.2%</div><div class="lbl">Bid-ask spread</div></div>
+      </div>
+      <div class="pillar third">
+        <div class="pillar-icon">↻</div>
+        <h3>Reverse Logistics</h3>
+        <p>Rücktransporte als First-Class-Citizens. KI verkettet Hin- und Rückladung im selben Dispatch-Lauf.</p>
+        <div class="stat"><div class="num">+38%</div><div class="lbl">Empty miles reduced</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════ SUSTAINABILITY ═════════════ -->
+<section class="sustain" id="sustain">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="section-tag">// Climate Impact</div>
+      <h2 class="section-title">
+        Jeder Match ist eine <em>Klima-Entscheidung.</em>
+      </h2>
+      <p class="section-sub">
+        Wir bilanzieren CO2-Äquivalente pro Lkm in Echtzeit und stellen sie
+        verifiziert an EU-CBAM und ISO 14083 zur Verfügung.
+      </p>
+    </div>
+
+    <div class="sustain-grid">
+      <div class="co2-display">
+        <div class="co2-label">CO2 saved · since 2026</div>
+        <div class="co2-num"><span data-counter="127">127</span></div>
+        <div class="co2-unit">MEGATONS CO2eq</div>
+        <div class="co2-meta">
+          <div class="col"><div class="v">−38%</div><div class="l">Empty miles</div></div>
+          <div class="col"><div class="v">82%</div><div class="l">Electrified lanes</div></div>
+          <div class="col"><div class="v">A+</div><div class="l">EU CSRD rating</div></div>
+        </div>
+      </div>
+
+      <div>
+        <h3 style="font-family:var(--display);font-size:1.8rem;font-variation-settings:'opsz' 144,'wght' 400;letter-spacing:-0.025em;line-height:1.15;margin-bottom:18px">
+          Die effizienteste Sendung gewinnt — <em style="color:var(--brand);font-style:italic;">nicht die billigste.</em>
+        </h3>
+        <p style="color:var(--text-2);font-size:1.05rem;margin-bottom:32px;line-height:1.6">
+          Verlader können ein CO2-Budget pro Quartal setzen. Die Match-Engine optimiert
+          innerhalb dieses Budgets — Preis und Geschwindigkeit werden zu sekundären
+          Variablen, nicht primären.
+        </p>
+        <div style="display:grid;gap:12px;font-family:var(--mono);font-size:13px;color:var(--text-2)">
+          <div style="display:flex;justify-content:space-between;padding:14px 18px;background:var(--surface);border-radius:10px;border:1px solid var(--line)">
+            <span>✓ EU-CBAM kompatibel</span>
+            <span style="color:var(--text-3)">2027</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:14px 18px;background:var(--surface);border-radius:10px;border:1px solid var(--line)">
+            <span>✓ ISO 14083 zertifiziert</span>
+            <span style="color:var(--text-3)">2028</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:14px 18px;background:var(--surface);border-radius:10px;border:1px solid var(--line)">
+            <span>✓ Smart Freight Centre · Premium</span>
+            <span style="color:var(--text-3)">2029</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════ CTA ═════════════ -->
+<section class="cta" id="cta">
+  <div class="wrap">
+    <h2>
+      Ready to ship <em>differently?</em>
+    </h2>
+    <p>
+      Pilotphase läuft. 30 Tage volle Plattform. Keine Kreditkarte, kein Lock-In —
+      nur ein API-Key und eine ETA.
+    </p>
+    <form class="form" onsubmit="event.preventDefault();alert('Demo-Formular — fake submit ✓');">
+      <input type="email" placeholder="you@speditions-company.eu" required>
+      <button type="submit" class="btn primary">Request access<span class="arr">→</span></button>
+    </form>
+    <p style="margin-top:32px;font-family:var(--mono);font-size:11px;letter-spacing:0.12em;color:var(--text-3)">
+      ▸ Or talk to a dispatch architect &nbsp;·&nbsp; +49 211 88 26 — 8888
+    </p>
+  </div>
+</section>
+
+<!-- ═════════════ FOOTER ═════════════ -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <div class="brand">
+          <span class="glyph">L</span>
+          <span>Logpy<span style="color:var(--brand)">:</span>grid</span>
+          <span class="meta">v.2030</span>
+        </div>
+        <p>
+          Europas erstes KI-orchestriertes Frachtnetzwerk. Launch 2030.
+          Operativ in 47 Ländern. Hauptsitz: Düsseldorf · Datenzentrum: Frankfurt am Main.
+        </p>
+      </div>
+      <div class="foot-col">
+        <h4>Platform</h4>
+        <ul>
+          <li><a href="#">Match Engine</a></li>
+          <li><a href="#">Logpy:grid-Chain</a></li>
+          <li><a href="#">Telematics API</a></li>
+          <li><a href="#">Dispute AI</a></li>
+        </ul>
+      </div>
+      <div class="foot-col">
+        <h4>Carriers</h4>
+        <ul>
+          <li><a href="#">For human fleets</a></li>
+          <li><a href="#">For autonomous fleets</a></li>
+          <li><a href="#">Reverse logistics</a></li>
+          <li><a href="#">Driver app</a></li>
+        </ul>
+      </div>
+      <div class="foot-col">
+        <h4>Shippers</h4>
+        <ul>
+          <li><a href="#">Spot market</a></li>
+          <li><a href="#">Contract lanes</a></li>
+          <li><a href="#">CO2 ledger</a></li>
+          <li><a href="#">Compliance suite</a></li>
+        </ul>
+      </div>
+      <div class="foot-col">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="#">About</a></li>
+          <li><a href="#">Newsroom</a></li>
+          <li><a href="#">Careers · 2026 hires</a></li>
+          <li><a href="#">Press kit</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bot">
+      <div>© 2030 Logpy:grid GmbH · All rights reserved · powered by LogpyClaw</div>
+      <div class="iso">
+        <span>ISO 27001</span>
+        <span>SOC 2 · Type II</span>
+        <span>EU AI Act · Tier 1</span>
+        <span>BAFA-registered</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ─────────── Animated Counters ───────────
+function animateCounter(el, target, dur = 1600) {
+  const start = 0;
+  const isFloat = String(target).indexOf('.') !== -1;
+  const t0 = performance.now();
+  const fmt = (n) => {
+    if (target > 1_000_000_000) return (n / 1_000_000_000).toFixed(2) + 'B';
+    if (target > 1_000_000) return Math.round(n).toLocaleString('en-US');
+    if (target > 1000) return Math.round(n).toLocaleString('en-US');
+    return Math.round(n).toString();
+  };
+  function step(now) {
+    const t = Math.min(1, (now - t0) / dur);
+    const eased = 1 - Math.pow(1 - t, 3);
+    const v = start + (target - start) * eased;
+    el.textContent = fmt(v);
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+const counterObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const el = e.target;
+      const target = parseFloat(el.dataset.counter);
+      animateCounter(el, target);
+      counterObs.unobserve(el);
+    }
+  });
+}, { threshold: 0.4 });
+document.querySelectorAll('[data-counter]').forEach(el => counterObs.observe(el));
+
+// ─────────── Live timestamp ───────────
+const tsEl = document.getElementById('live-ts');
+setInterval(() => {
+  const d = new Date();
+  tsEl.textContent = d.toUTCString().slice(17, 25) + ' UTC';
+}, 1000);
+
+// ─────────── Hero canvas: lazy route lines ───────────
+const c = document.getElementById('routes-canvas');
+const ctx = c.getContext('2d');
+let W, H;
+function resize() {
+  c.width  = (W = window.innerWidth) * devicePixelRatio;
+  c.height = (H = c.parentElement.offsetHeight) * devicePixelRatio;
+  c.style.width = W + 'px';
+  c.style.height = H + 'px';
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Nodes: zufällige Punkte (cities)
+const nodes = Array.from({ length: 30 }, () => ({
+  x: Math.random() * W, y: Math.random() * H,
+  vx: (Math.random() - 0.5) * 0.08,
+  vy: (Math.random() - 0.5) * 0.08,
+  size: 1 + Math.random() * 2,
+}));
+
+// Routes (animierte beams zwischen Nodes)
+function newBeam() {
+  const a = Math.floor(Math.random() * nodes.length);
+  let b = Math.floor(Math.random() * nodes.length);
+  while (b === a) b = Math.floor(Math.random() * nodes.length);
+  return {
+    a, b, t: 0,
+    dur: 800 + Math.random() * 1400,
+    color: Math.random() > 0.7 ? '#00ffae' : '#ff5e1f',
+  };
+}
+let beams = Array.from({ length: 8 }, newBeam);
+
+function tick(now) {
+  ctx.clearRect(0, 0, W, H);
+
+  // Nodes update + draw
+  nodes.forEach(n => {
+    n.x += n.vx; n.y += n.vy;
+    if (n.x < 0 || n.x > W) n.vx *= -1;
+    if (n.y < 0 || n.y > H) n.vy *= -1;
+    ctx.fillStyle = 'rgba(255,255,255,.35)';
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Beams animate
+  beams.forEach((b, i) => {
+    const A = nodes[b.a], B = nodes[b.b];
+    const grad = ctx.createLinearGradient(A.x, A.y, B.x, B.y);
+    grad.addColorStop(0, 'rgba(255,255,255,0.06)');
+    grad.addColorStop(b.t, b.color + 'cc');
+    grad.addColorStop(Math.min(1, b.t + 0.04), 'rgba(255,255,255,0)');
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(A.x, A.y);
+    ctx.lineTo(B.x, B.y);
+    ctx.stroke();
+
+    b.t += 0.01;
+    if (b.t >= 1) beams[i] = newBeam();
+  });
+
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// ─────────── Match-Engine SVG visualization ───────────
+const matchSvg = document.getElementById('match-svg');
+const matchNodes = document.getElementById('match-nodes');
+const matchEdges = document.getElementById('match-edges');
+const matchFlash = document.getElementById('match-flash');
+
+const VW = 500, VH = 420;
+const carriers = Array.from({ length: 12 }, (_, i) => ({
+  x: 60 + Math.random() * (VW - 120),
+  y: 50 + Math.random() * (VH - 100),
+  type: 'carrier',
+  id: i,
+}));
+const freights = Array.from({ length: 14 }, (_, i) => ({
+  x: 60 + Math.random() * (VW - 120),
+  y: 50 + Math.random() * (VH - 100),
+  type: 'freight',
+  id: i,
+}));
+const all = [...carriers, ...freights];
+
+all.forEach(n => {
+  const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  c.setAttribute('cx', n.x);
+  c.setAttribute('cy', n.y);
+  c.setAttribute('r', n.type === 'carrier' ? 6 : 4);
+  c.setAttribute('fill', n.type === 'carrier' ? '#ff5e1f' : 'rgba(255,255,255,.6)');
+  c.setAttribute('opacity', '0.7');
+  matchNodes.appendChild(c);
+});
+
+function flashMatch() {
+  const c = carriers[Math.floor(Math.random() * carriers.length)];
+  const f = freights[Math.floor(Math.random() * freights.length)];
+
+  // Edge
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  path.setAttribute('x1', c.x);
+  path.setAttribute('y1', c.y);
+  path.setAttribute('x2', f.x);
+  path.setAttribute('y2', f.y);
+  path.setAttribute('stroke', '#00ffae');
+  path.setAttribute('stroke-width', '1.5');
+  path.setAttribute('opacity', '0');
+  matchEdges.appendChild(path);
+
+  // Flash on carrier
+  const flash = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  flash.setAttribute('cx', c.x);
+  flash.setAttribute('cy', c.y);
+  flash.setAttribute('r', '6');
+  flash.setAttribute('fill', 'none');
+  flash.setAttribute('stroke', '#00ffae');
+  flash.setAttribute('stroke-width', '2');
+  matchFlash.appendChild(flash);
+
+  // Animate
+  path.animate(
+    [
+      { opacity: 0 },
+      { opacity: 0.9, offset: 0.3 },
+      { opacity: 0 },
+    ],
+    { duration: 1400, easing: 'ease-out' }
+  ).onfinish = () => path.remove();
+
+  flash.animate(
+    [
+      { r: 6, opacity: 1 },
+      { r: 24, opacity: 0 },
+    ],
+    { duration: 1200, easing: 'ease-out' }
+  ).onfinish = () => flash.remove();
+}
+
+setInterval(flashMatch, 600);
+
+// ─────────── Nav blur on scroll ───────────
+const nav = document.querySelector('nav.top');
+window.addEventListener('scroll', () => {
+  if (window.scrollY > 30) {
+    nav.style.background = 'rgba(10,10,11,.92)';
+  } else {
+    nav.style.background = 'rgba(10,10,11,.6)';
+  }
+});
+</script>
+
+</body>
+</html>

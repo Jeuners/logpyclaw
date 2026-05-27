@@ -711,6 +711,7 @@
       <div class="tab" onclick="switchTab('dreams')">✦ Träume</div>
       <div class="tab" onclick="switchTab('rss')">RSS</div>
       <div class="tab" onclick="switchTab('files')">Files</div>
+      <div class="tab" onclick="switchTab('deploys')">▲ Deploys</div>
       <div class="tab" onclick="switchTab('admin')" data-i18n="nav.admin">Admin</div>
     </div>
 
@@ -818,6 +819,28 @@
           <button class="btn-sm btn-secondary" onclick="triggerDreams()">▶ Jetzt träumen</button>
         </div>
         <div id="dreams-gallery" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:20px;"></div>
+      </div>
+
+      <!-- ── Deploys ── -->
+      <div id="view-deploys" class="view">
+        <div class="row" style="align-items:center;">
+          <span style="color:var(--muted);font-size:10px;flex:1;">▲ Deploys auf dev.dillenberg.net</span>
+          <span id="deploys-count" style="font-size:10px;color:var(--muted);">—</span>
+          <button class="btn-sm btn-secondary" onclick="loadDeploys()">↻ Refresh</button>
+          <a class="btn-sm btn-secondary" href="https://dev.dillenberg.net/" target="_blank">Index ↗</a>
+        </div>
+        <div style="overflow:auto;flex:1;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead><tr>
+              <th style="text-align:left;padding:8px;font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--border)">Slug</th>
+              <th style="text-align:left;padding:8px;font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--border)">Deployed</th>
+              <th style="text-align:left;padding:8px;font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--border)">Size</th>
+              <th style="text-align:left;padding:8px;font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--border)">Source</th>
+              <th style="width:160px;border-bottom:1px solid var(--border)"></th>
+            </tr></thead>
+            <tbody id="deploys-tbody"></tbody>
+          </table>
+        </div>
       </div>
 
       <!-- ── Admin ── -->
@@ -2051,7 +2074,7 @@ function startLogStream() {
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 function switchTab(name) {
-  const names = ['chat','missions','spacetime','factions','status','logs','dreams','rss','files','admin'];
+  const names = ['chat','missions','spacetime','factions','status','logs','dreams','rss','files','deploys','admin'];
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i]===name));
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById(`view-${name}`).classList.add('active');
@@ -2063,6 +2086,51 @@ function switchTab(name) {
   if (name==='admin') loadAdmin();
   if (name==='rss')   rssInit();
   if (name==='files') fbInit();
+  if (name==='deploys') loadDeploys();
+}
+
+// ── Deploys ─────────────────────────────────────────────────────────────────
+async function loadDeploys() {
+  try {
+    const r = await fetch(`${API}/api/deploys`);
+    const d = await r.json();
+    const list = (d.deploys || []).sort((a,b) => (b.deployed_at||'').localeCompare(a.deployed_at||''));
+    document.getElementById('deploys-count').textContent = `${list.length} aktiv`;
+    const tb = document.getElementById('deploys-tbody');
+    tb.innerHTML = '';
+    if (list.length === 0) {
+      tb.innerHTML = `<tr><td colspan="5" style="padding:32px;text-align:center;color:var(--muted)">Keine Deploys. Nutze: <code>deploy &lt;slug&gt;</code></td></tr>`;
+      return;
+    }
+    for (const dep of list) {
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid var(--border)';
+      tr.innerHTML = `
+        <td style="padding:10px 8px;font-weight:600;color:var(--accent-h)"><a href="${esc(dep.url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${esc(dep.slug)}</a></td>
+        <td style="padding:10px 8px;font-size:11px;color:var(--muted)">${esc(dep.deployed_at || '')}</td>
+        <td style="padding:10px 8px;font-size:11px;color:var(--muted)">${dep.size_kb||0} KB</td>
+        <td style="padding:10px 8px;font-size:10px;color:var(--muted);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(dep.source||'')}</td>
+        <td style="padding:10px 8px;text-align:right;display:flex;gap:6px;justify-content:flex-end">
+          <a class="btn-sm btn-secondary" href="${esc(dep.url)}" target="_blank" rel="noopener" style="font-size:10px">Open ↗</a>
+          <button class="btn-sm" onclick="undeployBtn('${esc(dep.slug)}')" style="font-size:10px;color:var(--warn);border-color:var(--warn)">×</button>
+        </td>
+      `;
+      tb.appendChild(tr);
+    }
+  } catch (e) {
+    document.getElementById('deploys-tbody').innerHTML =
+      `<tr><td colspan="5" style="padding:20px;color:var(--warn)">Fehler: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+async function undeployBtn(slug) {
+  if (!confirm(`Deploy "${slug}" wirklich entfernen?`)) return;
+  try {
+    const r = await fetch(`${API}/api/deploys/${slug}`, { method: 'DELETE' });
+    const d = await r.json();
+    alert(d.result || 'OK');
+    loadDeploys();
+  } catch (e) { alert('Fehler: ' + e.message); }
 }
 
 // ── RSS Reader ────────────────────────────────────────────────────────────────

@@ -39,10 +39,12 @@ from backend.api.logs import router as logs_router
 from backend.api.web_bridge import router as web_bridge_router
 from backend.api.chrome_ws import router as chrome_ws_router
 from backend.api.keys import router as keys_router
+from backend.api.deploys import router as deploys_router
 from backend.config import get_settings
 from backend.i18n import locale_from_header
 from backend.skills.browser import BrowserSkill
 from backend.skills.chrome_browser import ChromeBrowserSkill
+from backend.skills.deploy import DeploySkill
 from backend.skills.file import FileSkill
 from backend.skills.linkedin import LinkedInSkill
 from backend.skills.rss import RSSSkill
@@ -127,6 +129,7 @@ def _make_planner_fn(cfg, temperature: float = 0.3):
             "- 'datei', 'verzeichnis', 'ls', 'cat', 'lese datei' → skill:file\n"
             "- 'code', 'programmier', 'python', 'skript' → skill:coding oder agent:coder\n"
             "- 'transkrib', 'audio', 'video transkript' → skill:transcription\n"
+            "- 'deploy', 'publish', 'publiziere', 'online stellen', 'list deploys', 'undeploy' → skill:deploy\n"
             "- 'claude', 'frontier', 'komplex', 'schreib', 'essay', 'analyse', 'refactor', 'architektur' → agent:claude\n"
             "- Allgemeine Fragen, Texte schreiben, Analyse → agent:alice\n"
             "- Mehrere gleichartige Tasks (z.B. '5 Bilder') → einen Task pro Einheit\n\n"
@@ -234,6 +237,7 @@ def _boot_agents() -> None:
         "gmail":         lambda c: GmailSkill(),
         "browser":       lambda c: BrowserSkill(),
         "chrome_browser": lambda c: ChromeBrowserSkill(),
+        "deploy":        lambda c: DeploySkill(**c),
         "urlfetch":      lambda c: UrlFetchSkill(),
         "file":          lambda c: FileSkill(**c),
         "rss":           lambda c: RSSSkill(),
@@ -375,6 +379,7 @@ app.include_router(a2a_router)
 app.include_router(web_bridge_router)
 app.include_router(chrome_ws_router)
 app.include_router(keys_router)
+app.include_router(deploys_router)
 app.include_router(files_router)
 app.include_router(rss_router)
 app.include_router(logs_router, prefix="/api")
