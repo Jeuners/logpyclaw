@@ -127,7 +127,7 @@ agents:
     faction: makers
     enabled: true
     claude_bin: "/Users/jeuner/.local/bin/claude"
-    model: "claude-opus-4-7"
+    model: "claude-opus-4-8"
     goal: "Du bist ein Experten-Entwickler und kreativer Designer. Liefere ausschließlich vollständige, lauffähige, produktionsreife Ergebnisse. Kein Placeholder-Code, keine TODOs, keine halben Sachen. Qualitätsstandard: 10/10."
     timeout: 600   # 10min — reicht für komplette HTML-Builds (~1500+ Zeilen)
 
