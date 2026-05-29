@@ -10,16 +10,15 @@ import asyncio
 import json
 import logging
 import uuid
-from typing import Optional
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/chrome", tags=["chrome"])
 logger = logging.getLogger(__name__)
 
 # Aktive Extension-Verbindung (nur eine gleichzeitig)
-_active_ws: Optional[WebSocket] = None
+_active_ws: WebSocket | None = None
 # Offene Request-Queues: request_id → asyncio.Queue
 _pending: dict[str, asyncio.Queue] = {}
 
@@ -88,7 +87,7 @@ async def send_chrome_command(req: CommandRequest):
         result = await asyncio.wait_for(queue.get(), timeout=COMMAND_TIMEOUT)
         return result
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         raise HTTPException(504, f"Chrome Command '{req.command}' Timeout nach {COMMAND_TIMEOUT}s")
     except Exception as e:
         raise HTTPException(500, f"Chrome Command Fehler: {e}")

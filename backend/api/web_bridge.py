@@ -74,7 +74,6 @@ async def chat_stream(
             "source": "dillenberg.net",
         },
     )
-    queue = conductor.store.subscribe(mission_id)
     msg = Message.request(
         mission_id=mission_id,
         sender=external_ref("dillenberg"),
@@ -84,11 +83,15 @@ async def chat_stream(
 
     async def stream():
         final_state = "failed"
-        async def run():
-            await conductor.dispatch(msg)
-
-        asyncio.create_task(run())
+        # subscribe() direkt vor dem try, damit unsubscribe() im finally
+        # GARANTIERT läuft — auch wenn dispatch() oder der Client-Abbruch
+        # (GeneratorExit/CancelledError) zwischendrin etwas wirft.
+        queue = conductor.store.subscribe(mission_id)
         try:
+            async def run():
+                await conductor.dispatch(msg)
+
+            asyncio.create_task(run())
             while True:
                 event = await asyncio.wait_for(queue.get(), timeout=30.0)
                 if event.get("event") == "message" and event.get("type") == "response":

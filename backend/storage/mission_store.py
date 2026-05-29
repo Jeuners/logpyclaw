@@ -12,7 +12,10 @@ import threading
 import time
 from collections import defaultdict
 
+from backend.core.logging import get_logger
 from backend.core.protocol import Message, TaskRecord
+
+log = get_logger("logpyclaw.mission_store")
 
 
 class MissionStore:
@@ -92,8 +95,8 @@ class MissionStore:
                 msg.msg_hash = pqsign.hash_message(prev, payload)
                 msg.signer_id, msg.sig = pqsign.sign(payload)
             except Exception:
-                # Fail-soft: bei Signatur-Problem trotzdem loggen (legacy-Modus)
-                pass
+                # Fail-soft: bei Signatur-Problem unsigniert weiterlaufen (legacy-Modus)
+                log.exception("PQC-Signatur fehlgeschlagen für mission %s", msg.mission_id)
 
         with self._lock:
             self._traces[msg.mission_id].append(msg)

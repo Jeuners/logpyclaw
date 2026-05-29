@@ -42,7 +42,6 @@ async def chat_stream(agent_id: str, message: str, request: Request):
         },
     )
 
-    queue = conductor.store.subscribe(mission_id)
     msg = Message.request(
         mission_id=mission_id,
         sender=external_ref("user"),
@@ -52,16 +51,20 @@ async def chat_stream(agent_id: str, message: str, request: Request):
     root_task_id = msg.task_id  # nur auf diesen Root-Task warten
 
     async def stream():
-        async def run():
-            await conductor.dispatch(msg)
-            conductor.store.update_mission(mission_id, state="completed")
-
-        asyncio.create_task(run())
-        yield f"data: {json.dumps({'event': 'init', 'root_task_id': root_task_id, 'mission_id': mission_id})}\n\n"
-
-        total = 0
-        max_wait = 1200  # 20 min — synchron zum Conductor-Timeout (900s) + Puffer
+        # subscribe() direkt vor dem try, damit unsubscribe() im finally
+        # GARANTIERT läuft — auch wenn dispatch() oder der Client-Abbruch
+        # (GeneratorExit/CancelledError) zwischendrin etwas wirft.
+        queue = conductor.store.subscribe(mission_id)
         try:
+            async def run():
+                await conductor.dispatch(msg)
+                conductor.store.update_mission(mission_id, state="completed")
+
+            asyncio.create_task(run())
+            yield f"data: {json.dumps({'event': 'init', 'root_task_id': root_task_id, 'mission_id': mission_id})}\n\n"
+
+            total = 0
+            max_wait = 1200  # 20 min — synchron zum Conductor-Timeout (900s) + Puffer
             while total < max_wait:
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=5.0)

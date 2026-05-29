@@ -116,10 +116,19 @@ class Conductor:
         task.transition(TaskState.RUNNING)
         self.store.upsert_task(task)
 
+        # Per-Mission-Timeout aus den Mission-Metadaten lesen (gleiche Quelle wie
+        # der Watchdog), Fallback auf den harten Default.
+        mission = self.store.get_mission(msg.mission_id)
+        timeout = (
+            mission.get("timeout_sec", _DEFAULT_TASK_TIMEOUT)
+            if mission
+            else _DEFAULT_TASK_TIMEOUT
+        )
+
         try:
             response = await asyncio.wait_for(
                 agent.handle(msg),
-                timeout=_DEFAULT_TASK_TIMEOUT,
+                timeout=timeout,
             )
         except TimeoutError:
             task.transition(TaskState.TIMEOUT)
@@ -148,7 +157,11 @@ class Conductor:
         while True:
             await asyncio.sleep(_WATCHDOG_INTERVAL)
             now = time.time()
-            for task in self.store._tasks.values():
+            # Snapshot unter dem Store-Lock ziehen, damit paralleles upsert_task()
+            # während dispatch() kein "dictionary changed size during iteration" wirft.
+            with self.store._lock:
+                tasks = list(self.store._tasks.values())
+            for task in tasks:
                 if task.state.is_terminal:
                     continue
                 age = now - task.last_heartbeat

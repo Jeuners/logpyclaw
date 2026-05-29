@@ -21,7 +21,10 @@ from dataclasses import dataclass, field
 from backend.agents.base import AsyncAgent
 from backend.core.cdc import CausalDilationClock
 from backend.core.faction_protocol import FactionRegistry
+from backend.core.logging import get_logger
 from backend.core.protocol import Message, MessageType
+
+log = get_logger("logpyclaw.martin")
 
 # ── QC-Konfiguration ──────────────────────────────────────────────────────────
 
@@ -266,7 +269,7 @@ class MartinAgent(AsyncAgent):
                 if nums:
                     return min(10, max(1, int(nums[0])))
         except Exception:
-            pass
+            log.exception("QC-Check fehlgeschlagen (auditor=%s)", self.qc.auditor_id)
         return 5  # Default bei Fehler
 
     # ── Operator-Bridge ───────────────────────────────────────────────────────

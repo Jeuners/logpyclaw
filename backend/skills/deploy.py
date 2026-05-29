@@ -24,7 +24,10 @@ import shutil
 import time
 from pathlib import Path
 
+from backend.core.logging import get_logger
 from backend.skills import Skill, SkillConfigField
+
+log = get_logger("logpyclaw.deploy")
 
 REPO_ROOT      = Path(__file__).resolve().parent.parent.parent
 BUILDS_DIR     = REPO_ROOT / "frontend" / "builds"
@@ -48,7 +51,8 @@ def _load_meta() -> dict:
         try:
             return json.loads(META_FILE.read_text())
         except Exception:
-            pass
+            # Fail-soft: korrupte/leere Meta → mit leerem Index weitermachen
+            log.exception("Deploy-Meta konnte nicht geladen werden: %s", META_FILE)
     return {"deploys": {}}
 
 
@@ -109,7 +113,7 @@ class DeploySkill(Skill):
     async def _deploy(self, source: str | None, slug: str) -> str:
         slug = _validate_slug(slug) or ""
         if not slug:
-            return f"[Deploy] Ungültiger Slug. Erlaubt: a-z 0-9 _ - (max 40 chars)"
+            return "[Deploy] Ungültiger Slug. Erlaubt: a-z 0-9 _ - (max 40 chars)"
 
         # Quelle bestimmen
         if source:

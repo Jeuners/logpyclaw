@@ -112,7 +112,7 @@ class YouTubeSkill(Skill):
         if rc != 0:
             return f"[YouTube] Download fehlgeschlagen: {stderr[:300]}"
 
-        filepath = next((l.strip() for l in stdout.splitlines() if l.strip() and os.path.exists(l.strip())), "")
+        filepath = next((ln.strip() for ln in stdout.splitlines() if ln.strip() and os.path.exists(ln.strip())), "")
         if not filepath:
             # Fallback: neueste uid-Datei
             files = [os.path.join(_DL_DIR, f) for f in os.listdir(_DL_DIR) if f.startswith(uid)]

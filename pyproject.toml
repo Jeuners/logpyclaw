@@ -27,7 +27,13 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
-ignore = ["E501"]
+# E501: Zeilenlänge via Formatter geregelt.
+# E701: kompakte Einzeiler (`if x: y`) sind bewusster Codebase-Stil.
+ignore = ["E501", "E701"]
+
+[tool.ruff.lint.per-file-ignores]
+# app.py lädt .env via load_dotenv() VOR den Modul-Imports — Reihenfolge ist gewollt.
+"backend/app.py" = ["E402"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["backend"]

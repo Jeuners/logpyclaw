@@ -14,8 +14,6 @@ from __future__ import annotations
 
 import asyncio
 import re
-import subprocess
-import tempfile
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -173,7 +171,7 @@ class BrowserSkill(Skill):
                 if proc.returncode != 0:
                     err = stderr.decode(errors="replace")[:300]
                     return f"[BrowserSkill] Screenshot fehlgeschlagen (exit {proc.returncode}): {err}"
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Chrome hängt manchmal im Cleanup obwohl PNG schon geschrieben ist
                 proc.kill()
                 await asyncio.sleep(0.5)
@@ -189,7 +187,7 @@ class BrowserSkill(Skill):
                     f"{http_url}"
                 )
             return f"[BrowserSkill] Screenshot erzeugt, aber Datei leer oder fehlt: {out_path}"
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return f"[BrowserSkill] Screenshot Timeout für {url}"
         except Exception as e:
             return f"[BrowserSkill] Screenshot Fehler: {e}"

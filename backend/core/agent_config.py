@@ -3,7 +3,7 @@ backend/core/agent_config.py — Pydantic-Modelle für agents.yaml.
 """
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
@@ -66,14 +66,7 @@ class ClaudeAgentConfig(BaseModel):
 
 
 AgentConfig = Annotated[
-    Union[
-        EchoAgentConfig,
-        LLMAgentConfig,
-        MartinAgentConfig,
-        SkillAgentConfig,
-        A2AGatewayConfig,
-        ClaudeAgentConfig,
-    ],
+    EchoAgentConfig | LLMAgentConfig | MartinAgentConfig | SkillAgentConfig | A2AGatewayConfig | ClaudeAgentConfig,
     Field(discriminator="type"),
 ]
 

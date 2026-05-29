@@ -21,7 +21,10 @@ import uuid
 
 import httpx
 
+from backend.core.logging import get_logger
 from backend.skills import Skill, SkillConfigField
+
+log = get_logger("logpyclaw.transcription")
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _MODEL_CANDIDATES = [
@@ -115,8 +118,9 @@ class TranscriptionSkill(Skill):
                 text = open(txt_path, encoding="utf-8").read().strip()
                 try:
                     os.remove(txt_path)
-                except Exception:
-                    pass
+                except Exception as e:
+                    # Cleanup-Fehler ist unkritisch — nur fürs Debugging festhalten
+                    log.debug("Cleanup fehlgeschlagen (%s): %s", txt_path, e)
                 return text or "⚠ Kein Text erkannt."
             return r.stdout.strip() or f"❌ rc={r.returncode}: {r.stderr[-200:]}"
         except subprocess.TimeoutExpired:
@@ -125,8 +129,9 @@ class TranscriptionSkill(Skill):
             if cleanup and os.path.exists(wav):
                 try:
                     os.remove(wav)
-                except Exception:
-                    pass
+                except Exception as e:
+                    # Cleanup-Fehler ist unkritisch — nur fürs Debugging festhalten
+                    log.debug("Cleanup fehlgeschlagen (%s): %s", wav, e)
 
     def _whisper_from_video(self, video_path: str) -> str:
         wav = f"/tmp/agentclaw_vidaudio_{uuid.uuid4().hex[:8]}.wav"
@@ -142,8 +147,9 @@ class TranscriptionSkill(Skill):
             if os.path.exists(wav):
                 try:
                     os.remove(wav)
-                except Exception:
-                    pass
+                except Exception as e:
+                    # Cleanup-Fehler ist unkritisch — nur fürs Debugging festhalten
+                    log.debug("Cleanup fehlgeschlagen (%s): %s", wav, e)
 
     # ── Ollama Fallback (Frame-Analyse) ───────────────────────────────────────
 
@@ -180,7 +186,7 @@ class TranscriptionSkill(Skill):
                         if m in available:
                             return m
         except Exception:
-            pass
+            log.exception("Ollama-Modell-Abfrage fehlgeschlagen (%s)", self.config.get("ollama_url"))
         return None
 
     def _extract_frames(self, video_path: str, max_frames: int = 6) -> list[str]:

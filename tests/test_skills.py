@@ -103,12 +103,18 @@ class TestWebSearchSkill:
     @pytest.mark.asyncio
     async def test_no_results_fallback(self):
         skill = WebSearchSkill()
+        # Stufe 1 (Instant Answer) leer → Skill fällt auf HTML-Suche (POST) zurück.
         data = {"AbstractText": "", "AbstractSource": "", "RelatedTopics": [], "Answer": ""}
+        html_resp = MagicMock()
+        html_resp.text = "<html><body>no results</body></html>"  # Parser findet nichts
+        html_resp.raise_for_status.return_value = None
         import httpx
-        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as m:
-            m.return_value = _mock_response(data)
+        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as m_get, \
+             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock) as m_post:
+            m_get.return_value = _mock_response(data)
+            m_post.return_value = html_resp
             result = await skill.execute("xyzzy123nonsense")
-        assert "Keine Instant-Answers" in result
+        assert "Keine Suchergebnisse" in result
 
     @pytest.mark.asyncio
     async def test_error_handling(self):

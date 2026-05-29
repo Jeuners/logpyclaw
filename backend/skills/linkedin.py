@@ -18,7 +18,10 @@ import re
 
 import httpx
 
+from backend.core.logging import get_logger
 from backend.skills import Skill, SkillConfigField
+
+log = get_logger("logpyclaw.linkedin")
 
 _SYSTEM_PROMPT = """Du bist ein LinkedIn-Content-Experte.
 Erstelle einen professionellen, authentischen LinkedIn-Post auf Deutsch.
@@ -366,7 +369,7 @@ class LinkedInSkill(Skill):
                     if sub:
                         return str(sub)
         except Exception:
-            pass
+            log.exception("LinkedIn Token-Introspection fehlgeschlagen")
         return None
 
     async def _get_person_urn(self, token: str) -> str | None:
@@ -379,7 +382,7 @@ class LinkedInSkill(Skill):
                 if r.ok:
                     return r.json().get("id")
         except Exception:
-            pass
+            log.exception("LinkedIn /v2/me URN-Abruf fehlgeschlagen")
         return None
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -392,7 +395,7 @@ class LinkedInSkill(Skill):
             if entries:
                 return entries[0].title
         except Exception:
-            pass
+            log.exception("RSS-Top-Thema konnte nicht ermittelt werden — Fallback-Thema")
         return "KI und Automatisierung"
 
     @staticmethod
