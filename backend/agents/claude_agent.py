@@ -64,7 +64,7 @@ class ClaudeSSHAgent(AsyncAgent):
             stdout, stderr = await asyncio.wait_for(
                 proc.communicate(), timeout=self._timeout
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             proc.kill()
             raise TimeoutError(f"claude timeout nach {self._timeout}s")
 
