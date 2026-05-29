@@ -43,14 +43,19 @@ class Settings(BaseSettings):
     db_url: str = Field("sqlite:///./logpyclaw.db", description="SQLAlchemy DB URL")
 
     # ── Auth ──────────────────────────────────────────────────────────────────
-    web_bridge_token: str = Field("", description="Auth token for /ext/dilles/v1/*")
+    web_bridge_token: str = Field("", description="Auth token for /ext/dilles/v1/* und /v1/* (Bearer)")
+    provider_models: str = Field(
+        "agent:alice,agent:claude,agent:martin",
+        description="Agenten, die über /v1/* (OpenAI-kompatibel) erreichbar sind, kommagetrennt. Leer = alle (nur lokal!).",
+    )
 
     # ── Skills ────────────────────────────────────────────────────────────────
     comfyui_url: str = Field("http://192.168.4.15:8000", description="ComfyUI endpoint")
 
     # ── Server ────────────────────────────────────────────────────────────────
-    host: str = Field("0.0.0.0", description="Bind host")
+    host: str = Field("127.0.0.1", description="Bind host")
     port: int = Field(6060, description="HTTP port")
+    cors_origins: str = Field("http://localhost:6060,http://127.0.0.1:6060", description="Erlaubte CORS-Origins, kommagetrennt")
 
     # ── Martin QC ─────────────────────────────────────────────────────────────
     martin_qc_enabled: bool = Field(True, description="Enable Martin's QC loop")

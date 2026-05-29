@@ -8,11 +8,13 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
+
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 # Logging früh initialisieren: BroadcastHandler an Root anhängen,
 # damit Live-Log alle module-level logger erfasst.
 from backend.core.logging import get_logger  # noqa: E402
+
 get_logger("logpyclaw.boot").info("LogpyClaw v3 boot")
 
 from fastapi import FastAPI, Request
@@ -29,29 +31,30 @@ from backend.agents.skill_agent import SkillAgent
 from backend.api.a2a.gateway_router import router as a2a_router
 from backend.api.agents import router as agents_router
 from backend.api.chat import router as chat_router
-from backend.api.factions import router as factions_router
-from backend.api.missions import router as missions_router
-from backend.api.teams import router as teams_router
-from backend.api.dreams import router as dreams_router
-from backend.api.files import router as files_router
-from backend.api.rss import router as rss_router
-from backend.api.logs import router as logs_router
-from backend.api.web_bridge import router as web_bridge_router
 from backend.api.chrome_ws import router as chrome_ws_router
-from backend.api.keys import router as keys_router
 from backend.api.deploys import router as deploys_router
+from backend.api.dreams import router as dreams_router
+from backend.api.factions import router as factions_router
+from backend.api.files import router as files_router
+from backend.api.keys import router as keys_router
+from backend.api.logs import router as logs_router
+from backend.api.missions import router as missions_router
+from backend.api.openai_compat import router as openai_router
+from backend.api.rss import router as rss_router
+from backend.api.teams import router as teams_router
+from backend.api.web_bridge import router as web_bridge_router
 from backend.config import get_settings
 from backend.i18n import locale_from_header
 from backend.skills.browser import BrowserSkill
 from backend.skills.chrome_browser import ChromeBrowserSkill
-from backend.skills.deploy import DeploySkill
-from backend.skills.file import FileSkill
-from backend.skills.linkedin import LinkedInSkill
-from backend.skills.rss import RSSSkill
 from backend.skills.coding import CodingSkill
 from backend.skills.comfyui import ComfyUISkill
+from backend.skills.deploy import DeploySkill
+from backend.skills.file import FileSkill
 from backend.skills.gmail import GmailSkill
+from backend.skills.linkedin import LinkedInSkill
 from backend.skills.ltxvideo import LTXVideoSkill
+from backend.skills.rss import RSSSkill
 from backend.skills.telegram import TelegramSkill
 from backend.skills.transcription import TranscriptionSkill
 from backend.skills.urlfetch import UrlFetchSkill
@@ -182,9 +185,7 @@ def _make_planner_fn(cfg, temperature: float = 0.3):
             return steps or None
 
         except Exception:
-            import traceback
-
-            traceback.print_exc()
+            get_logger("logpyclaw.planner").exception("Planner-Fehler")
         return None
 
     return planner_fn
@@ -321,6 +322,7 @@ def _boot_agents() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
     from backend.core.faction_protocol import FactionRegistry
     from backend.services.dream import run_dream_cycle
     from backend.services.rss import fetch_all as rss_fetch_all
@@ -356,7 +358,8 @@ async def lifespan(app: FastAPI):
 # ── App ───────────────────────────────────────────────────────────────────────
 
 app = FastAPI(title="LogpyClaw v3", version="3.0.0", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+_cors_origins = [o.strip() for o in get_settings().cors_origins.split(",") if o.strip()]
+app.add_middleware(CORSMiddleware, allow_origins=_cors_origins, allow_methods=["*"], allow_headers=["*"])
 
 
 @app.middleware("http")
@@ -377,6 +380,7 @@ app.include_router(factions_router, prefix="/api")
 app.include_router(teams_router, prefix="/api")
 app.include_router(a2a_router)
 app.include_router(web_bridge_router)
+app.include_router(openai_router)  # OpenAI-kompatibel: /v1/chat/completions, /v1/models
 app.include_router(chrome_ws_router)
 app.include_router(keys_router)
 app.include_router(deploys_router)
