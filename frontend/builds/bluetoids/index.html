@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Blütoids — Bienchens Blütenflug 🐝🌸</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<!-- PWA: als App installierbar (Home-Bildschirm, Vollbild, offline) -->
+<meta name="theme-color" content="#8fd3ff">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon-32.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Blütoids">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#8fd3ff;
+    font-family:'Fredoka','Baloo 2',sans-serif; user-select:none; -webkit-user-select:none; touch-action:none; }
+  #game { position:fixed; inset:0; display:block; }
+
+  /* ── Overlays ── */
+  .overlay { position:fixed; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; z-index:20;
+    padding:24px; gap:14px; transition:opacity .35s; }
+  .overlay.hidden { opacity:0; pointer-events:none; }
+
+  .logo { font-family:'Baloo 2'; font-weight:800; line-height:.95;
+    font-size:clamp(48px,13vw,120px);
+    background:linear-gradient(180deg,#fff 0%,#ffe35c 45%,#ff8fcf 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 4px 0 #ff5fae) drop-shadow(0 8px 14px rgba(0,0,0,.25));
+    transform:rotate(-3deg); animation:bob 2.4s ease-in-out infinite; }
+  .sub { font-weight:700; font-size:clamp(16px,4.4vw,26px); color:#fff;
+    text-shadow:0 2px 0 #ff7ac0, 0 4px 8px rgba(0,0,0,.2); }
+  @keyframes bob { 0%,100%{ transform:rotate(-3deg) translateY(0);} 50%{ transform:rotate(-3deg) translateY(-12px);} }
+
+  .bigbtn { font-family:'Baloo 2'; font-weight:800; font-size:clamp(20px,5.5vw,30px);
+    color:#fff; background:linear-gradient(180deg,#ff9ad5,#ff5fae); border:none;
+    padding:16px 40px; border-radius:999px; cursor:pointer;
+    box-shadow:0 6px 0 #d63d8e, 0 10px 18px rgba(0,0,0,.25);
+    transition:transform .08s; animation:pulse 1.6s ease-in-out infinite; }
+  .bigbtn:active { transform:translateY(4px); box-shadow:0 2px 0 #d63d8e; }
+  @keyframes pulse { 0%,100%{ transform:scale(1);} 50%{ transform:scale(1.06);} }
+
+  .hint { font-weight:600; font-size:clamp(13px,3.6vw,18px); color:#fff;
+    background:rgba(255,140,200,.55); padding:8px 18px; border-radius:999px;
+    backdrop-filter:blur(2px); }
+  .instbtn { font-family:'Baloo 2'; font-weight:700; font-size:clamp(14px,4vw,20px);
+    color:#7a4ea0; background:rgba(255,255,255,.9); border:3px solid #fff;
+    padding:10px 22px; border-radius:999px; cursor:pointer; margin-top:4px;
+    box-shadow:0 4px 0 #d9b3e8, 0 6px 12px rgba(0,0,0,.18); transition:transform .08s; }
+  .instbtn:active { transform:translateY(3px); box-shadow:0 1px 0 #d9b3e8; }
+  .panel { background:rgba(255,255,255,.82); border-radius:28px; padding:22px 30px;
+    box-shadow:0 10px 30px rgba(0,0,0,.18); border:4px solid #fff;
+    display:flex; flex-direction:column; align-items:center; gap:12px; max-width:92vw; }
+  .score-big { font-family:'Baloo 2'; font-weight:800; font-size:clamp(34px,9vw,64px); color:#ff5fae;
+    text-shadow:0 2px 0 #ffd34d; }
+  .score-lbl { font-weight:700; font-size:clamp(15px,4vw,22px); color:#7a4ea0; }
+  .hi { font-weight:700; font-size:clamp(14px,3.6vw,19px); color:#f0a500; }
+
+  /* ── Top HUD ── */
+  #hud { position:fixed; top:0; left:0; right:0; z-index:15; display:flex;
+    justify-content:space-between; align-items:flex-start; padding:12px 16px;
+    pointer-events:none; }
+  #hearts { font-size:clamp(22px,6vw,34px); letter-spacing:2px;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,.2)); }
+  .hud-pill { background:rgba(255,255,255,.78); border-radius:999px;
+    padding:6px 16px; font-family:'Baloo 2'; font-weight:800;
+    font-size:clamp(16px,4.4vw,24px); color:#ff7a1a; box-shadow:0 3px 8px rgba(0,0,0,.12);
+    display:flex; align-items:center; gap:6px; }
+  .hud-right { display:flex; flex-direction:column; gap:6px; align-items:flex-end; }
+  .lvl-pill { background:rgba(255,255,255,.78); border-radius:999px; padding:4px 14px;
+    font-weight:700; font-size:clamp(12px,3.4vw,17px); color:#5abf3a; box-shadow:0 3px 8px rgba(0,0,0,.12); }
+
+  /* ── Sound toggle ── */
+  #sound { position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:16;
+    pointer-events:auto; background:rgba(255,255,255,.78); border:none; cursor:pointer;
+    width:46px; height:46px; border-radius:50%; font-size:22px; box-shadow:0 3px 8px rgba(0,0,0,.15); }
+
+  /* ── Touch controls ── */
+  #touch { position:fixed; inset:0; z-index:14; pointer-events:none; display:none; }
+  #touch.on { display:block; }
+  .tbtn { position:absolute; bottom:24px; pointer-events:auto; cursor:pointer;
+    width:clamp(66px,17vw,92px); height:clamp(66px,17vw,92px); border-radius:50%;
+    background:rgba(255,255,255,.55); border:4px solid rgba(255,255,255,.85);
+    display:flex; align-items:center; justify-content:center;
+    font-size:clamp(28px,7vw,40px); box-shadow:0 4px 10px rgba(0,0,0,.18);
+    transition:transform .06s, background .06s; }
+  .tbtn:active { transform:scale(.9); background:rgba(255,225,120,.85); }
+  #tLeft  { left:18px; }
+  #tRight { left:clamp(100px,24vw,130px); }
+  #tThrust{ right:clamp(100px,24vw,130px); background:rgba(140,225,255,.55); }
+  #tSpray { right:18px; width:clamp(78px,20vw,108px); height:clamp(78px,20vw,108px);
+    background:rgba(255,210,90,.7); font-size:clamp(34px,9vw,48px); }
+
+  .credit { position:fixed; bottom:8px; width:100%; text-align:center; z-index:13;
+    font-size:11px; color:rgba(255,255,255,.7); font-weight:600; pointer-events:none; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<script>
+/* PWA-Installation: Service-Worker + „Als App"-Button (Android) / iOS-Hinweis */
+(() => {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+  const installBtn = document.getElementById('installBtn');
+  const iosHint = document.getElementById('iosHint');
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  let deferred = null;
+
+  // Android / Chrome: echtes Install-Prompt
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault(); deferred = e;
+    if (!standalone) installBtn.style.display = 'inline-block';
+  });
+  installBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (!deferred) return;
+    deferred.prompt();
+    await deferred.userChoice;
+    deferred = null; installBtn.style.display = 'none';
+  });
+  window.addEventListener('appinstalled', () => { installBtn.style.display = 'none'; });
+
+  // iOS Safari: kein Prompt möglich → Hinweis zeigen (nur wenn nicht schon installiert)
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isSafari = /^((?!chrome|crios|fxios|android).)*safari/i.test(navigator.userAgent);
+  if (isIOS && isSafari && !standalone) iosHint.style.display = 'block';
+})();
+</script>
+
+<div id="hud" style="display:none">
+  <div class="hud-pill">🍯 <span id="score">0</span></div>
+  <div class="hud-right">
+    <div id="hearts">💛💛💛</div>
+    <div class="lvl-pill">🌷 Garten <span id="level">1</span></div>
+  </div>
+</div>
+<button id="sound" style="display:none" title="Ton an/aus">🔊</button>
+
+<div id="touch">
+  <div class="tbtn" id="tLeft">⬅️</div>
+  <div class="tbtn" id="tRight">➡️</div>
+  <div class="tbtn" id="tThrust">🚀</div>
+  <div class="tbtn" id="tSpray">✨</div>
+</div>
+
+<!-- Start -->
+<div class="overlay" id="startScreen">
+  <div class="logo">BLÜTOIDS</div>
+  <div class="sub">🐝 Bienchens Blütenflug 🌸</div>
+  <button class="bigbtn" id="playBtn">▶ Losfliegen!</button>
+  <div class="hint" id="startHint">Drehen ⬅️➡️ · Schub 🚀 · Blütenstaub ✨</div>
+  <button class="instbtn" id="installBtn" style="display:none">📲 Als App installieren</button>
+  <div class="hint" id="iosHint" style="display:none; background:rgba(122,78,160,.6);">📲 Tippe unten auf „Teilen" und dann „Zum Home-Bildschirm"</div>
+</div>
+
+<!-- Game Over -->
+<div class="overlay hidden" id="overScreen">
+  <div class="panel">
+    <div style="font-size:clamp(52px,13vw,84px)" id="overFace">🥳</div>
+    <div class="score-lbl" id="overTitle">Gut gemacht!</div>
+    <div class="score-big"><span id="finalScore">0</span> 🍯</div>
+    <div class="hi" id="hiLine">Bestleistung: 0 🍯</div>
+    <button class="bigbtn" id="againBtn">🔄 Nochmal spielen!</button>
+  </div>
+</div>
+
+<div class="credit">Blütoids · ein süßes Spiel für kleine Pilot:innen</div>
+
+<script>
+(() => {
+"use strict";
+
+// ───────────────────────────────────────────────────────────────────────────
+//  Setup
+// ───────────────────────────────────────────────────────────────────────────
+const cv = document.getElementById('game');
+const ctx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = Math.floor(W * DPR); cv.height = Math.floor(H * DPR);
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const rnd = (a, b) => a + Math.random() * (b - a);
+const rndi = (a, b) => Math.floor(rnd(a, b + 1));
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+
+// Screen-wrap helper
+function wrap(o, m) {
+  if (o.x < -m) o.x = W + m; else if (o.x > W + m) o.x = -m;
+  if (o.y < -m) o.y = H + m; else if (o.y > H + m) o.y = -m;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  Sound (WebAudio, kindgerecht: Plopp, Kicher, Glitzer, fröhliche Mucke)
+// ───────────────────────────────────────────────────────────────────────────
+const Snd = {
+  ctx: null, on: true, musicGain: null, musicTimer: null,
+  init() {
+    if (this.ctx) return;
+    try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { this.on = false; }
+  },
+  resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+  beep(freq, dur, type = 'sine', vol = 0.14, slideTo = null) {
+    if (!this.on || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(40, slideTo), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.ctx.destination);
+    o.start(t); o.stop(t + dur + 0.02);
+  },
+  pop() { this.beep(rnd(520, 760), 0.16, 'triangle', 0.16, rnd(900, 1300)); },
+  giggle() {
+    if (!this.on || !this.ctx) return;
+    const base = rnd(620, 780);
+    [0, 0.09, 0.18, 0.27].forEach((d, i) =>
+      setTimeout(() => this.beep(base + i * 90, 0.08, 'sine', 0.10), d * 1000));
+  },
+  sparkle() { this.beep(1200, 0.12, 'sine', 0.08, 2400); },
+  hit() { this.beep(280, 0.3, 'sawtooth', 0.12, 120); },
+  raspberry() { // Pups 💨 — der Lacher
+    if (!this.on || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = 'square'; o.frequency.setValueAtTime(140, t);
+    o.frequency.linearRampToValueAtTime(70, t + 0.45);
+    const lfo = this.ctx.createOscillator(), lg = this.ctx.createGain();
+    lfo.frequency.value = 24; lg.gain.value = 40;
+    lfo.connect(lg); lg.connect(o.frequency);
+    g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+    o.connect(g); g.connect(this.ctx.destination);
+    o.start(t); lfo.start(t); o.stop(t + 0.5); lfo.stop(t + 0.5);
+  },
+  win() { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => this.beep(f, 0.22, 'triangle', 0.16), i * 130)); },
+  startMusic() {
+    if (!this.on || !this.ctx || this.musicTimer) return;
+    const notes = [523, 587, 659, 784, 659, 587, 523, 587, 659, 880, 784, 659];
+    let i = 0;
+    const step = () => {
+      if (!this.on) { this.stopMusic(); return; }
+      this.beep(notes[i % notes.length], 0.18, 'sine', 0.045);
+      if (i % 4 === 0) this.beep(notes[i % notes.length] / 2, 0.3, 'triangle', 0.04);
+      i++;
+    };
+    this.musicTimer = setInterval(step, 260);
+  },
+  stopMusic() { if (this.musicTimer) { clearInterval(this.musicTimer); this.musicTimer = null; } },
+};
+
+// ───────────────────────────────────────────────────────────────────────────
+//  Input
+// ───────────────────────────────────────────────────────────────────────────
+const keys = { left:false, right:false, thrust:false, spray:false };
+const keyMap = {
+  ArrowLeft:'left', a:'left', A:'left',
+  ArrowRight:'right', d:'right', D:'right',
+  ArrowUp:'thrust', w:'thrust', W:'thrust',
+  ' ':'spray',
+};
+addEventListener('keydown', e => {
+  if (keyMap[e.key]) { keys[keyMap[e.key]] = true; e.preventDefault(); }
+  if ((state === 'start' || state === 'over') && (e.key === ' ' || e.key === 'Enter')) startGame();
+});
+addEventListener('keyup', e => { if (keyMap[e.key]) { keys[keyMap[e.key]] = false; e.preventDefault(); } });
+
+function bindTouch(id, k) {
+  const el = document.getElementById(id);
+  const set = v => e => { keys[k] = v; e.preventDefault(); };
+  el.addEventListener('touchstart', set(true), {passive:false});
+  el.addEventListener('touchend', set(false), {passive:false});
+  el.addEventListener('touchcancel', set(false), {passive:false});
+  el.addEventListener('mousedown', set(true));
+  addEventListener('mouseup', () => keys[k] = false);
+}
+bindTouch('tLeft','left'); bindTouch('tRight','right');
+bindTouch('tThrust','thrust'); bindTouch('tSpray','spray');
+
+const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+
+// ───────────────────────────────────────────────────────────────────────────
+//  Entities
+// ───────────────────────────────────────────────────────────────────────────
+const BLOOM_COLORS = ['#ff7eb6','#ffd34d','#ff9a3d','#b885ff','#56d3c9','#ff6f91','#7ed957'];
+const PRAISE = ['Juhuu!','Toll!','Super!','Wow!','Klasse!','Hihi!','Bienenstark!','Jippie!','Mega!'];
+
+let bee, blooms, pollen, particles, floaters, butterflies, funguy;
+let score, hearts, level, state, invuln, eventTimer, shootCd, t, screenShake, comboFace;
+
+function newBee() {
+  return { x: W/2, y: H/2, vx:0, vy:0, a:-Math.PI/2, r:20,
+           wing:0, dizzy:0, blink:0 };
+}
+
+function spawnBloom(size, x, y) {
+  const r = size === 3 ? rnd(42,50) : size === 2 ? rnd(28,34) : rnd(16,21);
+  const ang = rnd(0, TAU), sp = rnd(18, 34) + (3 - size) * 8 + level * 2;
+  return {
+    x: x ?? rnd(0, W), y: y ?? rnd(0, H), size, r,
+    vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+    rot: rnd(0, TAU), spin: rnd(-1.2, 1.2),
+    color: pick(BLOOM_COLORS), petals: rndi(5, 7),
+    look: 0, squash: 0, wob: rnd(0, TAU),
+  };
+}
+
+function startLevelBlooms() {
+  blooms = [];
+  const n = 3 + level;
+  for (let i = 0; i < n; i++) {
+    let b; do { b = spawnBloom(3); } while (Math.hypot(b.x - bee.x, b.y - bee.y) < 160);
+    blooms.push(b);
+  }
+}
+
+function addParticles(x, y, color, n, opts = {}) {
+  for (let i = 0; i < n; i++) {
+    const a = rnd(0, TAU), s = rnd(40, 220) * (opts.power || 1);
+    particles.push({
+      x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - (opts.up || 0),
+      life: rnd(.5, 1.1), max: 1, r: rnd(3, 8) * (opts.big ? 1.8 : 1),
+      color, rot: rnd(0, TAU), spin: rnd(-8, 8),
+      kind: opts.kind || pick(['petal','heart','star','dot']),
+    });
+  }
+}
+
+function floatText(x, y, txt, color = '#fff', size = 26) {
+  floaters.push({ x, y, txt, color, size, life: 1.1, vy: -50 });
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  Game flow
+// ───────────────────────────────────────────────────────────────────────────
+function resetGame() {
+  bee = newBee();
+  pollen = []; particles = []; floaters = []; butterflies = [];
+  funguy = null;
+  score = 0; hearts = 3; level = 1; invuln = 1.2;
+  eventTimer = rnd(8, 14); shootCd = 0; screenShake = 0; comboFace = 0;
+  startLevelBlooms();
+  spawnButterfly();
+  updateHud();
+}
+
+function startGame() {
+  Snd.init(); Snd.resume();
+  resetGame();
+  state = 'play';
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('overScreen').classList.add('hidden');
+  document.getElementById('hud').style.display = 'flex';
+  document.getElementById('sound').style.display = 'block';
+  if (isTouch) document.getElementById('touch').classList.add('on');
+  if (Snd.on) Snd.startMusic();
+}
+
+function gameOver() {
+  state = 'over';
+  Snd.stopMusic(); Snd.win();
+  const hi = Math.max(score, +(localStorage.getItem('bluetoids_hi') || 0));
+  localStorage.setItem('bluetoids_hi', hi);
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('hiLine').textContent = 'Bestleistung: ' + hi + ' 🍯';
+  const great = score >= hi && score > 0;
+  document.getElementById('overFace').textContent = great ? '🏆' : pick(['🥳','🌈','😄','🐝']);
+  document.getElementById('overTitle').textContent = great ? 'NEUER REKORD! 🎉' : pick(['Gut gemacht!','Super geflogen!','Toll gemacht!']);
+  document.getElementById('hud').style.display = 'none';
+  document.getElementById('sound').style.display = 'none';
+  document.getElementById('touch').classList.remove('on');
+  document.getElementById('overScreen').classList.remove('hidden');
+  // Konfetti-Regen zur Belohnung
+  for (let i = 0; i < 80; i++)
+    setTimeout(() => addParticles(rnd(0, W), -10, pick(BLOOM_COLORS), 1, { up:-120, kind:'confetti', big:true }), i * 18);
+}
+
+function updateHud() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('level').textContent = level;
+  document.getElementById('hearts').textContent = '💛'.repeat(hearts) + '🤍'.repeat(Math.max(0, 3 - hearts));
+}
+
+function spawnButterfly() {
+  butterflies.push({ x: rnd(0, W), y: rnd(60, H - 120), t: rnd(0, TAU),
+    color: pick(['#ff9ad5','#9ad5ff','#fff07a','#c79aff']), flap: 0, vx: rnd(-30,30) });
+}
+
+function spawnFunGuy() {
+  const type = pick(['pups','kuh','pups','regenbogen']);
+  const fromLeft = Math.random() < 0.5;
+  funguy = {
+    type, x: fromLeft ? -60 : W + 60, y: rnd(80, H * 0.55),
+    vx: (fromLeft ? 1 : -1) * rnd(70, 110), wob: rnd(0, TAU),
+    r: type === 'kuh' ? 34 : 26, popped: false,
+  };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  Shooting / collisions
+// ───────────────────────────────────────────────────────────────────────────
+function shoot() {
+  const tip = 1.0;
+  pollen.push({
+    x: bee.x + Math.cos(bee.a) * bee.r * tip,
+    y: bee.y + Math.sin(bee.a) * bee.r * tip,
+    vx: Math.cos(bee.a) * 460 + bee.vx, vy: Math.sin(bee.a) * 460 + bee.vy,
+    life: 1.1, r: 10, wob: rnd(0, TAU),
+  });
+  Snd.sparkle();
+}
+
+function popBloom(b, idx) {
+  const pts = b.size === 3 ? 5 : b.size === 2 ? 10 : 20;
+  score += pts;
+  comboFace = 0.5;
+  addParticles(b.x, b.y, b.color, b.size === 3 ? 18 : 12, { big: b.size===3 });
+  addParticles(b.x, b.y, '#fff', 6, { kind:'star' });
+  Snd.pop();
+  if (Math.random() < 0.4) { Snd.giggle(); floatText(b.x, b.y - 10, pick(['hihi!','kicher!','hehe!']), '#fff', 22); }
+  else floatText(b.x, b.y - 10, '+' + pts, '#fff', 24);
+
+  blooms.splice(idx, 1);
+  if (b.size > 1) {
+    for (let k = 0; k < 2; k++) {
+      const nb = spawnBloom(b.size - 1, b.x, b.y);
+      const a = rnd(0, TAU), sp = rnd(40, 90);
+      nb.vx = Math.cos(a) * sp; nb.vy = Math.sin(a) * sp;
+      blooms.push(nb);
+    }
+  }
+  if (blooms.length === 0) nextLevel();
+}
+
+function nextLevel() {
+  level++;
+  floatText(W/2, H/2, '🌷 Garten ' + level + '! 🌷', '#fff', 40);
+  Snd.win();
+  addParticles(W/2, H/2, pick(BLOOM_COLORS), 40, { big:true });
+  startLevelBlooms();
+  updateHud();
+}
+
+function hurtBee() {
+  if (invuln > 0) return;
+  hearts--; invuln = 2.0; bee.dizzy = 1.4; screenShake = 14;
+  Snd.hit();
+  floatText(bee.x, bee.y - 30, pick(['Hoppla!','Ups!','Wääh~','Schwupps!']), '#ff5fae', 26);
+  updateHud();
+  if (hearts <= 0) gameOver();
+}
+
+function rainbowBoom() { // alle Blüten auf einmal — großes Glück
+  floatText(W/2, H/2, '🌈 REGENBOGEN! 🌈', '#fff', 44);
+  Snd.win();
+  const snapshot = blooms.slice();
+  snapshot.forEach((b, i) => setTimeout(() => {
+    const idx = blooms.indexOf(b);
+    if (idx >= 0) popBloom(b, idx);
+  }, i * 70));
+  for (let i = 0; i < 60; i++)
+    setTimeout(() => addParticles(rnd(0,W), rnd(0,H), pick(BLOOM_COLORS), 1, { big:true, kind:'star' }), i*20);
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  Update
+// ───────────────────────────────────────────────────────────────────────────
+function update(dt) {
+  t += dt;
+  if (invuln > 0) invuln -= dt;
+  if (screenShake > 0) screenShake = Math.max(0, screenShake - dt * 40);
+  if (comboFace > 0) comboFace -= dt;
+  bee.wing += dt * 22;
+
+  // Bee steering (sanft & kindgerecht)
+  const ROT = 3.2, THRUST = 240, DRAG = 0.6;
+  if (bee.dizzy > 0) { bee.dizzy -= dt; bee.a += dt * 9; }
+  else {
+    if (keys.left) bee.a -= ROT * dt;
+    if (keys.right) bee.a += ROT * dt;
+  }
+  if (keys.thrust && bee.dizzy <= 0) {
+    bee.vx += Math.cos(bee.a) * THRUST * dt;
+    bee.vy += Math.sin(bee.a) * THRUST * dt;
+    if (Math.random() < 0.6)
+      addParticles(bee.x - Math.cos(bee.a)*bee.r, bee.y - Math.sin(bee.a)*bee.r,
+        '#ffe35c', 1, { kind:'dot', power:.3 });
+  }
+  bee.vx -= bee.vx * DRAG * dt; bee.vy -= bee.vy * DRAG * dt;
+  const sp = Math.hypot(bee.vx, bee.vy), MAXV = 360;
+  if (sp > MAXV) { bee.vx *= MAXV/sp; bee.vy *= MAXV/sp; }
+  bee.x += bee.vx * dt; bee.y += bee.vy * dt;
+  wrap(bee, bee.r);
+
+  // Shooting
+  shootCd -= dt;
+  if (keys.spray && shootCd <= 0 && bee.dizzy <= 0) { shoot(); shootCd = 0.22; }
+
+  // Pollen
+  for (let i = pollen.length - 1; i >= 0; i--) {
+    const p = pollen[i]; p.life -= dt; p.wob += dt * 10;
+    p.x += p.vx * dt; p.y += p.vy * dt; wrap(p, 6);
+    if (p.life <= 0) { pollen.splice(i, 1); continue; }
+    for (let j = 0; j < blooms.length; j++) {
+      const b = blooms[j];
+      if (Math.hypot(p.x - b.x, p.y - b.y) < b.r + p.r) {
+        pollen.splice(i, 1); popBloom(b, j); break;
+      }
+    }
+  }
+
+  // Blooms
+  for (const b of blooms) {
+    b.x += b.vx * dt; b.y += b.vy * dt; b.rot += b.spin * dt; b.wob += dt * 4;
+    wrap(b, b.r);
+    b.look += ((Math.atan2(bee.y - b.y, bee.x - b.x)) - b.look) * 0.1 || 0;
+    if (b.squash > 0) b.squash -= dt * 3;
+    if (Math.hypot(bee.x - b.x, bee.y - b.y) < b.r + bee.r * 0.7) hurtBee();
+  }
+
+  // Butterflies (Bonus + Deko)
+  for (let i = butterflies.length - 1; i >= 0; i--) {
+    const f = butterflies[i]; f.t += dt; f.flap += dt * 16;
+    f.x += (f.vx + Math.cos(f.t * 1.3) * 30) * dt;
+    f.y += Math.sin(f.t * 2) * 24 * dt;
+    wrap(f, 30);
+    if (Math.hypot(bee.x - f.x, bee.y - f.y) < bee.r + 18) {
+      score += 15; floatText(f.x, f.y, '🦋 +15', '#fff', 24);
+      addParticles(f.x, f.y, f.color, 14, { kind:'heart' });
+      Snd.sparkle(); butterflies.splice(i, 1);
+      setTimeout(spawnButterfly, rnd(3000, 7000));
+    }
+  }
+  if (butterflies.length === 0 && Math.random() < dt * 0.15) spawnButterfly();
+
+  // Fun-Events 💨🐄🌈
+  eventTimer -= dt;
+  if (eventTimer <= 0 && !funguy) { spawnFunGuy(); eventTimer = rnd(12, 20); }
+  if (funguy) {
+    const g = funguy; g.x += g.vx * dt; g.wob += dt * 6;
+    g.y += Math.sin(g.wob) * 18 * dt;
+    if (!g.popped && Math.hypot(bee.x - g.x, bee.y - g.y) < bee.r + g.r) {
+      g.popped = true;
+      if (g.type === 'pups') {
+        Snd.raspberry(); floatText(g.x, g.y - 20, 'PUPS! 💨', '#a0e060', 38);
+        score += 25;
+        for (let i = 0; i < 40; i++) addParticles(g.x, g.y, pick(['#b6f06a','#d9ff9e','#fff']), 1, { kind:'confetti', big:true });
+        blooms.forEach(b => b.squash = 1); // alle kichern mit
+      } else if (g.type === 'kuh') {
+        Snd.beep(180, 0.5, 'sawtooth', 0.14, 90); floatText(g.x, g.y - 20, 'MUUUH! 🐄', '#fff', 34);
+        score += 20; addParticles(g.x, g.y, '#fff', 24, { kind:'heart' });
+      } else {
+        rainbowBoom();
+      }
+      updateHud();
+    }
+    if (g.x < -80 || g.x > W + 80) funguy = null;
+  }
+
+  // Particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i]; p.life -= dt;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    p.vy += (p.kind === 'confetti' ? 220 : 40) * dt;
+    p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.spin * dt; p.vx *= 0.99;
+  }
+
+  // Floaters
+  for (let i = floaters.length - 1; i >= 0; i--) {
+    const f = floaters[i]; f.life -= dt; f.y += f.vy * dt; f.vy *= 0.96;
+    if (f.life <= 0) floaters.splice(i, 1);
+  }
+
+  if (Math.floor(t * 2) !== Math.floor((t - dt) * 2)) updateHud();
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  Render
+// ───────────────────────────────────────────────────────────────────────────
+function drawBackground() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#aee9ff'); g.addColorStop(0.55, '#bff0ff'); g.addColorStop(1, '#dffbe6');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+  // Sonne mit Gesicht
+  const sx = W - 70, sy = 70, sr = 42 + Math.sin(t * 1.5) * 2;
+  ctx.save(); ctx.translate(sx, sy);
+  ctx.strokeStyle = '#ffd34d'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  for (let i = 0; i < 12; i++) {
+    const a = i / 12 * TAU + t * 0.3;
+    ctx.beginPath(); ctx.moveTo(Math.cos(a) * (sr + 8), Math.sin(a) * (sr + 8));
+    ctx.lineTo(Math.cos(a) * (sr + 20), Math.sin(a) * (sr + 20)); ctx.stroke();
+  }
+  ctx.fillStyle = '#ffe35c'; ctx.beginPath(); ctx.arc(0, 0, sr, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#5a4a00';
+  ctx.beginPath(); ctx.arc(-13, -4, 4.5, 0, TAU); ctx.arc(13, -4, 4.5, 0, TAU); ctx.fill();
+  ctx.strokeStyle = '#5a4a00'; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(0, 4, 14, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,150,170,.5)';
+  ctx.beginPath(); ctx.arc(-20, 8, 6, 0, TAU); ctx.arc(20, 8, 6, 0, TAU); ctx.fill();
+  ctx.restore();
+
+  // Wolken (parallax, langsam)
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  for (let i = 0; i < 4; i++) {
+    const cx = ((t * 12 + i * 320) % (W + 200)) - 100;
+    const cy = 90 + i * 60 + Math.sin(t * 0.6 + i) * 6;
+    cloud(cx, cy, 34 + i % 2 * 8);
+  }
+
+  // Blumenwiese unten
+  ctx.fillStyle = '#8ee06a';
+  ctx.beginPath(); ctx.moveTo(0, H);
+  for (let x = 0; x <= W; x += 40) ctx.quadraticCurveTo(x + 20, H - 46, x + 40, H - 30);
+  ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+  for (let x = 18; x < W; x += 70) {
+    const fy = H - 26 + Math.sin(x) * 4;
+    miniFlower(x, fy, 6 + (x % 3), BLOOM_COLORS[(x / 70 | 0) % BLOOM_COLORS.length]);
+  }
+}
+function cloud(x, y, r) {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, TAU); ctx.arc(x + r, y + 6, r * 0.8, 0, TAU);
+  ctx.arc(x - r, y + 6, r * 0.8, 0, TAU); ctx.arc(x, y + 10, r * 0.9, 0, TAU);
+  ctx.fill();
+}
+function miniFlower(x, y, r, col) {
+  ctx.fillStyle = col;
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * TAU;
+    ctx.beginPath(); ctx.arc(x + Math.cos(a) * r, y + Math.sin(a) * r, r * 0.7, 0, TAU); ctx.fill();
+  }
+  ctx.fillStyle = '#fff36b'; ctx.beginPath(); ctx.arc(x, y, r * 0.6, 0, TAU); ctx.fill();
+}
+
+function drawBee() {
+  ctx.save(); ctx.translate(bee.x, bee.y);
+  if (invuln > 0 && Math.floor(t * 12) % 2 === 0) ctx.globalAlpha = 0.45;
+  ctx.rotate(bee.a + Math.PI / 2);
+
+  // Flügel (flatternd)
+  const wf = Math.sin(bee.wing) * 0.5 + 0.7;
+  ctx.fillStyle = 'rgba(255,255,255,.78)'; ctx.strokeStyle = 'rgba(140,200,255,.9)'; ctx.lineWidth = 2;
+  for (const s of [-1, 1]) {
+    ctx.save(); ctx.scale(s, 1);
+    ctx.beginPath(); ctx.ellipse(14, -6, 13 * wf, 8, -0.5, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+  // Körper
+  ctx.fillStyle = '#ffd23d'; ctx.strokeStyle = '#3a2e00'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.ellipse(0, 0, bee.r, bee.r * 1.15, 0, 0, TAU); ctx.fill(); ctx.stroke();
+  // Streifen
+  ctx.fillStyle = '#3a2e00';
+  ctx.beginPath(); ctx.ellipse(0, 6, bee.r * 0.85, 4, 0, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, 14, bee.r * 0.55, 3.2, 0, 0, TAU); ctx.fill();
+  // Fühler
+  ctx.strokeStyle = '#3a2e00'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+  for (const s of [-1, 1]) {
+    ctx.beginPath(); ctx.moveTo(s * 5, -bee.r); ctx.quadraticCurveTo(s * 12, -bee.r - 12, s * 8, -bee.r - 18); ctx.stroke();
+    ctx.fillStyle = '#ff6f91'; ctx.beginPath(); ctx.arc(s * 8, -bee.r - 19, 3.2, 0, TAU); ctx.fill();
+  }
+  // Gesicht
+  ctx.fillStyle = '#fff'; ctx.beginPath();
+  ctx.arc(-6, -bee.r * 0.35, 5.5, 0, TAU); ctx.arc(6, -bee.r * 0.35, 5.5, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#222';
+  const lookX = clamp(bee.vx * 0.02, -2, 2);
+  ctx.beginPath(); ctx.arc(-6 + lookX, -bee.r*0.35, 2.8, 0, TAU); ctx.arc(6 + lookX, -bee.r*0.35, 2.8, 0, TAU); ctx.fill();
+  ctx.strokeStyle = '#a23'; ctx.lineWidth = 2.4;
+  if (comboFace > 0) { ctx.beginPath(); ctx.arc(0, -bee.r*0.05, 5, 0, Math.PI); ctx.stroke(); } // breites Grinsen
+  else { ctx.beginPath(); ctx.arc(0, -bee.r*0.1, 4, 0.1*Math.PI, 0.9*Math.PI); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(255,140,170,.5)';
+  ctx.beginPath(); ctx.arc(-bee.r*0.55, 0, 3.5, 0, TAU); ctx.arc(bee.r*0.55, 0, 3.5, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+
+function drawBloom(b) {
+  ctx.save(); ctx.translate(b.x, b.y);
+  const sq = 1 + Math.sin(b.wob) * 0.05 + (b.squash > 0 ? Math.sin(b.squash * 20) * 0.12 : 0);
+  ctx.scale(sq, 1 / sq * (1 + (1 - 1/sq)));
+  ctx.rotate(b.rot);
+  // Blütenblätter
+  ctx.fillStyle = b.color;
+  for (let i = 0; i < b.petals; i++) {
+    const a = i / b.petals * TAU;
+    ctx.save(); ctx.rotate(a);
+    ctx.beginPath(); ctx.ellipse(0, -b.r * 0.7, b.r * 0.42, b.r * 0.62, 0, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+  // Mitte
+  ctx.fillStyle = '#fff36b'; ctx.beginPath(); ctx.arc(0, 0, b.r * 0.55, 0, TAU); ctx.fill();
+  ctx.rotate(-b.rot); // Gesicht nicht mitdrehen
+  // Glubschaugen die das Bienchen anschauen
+  const dx = Math.cos(b.look) * b.r * 0.12, dy = Math.sin(b.look) * b.r * 0.12;
+  const er = b.r * 0.2;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-b.r*0.18, -b.r*0.05, er, 0, TAU); ctx.arc(b.r*0.18, -b.r*0.05, er, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#222';
+  ctx.beginPath(); ctx.arc(-b.r*0.18 + dx, -b.r*0.05 + dy, er*0.5, 0, TAU); ctx.arc(b.r*0.18 + dx, -b.r*0.05 + dy, er*0.5, 0, TAU); ctx.fill();
+  ctx.strokeStyle = '#a35'; ctx.lineWidth = Math.max(1.5, b.r*0.06);
+  ctx.beginPath(); ctx.arc(0, b.r*0.12, b.r*0.22, 0.1*Math.PI, 0.9*Math.PI); ctx.stroke();
+  ctx.restore();
+}
+
+function drawButterfly(f) {
+  ctx.save(); ctx.translate(f.x, f.y);
+  const wf = Math.abs(Math.sin(f.flap)) * 0.7 + 0.4;
+  ctx.fillStyle = f.color;
+  for (const s of [-1, 1]) {
+    ctx.save(); ctx.scale(s * wf, 1);
+    ctx.beginPath(); ctx.ellipse(8, -5, 9, 7, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(7, 6, 7, 6, 0, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+  ctx.fillStyle = '#5a3'; ctx.beginPath(); ctx.ellipse(0, 0, 2.5, 9, 0, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+
+function drawFunGuy(g) {
+  ctx.save(); ctx.translate(g.x, g.y + Math.sin(g.wob) * 6);
+  if (g.type === 'kuh') {
+    ctx.font = '52px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.save(); ctx.scale(g.vx < 0 ? -1 : 1, 1); ctx.fillText('🐄', 0, 0); ctx.restore();
+  } else if (g.type === 'regenbogen') {
+    // tanzende Regenbogenblume
+    ctx.rotate(Math.sin(g.wob) * 0.3);
+    const cols = ['#ff5d5d','#ff9a3d','#ffe35c','#7ed957','#56a8ff','#b885ff'];
+    cols.forEach((c, i) => { const a = i/cols.length*TAU;
+      ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(Math.cos(a)*16, Math.sin(a)*16, 11, 16, a, 0, TAU); ctx.fill(); });
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0,0,10,0,TAU); ctx.fill();
+    ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(-3,-1,2,0,TAU); ctx.arc(4,-1,2,0,TAU); ctx.fill();
+  } else { // Pups-Blume
+    ctx.fillStyle = '#a0e060';
+    for (let i = 0; i < 5; i++) { const a = i/5*TAU + Math.sin(g.wob)*0.2;
+      ctx.beginPath(); ctx.ellipse(Math.cos(a)*15, Math.sin(a)*15, 10, 14, a, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = '#d9ff9e'; ctx.beginPath(); ctx.arc(0,0,11,0,TAU); ctx.fill();
+    ctx.fillStyle = '#222';
+    ctx.beginPath(); ctx.arc(-4,-2,2.4,0,TAU); ctx.arc(4,-2,2.4,0,TAU); ctx.fill();
+    ctx.strokeStyle='#385'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,3,4,0,Math.PI); ctx.stroke();
+    ctx.font='16px serif'; ctx.textAlign='center'; ctx.fillText('💨', -22, 4);
+  }
+  ctx.restore();
+}
+
+function drawParticle(p) {
+  const al = clamp(p.life / p.max, 0, 1);
+  ctx.save(); ctx.globalAlpha = al; ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+  ctx.fillStyle = p.color;
+  if (p.kind === 'heart') { ctx.font = (p.r*2.4|0) + 'px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('❤', 0, 0); }
+  else if (p.kind === 'star') { star(0,0,5,p.r,p.r*0.45); }
+  else if (p.kind === 'confetti') { ctx.fillRect(-p.r*0.5, -p.r*0.5, p.r, p.r*1.5); }
+  else if (p.kind === 'petal') { ctx.beginPath(); ctx.ellipse(0,0,p.r*0.6,p.r,0,0,TAU); ctx.fill(); }
+  else { ctx.beginPath(); ctx.arc(0,0,p.r*0.7,0,TAU); ctx.fill(); }
+  ctx.restore();
+}
+function star(cx, cy, spikes, outer, inner) {
+  ctx.beginPath();
+  for (let i = 0; i < spikes * 2; i++) {
+    const r = i % 2 ? inner : outer, a = i / (spikes*2) * TAU - Math.PI/2;
+    ctx.lineTo(cx + Math.cos(a)*r, cy + Math.sin(a)*r);
+  }
+  ctx.closePath(); ctx.fill();
+}
+
+function drawPollen(p) {
+  ctx.save();
+  ctx.globalAlpha = clamp(p.life * 2.5, 0, 1); // bleibt lange voll sichtbar, fadet erst ganz am Ende
+  const r = p.r + Math.sin(p.wob) * 1.5;
+  // Kometen-Schweif (gut sichtbar gegen hellen Himmel)
+  ctx.strokeStyle = 'rgba(255,120,0,.45)'; ctx.lineCap = 'round'; ctx.lineWidth = r * 1.1;
+  ctx.beginPath(); ctx.moveTo(p.x, p.y);
+  ctx.lineTo(p.x - p.vx * 0.035, p.y - p.vy * 0.035); ctx.stroke();
+  // Glühen
+  ctx.shadowColor = '#ff7a00'; ctx.shadowBlur = 16;
+  // dunkler Rand für Kontrast
+  ctx.fillStyle = '#6e2f00'; ctx.beginPath(); ctx.arc(p.x, p.y, r + 2.5, 0, TAU); ctx.fill();
+  ctx.shadowBlur = 0;
+  // kräftiger oranger Körper
+  ctx.fillStyle = '#ff9e1f'; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.fill();
+  // heller Glanz-Kern
+  ctx.fillStyle = '#fff7d6'; ctx.beginPath(); ctx.arc(p.x - r*0.25, p.y - r*0.25, r*0.5, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+
+function render() {
+  ctx.save();
+  if (screenShake > 0) ctx.translate(rnd(-screenShake, screenShake), rnd(-screenShake, screenShake));
+  drawBackground();
+  for (const f of butterflies) drawButterfly(f);
+  if (funguy) drawFunGuy(funguy);
+  for (const b of blooms) drawBloom(b);
+  for (const p of pollen) drawPollen(p);
+  for (const p of particles) drawParticle(p);
+  if (state === 'play') drawBee();
+  // Floaters
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const f of floaters) {
+    ctx.save(); ctx.globalAlpha = clamp(f.life, 0, 1);
+    ctx.font = '800 ' + f.size + "px 'Baloo 2'";
+    ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(120,60,120,.8)';
+    ctx.strokeText(f.txt, f.x, f.y); ctx.fillStyle = f.color; ctx.fillText(f.txt, f.x, f.y);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// Idle-Deko auf Startscreen
+function renderIdle() {
+  drawBackground();
+  // ein paar fröhliche Blüten schweben lassen
+  const n = 5;
+  for (let i = 0; i < n; i++) {
+    const b = { x: (W*0.15) + (W*0.7) * (i/(n-1)) + Math.sin(t*0.8+i)*30,
+      y: H*0.62 + Math.sin(t*1.2 + i*1.7)*40, r: 26 + (i%3)*6,
+      color: BLOOM_COLORS[i % BLOOM_COLORS.length], petals: 6,
+      rot: t*0.5 + i, wob: t + i, look: Math.sin(t+i), squash: 0 };
+    drawBloom(b);
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//  Loop
+// ───────────────────────────────────────────────────────────────────────────
+let last = performance.now(); t = 0; state = 'start';
+function loop(now) {
+  let dt = (now - last) / 1000; last = now;
+  if (dt > 0.05) dt = 0.05; // Sicherheits-Cap
+  t += dt * (state === 'play' ? 0 : 1); // im Spiel zählt update() die Zeit
+  if (state === 'play') update(dt);
+  if (state === 'start' || state === 'over') renderIdle(); else render();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// ───────────────────────────────────────────────────────────────────────────
+//  UI Hooks
+// ───────────────────────────────────────────────────────────────────────────
+document.getElementById('playBtn').addEventListener('click', startGame);
+document.getElementById('againBtn').addEventListener('click', startGame);
+document.getElementById('startScreen').addEventListener('click', e => {
+  if (e.target.id === 'startScreen') startGame();
+});
+document.getElementById('sound').addEventListener('click', () => {
+  Snd.on = !Snd.on;
+  document.getElementById('sound').textContent = Snd.on ? '🔊' : '🔇';
+  if (Snd.on) { Snd.resume(); Snd.startMusic(); } else Snd.stopMusic();
+});
+// Bestleistung am Start zeigen
+(() => {
+  const hi = +(localStorage.getItem('bluetoids_hi') || 0);
+  if (hi > 0) document.getElementById('startHint').textContent = '🏆 Bestleistung: ' + hi + ' 🍯 — schaffst du mehr?';
+})();
+if (!isTouch) {
+  // Maus/Tastatur-Hinweis bleibt; Touch-Buttons aus
+}
+
+})();
+</script>
+</body>
+</html>

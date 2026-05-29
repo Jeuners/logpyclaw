@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Honigtopf — Zauberbonbons | Winkelgasse 13, Hogsmeade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#f4e8cf;
+    --parchment-dark:#e6d4ab;
+    --ink:#2b1d10;
+    --gold:#d4af37;
+    --gold-soft:#e8c96a;
+    --gold-deep:#a8841f;
+    --emerald:#1f5e3f;
+    --emerald-light:#2e8b5d;
+    --burgundy:#6e1423;
+    --burgundy-light:#9b2335;
+    --night:#150d08;
+    --night-2:#221509;
+    --night-3:#2e1d0c;
+    --glass:rgba(244,232,207,0.06);
+    --glass-border:rgba(212,175,55,0.28);
+    --shadow:0 18px 50px rgba(0,0,0,.55);
+    --radius:18px;
+    --maxw:1240px;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'EB Garamond',Georgia,serif;
+    background:
+      radial-gradient(ellipse at 15% -10%,rgba(110,20,35,.35),transparent 55%),
+      radial-gradient(ellipse at 85% 0%,rgba(31,94,63,.35),transparent 55%),
+      radial-gradient(ellipse at 50% 120%,rgba(168,132,31,.22),transparent 55%),
+      linear-gradient(180deg,var(--night) 0%,var(--night-2) 50%,var(--night) 100%);
+    color:var(--parchment);
+    min-height:100vh;
+    overflow-x:hidden;
+    line-height:1.65;
+  }
+  h1,h2,h3,h4,.cinzel{font-family:'Cinzel',serif;letter-spacing:.02em}
+  a{color:inherit;text-decoration:none}
+  img{max-width:100%}
+
+  /* ---------- Floating sparkle background ---------- */
+  #sparkles{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+  .spark{
+    position:absolute;
+    color:var(--gold-soft);
+    opacity:0;
+    text-shadow:0 0 8px rgba(212,175,55,.8);
+    animation:floatUp linear infinite;
+    user-select:none;
+  }
+  @keyframes floatUp{
+    0%{transform:translateY(20px) scale(.4) rotate(0deg);opacity:0}
+    10%{opacity:.9}
+    90%{opacity:.7}
+    100%{transform:translateY(-110vh) scale(1.1) rotate(360deg);opacity:0}
+  }
+
+  /* ---------- Layout helpers ---------- */
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px;position:relative;z-index:2}
+  section{position:relative;z-index:2}
+  .eyebrow{
+    font-family:'Cinzel',serif;
+    text-transform:uppercase;
+    letter-spacing:.34em;
+    font-size:.72rem;
+    color:var(--gold);
+    margin-bottom:14px;
+    display:inline-block;
+  }
+  .section-title{
+    font-size:clamp(2rem,4.5vw,3.2rem);
+    background:linear-gradient(180deg,#fff5dc,var(--gold) 70%,var(--gold-deep));
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;
+    font-weight:800;
+    line-height:1.1;
+  }
+  .section-head{text-align:center;max-width:760px;margin:0 auto 56px}
+  .section-head p{color:rgba(244,232,207,.78);font-size:1.12rem;margin-top:14px;font-style:italic}
+
+  /* ---------- Header ---------- */
+  header.nav{
+    position:sticky;top:0;z-index:50;
+    backdrop-filter:blur(14px);
+    background:linear-gradient(180deg,rgba(21,13,8,.92),rgba(21,13,8,.55));
+    border-bottom:1px solid rgba(212,175,55,.2);
+  }
+  .nav-inner{display:flex;align-items:center;justify-content:space-between;height:74px}
+  .brand{display:flex;align-items:center;gap:12px;font-family:'Cinzel',serif;font-weight:700}
+  .brand .logo{
+    width:44px;height:44px;border-radius:50%;
+    display:grid;place-items:center;font-size:1.4rem;
+    background:radial-gradient(circle at 30% 25%,var(--gold-soft),var(--gold-deep));
+    box-shadow:0 0 18px rgba(212,175,55,.5),inset 0 0 8px rgba(0,0,0,.4);
+    animation:pulseGlow 4s ease-in-out infinite;
+  }
+  @keyframes pulseGlow{0%,100%{box-shadow:0 0 14px rgba(212,175,55,.4),inset 0 0 8px rgba(0,0,0,.4)}50%{box-shadow:0 0 26px rgba(212,175,55,.75),inset 0 0 8px rgba(0,0,0,.4)}}
+  .brand-name{font-size:1.18rem;background:linear-gradient(180deg,#fff5dc,var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .brand-name small{display:block;font-family:'EB Garamond',serif;font-size:.62rem;letter-spacing:.3em;color:rgba(244,232,207,.6);text-transform:uppercase;font-weight:400}
+  .nav-links{display:flex;gap:30px;align-items:center}
+  .nav-links a{font-family:'Cinzel',serif;font-size:.82rem;letter-spacing:.08em;color:rgba(244,232,207,.82);transition:color .25s;position:relative}
+  .nav-links a::after{content:'';position:absolute;left:0;bottom:-6px;width:0;height:2px;background:var(--gold);transition:width .3s}
+  .nav-links a:hover{color:var(--gold-soft)}
+  .nav-links a:hover::after{width:100%}
+  .cart-btn{
+    position:relative;display:flex;align-items:center;gap:8px;
+    font-family:'Cinzel',serif;font-size:.82rem;
+    padding:10px 18px;border-radius:50px;cursor:pointer;
+    background:linear-gradient(135deg,var(--burgundy),var(--burgundy-light));
+    border:1px solid rgba(212,175,55,.4);
+    color:var(--parchment);transition:transform .2s,box-shadow .25s;
+  }
+  .cart-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(110,20,35,.55)}
+  .cart-badge{
+    position:absolute;top:-8px;right:-8px;min-width:22px;height:22px;padding:0 5px;
+    border-radius:50%;background:var(--gold);color:var(--night);
+    font-family:'Cinzel',serif;font-size:.72rem;font-weight:700;
+    display:grid;place-items:center;box-shadow:0 0 10px rgba(212,175,55,.7);
+    transform:scale(0);transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+  .cart-badge.show{transform:scale(1)}
+  .nav-toggle{display:none;background:none;border:none;color:var(--gold);font-size:1.6rem;cursor:pointer}
+
+  /* ---------- Hero ---------- */
+  .hero{position:relative;text-align:center;padding:120px 0 100px;overflow:hidden}
+  .hero::before{
+    content:'';position:absolute;top:50%;left:50%;width:680px;height:680px;
+    transform:translate(-50%,-50%);
+    background:radial-gradient(circle,rgba(212,175,55,.16),transparent 65%);
+    pointer-events:none;
+  }
+  .hero-jars{font-size:clamp(2.6rem,7vw,4.2rem);margin-bottom:24px;letter-spacing:.4rem;filter:drop-shadow(0 6px 18px rgba(0,0,0,.5))}
+  .hero h1{
+    font-size:clamp(2.8rem,8vw,5.6rem);
+    font-weight:900;line-height:1.02;margin-bottom:8px;
+    background:linear-gradient(180deg,#fff7e2 0%,var(--gold-soft) 45%,var(--gold-deep) 100%);
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+    text-shadow:0 2px 30px rgba(212,175,55,.25);
+  }
+  .hero .sub-name{font-family:'Cinzel',serif;font-weight:500;letter-spacing:.5em;text-transform:uppercase;font-size:clamp(.7rem,2vw,1rem);color:var(--emerald-light);margin-bottom:30px}
+  .hero .slogan{font-size:clamp(1.15rem,2.6vw,1.6rem);font-style:italic;color:rgba(244,232,207,.9);max-width:660px;margin:0 auto 40px}
+  .hero .slogan b{color:var(--gold-soft);font-style:normal;font-weight:600}
+  .btn{
+    display:inline-flex;align-items:center;gap:10px;cursor:pointer;
+    font-family:'Cinzel',serif;font-weight:600;font-size:1rem;letter-spacing:.05em;
+    padding:16px 38px;border-radius:50px;border:none;
+    background:linear-gradient(135deg,var(--gold-soft),var(--gold) 50%,var(--gold-deep));
+    color:var(--night);
+    box-shadow:0 10px 30px rgba(212,175,55,.4),inset 0 1px 0 rgba(255,255,255,.4);
+    transition:transform .25s,box-shadow .3s;
+  }
+  .btn:hover{transform:translateY(-3px) scale(1.02);box-shadow:0 16px 40px rgba(212,175,55,.6)}
+  .btn.ghost{background:transparent;border:1.5px solid var(--gold);color:var(--gold-soft);box-shadow:none}
+  .btn.ghost:hover{background:rgba(212,175,55,.12)}
+  .hero-meta{margin-top:36px;display:flex;gap:34px;justify-content:center;flex-wrap:wrap;font-family:'Cinzel',serif;font-size:.78rem;letter-spacing:.12em;color:rgba(244,232,207,.6);text-transform:uppercase}
+  .hero-meta span{display:flex;align-items:center;gap:8px}
+
+  .divider{height:1px;max-width:var(--maxw);margin:0 auto;background:linear-gradient(90deg,transparent,var(--glass-border),transparent)}
+
+  /* ---------- Products ---------- */
+  .products{padding:90px 0}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:28px}
+  .card{
+    position:relative;border-radius:var(--radius);padding:30px 26px 26px;
+    background:linear-gradient(165deg,rgba(46,29,12,.85),rgba(21,13,8,.92));
+    border:1px solid rgba(212,175,55,.18);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    transition:transform .35s cubic-bezier(.2,.8,.2,1),border-color .35s,box-shadow .35s;
+  }
+  .card::before{
+    content:'';position:absolute;inset:0;border-radius:var(--radius);padding:1px;
+    background:linear-gradient(140deg,rgba(212,175,55,.5),transparent 40%,transparent 60%,rgba(110,20,35,.4));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;
+    opacity:.6;pointer-events:none;
+  }
+  .card:hover{transform:translateY(-8px);border-color:rgba(212,175,55,.5);box-shadow:0 26px 60px rgba(0,0,0,.6),0 0 30px rgba(212,175,55,.12)}
+  .card .emoji{
+    font-size:3.6rem;display:block;text-align:center;margin-bottom:8px;
+    filter:drop-shadow(0 6px 12px rgba(0,0,0,.5));
+    transition:transform .4s;
+  }
+  .card:hover .emoji{transform:scale(1.12) rotate(-6deg)}
+  .card .tag{
+    position:absolute;top:16px;right:16px;font-family:'Cinzel',serif;font-size:.6rem;
+    letter-spacing:.1em;text-transform:uppercase;padding:5px 10px;border-radius:30px;
+    background:rgba(31,94,63,.4);border:1px solid rgba(46,139,93,.5);color:var(--emerald-light);
+  }
+  .card .tag.rare{background:rgba(110,20,35,.4);border-color:rgba(155,35,53,.6);color:#e58a98}
+  .card h3{font-size:1.32rem;text-align:center;color:var(--parchment);margin-bottom:10px;line-height:1.2}
+  .card p.desc{font-size:.97rem;color:rgba(244,232,207,.72);text-align:center;min-height:84px;font-style:italic}
+  .card .foot{display:flex;align-items:center;justify-content:space-between;margin-top:18px}
+  .price{font-family:'Cinzel',serif;font-weight:700;font-size:1.18rem;color:var(--gold-soft);display:flex;align-items:center;gap:6px}
+  .price .coin{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:radial-gradient(circle at 30% 25%,var(--gold-soft),var(--gold-deep));color:var(--night);font-size:.7rem;font-weight:800;box-shadow:0 0 8px rgba(212,175,55,.5)}
+  .add-btn{
+    font-family:'Cinzel',serif;font-size:.78rem;letter-spacing:.04em;cursor:pointer;
+    padding:10px 16px;border-radius:40px;border:1px solid rgba(212,175,55,.4);
+    background:rgba(212,175,55,.08);color:var(--gold-soft);
+    transition:all .25s;white-space:nowrap;
+  }
+  .add-btn:hover{background:var(--gold);color:var(--night);transform:translateY(-2px)}
+  .add-btn:active{transform:scale(.94)}
+
+  /* ---------- Houses ---------- */
+  .houses{padding:90px 0}
+  .house-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:24px}
+  .house{
+    position:relative;border-radius:var(--radius);padding:34px 26px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.1);
+    transition:transform .35s,box-shadow .35s;
+    isolation:isolate;
+  }
+  .house::after{content:'';position:absolute;inset:0;z-index:-1;opacity:.92;transition:opacity .35s}
+  .house:hover{transform:translateY(-8px)}
+  .house:hover::after{opacity:1}
+  .house.gryffindor::after{background:linear-gradient(160deg,#7f0909,#3a0a0a 60%,#1a0303);}
+  .house.slytherin::after{background:linear-gradient(160deg,#0d4d2b,#062817 60%,#031108);}
+  .house.hufflepuff::after{background:linear-gradient(160deg,#7a6308,#3d3104 60%,#1c1602);}
+  .house.ravenclaw::after{background:linear-gradient(160deg,#0e1a52,#071033 60%,#03061a);}
+  .house .crest{font-size:2.8rem;margin-bottom:14px;filter:drop-shadow(0 4px 10px rgba(0,0,0,.5))}
+  .house h3{font-size:1.5rem;margin-bottom:4px}
+  .house .motto{font-style:italic;font-size:.92rem;opacity:.82;margin-bottom:18px}
+  .house .rec{
+    background:rgba(0,0,0,.32);border:1px solid rgba(255,255,255,.14);border-radius:12px;
+    padding:14px;display:flex;align-items:center;gap:12px;backdrop-filter:blur(4px);
+  }
+  .house .rec .ico{font-size:1.8rem}
+  .house .rec b{display:block;font-family:'Cinzel',serif;font-size:.95rem;margin-bottom:2px}
+  .house .rec span{font-size:.85rem;opacity:.85}
+  .house.gryffindor{color:#ffd9b0}.house.gryffindor h3{color:#ffcf8a}
+  .house.slytherin{color:#bfe9cf}.house.slytherin h3{color:#9fe0bc}
+  .house.hufflepuff{color:#ffedb0}.house.hufflepuff h3{color:#ffe27a}
+  .house.ravenclaw{color:#c2cdf2}.house.ravenclaw h3{color:#a8b8f0}
+
+  /* ---------- Cart Drawer ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(8,5,3,.6);backdrop-filter:blur(3px);z-index:80;opacity:0;visibility:hidden;transition:opacity .35s}
+  .overlay.open{opacity:1;visibility:visible}
+  .drawer{
+    position:fixed;top:0;right:0;height:100%;width:420px;max-width:90vw;z-index:90;
+    background:linear-gradient(180deg,var(--night-2),var(--night));
+    border-left:1px solid rgba(212,175,55,.3);
+    box-shadow:-20px 0 60px rgba(0,0,0,.6);
+    transform:translateX(105%);transition:transform .4s cubic-bezier(.4,0,.2,1);
+    display:flex;flex-direction:column;
+  }
+  .drawer.open{transform:translateX(0)}
+  .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:24px;border-bottom:1px solid rgba(212,175,55,.2)}
+  .drawer-head h3{font-size:1.3rem;color:var(--gold-soft);display:flex;align-items:center;gap:10px}
+  .drawer-close{background:none;border:none;color:rgba(244,232,207,.7);font-size:1.6rem;cursor:pointer;line-height:1;transition:color .2s,transform .2s}
+  .drawer-close:hover{color:var(--gold);transform:rotate(90deg)}
+  .drawer-body{flex:1;overflow-y:auto;padding:18px 24px}
+  .drawer-body::-webkit-scrollbar{width:8px}
+  .drawer-body::-webkit-scrollbar-thumb{background:rgba(212,175,55,.3);border-radius:8px}
+  .cart-empty{text-align:center;padding:60px 20px;color:rgba(244,232,207,.5);font-style:italic}
+  .cart-empty .big{font-size:3rem;display:block;margin-bottom:14px;opacity:.6}
+  .cart-item{display:flex;gap:14px;align-items:center;padding:16px 0;border-bottom:1px solid rgba(212,175,55,.12)}
+  .cart-item .ci-emoji{font-size:2.2rem;width:50px;text-align:center;flex-shrink:0}
+  .cart-item .ci-info{flex:1;min-width:0}
+  .cart-item .ci-info h4{font-family:'Cinzel',serif;font-size:.98rem;color:var(--parchment);margin-bottom:3px}
+  .cart-item .ci-price{font-size:.85rem;color:var(--gold-soft)}
+  .qty{display:flex;align-items:center;gap:8px;margin-top:8px}
+  .qty button{
+    width:26px;height:26px;border-radius:50%;border:1px solid rgba(212,175,55,.4);
+    background:rgba(212,175,55,.08);color:var(--gold-soft);cursor:pointer;font-size:1rem;
+    display:grid;place-items:center;transition:all .2s;font-family:'Cinzel',serif;line-height:1;
+  }
+  .qty button:hover{background:var(--gold);color:var(--night)}
+  .qty span{font-family:'Cinzel',serif;min-width:24px;text-align:center;font-size:.95rem}
+  .ci-remove{background:none;border:none;color:rgba(155,35,53,.8);cursor:pointer;font-size:.78rem;font-family:'Cinzel',serif;margin-top:6px;transition:color .2s;padding:0}
+  .ci-remove:hover{color:#e58a98}
+  .ci-right{text-align:right;flex-shrink:0}
+  .ci-subtotal{font-family:'Cinzel',serif;color:var(--gold-soft);font-weight:600}
+  .drawer-foot{padding:22px 24px;border-top:1px solid rgba(212,175,55,.25);background:rgba(0,0,0,.25)}
+  .total-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px;font-family:'Cinzel',serif}
+  .total-row .lbl{font-size:1rem;letter-spacing:.1em;color:rgba(244,232,207,.8)}
+  .total-row .val{font-size:1.6rem;font-weight:700;color:var(--gold-soft)}
+  .checkout-btn{width:100%;justify-content:center}
+  .drawer-note{text-align:center;font-size:.78rem;font-style:italic;color:rgba(244,232,207,.5);margin-top:12px}
+
+  /* ---------- Toast ---------- */
+  .toast{
+    position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(120px);
+    background:linear-gradient(135deg,var(--emerald),var(--emerald-light));
+    color:#eafff2;padding:14px 26px;border-radius:50px;z-index:100;
+    font-family:'Cinzel',serif;font-size:.9rem;box-shadow:0 12px 30px rgba(0,0,0,.5);
+    border:1px solid rgba(212,175,55,.4);opacity:0;transition:all .4s cubic-bezier(.34,1.56,.64,1);
+    display:flex;align-items:center;gap:10px;pointer-events:none;
+  }
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+  /* ---------- Footer ---------- */
+  footer{margin-top:60px;padding:64px 0 40px;border-top:1px solid rgba(212,175,55,.2);background:linear-gradient(180deg,transparent,rgba(0,0,0,.35))}
+  .foot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:40px;margin-bottom:46px}
+  .foot-col h4{font-size:1.05rem;color:var(--gold-soft);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+  .foot-col p,.foot-col li{color:rgba(244,232,207,.72);font-size:.95rem;margin-bottom:6px;list-style:none}
+  .foot-col .hours-row{display:flex;justify-content:space-between;max-width:230px}
+  .foot-col .hours-row span:last-child{color:var(--gold-soft)}
+  .foot-brand .logo-line{display:flex;align-items:center;gap:12px;margin-bottom:14px;font-family:'Cinzel',serif;font-size:1.25rem;color:var(--gold-soft)}
+  .foot-bottom{text-align:center;padding-top:30px;border-top:1px solid rgba(212,175,55,.12);color:rgba(244,232,207,.5);font-size:.86rem;font-style:italic}
+  .foot-bottom .magic{color:var(--gold-soft);font-style:normal}
+
+  /* ---------- Responsive ---------- */
+  @media(max-width:860px){
+    .nav-links{display:none}
+    .nav-toggle{display:block}
+    .nav-links.mobile-open{
+      display:flex;position:absolute;top:74px;left:0;right:0;flex-direction:column;
+      gap:0;background:rgba(21,13,8,.98);border-bottom:1px solid rgba(212,175,55,.2);padding:10px 0;
+    }
+    .nav-links.mobile-open a{padding:14px 24px;width:100%;border-bottom:1px solid rgba(212,175,55,.08)}
+    .hero{padding:80px 0 70px}
+  }
+  @media(max-width:520px){
+    .wrap{padding:0 18px}
+    .hero-meta{gap:18px}
+    .card p.desc{min-height:auto}
+  }
+</style>
+</head>
+<body>
+
+<div id="sparkles" aria-hidden="true"></div>
+
+<!-- ===== NAV ===== -->
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a href="#top" class="brand">
+      <span class="logo">🍯</span>
+      <span class="brand-name">Honigtopf<small>Zauberbonbons · Est. 1641</small></span>
+    </a>
+    <nav class="nav-links" id="navLinks">
+      <a href="#sortiment">Sortiment</a>
+      <a href="#haeuser">Häuser</a>
+      <a href="#besuch">Besuch uns</a>
+    </nav>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="cart-btn" id="cartOpenBtn" aria-label="Warenkorb öffnen">
+        🛒 <span>Beutel</span>
+        <span class="cart-badge" id="cartBadge">0</span>
+      </button>
+      <button class="nav-toggle" id="navToggle" aria-label="Menü">☰</button>
+    </div>
+  </div>
+</header>
+
+<!-- ===== HERO ===== -->
+<section class="hero" id="top">
+  <div class="wrap">
+    <div class="hero-jars">🍬 🍭 🍫 🐸 🍡</div>
+    <h1>Honigtopf</h1>
+    <div class="sub-name">Zauberbonbons der Winkelgasse</div>
+    <p class="slogan">Wo jeder Bonbon ein kleines Stück Magie ist. Von <b>Bertie Botts Bohnen</b> bis zu hüpfenden <b>Schokofröschen</b> — naschen wie in Hogsmeade, direkt aus dem Kessel.</p>
+    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+      <a href="#sortiment" class="btn">Zum Sortiment ✨</a>
+      <a href="#haeuser" class="btn ghost">Haus-Empfehlungen</a>
+    </div>
+    <div class="hero-meta">
+      <span>🪶 Handgezaubert</span>
+      <span>🦉 Eulen-Lieferung</span>
+      <span>💰 Preise in Galleonen</span>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ===== PRODUCTS ===== -->
+<section class="products" id="sortiment">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Frisch aus dem Zauberkessel</span>
+      <h2 class="section-title">Unser magisches Sortiment</h2>
+      <p>Vorsicht beim Probieren — manche dieser Leckereien beißen zurück.</p>
+    </div>
+    <div class="grid" id="productGrid"></div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ===== HOUSES ===== -->
+<section class="houses" id="haeuser">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Der Sprechende Hut empfiehlt</span>
+      <h2 class="section-title">Naschen nach Haus</h2>
+      <p>Für jedes Hogwarts-Haus die passende Süßigkeit — in den Farben deiner Hauspunkte.</p>
+    </div>
+    <div class="house-grid">
+      <div class="house gryffindor">
+        <div class="crest">🦁</div>
+        <h3>Gryffindor</h3>
+        <p class="motto">Mut, Wagemut und ein heißes Herz.</p>
+        <div class="rec">
+          <span class="ico">🔥</span>
+          <div><b>Säurelutscher Inferno</b><span>Glühend wie ein Löwenmut — nur für die Tapfersten.</span></div>
+        </div>
+      </div>
+      <div class="house slytherin">
+        <div class="crest">🐍</div>
+        <h3>Slytherin</h3>
+        <p class="motto">List, Ehrgeiz und smaragdgrüner Stil.</p>
+        <div class="rec">
+          <span class="ico">🩸</span>
+          <div><b>Blutlutscher</b><span>Tiefrot, raffiniert, unwiderstehlich verführerisch.</span></div>
+        </div>
+      </div>
+      <div class="house hufflepuff">
+        <div class="crest">🦡</div>
+        <h3>Hufflepuff</h3>
+        <p class="motto">Treue, Fleiß und ehrliche Süße.</p>
+        <div class="rec">
+          <span class="ico">🍯</span>
+          <div><b>Pfefferminz-Kröten</b><span>Bodenständig & wohlig — wie ein Topf voll Honig.</span></div>
+        </div>
+      </div>
+      <div class="house ravenclaw">
+        <div class="crest">🦅</div>
+        <h3>Ravenclaw</h3>
+        <p class="motto">Weisheit, Witz und kluge Köpfe.</p>
+        <div class="rec">
+          <span class="ico">🪶</span>
+          <div><b>Zuckerfedern</b><span>Naschen beim Grübeln — knabbern ist hier erlaubt.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ===== FOOTER ===== -->
+<footer id="besuch">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-col foot-brand">
+        <div class="logo-line"><span class="logo" style="width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 30% 25%,var(--gold-soft),var(--gold-deep))">🍯</span> Honigtopf</div>
+        <p>Die süßeste Adresse der Zaubererwelt. Seit 1641 verzaubern wir kleine und große Naschkatzen mit Bonbons, die zappeln, zischen und manchmal sogar zurückzwinkern.</p>
+      </div>
+      <div class="foot-col">
+        <h4>🕰️ Öffnungszeiten</h4>
+        <div class="hours-row"><span>Mo – Fr</span><span>08:00 – 19:00</span></div>
+        <div class="hours-row"><span>Samstag</span><span>09:00 – 21:00</span></div>
+        <div class="hours-row"><span>Hogsmeade-Wochenende</span><span>bis Mitternacht</span></div>
+        <div class="hours-row"><span>Vollmond</span><span>geschlossen 🐺</span></div>
+      </div>
+      <div class="foot-col">
+        <h4>🗺️ Besuch uns</h4>
+        <p><b>Winkelgasse 13, Hogsmeade</b></p>
+        <p>Schräg gegenüber dem Eberkopf</p>
+        <p>🦉 Eulenpost: bestellung@honigtopf.zauber</p>
+        <p>🔮 Flohnetzwerk: „Honigtopf"</p>
+      </div>
+      <div class="foot-col">
+        <h4>✨ Gut zu wissen</h4>
+        <p>Apparieren im Laden streng verboten.</p>
+        <p>Schokofrösche bitte festhalten.</p>
+        <p>Bertie Botts auf eigene Gefahr.</p>
+        <p>Hauself-Rabatt jeden Dienstag.</p>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      © 1641–2026 Honigtopf — Zauberbonbons · <span class="magic">Mischief Managed.</span> · Kein Muggel-Geld akzeptiert — nur Galleonen, Sickel & Knuts.
+    </div>
+  </div>
+</footer>
+
+<!-- ===== CART DRAWER ===== -->
+<div class="overlay" id="overlay"></div>
+<aside class="drawer" id="drawer" aria-label="Warenkorb">
+  <div class="drawer-head">
+    <h3>🛍️ Dein Nasch-Beutel</h3>
+    <button class="drawer-close" id="drawerClose" aria-label="Schließen">×</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot">
+    <div class="total-row">
+      <span class="lbl">Gesamt</span>
+      <span class="val" id="cartTotal">0 G</span>
+    </div>
+    <button class="btn checkout-btn" id="checkoutBtn">Mit der Eule bezahlen 🦉</button>
+    <p class="drawer-note">Lieferung per Eulenpost innerhalb von 24 Stunden — wetterabhängig.</p>
+  </div>
+</aside>
+
+<!-- ===== TOAST ===== -->
+<div class="toast" id="toast"><span id="toastText"></span></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- Sparkle background ---------- */
+  const sparkleLayer = document.getElementById('sparkles');
+  const glyphs = ['✦','✧','⋆','✨','·','✩','˚'];
+  function spawnSparkle(){
+    const s = document.createElement('span');
+    s.className = 'spark';
+    s.textContent = glyphs[Math.floor(Math.random()*glyphs.length)];
+    s.style.left = Math.random()*100 + 'vw';
+    const size = 8 + Math.random()*18;
+    s.style.fontSize = size + 'px';
+    const dur = 7 + Math.random()*9;
+    s.style.animationDuration = dur + 's';
+    s.style.animationDelay = '0s';
+    if(Math.random()>0.6) s.style.color = 'rgba(46,139,93,.9)';
+    if(Math.random()>0.85) s.style.color = 'rgba(229,138,152,.9)';
+    sparkleLayer.appendChild(s);
+    setTimeout(()=>s.remove(), dur*1000);
+  }
+  for(let i=0;i<24;i++) setTimeout(spawnSparkle, i*250);
+  setInterval(spawnSparkle, 600);
+
+  /* ---------- Products data ---------- */
+  const products = [
+    { id:'bertie', emoji:'🫘', name:'Bertie Botts Bohnen', tag:'Risiko', rare:false,
+      desc:'Jede Bohne ein Abenteuer — von Pfefferminze bis Ohrenschmalz. Trau dich, wenn du dich traust.', price:7 },
+    { id:'frosch', emoji:'🐸', name:'Schokofrosch', tag:'+ Sammelkarte', rare:false,
+      desc:'Hüpfender Vollmilch-Frosch mit einer berühmten Hexen- oder Zauberer-Sammelkarte. Festhalten!', price:6 },
+    { id:'saeure', emoji:'🍬', name:'Säurelutscher', tag:'Sauer', rare:false,
+      desc:'Beliebt selbst bei Albus Dumbledore. So sauer, dass ein Loch in die Zunge brennt — fast.', price:5 },
+    { id:'biene', emoji:'🐝', name:'Zischende Wischbienen', tag:'Zischt', rare:false,
+      desc:'Summen, zischen und schweben dir um die Nase, bevor du sie überhaupt fängst. Pures Kribbeln.', price:8 },
+    { id:'kroete', emoji:'🐸', name:'Pfefferminz-Kröten', tag:'Hüpft', rare:false,
+      desc:'Springen lebhaft im Bauch herum — herrlich erfrischend und absolut quietschgrün vergnüglich.', price:6 },
+    { id:'blut', emoji:'🍭', name:'Blutlutscher', tag:'Selten', rare:true,
+      desc:'Der Favorit jedes angehenden Vampirs. Tiefrot, geheimnisvoll und ungewöhnlich beliebt in Slytherin.', price:9 },
+    { id:'eis', emoji:'🍦', name:'Eiscreme-Bohnen', tag:'Kühl', rare:false,
+      desc:'Schmelzen niemals und schmecken nach jeder Eissorte, die du dir vorstellen kannst. Florean lässt grüßen.', price:7 },
+    { id:'feder', emoji:'🪶', name:'Zuckerfedern', tag:'Knabber-Spaß', rare:false,
+      desc:'Zauberhaft im Unterricht: süße Federn zum Lutschen, die wie echte Schreibfedern aussehen. Perfekt für Ravenclaws.', price:5 },
+    { id:'pastille', emoji:'🤮', name:'Kotzpastillen', tag:'Streich', rare:true,
+      desc:'Aus Weasleys Zauberhafte Zauberscherze: eine Hälfte macht krank, die andere kuriert. Schule schwänzen leicht gemacht.', price:10 }
+  ];
+
+  /* ---------- Cart state ---------- */
+  const cart = {}; // id -> qty
+
+  /* ---------- Render products ---------- */
+  const grid = document.getElementById('productGrid');
+  grid.innerHTML = products.map(p => `
+    <article class="card" data-id="${p.id}">
+      <span class="tag ${p.rare?'rare':''}">${p.tag}</span>
+      <span class="emoji">${p.emoji}</span>
+      <h3>${p.name}</h3>
+      <p class="desc">${p.desc}</p>
+      <div class="foot">
+        <span class="price"><span class="coin">G</span>${p.price} Galleonen</span>
+        <button class="add-btn" data-add="${p.id}">In den Beutel +</button>
+      </div>
+    </article>
+  `).join('');
+
+  /* ---------- Helpers ---------- */
+  function findProduct(id){ return products.find(p => p.id === id); }
+  function totalCount(){ return Object.values(cart).reduce((a,b)=>a+b,0); }
+  function totalPrice(){ return Object.entries(cart).reduce((sum,[id,q])=> sum + findProduct(id).price*q, 0); }
+
+  /* ---------- DOM refs ---------- */
+  const badge = document.getElementById('cartBadge');
+  const drawer = document.getElementById('drawer');
+  const overlay = document.getElementById('overlay');
+  const drawerBody = document.getElementById('drawerBody');
+  const cartTotalEl = document.getElementById('cartTotal');
+
+  /* ---------- Toast ---------- */
+  const toast = document.getElementById('toast');
+  const toastText = document.getElementById('toastText');
+  let toastTimer;
+  function showToast(msg){
+    toastText.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>toast.classList.remove('show'), 2200);
+  }
+
+  /* ---------- Cart operations ---------- */
+  function addToCart(id){
+    cart[id] = (cart[id]||0) + 1;
+    updateBadge(true);
+    renderCart();
+    showToast('✨ ' + findProduct(id).name + ' in den Beutel gelegt!');
+  }
+  function changeQty(id, delta){
+    if(!cart[id]) return;
+    cart[id] += delta;
+    if(cart[id] <= 0) delete cart[id];
+    updateBadge(true);
+    renderCart();
+  }
+  function removeItem(id){
+    delete cart[id];
+    updateBadge(true);
+    renderCart();
+  }
+
+  function updateBadge(pop){
+    const c = totalCount();
+    badge.textContent = c;
+    badge.classList.toggle('show', c > 0);
+    if(pop && c > 0){
+      badge.style.transition='none';
+      badge.style.transform='scale(1.4)';
+      requestAnimationFrame(()=>{ badge.style.transition=''; badge.style.transform=''; });
+    }
+  }
+
+  function renderCart(){
+    const ids = Object.keys(cart);
+    if(ids.length === 0){
+      drawerBody.innerHTML = `<div class="cart-empty"><span class="big">🪄</span>Dein Beutel ist noch leer.<br>Zaubere ein paar Leckereien hinein!</div>`;
+      cartTotalEl.textContent = '0 G';
+      return;
+    }
+    drawerBody.innerHTML = ids.map(id => {
+      const p = findProduct(id);
+      const q = cart[id];
+      return `
+        <div class="cart-item">
+          <span class="ci-emoji">${p.emoji}</span>
+          <div class="ci-info">
+            <h4>${p.name}</h4>
+            <div class="ci-price">${p.price} G / Stück</div>
+            <div class="qty">
+              <button data-dec="${id}" aria-label="Weniger">−</button>
+              <span>${q}</span>
+              <button data-inc="${id}" aria-label="Mehr">+</button>
+            </div>
+            <button class="ci-remove" data-rm="${id}">entfernen</button>
+          </div>
+          <div class="ci-right">
+            <div class="ci-subtotal">${p.price*q} G</div>
+          </div>
+        </div>`;
+    }).join('');
+    cartTotalEl.textContent = totalPrice() + ' G';
+  }
+
+  /* ---------- Drawer open/close ---------- */
+  function openDrawer(){ drawer.classList.add('open'); overlay.classList.add('open'); }
+  function closeDrawer(){ drawer.classList.remove('open'); overlay.classList.remove('open'); }
+
+  /* ---------- Event delegation ---------- */
+  grid.addEventListener('click', e => {
+    const btn = e.target.closest('[data-add]');
+    if(btn) addToCart(btn.getAttribute('data-add'));
+  });
+  drawerBody.addEventListener('click', e => {
+    const inc = e.target.closest('[data-inc]');
+    const dec = e.target.closest('[data-dec]');
+    const rm  = e.target.closest('[data-rm]');
+    if(inc) changeQty(inc.getAttribute('data-inc'), +1);
+    else if(dec) changeQty(dec.getAttribute('data-dec'), -1);
+    else if(rm) removeItem(rm.getAttribute('data-rm'));
+  });
+
+  document.getElementById('cartOpenBtn').addEventListener('click', openDrawer);
+  document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+  overlay.addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') closeDrawer(); });
+
+  document.getElementById('checkoutBtn').addEventListener('click', () => {
+    if(totalCount() === 0){ showToast('🪄 Dein Beutel ist noch leer!'); return; }
+    showToast('🦉 ' + totalPrice() + ' Galleonen — die Eule fliegt los! Danke fürs Naschen.');
+    for(const k in cart) delete cart[k];
+    updateBadge(false);
+    renderCart();
+    setTimeout(closeDrawer, 900);
+  });
+
+  /* ---------- Mobile nav ---------- */
+  const navToggle = document.getElementById('navToggle');
+  const navLinks = document.getElementById('navLinks');
+  navToggle.addEventListener('click', () => navLinks.classList.toggle('mobile-open'));
+  navLinks.addEventListener('click', e => { if(e.target.tagName === 'A') navLinks.classList.remove('mobile-open'); });
+
+  /* ---------- Init ---------- */
+  renderCart();
+  updateBadge(false);
+})();
+</script>
+</body>
+</html>

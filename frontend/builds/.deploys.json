@@ -6,6 +6,27 @@
       "size_kb": 48,
       "source": "logpy-grid.html",
       "url": "https://dev.dillenberg.net/logpy-grid/"
+    },
+    "hogwarts-bonbons": {
+      "slug": "hogwarts-bonbons",
+      "deployed_at": "2026-05-28T22:30:34",
+      "size_kb": 40,
+      "source": "builds/hogwarts-bonbons",
+      "url": "https://dev.dillenberg.net/hogwarts-bonbons/"
+    },
+    "neon-atroids": {
+      "slug": "neon-atroids",
+      "deployed_at": "2026-05-28T23:35:31",
+      "size_kb": 60,
+      "source": "builds/neon-atroids",
+      "url": "https://dev.dillenberg.net/neon-atroids/"
+    },
+    "bluetoids": {
+      "slug": "bluetoids",
+      "deployed_at": "2026-05-28T23:20:16",
+      "size_kb": 148,
+      "source": "builds/bluetoids",
+      "url": "https://dev.dillenberg.net/bluetoids/"
     }
   }
 }
