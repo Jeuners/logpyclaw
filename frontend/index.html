@@ -288,6 +288,45 @@
   .cah-meta .cah-temp { color: var(--accent2-h); opacity: .75; }
   .cah-badges { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
 
+  /* ── Chat-Sessions Toolbar ── */
+  .chat-toolbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 20px; background: var(--surface2);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .ct-title {
+    flex: 1; min-width: 0; font-size: 12px; font-weight: 600; color: var(--text2);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ct-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  .ct-btn {
+    font-size: 11px; padding: 5px 10px; border-radius: 7px; cursor: pointer;
+    background: var(--surface); color: var(--text2); border: 1px solid var(--border);
+    font-family: inherit; white-space: nowrap; transition: color .12s, border-color .12s;
+  }
+  .ct-btn:hover { color: var(--text); border-color: var(--accent); }
+  .ct-new { color: var(--accent-h); border-color: var(--accent); }
+  .conv-wrap { position: relative; }
+  .conv-menu {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 50;
+    width: 300px; max-height: 380px; overflow-y: auto;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.4); padding: 6px; display: none;
+  }
+  .conv-menu.open { display: block; }
+  .conv-empty { padding: 16px; text-align: center; color: var(--muted); font-size: 11px; font-style: italic; }
+  .conv-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 7px; cursor: pointer; }
+  .conv-item:hover { background: var(--surface); }
+  .conv-item.active { background: var(--surface); border: 1px solid var(--accent); padding: 7px 9px; }
+  .conv-item-main { flex: 1; min-width: 0; }
+  .conv-item-title { font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .conv-item-meta { font-size: 9px; color: var(--muted); margin-top: 2px; }
+  .conv-del {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 15px; line-height: 1; padding: 2px 5px; border-radius: 4px; flex-shrink: 0;
+  }
+  .conv-del:hover { color: #e66; }
+
   .chat-area {
     flex: 1; overflow-y: auto;
     display: flex; flex-direction: column; gap: 14px;
@@ -719,6 +758,16 @@
 
       <!-- ── Chat ── -->
       <div id="view-chat" class="view active">
+        <div class="chat-toolbar">
+          <div class="ct-title" id="ct-title" data-i18n="chat.new">Neuer Chat</div>
+          <div class="ct-actions">
+            <button class="ct-btn ct-new" onclick="newChat()" title="Neuen Chat starten">＋ <span data-i18n="chat.new">Neuer Chat</span></button>
+            <div class="conv-wrap">
+              <button class="ct-btn" onclick="toggleConvMenu()"><span data-i18n="chat.history">Verlauf</span> ▾</button>
+              <div class="conv-menu" id="conv-menu"></div>
+            </div>
+          </div>
+        </div>
         <div class="chat-agent-header" id="chat-agent-header">
           <div class="cah-avatar" id="cah-avatar">?</div>
           <div class="cah-info">
@@ -951,6 +1000,7 @@ const I18N = {
     "chat.empty":"Select an agent and write a message.",
     "chat.placeholder":"Message …","chat.send":"Send",
     "chat.select_agent":"Please select an agent first.",
+    "chat.new":"New chat","chat.history":"History",
     "missions.refresh":"Refresh","missions.col.id":"ID",
     "missions.col.title":"Title","missions.col.state":"State",
     "missions.count":"{n} missions",
@@ -976,6 +1026,7 @@ const I18N = {
     "chat.empty":"Wähle einen Agenten und schreibe eine Nachricht.",
     "chat.placeholder":"Nachricht …","chat.send":"Senden",
     "chat.select_agent":"Bitte zuerst einen Agenten auswählen.",
+    "chat.new":"Neuer Chat","chat.history":"Verlauf",
     "missions.refresh":"Aktualisieren","missions.col.id":"ID",
     "missions.col.title":"Titel","missions.col.state":"Status",
     "missions.count":"{n} Missionen",
@@ -1022,7 +1073,7 @@ async function boot() {
   applyI18n();
   await loadAgents();
   loadStatus();
-  restoreLastChat();
+  restoreLastConv();
 }
 
 // ── Agents ───────────────────────────────────────────────────────────────────
@@ -1431,6 +1482,7 @@ async function sendChat() {
         if (data.mission_id) {
           _currentMissionId = data.mission_id;
           _saveChatState();
+          _recordTurn(data.mission_id, msg);
         }
         return;
       }
@@ -1666,8 +1718,177 @@ function _saveChatState() {
   } catch {}
 }
 
+// ── Chat-Sessions (Konversationen) ──────────────────────────────────────────
+// Jede gesendete Nachricht ist serverseitig eine eigene Mission. Eine
+// Konversation gruppiert mehrere solcher Missions visuell zu einem Chat.
+const _CONV_KEY = 'logpyclaw_conversations';
+let _currentConvId = null;
+
+function _loadConvs() {
+  try { return JSON.parse(localStorage.getItem(_CONV_KEY) || '[]'); } catch { return []; }
+}
+function _saveConvs(convs) {
+  try { localStorage.setItem(_CONV_KEY, JSON.stringify(convs.slice(-50))); } catch {}
+}
+function _getConv(id) { return _loadConvs().find(c => c.id === id) || null; }
+
+function _ensureConv() {
+  const existing = _currentConvId && _getConv(_currentConvId);
+  if (existing) return existing;
+  const convs = _loadConvs();
+  const conv = {
+    id: 'conv_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    title: '',
+    agentId: selectedAgent || '',
+    agentName: (selectedAgent && _agentsData[selectedAgent]?.name) || '',
+    turns: [], createdAt: Date.now(), updatedAt: Date.now(),
+  };
+  convs.push(conv);
+  _saveConvs(convs);
+  _currentConvId = conv.id;
+  return conv;
+}
+
+// Hängt eine Mission (= ein Turn) an die aktuelle Konversation.
+function _recordTurn(missionId, firstUserMsg) {
+  const cur = _ensureConv();
+  const convs = _loadConvs();
+  const c = convs.find(x => x.id === cur.id);
+  if (!c) return;
+  if (!c.turns.includes(missionId)) c.turns.push(missionId);
+  if (!c.title && firstUserMsg) c.title = firstUserMsg.slice(0, 48);
+  if (!c.agentId && selectedAgent) {
+    c.agentId = selectedAgent;
+    c.agentName = _agentsData[selectedAgent]?.name || '';
+  }
+  c.updatedAt = Date.now();
+  _saveConvs(convs);
+  _renderConvTitle(c);
+}
+
+function _renderConvTitle(conv) {
+  const el = document.getElementById('ct-title');
+  if (!el) return;
+  if (conv && conv.title) { el.textContent = conv.title; el.removeAttribute('data-i18n'); }
+  else { el.textContent = t('chat.new') || 'Neuer Chat'; el.setAttribute('data-i18n', 'chat.new'); }
+}
+
+function newChat() {
+  _currentConvId = null;
+  const area = document.getElementById('chat-area');
+  area.innerHTML = '<div class="empty" data-i18n="chat.empty">Select an agent and write a message.</div>';
+  applyI18n();
+  _renderConvTitle(null);
+  _closeConvMenu();
+  document.getElementById('chat-input')?.focus();
+}
+
+function toggleConvMenu() {
+  const m = document.getElementById('conv-menu');
+  if (!m) return;
+  if (m.classList.contains('open')) { _closeConvMenu(); return; }
+  renderConvList();
+  m.classList.add('open');
+  setTimeout(() => document.addEventListener('click', _convOutside), 0);
+}
+function _closeConvMenu() {
+  document.getElementById('conv-menu')?.classList.remove('open');
+  document.removeEventListener('click', _convOutside);
+}
+function _convOutside(e) { if (!e.target.closest('.conv-wrap')) _closeConvMenu(); }
+
+function _relTime(ts) {
+  const s = (Date.now() - ts) / 1000;
+  if (s < 60) return locale === 'de' ? 'gerade eben' : 'just now';
+  if (s < 3600) return Math.floor(s / 60) + ' min';
+  if (s < 86400) return Math.floor(s / 3600) + ' h';
+  return Math.floor(s / 86400) + ' d';
+}
+
+function renderConvList() {
+  const menu = document.getElementById('conv-menu');
+  if (!menu) return;
+  const convs = _loadConvs().filter(c => c.turns.length).sort((a, b) => b.updatedAt - a.updatedAt);
+  if (!convs.length) {
+    menu.innerHTML = `<div class="conv-empty">${locale === 'de' ? 'Noch keine Chats' : 'No chats yet'}</div>`;
+    return;
+  }
+  menu.innerHTML = convs.map(c => `
+    <div class="conv-item ${c.id === _currentConvId ? 'active' : ''}" data-id="${esc(c.id)}">
+      <div class="conv-item-main">
+        <div class="conv-item-title">${esc(c.title || 'Chat')}</div>
+        <div class="conv-item-meta">${esc(c.agentName || c.agentId || '')} · ${_relTime(c.updatedAt)} · ${c.turns.length}×</div>
+      </div>
+      <button class="conv-del" data-id="${esc(c.id)}" title="Chat löschen">×</button>
+    </div>`).join('');
+  menu.querySelectorAll('.conv-item').forEach(it => {
+    it.addEventListener('click', e => {
+      if (e.target.closest('.conv-del')) return;
+      loadConversation(it.dataset.id);
+    });
+  });
+  menu.querySelectorAll('.conv-del').forEach(b => {
+    b.addEventListener('click', e => { e.stopPropagation(); deleteConversation(b.dataset.id); });
+  });
+}
+
+async function loadConversation(convId) {
+  const conv = _getConv(convId);
+  if (!conv) return;
+  _currentConvId = convId;
+  _closeConvMenu();
+  const area = document.getElementById('chat-area');
+  area.innerHTML = '';
+  let agentName = conv.agentId;
+  for (const mid of conv.turns) {
+    try {
+      const r = await fetch(`${API}/api/missions/${mid}/trace`);
+      if (!r.ok) continue;
+      const msgs = await r.json();
+      for (const m of msgs) {
+        const c = m.payload?.content || m.payload?.result || '';
+        if (!c) continue;
+        if (m.sender === 'ext:user') {
+          appendMsg('user', c);
+        } else if (m.recipient === 'ext:user') {
+          agentName = m.sender;
+          const el = appendMsg('agent', '', m.sender);
+          renderMsgContent(el.querySelector('.text'), c);
+          if (m.clock) el.querySelector('.meta').textContent = clockSummary(m.clock);
+        }
+      }
+    } catch {}
+  }
+  if (!area.children.length) {
+    area.innerHTML = '<div class="empty" data-i18n="chat.empty">Select an agent and write a message.</div>';
+    applyI18n();
+  }
+  _renderConvTitle(conv);
+  if (agentName && _agentsData?.[agentName]) {
+    const a = _agentsData[agentName];
+    const card = document.querySelector(`.agent-card[data-id="${agentName}"]`);
+    if (card) selectAgent(agentName, a.name, card, a);
+  }
+  switchTab('chat');
+  document.getElementById('chat-agent-header')?.classList.add('visible');
+}
+
+function deleteConversation(convId) {
+  _saveConvs(_loadConvs().filter(c => c.id !== convId));
+  if (_currentConvId === convId) newChat();
+  renderConvList();
+}
+
+function restoreLastConv() {
+  const convs = _loadConvs().filter(c => c.turns.length).sort((a, b) => b.updatedAt - a.updatedAt);
+  if (convs.length) loadConversation(convs[0].id);
+}
+
 async function loadChatFromMission(missionId) {
   try {
+    // Einzelne Mission aus dem Missions-Tab: nicht an die aktuelle Session anhängen.
+    _currentConvId = null;
+    _renderConvTitle(null);
     const r = await fetch(`${API}/api/missions/${missionId}/trace`);
     if (!r.ok) return;
     const msgs = await r.json();
