@@ -49,6 +49,16 @@ class Settings(BaseSettings):
         description="Agenten, die über /v1/* (OpenAI-kompatibel) erreichbar sind, kommagetrennt. Leer = alle (nur lokal!).",
     )
 
+    # ── Artikelchat / Web-Bridge Defaults ───────────────────────────────────────
+    bridge_default_agent: str = Field(
+        "alice",
+        description="Standard-Agent für den Artikelchat (web_bridge), wenn die Anfrage keinen 'agent' mitschickt. z. B. alice|claude|martin",
+    )
+    bridge_default_inject: str = Field(
+        "",
+        description="Optionaler Standard-Inject-/System-Prompt für den Artikelchat, wenn die Anfrage keinen 'inject' mitschickt.",
+    )
+
     # ── Skills ────────────────────────────────────────────────────────────────
     comfyui_url: str = Field("http://192.168.4.15:8000", description="ComfyUI endpoint")
 

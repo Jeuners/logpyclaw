@@ -13,6 +13,7 @@ import logging
 from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from backend.api.agent_select import build_content, is_allowed, resolve_agent
 from backend.config import get_settings
 
 router = APIRouter(prefix="/ext/dilles/v1")
@@ -48,14 +49,27 @@ async def chat_stream(
     message = body.get("message", "")
     conductor = request.app.state.conductor
 
-    log.info("🌐 BRIDGE ← dillenberg.net [%s] %r", client_ip, message[:120])
+    cfg = get_settings()
+    # Agent wählbar; ohne 'agent' greift der Server-Default (BRIDGE_DEFAULT_AGENT).
+    # Kurzform "alice"/"martin" oder voll "agent:claude".
+    requested = body.get("agent") or cfg.bridge_default_agent or "alice"
+    agent_id = resolve_agent(requested, conductor)
+    if agent_id is None:
+        return JSONResponse({"error": f"unknown agent '{requested}'"}, status_code=400)
+    if not is_allowed(agent_id):
+        return JSONResponse(
+            {"error": f"agent '{requested}' not permitted (siehe PROVIDER_MODELS)"},
+            status_code=403,
+        )
 
-    # Route to Alice (web bridge agent)
-    agent_id = "agent:alice"
-    agent = conductor.get_agent(agent_id)
-    if agent is None:
-        agent_id = "agent:echo"
-        log.warning("🌐 BRIDGE: alice nicht verfügbar → fallback echo")
+    # Inject-/System-Prompt: aus der Anfrage (inject/system) oder Server-Default.
+    inject = body.get("inject") or body.get("system") or (cfg.bridge_default_inject or None)
+    content = build_content(message, inject)
+
+    log.info(
+        "🌐 BRIDGE ← dillenberg.net [%s] agent=%s inject=%s %r",
+        client_ip, agent_id, bool(inject), message[:120],
+    )
 
     import asyncio
     import json
@@ -68,7 +82,7 @@ async def chat_stream(
         mission_id,
         {
             "mission_id": mission_id,
-            "title": "web-bridge",
+            "title": f"web-bridge:{agent_id}",
             "state": "running",
             "started_at": time.time(),
             "source": "dillenberg.net",
@@ -78,7 +92,7 @@ async def chat_stream(
         mission_id=mission_id,
         sender=external_ref("dillenberg"),
         recipient=agent_id,
-        content=message,
+        content=content,
     )
 
     async def stream():
@@ -87,28 +101,43 @@ async def chat_stream(
         # GARANTIERT läuft — auch wenn dispatch() oder der Client-Abbruch
         # (GeneratorExit/CancelledError) zwischendrin etwas wirft.
         queue = conductor.store.subscribe(mission_id)
+        # Heartbeats halten Verbindung + Widget am Leben, während ein langsamer
+        # Agent (z. B. Claude, oft 10-40s) noch denkt. Ohne sie sieht das Widget
+        # nur Stille → blinkender Cursor ohne Text. Großzügiges Gesamt-Limit.
+        HEARTBEAT = 4.0
+        DEADLINE = 180.0
         try:
             async def run():
                 await conductor.dispatch(msg)
 
             asyncio.create_task(run())
-            while True:
-                event = await asyncio.wait_for(queue.get(), timeout=30.0)
-                if event.get("event") == "message" and event.get("type") == "response":
+            yield ": connected\n\n"  # sofort Bytes → Widget wartet nicht auf Stille
+            waited = 0.0
+            while waited < DEADLINE:
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=HEARTBEAT)
+                except TimeoutError:
+                    waited += HEARTBEAT
+                    yield ": keepalive\n\n"  # SSE-Kommentar (vom Widget ignoriert)
+                    continue
+                ev = event.get("event")
+                if ev == "message" and event.get("type") == "response":
                     result = event.get("payload", {}).get("result", "")
                     log.info("🌐 BRIDGE → dillenberg.net [%d chars] %r", len(result), result[:120])
                     final_state = "completed"
                     yield f"data: {json.dumps({'chunk': result, 'done': True})}\n\n"
                     break
-                if event.get("event") == "task_completed":
+                if ev == "task_completed":
                     final_state = "completed"
                     break
-                if event.get("event") in ("task_failed", "task_timeout"):
-                    final_state = event["event"].replace("task_", "")
+                if ev in ("task_failed", "task_timeout"):
+                    final_state = ev.replace("task_", "")
+                    yield f"data: {json.dumps({'error': 'Agent-Fehler', 'done': True})}\n\n"
                     break
-        except TimeoutError:
-            final_state = "timeout"
-            log.warning("🌐 BRIDGE timeout for mission %s", mission_id)
+            else:
+                final_state = "timeout"
+                log.warning("🌐 BRIDGE deadline for mission %s", mission_id)
+                yield f"data: {json.dumps({'error': 'Zeitüberschreitung', 'done': True})}\n\n"
         finally:
             conductor.store.unsubscribe(mission_id, queue)
             conductor.store.update_mission(mission_id, state=final_state, finished_at=time.time())

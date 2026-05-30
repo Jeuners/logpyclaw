@@ -23,6 +23,7 @@ import uuid
 from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from backend.api.agent_select import is_allowed, resolve_agent
 from backend.config import get_settings
 from backend.core.protocol import Message, external_ref, new_mission_id
 
@@ -44,27 +45,6 @@ def _unauth():
         {"error": {"message": "Invalid or missing API key.", "type": "invalid_request_error", "code": "invalid_api_key"}},
         status_code=401,
     )
-
-
-def _allowed_set() -> set[str] | None:
-    """Allowlist erlaubter Agenten für /v1/*. None = alle (nur lokaler Dev)."""
-    raw = get_settings().provider_models.strip()
-    if not raw:
-        return None
-    return {x.strip() for x in raw.split(",") if x.strip()}
-
-
-def _resolve_agent(model: str, conductor) -> str | None:
-    """Mappt das OpenAI-`model`-Feld auf eine Agent-ID."""
-    m = (model or "").strip()
-    if not m:
-        return "agent:alice"
-    if conductor.get_agent(m):
-        return m
-    for cand in (f"agent:{m}", f"skill:{m}"):
-        if conductor.get_agent(cand):
-            return cand
-    return None
 
 
 def _messages_to_prompt(messages: list) -> str:
@@ -130,12 +110,11 @@ async def list_models(
     if not _auth_ok(authorization, x_logpyclaw_token):
         return _unauth()
     conductor = request.app.state.conductor
-    allowed = _allowed_set()
     now = int(time.time())
     data = [
         {"id": a.agent_id, "object": "model", "created": now, "owned_by": "agentclaw"}
         for a in conductor.list_agents()
-        if a.agent_id != "a2a:gateway" and (allowed is None or a.agent_id in allowed)
+        if a.agent_id != "a2a:gateway" and is_allowed(a.agent_id)
     ]
     return {"object": "list", "data": data}
 
@@ -152,15 +131,14 @@ async def chat_completions(
     conductor = request.app.state.conductor
     body = await request.json()
     model = body.get("model", "agent:alice")
-    agent_id = _resolve_agent(model, conductor)
+    agent_id = resolve_agent(model, conductor)
     if not agent_id:
         return JSONResponse(
             {"error": {"message": f"The model '{model}' does not exist.",
                        "type": "invalid_request_error", "code": "model_not_found"}},
             status_code=404,
         )
-    allowed = _allowed_set()
-    if allowed is not None and agent_id not in allowed:
+    if not is_allowed(agent_id):
         return JSONResponse(
             {"error": {"message": f"The model '{model}' is not available via this provider.",
                        "type": "invalid_request_error", "code": "model_not_permitted"}},
