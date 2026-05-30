@@ -117,9 +117,9 @@ agents:
     skill_id: transcription
     enabled: true
     config:
-      whisper_model: ""   # WHISPER_MODEL_PATH
-      whisper_cli: ""     # WHISPER_CLI_PATH
-      ollama_url: ""      # OLLAMA_URL (default: http://localhost:11434)
+      whisper_model: "${HOME}/whisper-models/ggml-large-v3-turbo.bin"   # lokales whisper.cpp ggml-Modell
+      whisper_cli: "/opt/homebrew/bin/whisper-cli"                      # whisper.cpp CLI (brew)
+      ollama_url: "http://localhost:11434"                             # nur Fallback
 
   - type: claude
     id: agent:claude
