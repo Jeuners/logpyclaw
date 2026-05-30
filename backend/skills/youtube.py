@@ -38,6 +38,9 @@ def _find_ytdlp() -> str:
 YTDLP_BIN = _find_ytdlp()
 _DL_DIR   = os.path.expanduser("~/Downloads/AgentClaw")
 _ENV      = {**os.environ, "PATH": f"/opt/homebrew/bin:/usr/local/bin:{os.environ.get('PATH','')}"}
+# Browser-Cookies umgehen YouTubes "Sign in to confirm you're not a bot".
+# Leer setzen, um ohne Cookies zu fahren. (chrome/safari/firefox/brave/edge)
+_COOKIES_BROWSER = os.environ.get("YT_COOKIES_BROWSER", "chrome")
 
 _URL_RX        = re.compile(r"https?://(?:www\.)?(?:youtube\.com/(?:watch\?v=|shorts/)|youtu\.be/)[^\s\"'<>]+", re.I)
 _AUDIO_RX      = re.compile(r"\b(audio|mp3|musik|sound|ton|nur.audio|audio.only)\b", re.I)
@@ -47,7 +50,10 @@ _TRANSCRIPT_RX = re.compile(r"\b(transkript\w*|transcript\w*|untertitel|subtitle
 
 def _run(args: list[str], timeout: int = 120) -> tuple[str, str, int]:
     os.makedirs(_DL_DIR, exist_ok=True)
-    cmd = [YTDLP_BIN, "--extractor-args", "youtube:player_client=android,ios"] + args
+    cmd = [YTDLP_BIN]
+    if _COOKIES_BROWSER:
+        cmd += ["--cookies-from-browser", _COOKIES_BROWSER]
+    cmd += args
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=_ENV)
         return r.stdout, r.stderr, r.returncode
@@ -105,7 +111,10 @@ class YouTubeSkill(Skill):
             args = ["--no-playlist", "-f", "bestaudio/best", "--extract-audio",
                     "--audio-format", "mp3", "-o", out, "--print", "after_move:filepath", url]
         else:
-            args = ["--no-playlist", "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+            # Progressive https-mp4 (z. B. Format 18) zuerst — schnell & zuverlässig;
+            # HLS/DASH-Merge nur als Fallback (HLS ist oft zäh).
+            args = ["--no-playlist", "-f",
+                    "best[ext=mp4][protocol^=http]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
                     "--merge-output-format", "mp4", "-o", out, "--print", "after_move:filepath", url]
 
         stdout, stderr, rc = _run(args, timeout=600)
