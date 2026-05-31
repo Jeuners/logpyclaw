@@ -498,6 +498,16 @@
   }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
+  /* ── Bild-Analyse ── */
+  .img-preview { display:flex; align-items:center; gap:10px; padding:8px 14px;
+    background:rgba(139,92,246,.12); border-top:1px solid var(--border); }
+  .img-preview img { height:44px; width:44px; object-fit:cover; border-radius:6px; border:1px solid var(--border2); }
+  .img-preview span { flex:1; font-size:11px; color:#a78bfa; }
+  .img-preview button { background:none; border:none; color:var(--muted); cursor:pointer; font-size:16px; padding:2px 6px; line-height:1; }
+  .img-preview button:hover { color:#f43f7e; }
+  .chat-img { max-width:240px; max-height:200px; border-radius:8px; margin-top:8px; display:block; border:1px solid var(--border2); }
+  .chat-area.dragover { outline:2px dashed var(--accent); outline-offset:-8px; }
+
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
@@ -779,10 +789,19 @@
         <div class="chat-area" id="chat-area">
           <div class="empty" data-i18n="chat.empty">Select an agent and write a message.</div>
         </div>
+        <input type="file" id="img-file" accept="image/*" style="display:none">
+        <div class="img-preview" id="img-preview" style="display:none"></div>
         <div class="chat-input-row">
-          <textarea class="inp" id="chat-input" placeholder="Message …"
+          <textarea class="inp" id="chat-input" placeholder="Message … (oder Bild 🖼️ einfügen/einziehen)"
   onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
           <div class="chat-input-actions">
+            <button id="img-btn" onclick="document.getElementById('img-file').click()" title="Bild zur Analyse anhängen">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <path d="M21 15l-5-5L5 21"/>
+              </svg>
+            </button>
             <button id="mic-btn" onclick="toggleMic()" title="Spracheingabe">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
@@ -1459,6 +1478,7 @@ async function sendChat() {
   const input = document.getElementById('chat-input');
   const btn = document.getElementById('send-btn');
   const msg = input.value.trim();
+  if (_attachedImage) { return sendVision(msg); }   // Bild angehängt → Vision-Pfad
   if (!msg) return;
   if (!selectedAgent) { appendMsg('system', t('chat.select_agent')); return; }
   appendMsg('user', msg);
@@ -1569,6 +1589,85 @@ async function sendChat() {
     setAgentPulse(selectedAgent, false);
   };
 }
+
+// ── Bild-Analyse (Vision, lokales gemma3) ────────────────────────────────────
+let _attachedImage = null;   // data:-URL des angehängten Bildes
+
+function readImg(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const rd = new FileReader();
+  rd.onload = () => { _attachedImage = rd.result; showImgPreview(); };
+  rd.readAsDataURL(file);
+}
+function showImgPreview() {
+  const p = document.getElementById('img-preview');
+  if (!p) return;
+  p.style.display = 'flex'; p.innerHTML = '';
+  const im = document.createElement('img'); im.src = _attachedImage;
+  const sp = document.createElement('span'); sp.textContent = '🖼️ Bild bereit — Frage tippen oder direkt senden';
+  const x = document.createElement('button'); x.textContent = '✕'; x.title = 'Entfernen'; x.onclick = clearImg;
+  p.append(im, sp, x);
+  document.getElementById('chat-input')?.focus();
+}
+function clearImg() {
+  _attachedImage = null;
+  const p = document.getElementById('img-preview');
+  if (p) { p.style.display = 'none'; p.innerHTML = ''; }
+}
+
+async function sendVision(prompt) {
+  const input = document.getElementById('chat-input');
+  const btn = document.getElementById('send-btn');
+  const img = _attachedImage;
+  if (!img) return;
+  const uEl = appendMsg('user', prompt || '🖼️ Bild analysieren');
+  const thumb = document.createElement('img'); thumb.src = img; thumb.className = 'chat-img';
+  uEl.querySelector('.text').appendChild(thumb);
+  input.value = ''; input.style.height = 'auto';
+  clearImg();
+  btn.disabled = true;
+  const el = appendMsg('agent', '…', ''); el.classList.add('thinking');
+  const area = document.getElementById('chat-area'); area.scrollTop = area.scrollHeight;
+  try {
+    const r = await fetch(`${API}/api/vision`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: img, prompt }),
+    });
+    const d = await r.json();
+    el.classList.remove('thinking');
+    if (d.error) { el.querySelector('.text').textContent = '⚠️ ' + d.error; }
+    else {
+      renderMsgContent(el.querySelector('.text'), d.result || '(keine Antwort)');
+      el.querySelector('.meta').textContent = '🖼️ ' + (d.model || 'vision');
+    }
+  } catch (e) {
+    el.classList.remove('thinking');
+    el.querySelector('.text').textContent = '⚠️ ' + e.message;
+  }
+  btn.disabled = false;
+  area.scrollTop = area.scrollHeight;
+}
+
+// Datei-Auswahl · Einfügen (Paste) · Drag&Drop
+(function setupVisionInput() {
+  const file = document.getElementById('img-file');
+  if (file) file.addEventListener('change', e => { readImg(e.target.files[0]); e.target.value = ''; });
+  const inp = document.getElementById('chat-input');
+  if (inp) inp.addEventListener('paste', e => {
+    for (const it of (e.clipboardData?.items || [])) {
+      if (it.type.startsWith('image/')) { const f = it.getAsFile(); if (f) { readImg(f); e.preventDefault(); } }
+    }
+  });
+  const area = document.getElementById('chat-area');
+  if (area) {
+    area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('dragover'); });
+    area.addEventListener('dragleave', () => area.classList.remove('dragover'));
+    area.addEventListener('drop', e => {
+      e.preventDefault(); area.classList.remove('dragover');
+      const f = e.dataTransfer?.files?.[0]; if (f) readImg(f);
+    });
+  }
+})();
 
 function appendMsg(type, text, agentId = '') {
   const area = document.getElementById('chat-area');

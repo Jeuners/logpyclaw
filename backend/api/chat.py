@@ -1,14 +1,20 @@
 import asyncio
 import json
+import os
 import time
 
+import httpx
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from backend.config import get_settings
 from backend.core.protocol import Message, external_ref, new_mission_id
 
 router = APIRouter()
+
+# Vision: lokales Ollama-Modell für Bildanalyse (gemma3 multimodal, deutsch)
+VISION_MODEL = os.environ.get("VISION_MODEL", "gemma3:latest")
 
 
 class ChatRequest(BaseModel):
@@ -82,3 +88,33 @@ async def chat_stream(agent_id: str, message: str, request: Request):
             conductor.store.unsubscribe(mission_id, queue)
 
     return StreamingResponse(stream(), media_type="text/event-stream")
+
+
+class VisionRequest(BaseModel):
+    image: str            # base64 (optional mit data:-Präfix)
+    prompt: str = ""
+    model: str | None = None
+
+
+@router.post("/vision")
+async def vision(req: VisionRequest):
+    """Analysiert ein Bild lokal via Ollama Vision-Modell (gemma3)."""
+    image = req.image or ""
+    if image.startswith("data:"):
+        image = image.split(",", 1)[-1]  # data:image/png;base64,XXXX → XXXX
+    if not image.strip():
+        return {"error": "Kein Bild übergeben."}
+    prompt = (req.prompt or "").strip() or "Beschreibe dieses Bild ausführlich und präzise auf Deutsch."
+    model = req.model or VISION_MODEL
+    cfg = get_settings()
+    try:
+        async with httpx.AsyncClient(timeout=180.0) as client:
+            r = await client.post(
+                f"{cfg.ollama_url}/api/generate",
+                json={"model": model, "prompt": prompt, "images": [image], "stream": False},
+            )
+            r.raise_for_status()
+            data = r.json()
+        return {"result": (data.get("response") or "").strip(), "model": model}
+    except Exception as e:
+        return {"error": f"Vision-Fehler ({model}): {e}"}
