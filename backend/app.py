@@ -213,6 +213,28 @@ def _load_agents_yaml():
         raise SystemExit(f"[boot] Ungültige agents.yaml:\n{e}") from e
 
 
+def _load_initiatives() -> list[dict]:
+    """Optionaler Top-Level-Key `initiatives:` aus agents.yaml lesen.
+
+    Fehlt der Key (Normalfall), wird eine leere Liste zurückgegeben — keine
+    Tasks, kein Log-Spam. AgentsFile ignoriert den Extra-Key, deshalb hier
+    additiv direkt aus dem rohen YAML gelesen.
+    """
+    import os
+
+    import yaml
+
+    yaml_path = Path(__file__).parent.parent / "agents.yaml"
+    if not yaml_path.exists():
+        return []
+    try:
+        raw = os.path.expandvars(yaml_path.read_text(encoding="utf-8"))
+        data = yaml.safe_load(raw) or {}
+        return data.get("initiatives") or []
+    except yaml.YAMLError:
+        return []
+
+
 def _boot_agents() -> None:
     from backend.agents.base import AsyncAgent
     from backend.agents.martin import QCConfig
@@ -351,8 +373,20 @@ async def lifespan(app: FastAPI):
     import asyncio as _asyncio
     _asyncio.create_task(rss_fetch_all())
 
+    # Optionaler Initiative-Loop: nur wenn agents.yaml einen initiatives:-Key hat.
+    # Fehlt er (Normalfall), passiert nichts — Default-Verhalten unverändert.
+    app.state.initiative = None
+    initiatives = _load_initiatives()
+    if initiatives:
+        from backend.services.initiative import InitiativeService
+
+        app.state.initiative = InitiativeService(conductor, initiatives)
+        await app.state.initiative.start()
+
     yield
 
+    if app.state.initiative is not None:
+        await app.state.initiative.stop()
     scheduler.shutdown(wait=False)
     await conductor.stop()
 

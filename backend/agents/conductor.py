@@ -99,6 +99,61 @@ class Conductor:
             "result": result_msg.payload,
         }
 
+    # ── Mission initiieren (Peer-Dispatch) ────────────────────────────────────
+
+    async def initiate(
+        self,
+        sender_agent_id: str,
+        recipient: str,
+        content: str,
+        title: str = "",
+    ) -> dict:
+        """Lässt einen AGENTEN eine Mission anstoßen (statt ext:user).
+
+        Anders als start_mission ist der Sender hier ein registrierter Agent.
+        Das ist die erste Peer-Verkehr-Primitive: damit füttert Agent-zu-Agent-
+        Verkehr erstmals das Fraktions-Trust-Learning und den CDC-Klassifikator.
+        """
+        sender = self.get_agent(sender_agent_id)
+        if sender is None:
+            return {"error": f"sender not registered: {sender_agent_id}"}
+        if recipient == sender_agent_id:
+            return {"error": "recipient must differ from sender"}
+
+        mission_id = new_mission_id()
+        title = title or f"initiative:{sender_agent_id}>{recipient}"
+        self.store.register_mission(
+            mission_id,
+            {
+                "mission_id": mission_id,
+                "title": title,
+                "state": "running",
+                "started_at": time.time(),
+                "timeout_sec": _DEFAULT_TASK_TIMEOUT,
+                "initiated_by": sender_agent_id,
+            },
+        )
+        # Die AKTUELLE Clock des Senders mitgeben (advance_clock tickt + snapshot).
+        # Anders als start_mission (frische Clock) trägt Peer-Verkehr so echte
+        # Kausalhistorie — der Sender hat schon "gelebt", bevor er initiiert.
+        msg = Message.request(
+            mission_id=mission_id,
+            sender=sender_agent_id,
+            recipient=recipient,
+            content=content,
+            clock=sender.advance_clock(),
+        )
+        # Normaler dispatch()-Pfad: Envelope, Bridge und Trust-Learning passieren
+        # dort automatisch — hier NICHT duplizieren.
+        result_msg = await self.dispatch(msg)
+        state = "completed" if result_msg.type == MessageType.RESPONSE else "failed"
+        self.store.update_mission(mission_id, state=state, finished_at=time.time())
+        return {
+            "mission_id": mission_id,
+            "state": state,
+            "result": result_msg.payload,
+        }
+
     # ── Dispatch ──────────────────────────────────────────────────────────────
 
     async def dispatch(self, msg: Message) -> Message:

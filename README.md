@@ -47,8 +47,10 @@ Der Unterschied zu einem reinen "Agent Manager + Tool Layer" liegt im
 Fraktionen, Adversarial-Bridges und ein A2A-Gateway sind für Peer-Verkehr
 gebaut — die Infrastruktur ist da, der Dispatcher nutzt sie erst teilweise.
 Der Weg zu "echt": agenten-initiierte Missionen, parallele autonome Branches,
-Peer-Dispatch ohne Operator. Der CDC-Klassifikator ist dabei das Messgerät,
-an dem sich dieser Übergang ablesen lassen wird.
+Peer-Dispatch ohne Operator — die erste Stufe (agenten-initiierte Missionen via
+`Conductor.initiate()`, siehe "Peer-Dispatch & Initiative") existiert jetzt. Der
+CDC-Klassifikator ist dabei das Messgerät, an dem sich dieser Übergang ablesen
+lassen wird.
 
 ---
 
@@ -179,6 +181,48 @@ Multi-Step-Pläne laufen in parallelen Wellen entlang `depends_on`
 Fraktionssystem im Dispatch: Der Conductor baut automatisch das
 FactionEnvelope, lernt Trust/γ aus jedem Outcome und leitet ADVERSARIAL-Verkehr
 über Martins Operator-Bridge um (fail-closed: ohne Bridge wird abgelehnt).
+
+---
+
+## Peer-Dispatch & Initiative
+
+Bisher startete jede Mission bei `ext:user` (sternförmig). `Conductor.initiate()`
+schafft die erste Peer-Primitive: ein **Agent** stößt selbst eine Mission an.
+
+```python
+await conductor.initiate("agent:alice", "agent:bob", "schau dir das an")
+```
+
+Der Unterschied zu `start_mission()`:
+
+- **Sender ist der Agent** (`agent:alice`), nicht `ext:user`. Validierung:
+  Sender muss registriert sein (sonst `{"error": ...}`), `recipient ≠ sender`.
+- **Echte Clock-Historie**: die Message erbt die aktuelle Clock des Senders
+  (`advance_clock()`) statt einer frischen — der Sender hat schon "gelebt",
+  bevor er initiiert. Peer-Verkehr trägt damit echte Kausalhistorie.
+- **Trust-Learning zwischen Agent-Fraktionen**: der normale `dispatch()`-Pfad
+  baut Envelope, leitet ADVERSARIAL über die Bridge und lernt Trust/γ — jetzt
+  erstmals auch für Agent-zu-Agent-Verkehr (vorher war `ext:user` fraktionslos).
+
+Ein konfigurierbarer Initiative-Loop (`InitiativeService`) lässt das regelmäßig
+geschehen. Optionaler Top-Level-Key in `agents.yaml` (fehlt er, passiert nichts):
+
+```yaml
+initiatives:
+  - agent_id: agent:alice
+    recipient: agent:bob
+    content: "Status-Check: gibt es Neues?"
+    every_sec: 300        # auf min. 5.0 geclampt (DoS-Schutz)
+    enabled: true
+```
+
+Pro Entry läuft ein asyncio-Loop (`sleep` → `initiate`); der sleep-then-await-
+Aufbau garantiert maximal EINE Initiative gleichzeitig pro Entry. Einzelfehler
+sind fail-soft (Log-Warnung, Loop läuft weiter).
+
+Damit beginnt der Übergang von sternförmig zu Peer-Verkehr: der CDC-Klassifikator
+kann jetzt erstmals echten Agent-zu-Agent-Drift sehen. Bewusst NOCH NICHT dabei:
+LLM-getriebene Spontanität — erst die Mechanik, dann die Intelligenz.
 
 ---
 

@@ -14,19 +14,22 @@ bei dem Zeit, Vertrauen und Kausalität im Protokoll stecken.
 
 ## 1. System — der Weg zum echten Multi-Agent-System
 
-- [ ] **Peer-Dispatch**: Agenten dürfen Missionen initiieren und einander
+- [x] **Peer-Dispatch**: Agenten dürfen Missionen initiieren und einander
       direkt (via Conductor, aber ohne Martin-Umweg) beauftragen.
       Damit entsteht erstmals der Verkehr, für den der CDC-Klassifikator
-      gebaut ist.
-- [ ] **Agenten-Initiative**: Heartbeat-/Dream-artige Eigenzeit-Loops für
+      gebaut ist. → `Conductor.initiate()` (Agent als Sender, echte Clock,
+      normaler dispatch()-Pfad inkl. Trust-Learning).
+- [x] **Agenten-Initiative**: Heartbeat-/Dream-artige Eigenzeit-Loops für
       reguläre Agenten — ein Agent, der von sich aus etwas anstößt.
-- [ ] **Distributionales Zeitgefühl**: Eigenzeit-Raten als Verteilung
+      → `InitiativeService` (konfigurierbar via `initiatives:` in agents.yaml,
+      fail-soft, min-Intervall-Clamp). Noch ohne LLM-Spontanität.
+- [x] **Distributionales Zeitgefühl**: Eigenzeit-Raten als Verteilung
       (Median + Streuung) statt Skalar. Lektion 3 des Drachen-Experiments:
       ein Median ist kein Bauchgefühl. `llm_summary()` soll Unsicherheit
       mitliefern ("meistens 12s, selten 30s").
-- [ ] **Trust-Semantik schärfen**: `success` an den QC-Ausgang koppeln
-      (Score ≥ min) statt an den Message-Typ — QC-Fails zählen aktuell
-      als Erfolg.
+- [x] **Trust-Semantik schärfen**: `success` an den QC-Ausgang gekoppelt —
+      Martin setzt `_qc`-Metadaten (checked/score/passed), der Conductor
+      wertet inhaltlichen statt Transport-Erfolg.
 - [ ] **Stance-Matrix**: bleibt bewusst Policy (nicht gelernt) — im README
       kurz begründen, damit es nicht wie eine Lücke aussieht.
 - [ ] Kleinkram: Boot lädt komplette DB in RAM (Lazy-Trace-Load),
