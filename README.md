@@ -2,14 +2,24 @@
 
 CDC-native Multi-Agent-System mit zeitdilatations-bewusstem Routing.
 
+> **Zur Freigabe** — Der Code ist frei ([MIT-Lizenz](LICENSE)). Die zugrunde
+> liegende Idee — Causal-Dilation Clock und Fraktionsmodell — ist und bleibt
+> mein gedankliches Werk; wer die Konzepte weiterträgt, möge auf dieses
+> Projekt verweisen. Ich gebe den Code frei, weil er mir geholfen hat, Sinn
+> zu verstehen. Vielleicht hilft er auch dem einen oder anderen.
+>
+> *„Erst durch Zeit und Raum bin ich mir bewusst bewusst."* ;)
+
 ## Architektur
 
 LogpyClaw v3 verwendet eine **Causal-Dilation Clock (CDC)** auf jeder internen
 Message — als Pflichtfeld, nicht als optionale Metadata. Jeder Agent trägt ein
-`(Vector, Dilation)`-Tupel, das kausal Ordnung und subjektive Eigenzeit (τ)
-erfasst. Der **Conductor** dispatcht Messages zwischen Agenten, der
-**MartinAgent** übernimmt Operator-Routing und QC-Loops, und der
-**A2A-Gateway** übersetzt zwischen dem externen A2A-Protokoll und CDC.
+`(Vector, τ, Rate)`-Tripel: kausale Ordnung, kumulative Eigenzeit (τ) und
+Momentanrate (ops/s, EWMA-geglättet). Der **Conductor** dispatcht Messages
+zwischen Agenten und verdrahtet dabei das Fraktionssystem (Envelope,
+Trust-Learning, Adversarial-Bridge), der **MartinAgent** übernimmt
+Operator-Routing und QC-Loops, und der **A2A-Gateway** übersetzt zwischen dem
+externen A2A-Protokoll und CDC.
 
 ```
 User → MartinAgent → Conductor → Zielagent → Antwort
@@ -125,13 +135,27 @@ Martin ist der Operator-Agent und versteht folgende Routing-Syntax:
 # Fraktions-Routing (an ersten Agenten der Fraktion)
 #faction:makers Schreibe eine Fibonacci-Funktion
 
-# Normaler Text → LLM-Router (Ollama) wählt Zielagenten automatisch
+# Normaler Text → LLM-Planner/Router wählt Zielagenten automatisch
 Wer ist Einstein?
 ```
 
+**Explizite Adressierung gewinnt immer**: Enthält die Nachricht `@agent:`,
+`#skill:` oder `#faction:`, wird direkt delegiert — der LLM-Planner wird
+übersprungen und kann die Original-Spezifikation nicht umschreiben.
+
 QC-Loop: Wenn `MARTIN_QC_AUDITOR_ID` gesetzt ist, delegiert Martin nach
-jeder Antwort an den Auditor-Agenten (Score-Abfrage 1–10). Bei Score < `MARTIN_QC_MIN_SCORE`
-wird der Task mit verbessertem Prompt wiederholt (max. `MARTIN_QC_MAX_RETRIES` Mal).
+jeder Antwort an den Auditor-Agenten (Score-Abfrage 1–10, der Auditor sieht
+Aufgabe UND Ergebnis). Bei Score < `MARTIN_QC_MIN_SCORE` wird der Task mit
+verbessertem Prompt wiederholt (max. `MARTIN_QC_MAX_RETRIES` Mal). Fällt der
+Auditor aus, wird durchgewunken statt teuer zu retryen. Skills sind vom QC
+ausgenommen (deterministisch).
+
+Multi-Step-Pläne laufen in parallelen Wellen entlang `depends_on`
+(max. 20 Steps pro Plan, max. 4 parallel — DoS-Schutz).
+
+Fraktionssystem im Dispatch: Der Conductor baut automatisch das
+FactionEnvelope, lernt Trust/γ aus jedem Outcome und leitet ADVERSARIAL-Verkehr
+über Martins Operator-Bridge um (fail-closed: ohne Bridge wird abgelehnt).
 
 ---
 
@@ -183,12 +207,21 @@ tests/
 
 ### CDC (Causal-Dilation Clock)
 
-Jede Message trägt `clock: { vector: {...}, dilation: {...} }`.
+Jede Message trägt `clock: { vector: {...}, tau: {...}, dilation: {...} }`.
 
 - `vector`: Lamport-style kausale Ordnung pro Agent
-- `dilation`: Kumulative Eigenzeit τ (Operation-Count gewichtet)
+- `tau`: Kumulative Eigenzeit τ pro Agent (Σ op_weights, merge: max)
+- `dilation`: Momentanrate in ops/s (EWMA, merge: aktuellerer Vector-Stand gewinnt)
 
-4 Relationen: `ORDERED` | `CAUSAL_DRIFT` | `CONCURRENT_DRIFT` | `INCONSISTENT`
+4 Relationen (Vergleich auf τ-Basis): `ORDERED` | `CAUSAL_DRIFT` | `CONCURRENT_DRIFT` | `INCONSISTENT`
+
+Cross-faction-Drift wird über `classify_drift()` (faction_protocol) reklassifiziert:
+`EXPECTED_DRIFT` (kausal geordnet, Tempo-Verhältnis ≈ gelerntes γ) und
+`FACTION_RACE` (nebenläufig, strukturell erwartet) lösen keinen Alarm aus.
+
+Hinweis: `signing_payload()` kanonisiert weiterhin nur `vector` + `dilation` —
+`tau` ist abgeleitete Buchhaltung. So bleiben alte PQC-Hash-Chains verifizierbar.
+`verify_chain()` ist fail-closed: eine Mission ganz ohne Signaturen gilt nicht als valid.
 
 ### A2A Gateway
 

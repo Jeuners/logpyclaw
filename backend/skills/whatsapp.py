@@ -15,8 +15,8 @@ import shutil
 
 from backend.skills import Skill, SkillConfigField
 
-_WACLI        = shutil.which("wacli") or "/Users/jeuner/bin/wacli"
-_DEFAULT_GROUP = "120363408604509341@g.us"  # H.G.O.D. — einzige Gruppe
+_WACLI        = shutil.which("wacli") or os.path.expanduser("~/bin/wacli")
+_DEFAULT_GROUP = ""  # via WHATSAPP_DEFAULT_GROUP (.env) oder agents.yaml konfigurieren
 
 _GROUP_WORDS = re.compile(
     r"\b(gruppe|group|chat|kanal|channel|die\s+gruppe|unsere\s+gruppe|"

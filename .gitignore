@@ -5,6 +5,8 @@ __pycache__/
 venv/
 .env
 *.db
+*.db-wal
+*.db-shm
 *.sqlite
 node_modules/
 dist/

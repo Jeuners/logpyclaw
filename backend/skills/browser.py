@@ -13,6 +13,7 @@ Query-Syntax:
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 from html.parser import HTMLParser
 from pathlib import Path
@@ -23,7 +24,7 @@ from backend.skills import Skill
 
 _TIMEOUT = 15.0
 _MAX_CHARS = 5000
-_SCREENSHOT_SCRIPT = "/Users/jeuner/.claude/skills/screenshot/screenshot.sh"
+_SCREENSHOT_SCRIPT = os.path.expanduser("~/.claude/skills/screenshot/screenshot.sh")
 
 _SKIP_TAGS = {"script", "style", "nav", "footer", "head", "noscript", "iframe"}
 

@@ -34,9 +34,11 @@ BUILDS_DIR     = REPO_ROOT / "frontend" / "builds"
 FRONTEND_DIR   = REPO_ROOT / "frontend"
 META_FILE      = BUILDS_DIR / ".deploys.json"
 
-_SSH_HOST    = "root@c2.webbinder.de"
-_REMOTE_ROOT = "/var/www/dev.dillenberg.net"
-_PUBLIC_BASE = "https://dev.dillenberg.net"
+# Keine persönliche Infrastruktur als Default — Konfiguration via .env:
+# DEPLOY_SSH_HOST, DEPLOY_REMOTE_ROOT, DEPLOY_PUBLIC_BASE
+_SSH_HOST    = ""
+_REMOTE_ROOT = ""
+_PUBLIC_BASE = ""
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,40}$")
 
@@ -136,9 +138,15 @@ class DeploySkill(Skill):
                 )
 
         cfg = self.config
-        remote_root = cfg.get("remote_root", _REMOTE_ROOT)
-        ssh_host    = cfg.get("ssh_host",    _SSH_HOST)
-        public_base = cfg.get("public_base", _PUBLIC_BASE)
+        remote_root = cfg.get("remote_root") or _REMOTE_ROOT
+        ssh_host    = cfg.get("ssh_host") or _SSH_HOST
+        public_base = cfg.get("public_base") or _PUBLIC_BASE
+        if not (ssh_host and remote_root and public_base):
+            return (
+                "[Deploy] Nicht konfiguriert. Setze DEPLOY_SSH_HOST, "
+                "DEPLOY_REMOTE_ROOT und DEPLOY_PUBLIC_BASE in der .env "
+                "(siehe .env.example)."
+            )
         remote_path = f"{remote_root}/{slug}/"
 
         # Wenn Single-File: in tmp-dir verpacken

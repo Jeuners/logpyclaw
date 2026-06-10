@@ -44,7 +44,7 @@ agents:
     skill_id: whatsapp
     enabled: true
     config:
-      default_group: "120363408604509341@g.us"  # H.G.O.D. — einzige Gruppe
+      default_group: ""   # leer → WHATSAPP_DEFAULT_GROUP aus .env
 
   - type: llm
     id: agent:coder
@@ -110,6 +110,10 @@ agents:
     enabled: true
 
   - type: skill
+    skill_id: physorg
+    enabled: true
+
+  - type: skill
     skill_id: youtube
     enabled: true
 
@@ -126,7 +130,7 @@ agents:
     name: Claude
     faction: makers
     enabled: true
-    claude_bin: "/Users/jeuner/.local/bin/claude"
+    claude_bin: "${HOME}/.local/bin/claude"
     model: "claude-opus-4-8"
     goal: "Du bist ein Experten-Entwickler und kreativer Designer. Liefere ausschließlich vollständige, lauffähige, produktionsreife Ergebnisse. Kein Placeholder-Code, keine TODOs, keine halben Sachen. Qualitätsstandard: 10/10."
     timeout: 600   # 10min — reicht für komplette HTML-Builds (~1500+ Zeilen)

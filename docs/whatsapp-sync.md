@@ -75,7 +75,7 @@ Aktuelle Gruppe für `agents.yaml` und Default-Send-Ziel:
 - type: skill
   skill_id: whatsapp
   config:
-    default_group: "120363408604509341@g.us"   # H.G.O.D.
+    default_group: "<GRUPPEN-JID>@g.us"   # oder via WHATSAPP_DEFAULT_GROUP in .env
 ```
 
 Wird verwendet wenn keine explizite JID/Empfänger im Prompt steht oder
