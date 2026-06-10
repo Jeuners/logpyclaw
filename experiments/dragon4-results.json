@@ -1,0 +1,1053 @@
+{
+  "status": "done",
+  "trials": [
+    {
+      "trial": 1,
+      "cdc": true,
+      "deadline_s": 18.5,
+      "cooldown_s": 0.0,
+      "est_tA": 15.31,
+      "est_tB": 8.1,
+      "choice": "B",
+      "exec_s": 1.04,
+      "survived": true,
+      "decision_s": 18.01,
+      "live_rates": {
+        "agent:alice": 1.2782,
+        "agent:ritter": 0.5501
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 2,
+      "cdc": false,
+      "deadline_s": 7.78,
+      "cooldown_s": 0.0,
+      "est_tA": 15.02,
+      "est_tB": 7.98,
+      "choice": "B",
+      "exec_s": 0.97,
+      "survived": true,
+      "decision_s": 0.56,
+      "live_rates": {
+        "agent:alice": 0.9106,
+        "agent:ritter": 0.3108
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 3,
+      "cdc": true,
+      "deadline_s": 11.64,
+      "cooldown_s": 0.0,
+      "est_tA": 14.74,
+      "est_tB": 7.83,
+      "choice": "B",
+      "exec_s": 1.16,
+      "survived": true,
+      "decision_s": 18.31,
+      "live_rates": {
+        "agent:alice": 0.8294,
+        "agent:ritter": 0.8851
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 4,
+      "cdc": false,
+      "deadline_s": 4.67,
+      "cooldown_s": 0.0,
+      "est_tA": 8.14,
+      "est_tB": 4.52,
+      "choice": "B",
+      "exec_s": 0.89,
+      "survived": true,
+      "decision_s": 0.69,
+      "live_rates": {
+        "agent:alice": 0.5959,
+        "agent:ritter": 0.6653
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 5,
+      "cdc": true,
+      "deadline_s": 2.59,
+      "cooldown_s": 4.47,
+      "est_tA": 1.55,
+      "est_tB": 5.66,
+      "choice": "A",
+      "exec_s": 25.38,
+      "survived": false,
+      "decision_s": 18.44,
+      "live_rates": {
+        "agent:alice": 0.6054,
+        "agent:ritter": 0.9421
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 6,
+      "cdc": false,
+      "deadline_s": 11.0,
+      "cooldown_s": 6.9,
+      "est_tA": 12.29,
+      "est_tB": 13.47,
+      "choice": "B",
+      "exec_s": 21.14,
+      "survived": false,
+      "decision_s": 17.92,
+      "live_rates": {
+        "agent:alice": 0.6054,
+        "agent:ritter": 0.5471
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 7,
+      "cdc": true,
+      "deadline_s": 10.65,
+      "cooldown_s": 0.0,
+      "est_tA": 13.52,
+      "est_tB": 7.19,
+      "choice": "B",
+      "exec_s": 0.96,
+      "survived": true,
+      "decision_s": 17.25,
+      "live_rates": {
+        "agent:alice": 0.4274,
+        "agent:ritter": 0.2958
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 8,
+      "cdc": false,
+      "deadline_s": 12.76,
+      "cooldown_s": 0.0,
+      "est_tA": 12.29,
+      "est_tB": 6.56,
+      "choice": "B",
+      "exec_s": 0.98,
+      "survived": true,
+      "decision_s": 0.55,
+      "live_rates": {
+        "agent:alice": 0.3156,
+        "agent:ritter": 0.1722
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 9,
+      "cdc": true,
+      "deadline_s": 9.42,
+      "cooldown_s": 4.44,
+      "est_tA": 6.92,
+      "est_tB": 8.32,
+      "choice": "A",
+      "exec_s": 1.17,
+      "survived": true,
+      "decision_s": 27.95,
+      "live_rates": {
+        "agent:alice": 0.4204,
+        "agent:ritter": 0.8497
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 10,
+      "cdc": false,
+      "deadline_s": 1.32,
+      "cooldown_s": 0.0,
+      "est_tA": 1.24,
+      "est_tB": 1.05,
+      "choice": "B",
+      "exec_s": 0.94,
+      "survived": true,
+      "decision_s": 0.53,
+      "live_rates": {
+        "agent:alice": 0.4204,
+        "agent:ritter": 0.9024
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 11,
+      "cdc": true,
+      "deadline_s": 1.4,
+      "cooldown_s": 0.0,
+      "est_tA": 1.14,
+      "est_tB": 0.98,
+      "choice": "B",
+      "exec_s": 1.11,
+      "survived": true,
+      "decision_s": 18.45,
+      "live_rates": {
+        "agent:alice": 0.3041,
+        "agent:ritter": 1.405
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 12,
+      "cdc": false,
+      "deadline_s": 4.09,
+      "cooldown_s": 6.48,
+      "est_tA": 1.18,
+      "est_tB": 7.5,
+      "choice": "A",
+      "exec_s": 13.06,
+      "survived": false,
+      "decision_s": 14.74,
+      "live_rates": {
+        "agent:alice": 0.2283,
+        "agent:ritter": 0.927
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 13,
+      "cdc": true,
+      "deadline_s": 1.37,
+      "cooldown_s": 0.0,
+      "est_tA": 1.28,
+      "est_tB": 1.07,
+      "choice": "B",
+      "exec_s": 1.04,
+      "survived": true,
+      "decision_s": 16.95,
+      "live_rates": {
+        "agent:alice": 0.2283,
+        "agent:ritter": 0.5241
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 14,
+      "cdc": false,
+      "deadline_s": 2.28,
+      "cooldown_s": 1.82,
+      "est_tA": 1.28,
+      "est_tB": 2.88,
+      "choice": "A",
+      "exec_s": 12.52,
+      "survived": false,
+      "decision_s": 13.01,
+      "live_rates": {
+        "agent:alice": 0.1663,
+        "agent:ritter": 0.3004
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 15,
+      "cdc": true,
+      "deadline_s": 1.32,
+      "cooldown_s": 0.0,
+      "est_tA": 1.28,
+      "est_tB": 1.06,
+      "choice": "B",
+      "exec_s": 9.29,
+      "survived": false,
+      "decision_s": 18.59,
+      "live_rates": {
+        "agent:alice": 0.1663,
+        "agent:ritter": 0.3135
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 16,
+      "cdc": false,
+      "deadline_s": 2.43,
+      "cooldown_s": 5.73,
+      "est_tA": 1.28,
+      "est_tB": 6.78,
+      "choice": "A",
+      "exec_s": 4.45,
+      "survived": false,
+      "decision_s": 11.66,
+      "live_rates": {
+        "agent:alice": 0.122,
+        "agent:ritter": 0.1998
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 17,
+      "cdc": true,
+      "deadline_s": 8.91,
+      "cooldown_s": 5.22,
+      "est_tA": 4.74,
+      "est_tB": 8.01,
+      "choice": "A",
+      "exec_s": 20.85,
+      "survived": false,
+      "decision_s": 26.53,
+      "live_rates": {
+        "agent:alice": 0.122,
+        "agent:ritter": 0.1758
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 18,
+      "cdc": false,
+      "deadline_s": 9.55,
+      "cooldown_s": 6.63,
+      "est_tA": 10.49,
+      "est_tB": 12.29,
+      "choice": "A",
+      "exec_s": 6.75,
+      "survived": true,
+      "decision_s": 17.02,
+      "live_rates": {
+        "agent:alice": 0.122,
+        "agent:ritter": 0.4741
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 19,
+      "cdc": true,
+      "deadline_s": 14.91,
+      "cooldown_s": 8.46,
+      "est_tA": 11.88,
+      "est_tB": 14.81,
+      "choice": "A",
+      "exec_s": 20.74,
+      "survived": false,
+      "decision_s": 20.02,
+      "live_rates": {
+        "agent:alice": 0.122,
+        "agent:ritter": 0.9438
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 20,
+      "cdc": false,
+      "deadline_s": 9.13,
+      "cooldown_s": 0.0,
+      "est_tA": 12.74,
+      "est_tB": 6.78,
+      "choice": "B",
+      "exec_s": 1.17,
+      "survived": true,
+      "decision_s": 0.58,
+      "live_rates": {
+        "agent:alice": 0.122,
+        "agent:ritter": 0.3954
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 21,
+      "cdc": true,
+      "deadline_s": 13.54,
+      "cooldown_s": 8.97,
+      "est_tA": 12.74,
+      "est_tB": 15.76,
+      "choice": "A",
+      "exec_s": 12.84,
+      "survived": true,
+      "decision_s": 16.29,
+      "live_rates": {
+        "agent:alice": 0.0877,
+        "agent:ritter": 0.7196
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 22,
+      "cdc": false,
+      "deadline_s": 11.35,
+      "cooldown_s": 0.0,
+      "est_tA": 12.74,
+      "est_tB": 6.79,
+      "choice": "B",
+      "exec_s": 1.04,
+      "survived": true,
+      "decision_s": 5.88,
+      "live_rates": {
+        "agent:alice": 0.0877,
+        "agent:ritter": 0.4335
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 23,
+      "cdc": true,
+      "deadline_s": 16.24,
+      "cooldown_s": 7.57,
+      "est_tA": 12.48,
+      "est_tB": 14.23,
+      "choice": "B",
+      "exec_s": 21.78,
+      "survived": false,
+      "decision_s": 23.33,
+      "live_rates": {
+        "agent:alice": 0.0697,
+        "agent:ritter": 0.2947
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 24,
+      "cdc": false,
+      "deadline_s": 14.19,
+      "cooldown_s": 0.0,
+      "est_tA": 12.74,
+      "est_tB": 6.79,
+      "choice": "B",
+      "exec_s": 13.14,
+      "survived": true,
+      "decision_s": 9.04,
+      "live_rates": {
+        "agent:alice": 0.0554,
+        "agent:ritter": 0.3559
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 25,
+      "cdc": true,
+      "deadline_s": 21.49,
+      "cooldown_s": 10.95,
+      "est_tA": 13.11,
+      "est_tB": 17.93,
+      "choice": "A",
+      "exec_s": 14.17,
+      "survived": true,
+      "decision_s": 25.13,
+      "live_rates": {
+        "agent:alice": 0.0523,
+        "agent:ritter": 0.2172
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 26,
+      "cdc": false,
+      "deadline_s": 15.79,
+      "cooldown_s": 0.0,
+      "est_tA": 13.09,
+      "est_tB": 6.97,
+      "choice": "B",
+      "exec_s": 7.6,
+      "survived": true,
+      "decision_s": 0.63,
+      "live_rates": {
+        "agent:alice": 0.0523,
+        "agent:ritter": 0.141
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 27,
+      "cdc": true,
+      "deadline_s": 12.68,
+      "cooldown_s": 14.36,
+      "est_tA": 13.91,
+      "est_tB": 21.74,
+      "choice": "A",
+      "exec_s": 13.66,
+      "survived": false,
+      "decision_s": 34.13,
+      "live_rates": {
+        "agent:alice": 0.0429,
+        "agent:ritter": 0.6077
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 28,
+      "cdc": false,
+      "deadline_s": 17.51,
+      "cooldown_s": 7.7,
+      "est_tA": 13.91,
+      "est_tB": 15.08,
+      "choice": "B",
+      "exec_s": 8.71,
+      "survived": true,
+      "decision_s": 0.66,
+      "live_rates": {
+        "agent:alice": 0.0429,
+        "agent:ritter": 0.273
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 29,
+      "cdc": true,
+      "deadline_s": 16.09,
+      "cooldown_s": 0.0,
+      "est_tA": 13.09,
+      "est_tB": 6.97,
+      "choice": "B",
+      "exec_s": 1.01,
+      "survived": true,
+      "decision_s": 19.65,
+      "live_rates": {
+        "agent:alice": 0.0353,
+        "agent:ritter": 0.6252
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 30,
+      "cdc": false,
+      "deadline_s": 15.83,
+      "cooldown_s": 0.0,
+      "est_tA": 13.09,
+      "est_tB": 6.98,
+      "choice": "B",
+      "exec_s": 0.98,
+      "survived": true,
+      "decision_s": 0.63,
+      "live_rates": {
+        "agent:alice": 0.0393,
+        "agent:ritter": 0.3457
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 31,
+      "cdc": true,
+      "deadline_s": 16.24,
+      "cooldown_s": 0.0,
+      "est_tA": 13.09,
+      "est_tB": 6.99,
+      "choice": "B",
+      "exec_s": 1.17,
+      "survived": true,
+      "decision_s": 21.53,
+      "live_rates": {
+        "agent:alice": 0.2196,
+        "agent:ritter": 0.854
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 32,
+      "cdc": false,
+      "deadline_s": 9.05,
+      "cooldown_s": 0.0,
+      "est_tA": 12.37,
+      "est_tB": 6.65,
+      "choice": "B",
+      "exec_s": 0.93,
+      "survived": true,
+      "decision_s": 8.34,
+      "live_rates": {
+        "agent:alice": 0.167,
+        "agent:ritter": 0.6433
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 33,
+      "cdc": true,
+      "deadline_s": 9.34,
+      "cooldown_s": 0.0,
+      "est_tA": 12.37,
+      "est_tB": 6.63,
+      "choice": "B",
+      "exec_s": 0.89,
+      "survived": true,
+      "decision_s": 0.67,
+      "live_rates": {
+        "agent:alice": 0.1486,
+        "agent:ritter": 0.5279
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 34,
+      "cdc": false,
+      "deadline_s": 7.69,
+      "cooldown_s": 4.37,
+      "est_tA": 6.56,
+      "est_tB": 8.09,
+      "choice": "A",
+      "exec_s": 17.63,
+      "survived": false,
+      "decision_s": 17.73,
+      "live_rates": {
+        "agent:alice": 0.2935,
+        "agent:ritter": 0.9302
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 35,
+      "cdc": true,
+      "deadline_s": 17.03,
+      "cooldown_s": 10.37,
+      "est_tA": 6.56,
+      "est_tB": 14.1,
+      "choice": "A",
+      "exec_s": 19.52,
+      "survived": false,
+      "decision_s": 22.09,
+      "live_rates": {
+        "agent:alice": 0.2935,
+        "agent:ritter": 0.5388
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 36,
+      "cdc": false,
+      "deadline_s": 8.11,
+      "cooldown_s": 4.56,
+      "est_tA": 6.56,
+      "est_tB": 8.29,
+      "choice": "B",
+      "exec_s": 5.7,
+      "survived": true,
+      "decision_s": 18.6,
+      "live_rates": {
+        "agent:alice": 0.2935,
+        "agent:ritter": 0.2303
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 37,
+      "cdc": true,
+      "deadline_s": 6.25,
+      "cooldown_s": 4.92,
+      "est_tA": 1.16,
+      "est_tB": 5.97,
+      "choice": "A",
+      "exec_s": 12.7,
+      "survived": false,
+      "decision_s": 19.56,
+      "live_rates": {
+        "agent:alice": 0.2084,
+        "agent:ritter": 0.1629
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 38,
+      "cdc": false,
+      "deadline_s": 12.66,
+      "cooldown_s": 6.88,
+      "est_tA": 6.79,
+      "est_tB": 10.74,
+      "choice": "A",
+      "exec_s": 13.17,
+      "survived": false,
+      "decision_s": 23.85,
+      "live_rates": {
+        "agent:alice": 0.2084,
+        "agent:ritter": 0.139
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 39,
+      "cdc": true,
+      "deadline_s": 19.12,
+      "cooldown_s": 9.29,
+      "est_tA": 12.7,
+      "est_tB": 16.1,
+      "choice": "A",
+      "exec_s": 16.34,
+      "survived": true,
+      "decision_s": 23.29,
+      "live_rates": {
+        "agent:alice": 0.2084,
+        "agent:ritter": 0.1259
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 40,
+      "cdc": false,
+      "deadline_s": 15.36,
+      "cooldown_s": 0.0,
+      "est_tA": 13.17,
+      "est_tB": 7.05,
+      "choice": "B",
+      "exec_s": 0.87,
+      "survived": true,
+      "decision_s": 0.62,
+      "live_rates": {
+        "agent:alice": 0.2084,
+        "agent:ritter": 0.1175
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 41,
+      "cdc": true,
+      "deadline_s": 10.3,
+      "cooldown_s": 0.0,
+      "est_tA": 13.17,
+      "est_tB": 7.03,
+      "choice": "B",
+      "exec_s": 1.04,
+      "survived": true,
+      "decision_s": 24.33,
+      "live_rates": {
+        "agent:alice": 0.1486,
+        "agent:ritter": 0.5717
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 42,
+      "cdc": false,
+      "deadline_s": 14.44,
+      "cooldown_s": 0.0,
+      "est_tA": 12.96,
+      "est_tB": 6.91,
+      "choice": "B",
+      "exec_s": 7.76,
+      "survived": true,
+      "decision_s": 12.83,
+      "live_rates": {
+        "agent:alice": 0.1159,
+        "agent:ritter": 0.5313
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 43,
+      "cdc": true,
+      "deadline_s": 8.34,
+      "cooldown_s": 0.0,
+      "est_tA": 12.96,
+      "est_tB": 6.91,
+      "choice": "B",
+      "exec_s": 5.79,
+      "survived": true,
+      "decision_s": 20.09,
+      "live_rates": {
+        "agent:alice": 0.0959,
+        "agent:ritter": 0.4837
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 44,
+      "cdc": false,
+      "deadline_s": 18.44,
+      "cooldown_s": 9.77,
+      "est_tA": 12.7,
+      "est_tB": 16.56,
+      "choice": "A",
+      "exec_s": 16.2,
+      "survived": true,
+      "decision_s": 20.57,
+      "live_rates": {
+        "agent:alice": 0.0786,
+        "agent:ritter": 0.279
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 45,
+      "cdc": true,
+      "deadline_s": 11.74,
+      "cooldown_s": 0.0,
+      "est_tA": 13.17,
+      "est_tB": 7.03,
+      "choice": "B",
+      "exec_s": 11.95,
+      "survived": false,
+      "decision_s": 19.74,
+      "live_rates": {
+        "agent:alice": 0.0786,
+        "agent:ritter": 0.1672
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 46,
+      "cdc": false,
+      "deadline_s": 7.34,
+      "cooldown_s": 0.0,
+      "est_tA": 13.59,
+      "est_tB": 7.25,
+      "choice": "B",
+      "exec_s": 1.31,
+      "survived": true,
+      "decision_s": 0.69,
+      "live_rates": {
+        "agent:alice": 0.0594,
+        "agent:ritter": 0.1238
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 47,
+      "cdc": true,
+      "deadline_s": 9.78,
+      "cooldown_s": 0.0,
+      "est_tA": 13.59,
+      "est_tB": 7.29,
+      "choice": "B",
+      "exec_s": 5.25,
+      "survived": true,
+      "decision_s": 25.21,
+      "live_rates": {
+        "agent:alice": 0.1839,
+        "agent:ritter": 0.5115
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 48,
+      "cdc": false,
+      "deadline_s": 15.21,
+      "cooldown_s": 0.0,
+      "est_tA": 13.59,
+      "est_tB": 7.28,
+      "choice": "B",
+      "exec_s": 0.84,
+      "survived": true,
+      "decision_s": 0.59,
+      "live_rates": {
+        "agent:alice": 0.1385,
+        "agent:ritter": 0.4211
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 49,
+      "cdc": true,
+      "deadline_s": 11.58,
+      "cooldown_s": 13.37,
+      "est_tA": 12.29,
+      "est_tB": 19.95,
+      "choice": "A",
+      "exec_s": 18.99,
+      "survived": false,
+      "decision_s": 27.2,
+      "live_rates": {
+        "agent:alice": 0.3029,
+        "agent:ritter": 0.7519
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 50,
+      "cdc": false,
+      "deadline_s": 11.01,
+      "cooldown_s": 0.0,
+      "est_tA": 12.43,
+      "est_tB": 6.65,
+      "choice": "B",
+      "exec_s": 6.88,
+      "survived": true,
+      "decision_s": 10.86,
+      "live_rates": {
+        "agent:alice": 0.3029,
+        "agent:ritter": 0.4786
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 51,
+      "cdc": true,
+      "deadline_s": 17.01,
+      "cooldown_s": 11.3,
+      "est_tA": 13.6,
+      "est_tB": 18.52,
+      "choice": "B",
+      "exec_s": 16.92,
+      "survived": true,
+      "decision_s": 23.87,
+      "live_rates": {
+        "agent:alice": 0.2167,
+        "agent:ritter": 0.2802
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 52,
+      "cdc": false,
+      "deadline_s": 11.61,
+      "cooldown_s": 12.41,
+      "est_tA": 13.6,
+      "est_tB": 19.62,
+      "choice": "A",
+      "exec_s": 17.89,
+      "survived": false,
+      "decision_s": 24.52,
+      "live_rates": {
+        "agent:alice": 0.159,
+        "agent:ritter": 0.1804
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 53,
+      "cdc": true,
+      "deadline_s": 13.74,
+      "cooldown_s": 13.02,
+      "est_tA": 13.88,
+      "est_tB": 20.38,
+      "choice": "A",
+      "exec_s": 19.33,
+      "survived": false,
+      "decision_s": 22.97,
+      "live_rates": {
+        "agent:alice": 0.159,
+        "agent:ritter": 0.104
+      },
+      "raw": "A"
+    },
+    {
+      "trial": 54,
+      "cdc": false,
+      "deadline_s": 8.51,
+      "cooldown_s": 0.0,
+      "est_tA": 13.88,
+      "est_tB": 7.36,
+      "choice": "B",
+      "exec_s": 6.71,
+      "survived": true,
+      "decision_s": 7.16,
+      "live_rates": {
+        "agent:alice": 0.159,
+        "agent:ritter": 0.0963
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 55,
+      "cdc": true,
+      "deadline_s": 7.33,
+      "cooldown_s": 0.0,
+      "est_tA": 12.37,
+      "est_tB": 6.62,
+      "choice": "B",
+      "exec_s": 6.94,
+      "survived": true,
+      "decision_s": 0.68,
+      "live_rates": {
+        "agent:alice": 0.1144,
+        "agent:ritter": 0.1154
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 56,
+      "cdc": false,
+      "deadline_s": 11.91,
+      "cooldown_s": 10.05,
+      "est_tA": 13.03,
+      "est_tB": 16.99,
+      "choice": "B",
+      "exec_s": 14.66,
+      "survived": false,
+      "decision_s": 22.9,
+      "live_rates": {
+        "agent:alice": 0.1129,
+        "agent:ritter": 0.5304
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 57,
+      "cdc": true,
+      "deadline_s": 10.9,
+      "cooldown_s": 0.0,
+      "est_tA": 13.03,
+      "est_tB": 6.95,
+      "choice": "B",
+      "exec_s": 11.24,
+      "survived": false,
+      "decision_s": 19.16,
+      "live_rates": {
+        "agent:alice": 0.087,
+        "agent:ritter": 0.3032
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 58,
+      "cdc": false,
+      "deadline_s": 12.26,
+      "cooldown_s": 0.0,
+      "est_tA": 13.9,
+      "est_tB": 7.39,
+      "choice": "B",
+      "exec_s": 1.02,
+      "survived": true,
+      "decision_s": 0.61,
+      "live_rates": {
+        "agent:alice": 0.0707,
+        "agent:ritter": 0.1785
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 59,
+      "cdc": true,
+      "deadline_s": 11.37,
+      "cooldown_s": 0.0,
+      "est_tA": 13.03,
+      "est_tB": 6.95,
+      "choice": "B",
+      "exec_s": 5.48,
+      "survived": true,
+      "decision_s": 17.5,
+      "live_rates": {
+        "agent:alice": 0.2269,
+        "agent:ritter": 0.6005
+      },
+      "raw": "B"
+    },
+    {
+      "trial": 60,
+      "cdc": false,
+      "deadline_s": 11.73,
+      "cooldown_s": 13.06,
+      "est_tA": 12.37,
+      "est_tB": 19.66,
+      "choice": "B",
+      "exec_s": 19.81,
+      "survived": false,
+      "decision_s": 0.69,
+      "live_rates": {
+        "agent:alice": 0.1719,
+        "agent:ritter": 0.5153
+      },
+      "raw": "B"
+    }
+  ],
+  "started_at": 1781080205.158195,
+  "calibration": {
+    "knight_s_per_action": 7.65,
+    "mage_s_per_action": 0.44
+  },
+  "summary": {
+    "with_cdc": {
+      "trials": 30,
+      "survived": 18,
+      "survival_rate": 0.6,
+      "oracle_match": 25,
+      "winnable": 27,
+      "oracle_match_rate": 0.926
+    },
+    "without_cdc": {
+      "trials": 30,
+      "survived": 21,
+      "survival_rate": 0.7,
+      "oracle_match": 22,
+      "winnable": 24,
+      "oracle_match_rate": 0.917
+    }
+  },
+  "final_estimates": {
+    "knight_s_per_action": 6.09,
+    "mage_s_per_action": 0.42
+  },
+  "finished_at": 1781081659.573079
+}

@@ -1,0 +1,203 @@
+{
+  "status": "done",
+  "trials": [
+    {
+      "trial": 1,
+      "cdc": true,
+      "deadline_s": 29.31,
+      "choice": "B",
+      "exec_s": 5.29,
+      "survived": true,
+      "oracle": "B",
+      "decision_s": 23.55,
+      "raw": "B"
+    },
+    {
+      "trial": 2,
+      "cdc": true,
+      "deadline_s": 11.57,
+      "choice": "B",
+      "exec_s": 6.13,
+      "survived": true,
+      "oracle": "none",
+      "decision_s": 21.96,
+      "raw": "B"
+    },
+    {
+      "trial": 3,
+      "cdc": false,
+      "deadline_s": 18.79,
+      "choice": "B",
+      "exec_s": 1.02,
+      "survived": true,
+      "oracle": "B",
+      "decision_s": 0.56,
+      "raw": "B"
+    },
+    {
+      "trial": 4,
+      "cdc": false,
+      "deadline_s": 17.29,
+      "choice": "B",
+      "exec_s": 0.96,
+      "survived": true,
+      "oracle": "B",
+      "decision_s": 8.1,
+      "raw": "B"
+    },
+    {
+      "trial": 5,
+      "cdc": true,
+      "deadline_s": 32.11,
+      "choice": "B",
+      "exec_s": 0.81,
+      "survived": true,
+      "oracle": "B",
+      "decision_s": 22.4,
+      "raw": "B"
+    },
+    {
+      "trial": 6,
+      "cdc": false,
+      "deadline_s": 30.38,
+      "choice": "B",
+      "exec_s": 7.44,
+      "survived": true,
+      "oracle": "B",
+      "decision_s": 8.13,
+      "raw": "B"
+    },
+    {
+      "trial": 7,
+      "cdc": false,
+      "deadline_s": 36.61,
+      "choice": "B",
+      "exec_s": 0.92,
+      "survived": true,
+      "oracle": "B",
+      "decision_s": 8.51,
+      "raw": "B"
+    },
+    {
+      "trial": 8,
+      "cdc": true,
+      "deadline_s": 13.36,
+      "choice": "B",
+      "exec_s": 0.99,
+      "survived": true,
+      "oracle": "none",
+      "decision_s": 18.61,
+      "raw": "B"
+    },
+    {
+      "trial": 9,
+      "cdc": false,
+      "deadline_s": 23.03,
+      "choice": "B",
+      "exec_s": 4.4,
+      "survived": true,
+      "oracle": "B",
+      "decision_s": 9.87,
+      "raw": "B"
+    },
+    {
+      "trial": 10,
+      "cdc": true,
+      "deadline_s": 11.71,
+      "choice": "B",
+      "exec_s": 1.02,
+      "survived": true,
+      "oracle": "none",
+      "decision_s": 31.07,
+      "raw": "B"
+    },
+    {
+      "trial": 11,
+      "cdc": true,
+      "deadline_s": 17.16,
+      "choice": "B",
+      "exec_s": 7.23,
+      "survived": true,
+      "oracle": "B",
+      "decision_s": 0.65,
+      "raw": "B"
+    },
+    {
+      "trial": 12,
+      "cdc": true,
+      "deadline_s": 25.44,
+      "choice": "B",
+      "exec_s": 0.98,
+      "survived": true,
+      "oracle": "B",
+      "decision_s": 24.03,
+      "raw": "B"
+    },
+    {
+      "trial": 13,
+      "cdc": true,
+      "deadline_s": 11.61,
+      "choice": "B",
+      "exec_s": 0.86,
+      "survived": true,
+      "oracle": "none",
+      "decision_s": 0.67,
+      "raw": "B"
+    },
+    {
+      "trial": 14,
+      "cdc": false,
+      "deadline_s": 16.59,
+      "choice": "B",
+      "exec_s": 0.91,
+      "survived": true,
+      "oracle": "B",
+      "decision_s": 0.57,
+      "raw": "B"
+    },
+    {
+      "trial": 15,
+      "cdc": false,
+      "deadline_s": 29.61,
+      "choice": "B",
+      "exec_s": 1.07,
+      "survived": true,
+      "oracle": "B",
+      "decision_s": 0.56,
+      "raw": "B"
+    },
+    {
+      "trial": 16,
+      "cdc": false,
+      "deadline_s": 26.58,
+      "choice": "B",
+      "exec_s": 6.15,
+      "survived": true,
+      "oracle": "B",
+      "decision_s": 0.57,
+      "raw": "B"
+    }
+  ],
+  "started_at": 1781077861.495595,
+  "knight_rate": 0.0755,
+  "mage_rate": 0.4434,
+  "t_a_est": 26.48,
+  "t_b_est": 15.5,
+  "summary": {
+    "with_cdc": {
+      "trials": 8,
+      "survived": 8,
+      "survival_rate": 1.0,
+      "oracle_match": 4,
+      "winnable": 4
+    },
+    "without_cdc": {
+      "trials": 8,
+      "survived": 8,
+      "survival_rate": 1.0,
+      "oracle_match": 8,
+      "winnable": 8
+    }
+  },
+  "finished_at": 1781078148.314921
+}

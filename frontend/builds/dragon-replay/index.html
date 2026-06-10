@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>DRAGON DECISION — Experiment-Replay</title>
+<style>
+  :root { --amber:#ffb000; --green:#33ff66; --red:#ff3a4a; --blue:#5aa0ff; --purp:#c77dff; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; background:#07080d; color:#ffb000; font-family:'Courier New',monospace;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; }
+  h1 { font-size:18px; letter-spacing:3px; }
+  #sub { font-size:11px; color:#7a8896; }
+  canvas { background:#0b0d16; border-radius:10px; box-shadow:0 0 40px rgba(255,176,0,.12); }
+  #bar { display:flex; gap:8px; align-items:center; font-size:12px; }
+  button { background:#141826; color:#ffb000; border:1px solid #2a3142; border-radius:6px;
+    padding:6px 12px; font-family:inherit; font-size:12px; cursor:pointer; }
+  button:hover { background:#1c2236; }
+  button.active { border-color:var(--amber); }
+  #score { font-size:12px; color:#cfd6df; }
+  #score b.g { color:var(--green); } #score b.r { color:var(--red); }
+</style>
+</head>
+<body>
+<h1>DRAGON DECISION</h1>
+<div id="sub">Replay des Zeitgefühl-Experiments (n=60, echte Latenzen) · LogpyClaw v3</div>
+<canvas id="cv" width="860" height="340"></canvas>
+<div id="bar">
+  <button id="play">▶ Auto-Replay</button>
+  <button id="next">⏭ Nächstes Trial</button>
+  <button id="fAll" class="active">alle</button>
+  <button id="fCdc">nur MIT Zeitgefühl</button>
+  <button id="fNo">nur OHNE</button>
+  <span id="score"></span>
+</div>
+<script>
+const DATA = [{"trial": 1, "cdc": true, "deadline_s": 18.5, "cooldown_s": 0.0, "choice": "B", "exec_s": 1.04, "survived": true}, {"trial": 2, "cdc": false, "deadline_s": 7.78, "cooldown_s": 0.0, "choice": "B", "exec_s": 0.97, "survived": true}, {"trial": 3, "cdc": true, "deadline_s": 11.64, "cooldown_s": 0.0, "choice": "B", "exec_s": 1.16, "survived": true}, {"trial": 4, "cdc": false, "deadline_s": 4.67, "cooldown_s": 0.0, "choice": "B", "exec_s": 0.89, "survived": true}, {"trial": 5, "cdc": true, "deadline_s": 2.59, "cooldown_s": 4.47, "choice": "A", "exec_s": 25.38, "survived": false}, {"trial": 6, "cdc": false, "deadline_s": 11.0, "cooldown_s": 6.9, "choice": "B", "exec_s": 21.14, "survived": false}, {"trial": 7, "cdc": true, "deadline_s": 10.65, "cooldown_s": 0.0, "choice": "B", "exec_s": 0.96, "survived": true}, {"trial": 8, "cdc": false, "deadline_s": 12.76, "cooldown_s": 0.0, "choice": "B", "exec_s": 0.98, "survived": true}, {"trial": 9, "cdc": true, "deadline_s": 9.42, "cooldown_s": 4.44, "choice": "A", "exec_s": 1.17, "survived": true}, {"trial": 10, "cdc": false, "deadline_s": 1.32, "cooldown_s": 0.0, "choice": "B", "exec_s": 0.94, "survived": true}, {"trial": 11, "cdc": true, "deadline_s": 1.4, "cooldown_s": 0.0, "choice": "B", "exec_s": 1.11, "survived": true}, {"trial": 12, "cdc": false, "deadline_s": 4.09, "cooldown_s": 6.48, "choice": "A", "exec_s": 13.06, "survived": false}, {"trial": 13, "cdc": true, "deadline_s": 1.37, "cooldown_s": 0.0, "choice": "B", "exec_s": 1.04, "survived": true}, {"trial": 14, "cdc": false, "deadline_s": 2.28, "cooldown_s": 1.82, "choice": "A", "exec_s": 12.52, "survived": false}, {"trial": 15, "cdc": true, "deadline_s": 1.32, "cooldown_s": 0.0, "choice": "B", "exec_s": 9.29, "survived": false}, {"trial": 16, "cdc": false, "deadline_s": 2.43, "cooldown_s": 5.73, "choice": "A", "exec_s": 4.45, "survived": false}, {"trial": 17, "cdc": true, "deadline_s": 8.91, "cooldown_s": 5.22, "choice": "A", "exec_s": 20.85, "survived": false}, {"trial": 18, "cdc": false, "deadline_s": 9.55, "cooldown_s": 6.63, "choice": "A", "exec_s": 6.75, "survived": true}, {"trial": 19, "cdc": true, "deadline_s": 14.91, "cooldown_s": 8.46, "choice": "A", "exec_s": 20.74, "survived": false}, {"trial": 20, "cdc": false, "deadline_s": 9.13, "cooldown_s": 0.0, "choice": "B", "exec_s": 1.17, "survived": true}, {"trial": 21, "cdc": true, "deadline_s": 13.54, "cooldown_s": 8.97, "choice": "A", "exec_s": 12.84, "survived": true}, {"trial": 22, "cdc": false, "deadline_s": 11.35, "cooldown_s": 0.0, "choice": "B", "exec_s": 1.04, "survived": true}, {"trial": 23, "cdc": true, "deadline_s": 16.24, "cooldown_s": 7.57, "choice": "B", "exec_s": 21.78, "survived": false}, {"trial": 24, "cdc": false, "deadline_s": 14.19, "cooldown_s": 0.0, "choice": "B", "exec_s": 13.14, "survived": true}, {"trial": 25, "cdc": true, "deadline_s": 21.49, "cooldown_s": 10.95, "choice": "A", "exec_s": 14.17, "survived": true}, {"trial": 26, "cdc": false, "deadline_s": 15.79, "cooldown_s": 0.0, "choice": "B", "exec_s": 7.6, "survived": true}, {"trial": 27, "cdc": true, "deadline_s": 12.68, "cooldown_s": 14.36, "choice": "A", "exec_s": 13.66, "survived": false}, {"trial": 28, "cdc": false, "deadline_s": 17.51, "cooldown_s": 7.7, "choice": "B", "exec_s": 8.71, "survived": true}, {"trial": 29, "cdc": true, "deadline_s": 16.09, "cooldown_s": 0.0, "choice": "B", "exec_s": 1.01, "survived": true}, {"trial": 30, "cdc": false, "deadline_s": 15.83, "cooldown_s": 0.0, "choice": "B", "exec_s": 0.98, "survived": true}, {"trial": 31, "cdc": true, "deadline_s": 16.24, "cooldown_s": 0.0, "choice": "B", "exec_s": 1.17, "survived": true}, {"trial": 32, "cdc": false, "deadline_s": 9.05, "cooldown_s": 0.0, "choice": "B", "exec_s": 0.93, "survived": true}, {"trial": 33, "cdc": true, "deadline_s": 9.34, "cooldown_s": 0.0, "choice": "B", "exec_s": 0.89, "survived": true}, {"trial": 34, "cdc": false, "deadline_s": 7.69, "cooldown_s": 4.37, "choice": "A", "exec_s": 17.63, "survived": false}, {"trial": 35, "cdc": true, "deadline_s": 17.03, "cooldown_s": 10.37, "choice": "A", "exec_s": 19.52, "survived": false}, {"trial": 36, "cdc": false, "deadline_s": 8.11, "cooldown_s": 4.56, "choice": "B", "exec_s": 5.7, "survived": true}, {"trial": 37, "cdc": true, "deadline_s": 6.25, "cooldown_s": 4.92, "choice": "A", "exec_s": 12.7, "survived": false}, {"trial": 38, "cdc": false, "deadline_s": 12.66, "cooldown_s": 6.88, "choice": "A", "exec_s": 13.17, "survived": false}, {"trial": 39, "cdc": true, "deadline_s": 19.12, "cooldown_s": 9.29, "choice": "A", "exec_s": 16.34, "survived": true}, {"trial": 40, "cdc": false, "deadline_s": 15.36, "cooldown_s": 0.0, "choice": "B", "exec_s": 0.87, "survived": true}, {"trial": 41, "cdc": true, "deadline_s": 10.3, "cooldown_s": 0.0, "choice": "B", "exec_s": 1.04, "survived": true}, {"trial": 42, "cdc": false, "deadline_s": 14.44, "cooldown_s": 0.0, "choice": "B", "exec_s": 7.76, "survived": true}, {"trial": 43, "cdc": true, "deadline_s": 8.34, "cooldown_s": 0.0, "choice": "B", "exec_s": 5.79, "survived": true}, {"trial": 44, "cdc": false, "deadline_s": 18.44, "cooldown_s": 9.77, "choice": "A", "exec_s": 16.2, "survived": true}, {"trial": 45, "cdc": true, "deadline_s": 11.74, "cooldown_s": 0.0, "choice": "B", "exec_s": 11.95, "survived": false}, {"trial": 46, "cdc": false, "deadline_s": 7.34, "cooldown_s": 0.0, "choice": "B", "exec_s": 1.31, "survived": true}, {"trial": 47, "cdc": true, "deadline_s": 9.78, "cooldown_s": 0.0, "choice": "B", "exec_s": 5.25, "survived": true}, {"trial": 48, "cdc": false, "deadline_s": 15.21, "cooldown_s": 0.0, "choice": "B", "exec_s": 0.84, "survived": true}, {"trial": 49, "cdc": true, "deadline_s": 11.58, "cooldown_s": 13.37, "choice": "A", "exec_s": 18.99, "survived": false}, {"trial": 50, "cdc": false, "deadline_s": 11.01, "cooldown_s": 0.0, "choice": "B", "exec_s": 6.88, "survived": true}, {"trial": 51, "cdc": true, "deadline_s": 17.01, "cooldown_s": 11.3, "choice": "B", "exec_s": 16.92, "survived": true}, {"trial": 52, "cdc": false, "deadline_s": 11.61, "cooldown_s": 12.41, "choice": "A", "exec_s": 17.89, "survived": false}, {"trial": 53, "cdc": true, "deadline_s": 13.74, "cooldown_s": 13.02, "choice": "A", "exec_s": 19.33, "survived": false}, {"trial": 54, "cdc": false, "deadline_s": 8.51, "cooldown_s": 0.0, "choice": "B", "exec_s": 6.71, "survived": true}, {"trial": 55, "cdc": true, "deadline_s": 7.33, "cooldown_s": 0.0, "choice": "B", "exec_s": 6.94, "survived": true}, {"trial": 56, "cdc": false, "deadline_s": 11.91, "cooldown_s": 10.05, "choice": "B", "exec_s": 14.66, "survived": false}, {"trial": 57, "cdc": true, "deadline_s": 10.9, "cooldown_s": 0.0, "choice": "B", "exec_s": 11.24, "survived": false}, {"trial": 58, "cdc": false, "deadline_s": 12.26, "cooldown_s": 0.0, "choice": "B", "exec_s": 1.02, "survived": true}, {"trial": 59, "cdc": true, "deadline_s": 11.37, "cooldown_s": 0.0, "choice": "B", "exec_s": 5.48, "survived": true}, {"trial": 60, "cdc": false, "deadline_s": 11.73, "cooldown_s": 13.06, "choice": "B", "exec_s": 19.81, "survived": false}];
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height, GROUND = H-60;
+let pool = DATA, idx = 0, auto = false, anim = null;
+
+function scoreboard(){
+  const f = a => { const s = DATA.filter(t=>t.cdc===a); return s.filter(t=>t.survived).length+'/'+s.length; };
+  document.getElementById('score').innerHTML =
+    `MIT Zeitgefühl: <b class="g">${f(true)}</b> · OHNE: <b class="r">${f(false)}</b> überlebt`;
+}
+scoreboard();
+
+function px(v){ return Math.round(v); }
+
+function drawScene(t, trial, phase){
+  ctx.clearRect(0,0,W,H);
+  // Boden + Himmel
+  ctx.fillStyle = '#0b0d16'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle = '#11131c'; ctx.fillRect(0,GROUND+18,W,H);
+  ctx.strokeStyle = '#2a3142'; ctx.beginPath(); ctx.moveTo(0,GROUND+18); ctx.lineTo(W,GROUND+18); ctx.stroke();
+
+  const T = trial.deadline_s, exec = trial.exec_s;
+  const playerX = 250, dragonStart = W-70;
+  const prog = Math.min(t/T, 1);
+  const dragonX = dragonStart - (dragonStart-playerX-40)*prog;
+
+  // HUD
+  ctx.font = '13px "Courier New"'; ctx.textAlign='left';
+  ctx.fillStyle = '#ffb000';
+  ctx.fillText(`TRIAL ${trial.trial}/60`, 16, 24);
+  ctx.fillStyle = trial.cdc ? '#33ff66' : '#ff3a4a';
+  ctx.fillText(trial.cdc ? 'ZEITGEFÜHL: AN' : 'ZEITGEFÜHL: AUS', 16, 42);
+  ctx.fillStyle = '#cfd6df';
+  ctx.fillText(`Drache in ${T.toFixed(1)}s` + (trial.cooldown_s>0 ? ` · Magier erschöpft (+${trial.cooldown_s.toFixed(0)}s)` : ''), 16, 60);
+  ctx.fillText(`Wahl: ${trial.choice === 'A' ? 'A — selbst kämpfen' : 'B — Magier rufen'} (real ${exec.toFixed(1)}s)`, 16, 78);
+
+  // Zeitbalken
+  const bx=16, bw=W-32, by=96;
+  ctx.fillStyle='#1c2236'; ctx.fillRect(bx,by,bw,8);
+  ctx.fillStyle='#ff3a4a'; ctx.fillRect(bx,by,bw*prog,8);
+  const exMark = bx + bw*Math.min(exec/T,1);
+  ctx.fillStyle = exec<=T ? '#33ff66' : '#ff3a4a';
+  ctx.fillRect(exMark-2,by-3,4,14);
+
+  // Spieler (Mitte links)
+  ctx.fillStyle='#cfd6df'; ctx.fillRect(playerX, GROUND-26, 12, 26);
+  ctx.fillStyle='#0b0d16'; ctx.fillRect(playerX+2, GROUND-22, 8, 5);
+  ctx.fillStyle='#7a8896'; ctx.font='10px "Courier New"'; ctx.fillText('SPIELER', playerX-10, GROUND+14);
+
+  // Ritter
+  let kx = 120;
+  if(trial.choice==='A'){ kx = 120 + (dragonX-40-120)*Math.min(t/exec,1); }
+  ctx.fillStyle='#5aa0ff'; ctx.fillRect(px(kx), GROUND-30, 16, 30);
+  ctx.fillStyle='#aeb8c4'; ctx.fillRect(px(kx)+1, GROUND-38, 14, 9);   // Helm
+  ctx.fillStyle='#0b0d16'; ctx.fillRect(px(kx)+3, GROUND-35, 10, 3);
+  ctx.fillStyle='#7a8896'; ctx.fillText('RITTER', px(kx)-4, GROUND+14);
+  if(trial.choice==='B' && phase!=='done' && t<1.2){
+    ctx.fillStyle='#ffb000'; ctx.font='12px "Courier New"';
+    ctx.fillText('„STUNN IHN!"', px(kx)+20, GROUND-46);
+  }
+
+  // Magier
+  const mx = 60;
+  ctx.fillStyle='#c77dff'; ctx.fillRect(mx, GROUND-32, 14, 32);
+  ctx.beginPath(); ctx.moveTo(mx-2,GROUND-32); ctx.lineTo(mx+7,GROUND-46); ctx.lineTo(mx+16,GROUND-32); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#7a8896'; ctx.fillText('MAGIER', mx-6, GROUND+14);
+  if(trial.choice==='B' && t>trial.cooldown_s+1 && phase!=='dead'){
+    // Stun-Blitz
+    ctx.strokeStyle='#c77dff'; ctx.lineWidth=2; ctx.beginPath();
+    ctx.moveTo(mx+14, GROUND-40);
+    for(let i=1;i<=6;i++){ ctx.lineTo(mx+14+(dragonX-mx-14)*i/6, GROUND-40+(i%2?-8:8)); }
+    ctx.stroke();
+  }
+  if(trial.choice==='B' && t<=trial.cooldown_s && trial.cooldown_s>0){
+    ctx.fillStyle='#7a8896'; ctx.fillText(`erschöpft… ${(trial.cooldown_s-t).toFixed(0)}s`, mx-8, GROUND-52);
+  }
+
+  // Drache
+  ctx.fillStyle = phase==='stunned' ? '#5a6470' : '#ff3a4a';
+  ctx.fillRect(px(dragonX), GROUND-44, 44, 30);                       // Körper
+  ctx.fillRect(px(dragonX)-18, GROUND-36, 20, 12);                    // Kopf
+  ctx.beginPath(); ctx.moveTo(px(dragonX)+8,GROUND-44); ctx.lineTo(px(dragonX)+22,GROUND-66); ctx.lineTo(px(dragonX)+36,GROUND-44); ctx.closePath(); ctx.fill(); // Flügel
+  ctx.fillStyle='#fff'; ctx.fillRect(px(dragonX)-14, GROUND-33, 3, 3); // Auge
+  ctx.fillStyle='#7a8896'; ctx.fillText('DRACHE', px(dragonX), GROUND+14);
+  if(phase==='stunned'){ ctx.fillStyle='#c77dff'; ctx.fillText('✶ GESTUNNT ✶', px(dragonX)-6, GROUND-72); }
+
+  // Ergebnis
+  if(phase==='done' || phase==='dead'){
+    ctx.textAlign='center'; ctx.font='bold 26px "Courier New"';
+    ctx.fillStyle = trial.survived ? '#33ff66' : '#ff3a4a';
+    ctx.fillText(trial.survived ? 'SPIELER GERETTET' : 'ZU SPÄT — GAME OVER', W/2, 160);
+    ctx.font='12px "Courier New"'; ctx.fillStyle='#cfd6df';
+    ctx.fillText(`Aktion brauchte ${exec.toFixed(1)}s, Drache kam nach ${T.toFixed(1)}s`, W/2, 182);
+    ctx.textAlign='left';
+  }
+}
+
+function playTrial(trial, cb){
+  if(anim) cancelAnimationFrame(anim);
+  const T = trial.deadline_s, exec = trial.exec_s;
+  const total = Math.min(Math.max(T, exec), 60);
+  const SPEED = total/4.2;            // alles auf ~4 Sekunden Replay komprimiert
+  const t0 = performance.now();
+  function frame(now){
+    let t = (now-t0)/1000*SPEED;
+    let phase = 'run';
+    if(t >= Math.min(exec,T)+0.4*SPEED){ phase = trial.survived ? 'done' : 'dead'; }
+    else if(trial.survived && t >= exec){ phase = 'stunned'; }
+    drawScene(Math.min(t, Math.min(exec,T)), trial, phase);
+    if(t < Math.min(exec,T)+1.2*SPEED){ anim = requestAnimationFrame(frame); }
+    else { drawScene(Math.min(exec,T), trial, trial.survived?'done':'dead'); cb && cb(); }
+  }
+  anim = requestAnimationFrame(frame);
+}
+
+function next(){
+  if(!pool.length) return;
+  const t = pool[idx % pool.length]; idx++;
+  playTrial(t, () => { if(auto) setTimeout(next, 900); });
+}
+document.getElementById('next').onclick = () => { auto=false; next(); };
+document.getElementById('play').onclick = function(){ auto=!auto; this.textContent = auto?'⏸ Stopp':'▶ Auto-Replay'; if(auto) next(); };
+function setFilter(btn, fn){ ['fAll','fCdc','fNo'].forEach(id=>document.getElementById(id).classList.remove('active')); btn.classList.add('active'); pool = DATA.filter(fn); idx=0; }
+document.getElementById('fAll').onclick = function(){ setFilter(this, ()=>true); };
+document.getElementById('fCdc').onclick = function(){ setFilter(this, t=>t.cdc); };
+document.getElementById('fNo').onclick = function(){ setFilter(this, t=>!t.cdc); };
+next();
+</script>
+</body>
+</html>
