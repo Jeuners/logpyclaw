@@ -17,6 +17,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import ClassVar
 
 from backend.core.cdc import CDCRelation
 
@@ -137,29 +138,61 @@ class Faction:
 
 @dataclass
 class FactionRelation:
-    """Gerichtete Beziehung source → target. Trust und γ werden gelernt."""
+    """Gerichtete Beziehung source → target. Trust und γ werden gelernt.
+
+    Mathematische Eigenschaften (siehe README, "Trust & γ"):
+    - trust = (S+1)/(N+2) mit Beta(1,1)-Prior (Laplace) — beschränkt auf (0,1),
+      Start 0.5, konvergiert gegen die empirische Erfolgsrate.
+    - Evidenz ALTERT: vor jedem Update werden S und F exponentiell abgezinst
+      (Halbwertszeit TRUST_HALF_LIFE_S). Ohne frische Evidenz kehrt trust beim
+      nächsten Kontakt Richtung Prior zurück; alte Beobachtungen verlieren
+      Gewicht statt das System unbegrenzt zu versteifen.
+    - γ ist ein EWMA (α=0.2): Gewicht einer k Updates alten Beobachtung ist
+      α(1-α)^k — effektives Gedächtnis ≈ 1/α = 5 Interaktionen.
+    - trust beeinflusst NUR Routing-Prioritäten, niemals Sicherheitsgrenzen:
+      die Bridge-Pflicht hängt an stance, nicht an trust — Vertrauen kann
+      keine adversariale Schranke "freischalten".
+    """
+
+    TRUST_HALF_LIFE_S: ClassVar[float] = 7 * 24 * 3600.0  # 7 Tage Evidenz-Halbwertszeit
 
     source: str
     target: str
     stance: FactionStance = FactionStance.NEUTRAL
     trust: float = 0.5  # P(brauchbare Antwort), Beta(1,1)-Prior
     gamma: float = 1.0  # Tempo-Verhältnis source/target, EWMA
-    interactions: int = 0
-    successes: int = 0
-    failures: int = 0
+    interactions: float = 0.0  # gewichtete Evidenzmenge (altert)
+    successes: float = 0.0
+    failures: float = 0.0
     last_updated: float = field(default_factory=time.time)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
+    def _decay_evidence(self, now: float) -> None:
+        """Exponentielles Altern der Evidenz (lazy, beim nächsten Update).
+
+        Faktor 0.5^(Δt/Halbwertszeit) auf S und F — der Erwartungswert von
+        trust bleibt erhalten, aber die effektive Stichprobengröße sinkt,
+        sodass frische Evidenz wieder schnell wirkt ("Vertrauen verjährt")."""
+        dt = max(now - self.last_updated, 0.0)
+        if dt <= 0.0:
+            return
+        f = 0.5 ** (dt / self.TRUST_HALF_LIFE_S)
+        self.successes *= f
+        self.failures *= f
+        self.interactions = self.successes + self.failures
+
     def record_outcome(self, success: bool) -> None:
         with self._lock:
-            self.interactions += 1
+            now = time.time()
+            self._decay_evidence(now)
             if success:
-                self.successes += 1
+                self.successes += 1.0
             else:
-                self.failures += 1
+                self.failures += 1.0
+            self.interactions = self.successes + self.failures
             # Beta(1,1)-Prior: robust gegen N=1 und N=0
-            self.trust = (self.successes + 1) / (self.interactions + 2)
-            self.last_updated = time.time()
+            self.trust = (self.successes + 1.0) / (self.interactions + 2.0)
+            self.last_updated = now
 
     def update_gamma(self, observed_ratio: float, alpha: float = 0.2) -> None:
         """EWMA-Update γ (Tempo-Verhältnis source/target)."""
@@ -177,9 +210,9 @@ class FactionRelation:
             "stance": self.stance.value,
             "trust": round(self.trust, 4),
             "gamma": round(self.gamma, 4),
-            "interactions": self.interactions,
-            "successes": self.successes,
-            "failures": self.failures,
+            "interactions": round(self.interactions, 2),
+            "successes": round(self.successes, 2),
+            "failures": round(self.failures, 2),
         }
 
 

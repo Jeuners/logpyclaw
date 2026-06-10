@@ -1,5 +1,6 @@
 """Tests für das Fraktionssystem — FactionRegistry, Relations, Trust, γ."""
 
+import time
 from unittest.mock import AsyncMock
 
 import pytest
@@ -139,9 +140,9 @@ class TestTrustLearning:
         rel = FactionRelation(source="a", target="b")
         rel.record_outcome(True)
         rel.record_outcome(False)
-        assert rel.interactions == 2
-        assert rel.successes == 1
-        assert rel.failures == 1
+        assert abs(rel.interactions - 2) < 1e-6  # float: Evidenz altert (minimal) zwischen Calls
+        assert abs(rel.successes - 1) < 1e-6
+        assert abs(rel.failures - 1) < 1e-6
 
     def test_record_cross_faction_outcome(self):
         reg = FactionRegistry.load_defaults()
@@ -410,3 +411,50 @@ class TestConductorFactionWiring:
         await c.dispatch(msg)
         guardian.handle.assert_awaited_once()
         martin.handle.assert_not_awaited()
+
+
+class TestTrustAging:
+    """Evidenz-Halbwertszeit: Vertrauen verjährt statt zu versteifen."""
+
+    def test_old_evidence_decays(self, monkeypatch):
+        rel = FactionRelation(source="a", target="b")
+        t0 = 1_000_000.0
+        monkeypatch.setattr(time, "time", lambda: t0)
+        for _ in range(10):
+            rel.record_outcome(True)
+        trust_young = rel.trust  # 11/12 ≈ 0.917
+        assert trust_young > 0.9
+
+        # Zwei Halbwertszeiten später: ein einzelner Misserfolg
+        monkeypatch.setattr(
+            time, "time", lambda: t0 + 2 * FactionRelation.TRUST_HALF_LIFE_S
+        )
+        rel.record_outcome(False)
+        # Alte 10 Erfolge zählen nur noch als 2.5 → Misserfolg wirkt stark
+        assert rel.interactions < 4.0
+        assert rel.trust < 0.75, "frische Evidenz muss altes Vertrauen bewegen können"
+
+    def test_without_decay_trust_would_be_rigid(self, monkeypatch):
+        # Kontrollrechnung: ohne Altern wäre trust nach 10+1 Outcomes 11/13 ≈ 0.846
+        rel = FactionRelation(source="a", target="b")
+        t0 = 1_000_000.0
+        monkeypatch.setattr(time, "time", lambda: t0)
+        for _ in range(10):
+            rel.record_outcome(True)
+        rel.record_outcome(False)  # gleicher Zeitpunkt → kein Decay
+        assert abs(rel.trust - 11 / 13) < 1e-9
+
+    def test_trust_bounded_and_starts_at_prior(self):
+        rel = FactionRelation(source="a", target="b")
+        assert rel.trust == 0.5
+        for _ in range(50):
+            rel.record_outcome(True)
+        assert 0.0 < rel.trust < 1.0
+
+    def test_trust_never_unlocks_bridge(self):
+        # Sicherheitseigenschaft: Bridge hängt an stance, nicht an trust
+        rel = FactionRelation(source="a", target="b", stance=FactionStance.ADVERSARIAL)
+        for _ in range(100):
+            rel.record_outcome(True)
+        assert rel.trust > 0.9
+        assert rel.requires_bridge() is True

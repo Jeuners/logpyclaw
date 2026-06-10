@@ -246,6 +246,52 @@ Hinweis: `signing_payload()` kanonisiert weiterhin nur `vector` + `dilation` —
 `tau` ist abgeleitete Buchhaltung. So bleiben alte PQC-Hash-Chains verifizierbar.
 `verify_chain()` ist fail-closed: eine Mission ganz ohne Signaturen gilt nicht als valid.
 
+### Trust & γ — die Mathematik
+
+Damit das Fraktionsmodell nicht philosophisch bleibt, hier die exakten
+Update-Regeln (alles in `backend/core/faction_protocol.py`):
+
+**Vertrauen** ist eine geglättete Erfolgsrate mit Beta(1,1)-Prior (Laplace):
+
+```
+trust = (S + 1) / (S + F + 2)
+```
+
+Eigenschaften: beschränkt auf (0,1), Startwert 0.5, konvergiert gegen die
+empirische Erfolgsrate. `success` ist definiert als RESPONSE statt ERROR der
+abgeschlossenen Interaktion; gelernt wird automatisch bei jedem
+Cross-Faction-Dispatch im Conductor.
+
+**Vertrauen altert** (Evidenz-Halbwertszeit, Default 7 Tage): vor jedem
+Update werden S und F mit `0.5^(Δt/T½)` abgezinst.
+
+```
+S ← S·0.5^(Δt/T½) + outcome,   F ← F·0.5^(Δt/T½) + (1−outcome)
+```
+
+Der Erwartungswert bleibt erhalten, aber die effektive Stichprobengröße
+sinkt — frische Evidenz bewegt altes Vertrauen wieder, und ohne Kontakt
+kehrt trust beim nächsten Update Richtung Prior zurück. "Verworfen" wird
+Vertrauen also nie schlagartig, es verjährt kontinuierlich.
+
+**γ (Tempo-Verhältnis source/target)** ist ein EWMA über beobachtete
+Raten-Verhältnisse aus den CDC-Clocks beider Seiten:
+
+```
+γ ← (1−α)·γ + α·(rate_source / rate_target),   α = 0.2
+```
+
+Gewicht einer k Updates alten Beobachtung: `α(1−α)^k` — effektives
+Gedächtnis ≈ 1/α = 5 Interaktionen. Startwert 1.0 (keine relative Dilation).
+`classify_drift()` nutzt γ, um Cross-Faction-Drift als EXPECTED_DRIFT zu
+reklassifizieren, wenn das beobachtete Verhältnis innerhalb der
+Tempo-Toleranz der Empfänger-Fraktion liegt.
+
+**Sicherheitseigenschaft**: trust beeinflusst ausschließlich
+Routing-Prioritäten. Die Bridge-Pflicht für adversariale Paare hängt an der
+`stance` (Policy, nicht gelernt) — hohes Vertrauen kann keine adversariale
+Schranke freischalten, und die Bridge ist fail-closed.
+
 ### A2A Gateway
 
 ```
