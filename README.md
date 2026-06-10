@@ -1,6 +1,8 @@
 # LogpyClaw v3
 
-CDC-native Multi-Agent-System mit zeitdilatations-bewusstem Routing.
+CDC-natives Agenten-Protokoll mit zentralem Orchestrator und
+zeitdilatations-bewusstem Routing — die Vorstufe zu einem Multi-Agent-System,
+bei dem Zeit, Vertrauen und Kausalität im Protokoll stecken statt im Framework.
 
 > **Zur Freigabe** — Der Code ist frei ([MIT-Lizenz](LICENSE)). Die zugrunde
 > liegende Idee — Causal-Dilation Clock und Fraktionsmodell — ist und bleibt
@@ -26,6 +28,27 @@ User → MartinAgent → Conductor → Zielagent → Antwort
               ↓
          QC-Loop (Auditor-Delegation, Score ≥ 7)
 ```
+
+---
+
+## Einordnung — was das ist, und was (noch) nicht
+
+Der Begriff "Multi-Agent-System" wird in der Branche oft überdehnt, deshalb
+hier die ehrliche Einordnung: Zur Laufzeit ist LogpyClaw v3 heute ein
+**zentral orchestriertes System** — ein Conductor dispatcht, Martin routet,
+die Topologie ist sternförmig (Request/Response). Die eigene Evaluation
+belegt das: alle klassifizierbaren Message-Paare stehen in der Relation
+ORDERED, echte Nebenläufigkeit entsteht erst mit den parallelen Plan-Wellen.
+Wer ein emergentes System erwartet, in dem Agenten spontan miteinander
+verhandeln, findet hier (noch) keines.
+
+Der Unterschied zu einem reinen "Agent Manager + Tool Layer" liegt im
+**Protokoll**: CDC auf jeder Message, gerichtetes gelerntes Vertrauen zwischen
+Fraktionen, Adversarial-Bridges und ein A2A-Gateway sind für Peer-Verkehr
+gebaut — die Infrastruktur ist da, der Dispatcher nutzt sie erst teilweise.
+Der Weg zu "echt": agenten-initiierte Missionen, parallele autonome Branches,
+Peer-Dispatch ohne Operator. Der CDC-Klassifikator ist dabei das Messgerät,
+an dem sich dieser Übergang ablesen lassen wird.
 
 ---
 
