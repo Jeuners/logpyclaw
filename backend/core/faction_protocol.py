@@ -18,6 +18,8 @@ import time
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from backend.core.cdc import CDCRelation
+
 # ── Archetypen ────────────────────────────────────────────────────────────────
 
 
@@ -333,6 +335,42 @@ class FactionRegistry:
         reg = cls.get()
         _register_defaults(reg)
         return reg
+
+
+# ── Drift-Klassifikation (FactionCDCRelation scharf schalten) ─────────────────
+
+
+def classify_drift(
+    relation: CDCRelation,
+    sender_faction: str | None,
+    recipient_faction: str | None,
+    observed_ratio: float,
+    registry: FactionRegistry,
+) -> str:
+    """Re-klassifiziert CDC-Drift im Fraktions-Kontext.
+
+    Cross-faction Drift, dessen beobachtetes Tempo-Verhältnis zum gelernten
+    γ der Beziehung passt, ist strukturell erwartet — kein Alarm:
+      CAUSAL_DRIFT     → EXPECTED_DRIFT
+      CONCURRENT_DRIFT → FACTION_RACE
+    Alle anderen Fälle (same-faction, unbekannte Fraktion, Ratio außerhalb
+    der Toleranz) reichen relation.value unverändert durch.
+    """
+    if relation not in (CDCRelation.CAUSAL_DRIFT, CDCRelation.CONCURRENT_DRIFT):
+        return relation.value
+    if not sender_faction or not recipient_faction or sender_faction == recipient_faction:
+        return relation.value
+
+    rel = registry.relation(sender_faction, recipient_faction)
+    # Toleranz aus dem Tempo-Profil der Empfänger-Fraktion, Default 0.5
+    recipient = registry.get_faction(recipient_faction)
+    tolerance = recipient.tempo.tolerance if recipient else 0.5
+
+    if observed_ratio > 0 and abs(observed_ratio - rel.gamma) <= tolerance:
+        if relation is CDCRelation.CAUSAL_DRIFT:
+            return FactionCDCRelation.EXPECTED_DRIFT.value
+        return FactionCDCRelation.FACTION_RACE.value
+    return relation.value
 
 
 # ── Standard-Fraktionen ───────────────────────────────────────────────────────

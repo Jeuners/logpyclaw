@@ -10,6 +10,9 @@ from __future__ import annotations
 import asyncio
 import time
 
+from backend.core.cdc import CDCRelation
+from backend.core.faction_protocol import FactionRegistry, classify_drift
+from backend.core.logging import get_logger
 from backend.core.protocol import (
     Message,
     MessageType,
@@ -21,8 +24,11 @@ from backend.core.protocol import (
 from backend.storage.mission_store import MissionStore
 from backend.storage.sqlite_store import make_store
 
+log = get_logger(__name__)
+
 _DEFAULT_TASK_TIMEOUT = 900.0  # 15 min — LTX-Video braucht auf RTX 4070 ~10-12 min
 _WATCHDOG_INTERVAL = 5.0
+_MARTIN_ID = "agent:martin"  # Operator-Bridge für ADVERSARIAL-Verkehr
 
 
 class Conductor:
@@ -96,8 +102,47 @@ class Conductor:
     # ── Dispatch ──────────────────────────────────────────────────────────────
 
     async def dispatch(self, msg: Message) -> Message:
-        """Leite eine CDC-Message an den Empfänger-Agenten weiter."""
-        self.store.record_message(msg)
+        """Leite eine CDC-Message an den Empfänger-Agenten weiter.
+
+        Verdrahtet das Fraktionssystem: FactionEnvelope wird vor der
+        Zustellung gebaut, ADVERSARIAL-Verkehr über Martins Bridge
+        umgeleitet, und nach Abschluss lernen Trust/γ automatisch.
+        """
+        registry = FactionRegistry.get()
+        envelope = registry.build_envelope(msg.sender, msg.recipient)
+        if envelope and "_faction" not in msg.payload:
+            msg.payload["_faction"] = envelope.to_dict()
+
+        # Bridge-Umleitung: ADVERSARIAL-Paare laufen über Martins Operator-Bridge.
+        # Das _bridged-Flag verhindert Rekursion, falls die Umleitung selbst
+        # wieder über dispatch() läuft.
+        if (
+            envelope
+            and envelope.requires_bridge
+            and msg.recipient != _MARTIN_ID
+            and not msg.payload.get("_bridged")
+        ):
+            if _MARTIN_ID not in self._agents:
+                # Fail-closed: ADVERSARIAL-Verkehr ohne verfügbare Bridge wird
+                # abgelehnt statt still direkt zugestellt.
+                log.error(
+                    "Bridge nicht verfügbar: ADVERSARIAL %s → %s abgelehnt",
+                    msg.sender,
+                    msg.recipient,
+                )
+                return Message.error(msg, "bridge unavailable: adversarial traffic requires operator bridge")
+            log.info(
+                "Bridge-Umleitung %s → %s (stance=adversarial) via %s",
+                msg.sender,
+                msg.recipient,
+                _MARTIN_ID,
+            )
+            msg.payload["_bridged"] = True
+            msg.recipient = _MARTIN_ID
+
+        # Async-Pfad: Signatur (CPU) + SQLite-Commit laufen via to_thread,
+        # damit der Event-Loop (Token-Streaming!) nicht blockiert.
+        await self.store.record_message_async(msg)
         agent = self._agents.get(msg.recipient)
         if agent is None:
             return Message.error(msg, f"agent not found: {msg.recipient}")
@@ -111,10 +156,10 @@ class Conductor:
             content=msg.payload.get("content", ""),
         )
         task.transition(TaskState.ASSIGNED)
-        self.store.upsert_task(task)
+        await self.store.upsert_task_async(task)
 
         task.transition(TaskState.RUNNING)
-        self.store.upsert_task(task)
+        await self.store.upsert_task_async(task)
 
         # Per-Mission-Timeout aus den Mission-Metadaten lesen (gleiche Quelle wie
         # der Watchdog), Fallback auf den harten Default.
@@ -132,12 +177,12 @@ class Conductor:
             )
         except TimeoutError:
             task.transition(TaskState.TIMEOUT)
-            self.store.upsert_task(task)
+            await self.store.upsert_task_async(task)
             return Message.error(msg, "task timeout")
         except Exception as e:
             task.transition(TaskState.FAILED)
             task.error = str(e)
-            self.store.upsert_task(task)
+            await self.store.upsert_task_async(task)
             return Message.error(msg, str(e))
 
         final_state = (
@@ -145,11 +190,74 @@ class Conductor:
         )
         task.transition(final_state)
         task.result = response.payload.get("result")
-        self.store.record_message(
-            response
-        )  # response message first → JS sees it before task_completed
-        self.store.upsert_task(task)
+        # Response-Message zuerst → JS sieht sie vor task_completed
+        await self.store.record_message_async(response)
+        await self.store.upsert_task_async(task)
+
+        # Outcome-Feedback: Trust/γ lernen automatisch nach jeder Interaktion.
+        # Bei externen Sendern ("ext:user") liefert faction_of None und
+        # record_cross_faction_outcome returnt früh — das ist ok.
+        sender_rate = msg.clock.dilation.get(msg.sender, 0.0)
+        recipient_rate = response.clock.dilation.get(msg.recipient, 0.0)
+        registry.record_cross_faction_outcome(
+            msg.sender,
+            msg.recipient,
+            success=(response.type == MessageType.RESPONSE),
+            sender_rate=sender_rate,
+            recipient_rate=recipient_rate,
+        )
+
+        self._log_drift(msg, response, registry, sender_rate, recipient_rate)
         return response
+
+    def _log_drift(
+        self,
+        msg: Message,
+        response: Message,
+        registry: FactionRegistry,
+        sender_rate: float,
+        recipient_rate: float,
+    ) -> None:
+        """Drift-Logging nach Abschluss — fraktions-bewusst klassifiziert."""
+        rel = msg.clock.relate(response.clock)
+        if rel is CDCRelation.ORDERED:
+            return
+
+        if rel is CDCRelation.INCONSISTENT:
+            log.error(
+                "CDC INCONSISTENT zwischen %s und %s (task=%s) — Clock-Korruption?",
+                msg.sender,
+                msg.recipient,
+                msg.task_id,
+            )
+            return
+
+        observed_ratio = sender_rate / recipient_rate if recipient_rate > 0 else 0.0
+        label = classify_drift(
+            rel,
+            registry.faction_of(msg.sender),
+            registry.faction_of(msg.recipient),
+            observed_ratio,
+            registry,
+        )
+        if label != rel.value:
+            # EXPECTED_DRIFT / FACTION_RACE — strukturell erwartet, kein Alarm
+            log.debug(
+                "CDC %s zwischen %s und %s (task=%s, ratio=%.3f)",
+                label,
+                msg.sender,
+                msg.recipient,
+                msg.task_id,
+                observed_ratio,
+            )
+        else:
+            log.warning(
+                "CDC %s zwischen %s und %s (task=%s)",
+                label,
+                msg.sender,
+                msg.recipient,
+                msg.task_id,
+            )
 
     # ── Watchdog ──────────────────────────────────────────────────────────────
 
@@ -173,4 +281,4 @@ class Conductor:
                 )
                 if age > timeout:
                     task.transition(TaskState.TIMEOUT)
-                    self.store.upsert_task(task)
+                    await self.store.upsert_task_async(task)

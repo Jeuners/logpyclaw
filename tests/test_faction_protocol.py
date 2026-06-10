@@ -1,7 +1,11 @@
 """Tests für das Fraktionssystem — FactionRegistry, Relations, Trust, γ."""
 
+from unittest.mock import AsyncMock
+
 import pytest
 
+from backend.agents.conductor import Conductor
+from backend.core.cdc import CDCRelation
 from backend.core.faction_protocol import (
     FactionArchetype,
     FactionCDCRelation,
@@ -10,7 +14,9 @@ from backend.core.faction_protocol import (
     FactionRelation,
     FactionStance,
     TempoProfile,
+    classify_drift,
 )
+from backend.core.protocol import Message, MessageType, new_mission_id
 
 
 @pytest.fixture(autouse=True)
@@ -254,3 +260,153 @@ class TestFactionCDCRelation:
     def test_enum_values(self):
         assert FactionCDCRelation.EXPECTED_DRIFT == "expected_drift"
         assert FactionCDCRelation.FACTION_RACE == "faction_race"
+
+
+# ── classify_drift ────────────────────────────────────────────────────────────
+
+class TestClassifyDrift:
+    def test_expected_drift_with_matching_ratio(self):
+        reg = FactionRegistry.load_defaults()
+        # γ default 1.0, makers-Toleranz 1.0 → ratio 1.2 liegt im Fenster
+        label = classify_drift(
+            CDCRelation.CAUSAL_DRIFT, "operators", "makers", 1.2, reg
+        )
+        assert label == FactionCDCRelation.EXPECTED_DRIFT.value
+
+    def test_faction_race_with_matching_ratio(self):
+        reg = FactionRegistry.load_defaults()
+        label = classify_drift(
+            CDCRelation.CONCURRENT_DRIFT, "operators", "makers", 1.2, reg
+        )
+        assert label == FactionCDCRelation.FACTION_RACE.value
+
+    def test_same_faction_passes_through(self):
+        reg = FactionRegistry.load_defaults()
+        label = classify_drift(
+            CDCRelation.CAUSAL_DRIFT, "makers", "makers", 1.0, reg
+        )
+        assert label == CDCRelation.CAUSAL_DRIFT.value
+
+    def test_unknown_faction_passes_through(self):
+        reg = FactionRegistry.load_defaults()
+        label = classify_drift(CDCRelation.CAUSAL_DRIFT, None, "makers", 1.0, reg)
+        assert label == CDCRelation.CAUSAL_DRIFT.value
+
+    def test_ratio_outside_tolerance_passes_through(self):
+        reg = FactionRegistry.load_defaults()
+        # auditors-Toleranz 0.3, γ default 1.0 → ratio 5.0 ist weit draußen
+        label = classify_drift(
+            CDCRelation.CAUSAL_DRIFT, "operators", "auditors", 5.0, reg
+        )
+        assert label == CDCRelation.CAUSAL_DRIFT.value
+
+    def test_zero_ratio_passes_through(self):
+        reg = FactionRegistry.load_defaults()
+        label = classify_drift(
+            CDCRelation.CAUSAL_DRIFT, "operators", "makers", 0.0, reg
+        )
+        assert label == CDCRelation.CAUSAL_DRIFT.value
+
+    def test_ordered_passes_through(self):
+        reg = FactionRegistry.load_defaults()
+        label = classify_drift(CDCRelation.ORDERED, "operators", "makers", 1.0, reg)
+        assert label == CDCRelation.ORDERED.value
+
+
+# ── Conductor-Verdrahtung (Envelope, Outcome-Learning, Bridge) ────────────────
+
+class _StubAgent:
+    """Minimaler Agent-Stub für Conductor.dispatch — handle als AsyncMock."""
+
+    def __init__(self, agent_id: str, result: str = "ok"):
+        self.agent_id = agent_id
+        self.name = agent_id
+        self.handle = AsyncMock(side_effect=lambda m: Message.response(m, result))
+
+    async def start(self): pass
+
+    async def stop(self): pass
+
+
+class TestConductorFactionWiring:
+    async def test_dispatch_builds_envelope(self):
+        reg = FactionRegistry.load_defaults()
+        reg.assign("agent:alice", "makers")
+        reg.assign("agent:bob", "auditors")
+
+        c = Conductor()
+        c.register(_StubAgent("agent:bob"))
+
+        msg = Message.request(new_mission_id(), "agent:alice", "agent:bob", "review this")
+        resp = await c.dispatch(msg)
+        assert resp.type == MessageType.RESPONSE
+        env = msg.payload.get("_faction")
+        assert env is not None
+        assert env["sender_faction"] == "makers"
+        assert env["recipient_faction"] == "auditors"
+        assert env["expected_drift"] is True
+
+    async def test_dispatch_no_envelope_for_external_sender(self):
+        reg = FactionRegistry.load_defaults()
+        reg.assign("agent:bob", "auditors")
+
+        c = Conductor()
+        c.register(_StubAgent("agent:bob"))
+
+        msg = Message.request(new_mission_id(), "ext:user", "agent:bob", "review this")
+        resp = await c.dispatch(msg)
+        assert resp.type == MessageType.RESPONSE
+        assert "_faction" not in msg.payload
+
+    async def test_dispatch_records_outcome(self):
+        reg = FactionRegistry.load_defaults()
+        reg.assign("agent:alice", "makers")
+        reg.assign("agent:bob", "auditors")
+
+        c = Conductor()
+        c.register(_StubAgent("agent:bob"))
+
+        msg = Message.request(new_mission_id(), "agent:alice", "agent:bob", "review this")
+        await c.dispatch(msg)
+        rel = reg.relation("makers", "auditors")
+        assert rel.interactions == 1
+        assert rel.successes == 1
+
+    async def test_adversarial_dispatch_redirects_to_martin(self):
+        reg = FactionRegistry.load_defaults()
+        reg.assign("agent:maker", "makers")
+        reg.assign("agent:guardian", "guardians")
+        reg.set_stance("makers", "guardians", FactionStance.ADVERSARIAL)
+
+        c = Conductor()
+        martin = _StubAgent("agent:martin", result="bridged")
+        guardian = _StubAgent("agent:guardian")
+        c.register(martin)
+        c.register(guardian)
+
+        msg = Message.request(new_mission_id(), "agent:maker", "agent:guardian", "let me in")
+        resp = await c.dispatch(msg)
+        # Message landet bei Martin, nicht beim Guardian
+        martin.handle.assert_awaited_once()
+        guardian.handle.assert_not_awaited()
+        assert msg.recipient == "agent:martin"
+        assert msg.payload["_bridged"] is True
+        assert resp.type == MessageType.RESPONSE
+
+    async def test_bridged_flag_prevents_second_redirect(self):
+        reg = FactionRegistry.load_defaults()
+        reg.assign("agent:maker", "makers")
+        reg.assign("agent:guardian", "guardians")
+        reg.set_stance("makers", "guardians", FactionStance.ADVERSARIAL)
+
+        c = Conductor()
+        martin = _StubAgent("agent:martin", result="bridged")
+        guardian = _StubAgent("agent:guardian")
+        c.register(martin)
+        c.register(guardian)
+
+        msg = Message.request(new_mission_id(), "agent:maker", "agent:guardian", "let me in")
+        msg.payload["_bridged"] = True  # bereits gebridged → keine erneute Umleitung
+        await c.dispatch(msg)
+        guardian.handle.assert_awaited_once()
+        martin.handle.assert_not_awaited()

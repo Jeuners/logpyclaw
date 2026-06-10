@@ -20,6 +20,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import ClassVar
 
 from backend.core.cdc import CausalDilationClock
 from backend.core.protocol import (
@@ -95,6 +96,9 @@ class TeamMessage(Message):
 
 @dataclass
 class MemberRecord:
+    # Fenster, innerhalb dessen ein Mitglied als erreichbar gilt (Sekunden seit last_seen)
+    REACHABLE_WINDOW_SEC: ClassVar[float] = 60.0
+
     agent_id: str
     joined_at: float = field(default_factory=time.time)
     last_seen: float = field(default_factory=time.time)
@@ -109,7 +113,7 @@ class MemberRecord:
 
     @property
     def is_reachable(self) -> bool:
-        return (time.time() - self.last_seen) < 60.0
+        return (time.time() - self.last_seen) < self.REACHABLE_WINDOW_SEC
 
 
 # ── Team ─────────────────────────────────────────────────────────────────────
@@ -181,26 +185,59 @@ class Team:
 
     # ── Drift-kompensierter Dispatcher ────────────────────────────────────────
 
+    @staticmethod
+    def _drift_score(agent_id: str, gamma_row: dict[str, float]) -> float:
+        """Mittelwert von |γ_ij − 1.0| über alle anderen Mitglieder j.
+
+        Echte paarweise Drift aus der γ_ij-Matrix statt Drift gegen die
+        feste Referenz 1.0. Bei nur einem Mitglied (Zeile enthält nur die
+        Diagonale) ist die Drift 0.
+        """
+        diffs = [abs(g - 1.0) for other_id, g in gamma_row.items() if other_id != agent_id]
+        return sum(diffs) / len(diffs) if diffs else 0.0
+
+    def _score(self, member: MemberRecord, gamma_row: dict[str, float]) -> float:
+        """Einheitlicher Recommendation-Score für recommend_next UND recommend_details.
+
+        score = avg_rate / (1.0 + drift_score), danach Busy-Penalty −0.5.
+        drift_score: siehe _drift_score (paarweise Drift aus der γ_ij-Zeile).
+
+        Warum nicht mehr die alte Formel avg_rate / (1 + |avg_rate − 1.0|)?
+        Sie kollabierte: für jede Rate ≥ 1.0 gilt
+        rate / (1 + rate − 1) = rate / rate = 1.0 — alle schnellen Agenten
+        bekamen exakt denselben Score und es gewann nur die
+        Iterationsreihenfolge. Die neue Formel differenziert (verifiziert):
+        Raten (2, 10) → Scores ≈1.11 vs ≈2.0; Raten (1.0, 1.1) bleiben
+        ebenfalls unterscheidbar.
+        """
+        drift_score = self._drift_score(member.agent_id, gamma_row)
+        score = member.avg_rate / (1.0 + drift_score)
+        if member.busy:
+            score -= 0.5
+        return score
+
     def recommend_next(
         self,
         candidates: list[str] | None = None,
     ) -> str | None:
-        """Empfiehlt das Mitglied mit kleinstem Drift-Score (nicht busy, erreichbar).
+        """Empfiehlt das erreichbare Mitglied mit dem höchsten Score (_score).
 
-        drift_score = |γ_i - 1.0| — 0 bedeutet kein Drift gegenüber Referenz.
-        recommendation_score = avg_rate / (1 + drift_score) - (0.5 if busy)
+        Unerreichbare Mitglieder werden hart gefiltert. Busy-Mitglieder werden
+        NICHT mehr übersprungen, sondern wie in recommend_details über die
+        −0.5-Penalty in _score abgewertet — ein busy Agent kann also gewinnen,
+        wenn alle anderen deutlich schlechter sind. Das ist gewollt: beide
+        Empfehlungswege nutzen dieselbe Logik.
         """
         pool = candidates or list(self._members.keys())
+        gamma_matrix = self.compute_gamma_matrix()  # nur EINMAL pro Empfehlung
         best_agent: str | None = None
         best_score = -float("inf")
 
         for agent_id in pool:
             m = self._members.get(agent_id)
-            if m is None or not m.is_reachable or m.busy:
+            if m is None or not m.is_reachable:
                 continue
-            gamma = m.avg_rate  # relativ zur Referenz-Rate 1.0
-            drift_score = abs(gamma - 1.0)
-            score = m.avg_rate / (1.0 + drift_score)
+            score = self._score(m, gamma_matrix.get(agent_id, {}))
             if score > best_score:
                 best_score = score
                 best_agent = agent_id
@@ -211,23 +248,30 @@ class Team:
         self,
         candidates: list[str] | None = None,
     ) -> list[dict]:
-        """Wie recommend_next, gibt aber Scores für alle Kandidaten zurück."""
+        """Wie recommend_next (identische _score-Logik), für alle Kandidaten.
+
+        Unerreichbare Kandidaten werden hier nicht gefiltert, sondern mit
+        reachable=False gelistet. "gamma" ist der Mittelwert der γ_ij-Zeile
+        des Kandidaten über alle anderen Mitglieder (ohne Diagonale); bei nur
+        einem Mitglied 1.0.
+        """
         pool = candidates or list(self._members.keys())
+        gamma_matrix = self.compute_gamma_matrix()  # nur EINMAL pro Empfehlung
         results = []
         for agent_id in pool:
             m = self._members.get(agent_id)
             if m is None:
                 continue
-            gamma = m.avg_rate
-            drift = abs(gamma - 1.0)
-            score = m.avg_rate / (1.0 + drift) - (0.5 if m.busy else 0)
+            row = gamma_matrix.get(agent_id, {})
+            gammas = [g for other_id, g in row.items() if other_id != agent_id]
+            gamma = sum(gammas) / len(gammas) if gammas else 1.0
             results.append(
                 {
                     "agent_id": agent_id,
                     "avg_rate": round(m.avg_rate, 4),
                     "gamma": round(gamma, 4),
-                    "drift_score": round(drift, 4),
-                    "recommendation_score": round(score, 4),
+                    "drift_score": round(self._drift_score(agent_id, row), 4),
+                    "recommendation_score": round(self._score(m, row), 4),
                     "busy": m.busy,
                     "reachable": m.is_reachable,
                 }
