@@ -49,6 +49,18 @@
   .conn.live{color:var(--green)} .conn.off{color:var(--red)}
   .dot.demo{background:var(--amber, #ffb000); color:var(--amber, #ffb000)}
   .conn.demo{color:var(--amber, #ffb000)}
+  /* Echtzeit-Leiste: Wanduhr + tickende Eigenzeit-Zähler */
+  #timebar{
+    display:flex; align-items:baseline; gap:26px; padding:6px 16px;
+    border-bottom:1px solid var(--line); background:#0b0e0b;
+    font-variant-numeric:tabular-nums; white-space:nowrap; overflow-x:auto;
+  }
+  #timebar .lbl{color:var(--fg-dim); font-size:10px; letter-spacing:2px; margin-right:7px}
+  #timebar .val{font-size:15px; font-weight:700; letter-spacing:1px}
+  #timebar .wall .val{color:var(--fg)}
+  #timebar .fast .val{color:var(--green); text-shadow:0 0 6px rgba(57,211,83,.4)}
+  #timebar .slow .val{color:var(--orange)}
+  #timebar .sub{color:var(--fg-dim); font-size:10px; margin-left:6px}
   /* main */
   main{flex:1 1 auto; display:flex; min-height:0; min-height:640px}
   #stage{
@@ -124,6 +136,11 @@
     <span class="stat"><b id="nFactions">0</b> Fraktionen</span>
     <div class="conn off" id="conn"><span class="dot off" id="connDot"></span><span id="connTxt">offline</span></div>
   </header>
+  <div id="timebar">
+    <span class="wall"><span class="lbl">WANDUHR</span><span class="val" id="wallClock">--:--:--</span><span class="sub">+1.00 s/s für alle</span></span>
+    <span class="fast"><span class="lbl">SCHNELLSTE EIGENZEIT</span><span class="val" id="tauFast">—</span><span class="sub" id="tauFastSub"></span></span>
+    <span class="slow"><span class="lbl">LANGSAMSTE</span><span class="val" id="tauSlow">—</span><span class="sub" id="tauSlowSub"></span></span>
+  </div>
   <main>
     <div id="stage">
       <canvas id="orbit"></canvas>
@@ -279,6 +296,7 @@
       h.push(rs.rate);
       if(h.length > HIST_MAX) h.shift();
     }
+    updateTauTrack(); // Eigenzeit-Zähler folgen den simulierten Raten
     renderSidebar();
     // 2. Partikel: zufällige Kante, Spawn-Wahrscheinlichkeit = Trust
     const rels = state.relations.filter(
@@ -306,6 +324,65 @@
       state.missions = state.missions.slice(0, 8);
       renderTicker();
     }
+  }
+
+  // ── Echtzeit-Anzeige: Wanduhr + interpolierte Eigenzeit-Zähler ───────────
+  // Zwischen zwei Polls (3 s) tickt jeder Zähler mit der zuletzt bekannten
+  // Rate weiter: tau(t) = base + rate · (t − t0). So SIEHT man Dilation —
+  // gleiche Wanduhr-Sekunde, verschieden viel gelebte Zeit pro Agent.
+  const tauTrack = new Map(); // agent_id → {base, rate, t0}
+  let rtLast = 0;
+
+  function nowSec(){ return performance.now() / 1000; }
+
+  function updateTauTrack(){
+    const t0 = nowSec();
+    for(const a of state.agents){
+      const id = a.agent_id;
+      const rate = (a.rate_stats && typeof a.rate_stats.rate === "number")
+        ? a.rate_stats.rate : 0;
+      const apiTau = (a.clock && a.clock.tau && a.clock.tau[id]) || 0;
+      const prev = tauTrack.get(id);
+      // API-tau gewinnt, wenn vorhanden; sonst akkumulierte Basis fortschreiben
+      let base = apiTau;
+      if(!apiTau && prev){ base = prev.base + prev.rate * (t0 - prev.t0); }
+      tauTrack.set(id, {base: base, rate: rate, t0: t0});
+    }
+  }
+
+  function tauNow(id, t){
+    const tr = tauTrack.get(id);
+    if(!tr) return null;
+    return tr.base + tr.rate * (t - tr.t0);
+  }
+
+  function updateRealtime(){
+    const t = nowSec();
+    if(t - rtLast < 0.12) return; // ~8 Hz reicht fürs Auge, schont das DOM
+    rtLast = t;
+    const d = new Date();
+    const pad = n => String(n).padStart(2, "0");
+    document.getElementById("wallClock").textContent =
+      pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+
+    // schnellster / langsamster Agent mit echtem Zeitgefühl
+    let fast = null, slow = null;
+    for(const a of state.agents){
+      if(!hasRateStats(a)) continue;
+      const r = a.rate_stats.rate;
+      if(!fast || r > fast.rate_stats.rate) fast = a;
+      if(!slow || r < slow.rate_stats.rate) slow = a;
+    }
+    const show = (a, valId, subId) => {
+      const v = document.getElementById(valId), s = document.getElementById(subId);
+      if(!a){ v.textContent = "—"; s.textContent = ""; return; }
+      const tau = tauNow(a.agent_id, t);
+      const short = (a.name || a.agent_id).split(/[\s_:]/).pop();
+      v.textContent = "τ " + (tau === null ? "—" : tau.toFixed(1));
+      s.textContent = short + " · +" + a.rate_stats.rate.toFixed(2) + " τ/s";
+    };
+    show(fast, "tauFast", "tauFastSub");
+    show(slow && slow !== fast ? slow : null, "tauSlow", "tauSlowSub");
   }
 
   let demoLastT = 0;
@@ -368,6 +445,7 @@
       state.agents = Array.isArray(agents) ? agents : [];
       ingestMissions(Array.isArray(missions) ? missions : []);
       ingestRates();
+      updateTauTrack();
       computeLayout();
       renderSidebar();
       renderTicker();
@@ -513,6 +591,7 @@
     drawClusters();
     drawNodes(t);
     if(demoMode) drawDemoParticles(t);
+    updateRealtime();
   }
 
   function drawClusters(){
@@ -835,6 +914,9 @@
   pollSlow();
   setInterval(pollFast, 3000);
   setInterval(pollSlow, 10000);
+  // Echtzeit-Leiste auch ohne rAF antreiben (Hintergrund-Tabs drosseln rAF
+  // auf null — setInterval läuft dort weiter, mindestens im Sekundentakt)
+  setInterval(updateRealtime, 250);
   raf = requestAnimationFrame(draw);
 })();
 </script>
