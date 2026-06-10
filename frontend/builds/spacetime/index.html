@@ -47,6 +47,8 @@
   .dot.live{background:var(--green); color:var(--green)}
   .dot.off{background:var(--red); color:var(--red)}
   .conn.live{color:var(--green)} .conn.off{color:var(--red)}
+  .dot.demo{background:var(--amber, #ffb000); color:var(--amber, #ffb000)}
+  .conn.demo{color:var(--amber, #ffb000)}
   /* main */
   main{flex:1 1 auto; display:flex; min-height:0; min-height:640px}
   #stage{
@@ -212,6 +214,124 @@
   }
   window.addEventListener("resize", ()=>{ requestAnimationFrame(resize); });
 
+  // ── DEMO-Modus (öffentliches Standbild mit simuliertem Verkehr) ──────────
+  // Auf dev.dillenberg.net gibt es kein /api/* — statt eines toten "offline"
+  // zeigt die Seite dann einen echten Daten-Snapshot und simuliert Leben:
+  // Raten atmen um ihre Streuung, Partikel wandern entlang der Trust-Kanten,
+  // der Ticker replayt Missionen (gelegentlich mit PEER-Funke). Erzwingbar
+  // via ?demo=1. Klar beschriftet — kein vorgetäuschtes "live".
+  const DEMO_SNAPSHOT = {"agents": [{"agent_id": "agent:echo", "name": "Echo", "faction": null, "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "agent:alice", "name": "Alice", "faction": "makers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "agent:martin", "name": "Martin", "faction": "operators", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "skill:websearch", "name": "Websearch", "faction": "gatherers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "skill:comfyui", "name": "Comfyui", "faction": "gatherers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "skill:ltxvideo", "name": "Ltxvideo", "faction": "gatherers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "skill:whatsapp", "name": "Whatsapp", "faction": "gatherers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "agent:coder", "name": "Coder", "faction": "makers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "skill:coding", "name": "Coding", "faction": "gatherers", "rate_stats": {"rate": 0.7, "dev": 0.21, "cv": 0.3}, "op_count": 2}, {"agent_id": "skill:gmail", "name": "Gmail", "faction": "gatherers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "skill:browser", "name": "Browser", "faction": "gatherers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "skill:chrome_browser", "name": "Chrome_browser", "faction": "gatherers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "skill:deploy", "name": "Deploy", "faction": "gatherers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 1}, {"agent_id": "skill:urlfetch", "name": "Urlfetch", "faction": "gatherers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "skill:file", "name": "File", "faction": "gatherers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "skill:rss", "name": "Rss", "faction": "gatherers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "skill:linkedin", "name": "Linkedin", "faction": "gatherers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "skill:telegram", "name": "Telegram", "faction": "gatherers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "skill:wikipedia", "name": "Wikipedia", "faction": "gatherers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "skill:physorg", "name": "Physorg", "faction": "gatherers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "skill:youtube", "name": "Youtube", "faction": "gatherers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "skill:transcription", "name": "Transcription", "faction": "gatherers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "agent:claude", "name": "Claude", "faction": "makers", "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}, {"agent_id": "a2a:gateway", "name": "A2A Gateway", "faction": null, "rate_stats": {"rate": 1, "dev": 0, "cv": 0}, "op_count": 0}], "factions": [{"id": "operators", "label": "Operators", "members": []}, {"id": "makers", "label": "Makers", "members": []}, {"id": "auditors", "label": "Auditors", "members": []}, {"id": "gatherers", "label": "Gatherers", "members": []}, {"id": "guardians", "label": "Guardians", "members": []}, {"id": "scribes", "label": "Scribes", "members": []}], "relations": [{"source": "makers", "target": "operators", "stance": "cooperative", "trust": 0.5, "gamma": 1, "interactions": 0, "successes": 0, "failures": 0}, {"source": "gatherers", "target": "operators", "stance": "cooperative", "trust": 0.5, "gamma": 1, "interactions": 0, "successes": 0, "failures": 0}, {"source": "guardians", "target": "operators", "stance": "allied", "trust": 0.5, "gamma": 1, "interactions": 0, "successes": 0, "failures": 0}, {"source": "scribes", "target": "operators", "stance": "allied", "trust": 0.5, "gamma": 1, "interactions": 0, "successes": 0, "failures": 0}, {"source": "operators", "target": "makers", "stance": "allied", "trust": 0.5, "gamma": 1, "interactions": 0, "successes": 0, "failures": 0}, {"source": "operators", "target": "auditors", "stance": "allied", "trust": 0.5, "gamma": 1, "interactions": 0, "successes": 0, "failures": 0}, {"source": "operators", "target": "gatherers", "stance": "allied", "trust": 0.5, "gamma": 1, "interactions": 0, "successes": 0, "failures": 0}, {"source": "operators", "target": "guardians", "stance": "allied", "trust": 0.5, "gamma": 1, "interactions": 0, "successes": 0, "failures": 0}, {"source": "operators", "target": "scribes", "stance": "allied", "trust": 0.5, "gamma": 1, "interactions": 0, "successes": 0, "failures": 0}, {"source": "auditors", "target": "makers", "stance": "skeptical", "trust": 0.5, "gamma": 1, "interactions": 0, "successes": 0, "failures": 0}, {"source": "makers", "target": "auditors", "stance": "cooperative", "trust": 0.5, "gamma": 1, "interactions": 0, "successes": 0, "failures": 0}, {"source": "gatherers", "target": "makers", "stance": "cooperative", "trust": 0.5, "gamma": 1, "interactions": 0, "successes": 0, "failures": 0}, {"source": "guardians", "target": "makers", "stance": "skeptical", "trust": 0.5, "gamma": 1, "interactions": 0, "successes": 0, "failures": 0}, {"source": "guardians", "target": "gatherers", "stance": "skeptical", "trust": 0.5, "gamma": 1, "interactions": 0, "successes": 0, "failures": 0}], "missions": [{"mission_id": "mis_46364913", "title": "chat:skill:coding", "state": "completed", "started_at": 1781084599.158655, "initiated_by": null}, {"mission_id": "mis_6550d903", "title": "chat:skill:coding", "state": "completed", "started_at": 1781087720.6713011, "initiated_by": null}, {"mission_id": "mis_924e0bcf", "title": "chat:skill:coding", "state": "completed", "started_at": 1781090282.455905, "initiated_by": null}, {"mission_id": "mis_e57dc41f", "title": "chat:skill:coding", "state": "completed", "started_at": 1781090361.4406478, "initiated_by": null}, {"mission_id": "mis_72d11a7c", "title": "chat:skill:coding", "state": "completed", "started_at": 1781098334.714111, "initiated_by": null}, {"mission_id": "mis_17b148e2", "title": "chat:skill:coding", "state": "completed", "started_at": 1781098692.75247, "initiated_by": null}, {"mission_id": "mis_dfa8fbbb", "title": "chat:skill:coding", "state": "completed", "started_at": 1781104698.376022, "initiated_by": null}, {"mission_id": "mis_0e02ad44", "title": "chat:skill:deploy", "state": "completed", "started_at": 1781105706.6373692, "initiated_by": null}], "taken": "2026-06-10 15:53"};
+  const demoForced = new URLSearchParams(location.search).has("demo");
+  let demoMode = false;
+  let demoTimer = null;
+  let demoTick = 0;
+  const demoParticles = []; // {x1,y1,x2,y2,t,speed,color}
+
+  function setDemoBadge(){
+    const conn = document.getElementById("conn");
+    const dot  = document.getElementById("connDot");
+    const txt  = document.getElementById("connTxt");
+    conn.className = "conn demo";
+    dot.className  = "dot demo";
+    txt.textContent = "demo";
+    conn.title = "Standbild echter Daten (Snapshot " + DEMO_SNAPSHOT.taken +
+      ") mit simuliertem Verkehr";
+  }
+
+  function enterDemo(){
+    if(demoMode) return;
+    demoMode = true;
+    state.agents    = JSON.parse(JSON.stringify(DEMO_SNAPSHOT.agents));
+    state.factions  = JSON.parse(JSON.stringify(DEMO_SNAPSHOT.factions));
+    state.relations = JSON.parse(JSON.stringify(DEMO_SNAPSHOT.relations));
+    state.missions  = JSON.parse(JSON.stringify(DEMO_SNAPSHOT.missions));
+    rateHist.clear();
+    computeLayout();
+    renderSidebar();
+    renderTicker();
+    updateHeaderCounts();
+    setDemoBadge();
+    if(!demoTimer) demoTimer = setInterval(demoStep, 900);
+    console.info("[ZEITRAUM] Demo-Modus aktiv (Snapshot " + DEMO_SNAPSHOT.taken + ")");
+  }
+
+  function exitDemo(){
+    if(!demoMode) return;
+    demoMode = false;
+    if(demoTimer){ clearInterval(demoTimer); demoTimer = null; }
+    demoParticles.length = 0;
+  }
+
+  function demoStep(){
+    demoTick++;
+    // 1. Raten atmen: Random-Walk um den Snapshot-Wert, Breite = Streuung
+    for(const a of state.agents){
+      const rs = a.rate_stats;
+      if(!rs || typeof rs.rate !== "number") continue;
+      if(a.__baseRate === undefined) a.__baseRate = Math.max(rs.rate, 0.2);
+      const base = a.__baseRate;
+      const dev  = Math.max(rs.dev || 0, base * 0.18);
+      rs.rate = Math.max(0.05, base + (Math.random()*2 - 1) * dev);
+      rs.dev  = dev;
+      rs.cv   = rs.dev / Math.max(rs.rate, 0.001);
+      let h = rateHist.get(a.agent_id);
+      if(!h){ h = []; rateHist.set(a.agent_id, h); }
+      h.push(rs.rate);
+      if(h.length > HIST_MAX) h.shift();
+    }
+    renderSidebar();
+    // 2. Partikel: zufällige Kante, Spawn-Wahrscheinlichkeit = Trust
+    const rels = state.relations.filter(
+      r => facCenters.has(r.source) && facCenters.has(r.target));
+    if(rels.length){
+      const pick = rels[Math.floor(Math.random()*rels.length)];
+      if(Math.random() < Math.max(pick.trust || 0, 0.25)){
+        const a = facCenters.get(pick.source), b = facCenters.get(pick.target);
+        demoParticles.push({x1:a.x, y1:a.y, x2:b.x, y2:b.y, t:0,
+          speed: 0.35 + Math.random()*0.5,
+          color: STANCE_COLOR[pick.stance] || "#7a857d"});
+      }
+    }
+    // 3. Ticker-Replay: alle ~7 Ticks eine "neue" Mission, jede dritte PEER
+    if(demoTick % 7 === 0 && DEMO_SNAPSHOT.missions.length){
+      const src = DEMO_SNAPSHOT.missions[demoTick % DEMO_SNAPSHOT.missions.length];
+      const m = JSON.parse(JSON.stringify(src));
+      m.started_at = Date.now()/1000;
+      m.state = "completed";
+      if(demoTick % 21 === 0){
+        m.initiated_by = "agent:alice";
+        m.title = "initiative:agent:alice>agent:bob (Demo)";
+      }
+      state.missions.unshift(m);
+      state.missions = state.missions.slice(0, 8);
+      renderTicker();
+    }
+  }
+
+  let demoLastT = 0;
+  function drawDemoParticles(t){
+    const dt = demoLastT ? Math.min(t - demoLastT, 0.1) : 0.016;
+    demoLastT = t;
+    ctx.save();
+    for(let i = demoParticles.length - 1; i >= 0; i--){
+      const p = demoParticles[i];
+      p.t += dt * p.speed;
+      if(p.t >= 1){ demoParticles.splice(i, 1); continue; }
+      // leicht gebogene Bahn (quadratische Bezier, Mittelpunkt versetzt)
+      const mx = (p.x1 + p.x2)/2 + (p.y2 - p.y1) * 0.12;
+      const my = (p.y1 + p.y2)/2 - (p.x2 - p.x1) * 0.12;
+      const u = p.t, v = 1 - u;
+      const x = v*v*p.x1 + 2*v*u*mx + u*u*p.x2;
+      const y = v*v*p.y1 + 2*v*u*my + u*u*p.y2;
+      ctx.globalAlpha = 0.85 * Math.sin(Math.PI * p.t);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 0.25 * Math.sin(Math.PI * p.t);
+      ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
   // ── Datenabruf (fail-soft) ───────────────────────────────────────────────
   async function getJSON(url){
     const r = await fetch(url, {cache:"no-store"});
@@ -238,11 +358,13 @@
   }
 
   async function pollFast(){
+    if(demoForced){ enterDemo(); return; }
     try{
       const [agents, missions] = await Promise.all([
         getJSON("/api/agents"),
         getJSON("/api/missions"),
       ]);
+      exitDemo(); // echte Daten verfügbar → Demo beenden
       state.agents = Array.isArray(agents) ? agents : [];
       ingestMissions(Array.isArray(missions) ? missions : []);
       ingestRates();
@@ -253,10 +375,12 @@
       setOnline(true);
     }catch(e){
       setOnline(false, e && e.message);
+      enterDemo(); // kein API erreichbar → Standbild mit simuliertem Verkehr
     }
   }
 
   async function pollSlow(){
+    if(demoForced){ enterDemo(); return; }
     // Fraktionen + Relationen (6 Einzel-Requests sequenziell)
     try{
       const facs = await getJSON("/api/factions");
@@ -388,6 +512,7 @@
     drawEdges(t);
     drawClusters();
     drawNodes(t);
+    if(demoMode) drawDemoParticles(t);
   }
 
   function drawClusters(){
@@ -686,6 +811,7 @@
   window.__zeitraum = {
     state: state,
     resize: resize,
+    demo: { enter: enterDemo, exit: exitDemo, active: () => demoMode },
     redraw: function(){
       renderSidebar();
       renderTicker();
