@@ -23,6 +23,8 @@ class AsyncAgent(ABC):
         self._clock = CausalDilationClock()
         self._started_at: float = 0.0
         self._op_count: int = 0
+        self._last_op_ts: float = 0.0  # Wall-Time des letzten Ops (EWMA-Basis)
+        self._rate: float = 1.0  # EWMA-geglättete Momentanrate (ops/s)
 
     @abstractmethod
     async def handle(self, msg: Message) -> Message:
@@ -35,13 +37,22 @@ class AsyncAgent(ABC):
         pass
 
     def advance_clock(self, incoming: CausalDilationClock | None = None) -> CausalDilationClock:
-        """Merge eingehende Clock + eigener Tick. Gibt Snapshot zurück."""
+        """Merge eingehende Clock + eigener Tick. Gibt Snapshot zurück.
+
+        Die Rate ist eine EWMA über die Momentanrate (1/dt seit letztem Op) —
+        kein Lifetime-Durchschnitt, sonst driften idle Agents gegen 0.
+        """
         if incoming:
             self._clock.merge(incoming)
         self._op_count += 1
-        age = time.time() - self._started_at if self._started_at else 1.0
-        rate = self._op_count / max(age, 0.001)
-        self._clock.tick_with_rate(self.agent_id, rate=round(rate, 4))
+        now = time.time()
+        if self._last_op_ts:
+            dt = max(now - self._last_op_ts, 1e-3)
+            inst_rate = 1.0 / dt
+            self._rate = 0.7 * self._rate + 0.3 * inst_rate
+        self._last_op_ts = now
+        self._rate = round(min(max(self._rate, 0.01), 100.0), 4)
+        self._clock.tick_with_rate(self.agent_id, rate=self._rate)
         return self._clock.copy()
 
     @property

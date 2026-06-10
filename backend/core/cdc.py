@@ -1,5 +1,5 @@
 """
-backend/core/cdc.py — Causal-Dilation Clock (V,D)-Tupel (§3.4).
+backend/core/cdc.py — Causal-Dilation Clock (V, D, τ)-Tripel (§3.4).
 
 Jede interne Message in LogpyClaw v3 trägt eine CDC-Instanz.
 Keine optionale Metadata-Ergänzung — CDC ist Pflicht.
@@ -8,7 +8,7 @@ Keine optionale Metadata-Ergänzung — CDC ist Pflicht.
   ORDERED             — kausal und temporal geordnet
   CAUSAL_DRIFT        — kausal geordnet, temporal divergent
   CONCURRENT_DRIFT    — nebenläufig mit Divergenz
-  INCONSISTENT        — V und D widersprechen sich (Clock-Korruption)
+  INCONSISTENT        — V und τ widersprechen sich (Clock-Korruption)
 """
 
 from __future__ import annotations
@@ -30,14 +30,18 @@ class CDCRelation(Enum):
 
 @dataclass
 class CausalDilationClock:
-    """(V, D)-Tupel — Vector-Clock + Eigenzeit pro Agent.
+    """(V, D, τ)-Tripel — Vector-Clock + Momentanrate + Eigenzeit pro Agent.
 
     vector   : logische Kausalordnung (Lamport-style)
-    dilation : kumulative Eigenzeit τ pro Agent (Σ op_weights)
+    dilation : zuletzt beobachtete Momentanrate (ops/s) pro Agent —
+               KEINE kumulative Größe, sondern eine Beobachtung
+    tau      : kumulative Eigenzeit τ pro Agent (Σ op_weights),
+               monoton wachsend, Basis für relate()
     """
 
     vector: dict[str, int] = field(default_factory=dict)
     dilation: dict[str, float] = field(default_factory=dict)
+    tau: dict[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "_lock", threading.Lock())
@@ -45,17 +49,17 @@ class CausalDilationClock:
     # ── Buchhaltung ───────────────────────────────────────────────────────────
 
     def tick(self, agent_id: str, op_weight: float = 1.0) -> None:
-        """Interner Reasoning-Schritt — erhöht V und D."""
+        """Interner Reasoning-Schritt — erhöht V und τ. dilation bleibt unberührt."""
         if not agent_id:
             raise ValueError("agent_id darf nicht leer sein")
         if op_weight < 0:
             raise ValueError("op_weight muss ≥ 0 sein")
         with self._lock:  # type: ignore[attr-defined]
             self.vector[agent_id] = self.vector.get(agent_id, 0) + 1
-            self.dilation[agent_id] = self.dilation.get(agent_id, 0.0) + float(op_weight)
+            self.tau[agent_id] = self.tau.get(agent_id, 0.0) + float(op_weight)
 
     def tick_with_rate(self, agent_id: str, rate: float) -> CausalDilationClock:
-        """Tick + Eigenzeit-Rate (ops/s) in dilation speichern. Gibt self zurück."""
+        """Tick (τ += 1.0) + Momentanrate (ops/s) in dilation speichern. Gibt self zurück."""
         self.tick(agent_id, op_weight=1.0)
         if rate > 0:
             with self._lock:  # type: ignore[attr-defined]
@@ -63,12 +67,27 @@ class CausalDilationClock:
         return self
 
     def merge(self, other: CausalDilationClock) -> CausalDilationClock:
-        """Max-Merge beim Empfang einer Nachricht. Gibt self zurück (fluent)."""
+        """Merge beim Empfang einer Nachricht. Gibt self zurück (fluent).
+
+        vector und tau: elementweises Max (monoton wachsende Größen).
+        dilation: Es gewinnt die Rate des Clocks mit dem höheren
+        vector-Eintrag für diesen Agenten (neueste Beobachtung) —
+        bei Gleichstand Max. Ein Max über Raten wäre falsch: einmal
+        schnell hieße sonst für immer schnell.
+        """
         with self._lock:  # type: ignore[attr-defined]
+            # dilation zuerst — braucht den Vektor-Stand VOR dem Max-Merge
+            for a, d in other.dilation.items():
+                own_v = self.vector.get(a, 0)
+                oth_v = other.vector.get(a, 0)
+                if a not in self.dilation or oth_v > own_v:
+                    self.dilation[a] = d
+                elif oth_v == own_v:
+                    self.dilation[a] = max(self.dilation[a], d)
             for a, v in other.vector.items():
                 self.vector[a] = max(self.vector.get(a, 0), v)
-            for a, d in other.dilation.items():
-                self.dilation[a] = max(self.dilation.get(a, 0.0), d)
+            for a, t in other.tau.items():
+                self.tau[a] = max(self.tau.get(a, 0.0), t)
         return self
 
     # ── Frame-Transformation (§3.3) ───────────────────────────────────────────
@@ -93,14 +112,24 @@ class CausalDilationClock:
         gamma: Mapping[tuple[str, str], float] | None = None,
         drift_tolerance: float = 0.0,
     ) -> CDCRelation:
-        gamma = gamma or {}
+        """Klassifiziert das Verhältnis zweier Clocks (§3.4).
+
+        Der temporale Vergleich läuft über τ (kumulative Eigenzeit) —
+        Momentanraten (dilation) sind keine kausal geordnete Größe.
+        gamma bleibt aus API-Kompatibilität in der Signatur, wird hier
+        aber nicht angewandt: pro Key wird die Eigenzeit DESSELBEN
+        Agenten verglichen, eine Frame-Transformation ist dafür nicht
+        nötig. γ_ij wird auf höherer Ebene (faction_protocol) für die
+        Drift-Klassifikation genutzt.
+        """
+        del gamma  # bewusst ungenutzt — siehe Docstring
         v_le = self._vec_le(self.vector, other.vector)
         v_ge = self._vec_le(other.vector, self.vector)
         v_eq = v_le and v_ge
         v_concurrent = (not v_le) and (not v_ge)
 
-        d_le = self._dil_le(self.dilation, other.dilation, gamma, drift_tolerance)
-        d_ge = self._dil_le(other.dilation, self.dilation, gamma, drift_tolerance)
+        d_le = self._dil_le(self.tau, other.tau, drift_tolerance)
+        d_ge = self._dil_le(other.tau, self.tau, drift_tolerance)
 
         if v_le and not v_eq:
             return CDCRelation.ORDERED if d_le else CDCRelation.CAUSAL_DRIFT
@@ -113,7 +142,11 @@ class CausalDilationClock:
     # ── LLM-Lesbarkeit ────────────────────────────────────────────────────────
 
     def llm_summary(self) -> str:
-        """Kompakte Lesart für LLM-Kontext: 'alice:fast(ez=4,rate=2.6) | bob:slow(ez=2,rate=0.3)'"""
+        """Kompakte Lesart für LLM-Kontext: 'alice:fast(ez=4,rate=2.60,tau=12.0)'.
+
+        Das Geschwindigkeits-Gefühl (fast/slow/…) basiert auf der
+        Momentanrate (dilation), tau wird zusätzlich angezeigt.
+        """
         if not self.dilation:
             return "no temporal data"
         parts = []
@@ -127,7 +160,8 @@ class CausalDilationClock:
                 feel = "slow"
             else:
                 feel = "dilated"
-            parts.append(f"{agent}:{feel}(ez={ez},rate={val:.2f})")
+            tau = self.tau.get(agent, 0.0)
+            parts.append(f"{agent}:{feel}(ez={ez},rate={val:.2f},tau={tau:.1f})")
         return " | ".join(parts)
 
     def relate_str(self, other: CausalDilationClock) -> str:
@@ -140,6 +174,7 @@ class CausalDilationClock:
             return {
                 "vector": dict(self.vector),
                 "dilation": dict(self.dilation),
+                "tau": dict(self.tau),
                 "wall_ts": time.time(),
             }
 
@@ -148,9 +183,11 @@ class CausalDilationClock:
 
     @classmethod
     def from_dict(cls, d: Mapping) -> CausalDilationClock:
+        # tau tolerant lesen — Legacy-Payloads (vor dem tau/rate-Split) haben keins
         return cls(
             vector=dict(d.get("vector", {})),
             dilation={k: float(v) for k, v in dict(d.get("dilation", {})).items()},
+            tau={k: float(v) for k, v in dict(d.get("tau", {})).items()},
         )
 
     @classmethod
@@ -162,6 +199,7 @@ class CausalDilationClock:
             return CausalDilationClock(
                 vector=dict(self.vector),
                 dilation=dict(self.dilation),
+                tau=dict(self.tau),
             )
 
     # ── Hilfs-Methoden ────────────────────────────────────────────────────────
@@ -175,7 +213,6 @@ class CausalDilationClock:
     def _dil_le(
         a: Mapping[str, float],
         b: Mapping[str, float],
-        gamma: Mapping[tuple[str, str], float],
         tolerance: float,
     ) -> bool:
         keys = set(a) | set(b)

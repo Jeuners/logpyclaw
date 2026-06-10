@@ -79,6 +79,48 @@ class TestMessageFactory:
         assert msg.clock.vector.get("agent:alice", 0) == 1
 
 
+class TestClockDefaults:
+    """Vergessene Clock darf die Kausalhistorie nicht abreißen (§ Clock-Defaults)."""
+
+    def setup_method(self):
+        self.mid = new_mission_id()
+        clock = CausalDilationClock()
+        clock.tick_with_rate("agent:alice", rate=2.0)
+        clock.tick("agent:alice")
+        self.req = Message.request(self.mid, "agent:alice", "agent:bob", "do X", clock=clock)
+
+    def test_request_default_clock_is_fresh(self):
+        """Root-Messages haben keine Historie → frische Clock ist korrekt."""
+        msg = Message.request(self.mid, "agent:alice", "agent:bob", "do X")
+        assert msg.clock.vector == {}
+
+    def test_response_inherits_request_clock(self):
+        res = Message.response(self.req, "done")
+        assert res.clock.vector.get("agent:alice") == 2
+        assert res.clock.dilation.get("agent:alice") == 2.0
+        assert res.clock.tau.get("agent:alice") == 2.0
+
+    def test_error_inherits_request_clock(self):
+        err = Message.error(self.req, "boom")
+        assert err.clock.vector.get("agent:alice") == 2
+
+    def test_heartbeat_inherits_request_clock(self):
+        hb = Message.heartbeat(self.req, "50%")
+        assert hb.clock.vector.get("agent:alice") == 2
+
+    def test_inherited_clock_is_a_copy(self):
+        """Die geerbte Clock ist eine Kopie — kein Aliasing auf die Request-Clock."""
+        res = Message.response(self.req, "done")
+        res.clock.tick("agent:bob")
+        assert "agent:bob" not in self.req.clock.vector
+
+    def test_explicit_clock_wins(self):
+        own = CausalDilationClock()
+        own.tick("agent:bob")
+        res = Message.response(self.req, "done", clock=own)
+        assert res.clock.vector.get("agent:bob") == 1
+
+
 class TestMessageSerialization:
     def test_round_trip(self):
         mid = new_mission_id()

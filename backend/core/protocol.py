@@ -152,7 +152,9 @@ class Message:
             sender=request_msg.recipient,
             recipient=request_msg.sender,
             payload={"result": result},
-            clock=clock or CausalDilationClock(),
+            # Vergessene Clock darf die Kausalhistorie nicht abreißen →
+            # Request-Clock erben statt frischer (leerer) Clock.
+            clock=clock or request_msg.clock.copy(),
         )
 
     @classmethod
@@ -171,7 +173,8 @@ class Message:
             sender=request_msg.recipient,
             recipient=request_msg.sender,
             payload={"reason": reason},
-            clock=clock or CausalDilationClock(),
+            # siehe response(): Kausalhistorie erben, nicht abreißen
+            clock=clock or request_msg.clock.copy(),
         )
 
     @classmethod
@@ -190,7 +193,8 @@ class Message:
             sender=request_msg.recipient,
             recipient=request_msg.sender,
             payload={"progress": progress},
-            clock=clock or CausalDilationClock(),
+            # siehe response(): Kausalhistorie erben, nicht abreißen
+            clock=clock or request_msg.clock.copy(),
         )
 
     def to_dict(self) -> dict:
@@ -222,6 +226,10 @@ class Message:
         Teil der kausalen Identität (wäre wegen time.time() instabil).
         """
         from backend.core.pqsign import canonical_json
+        # WICHTIG: clock.tau hier NICHT mit kanonisieren — tau ist abgeleitete
+        # Buchhaltung. Würde es in den Signing-Payload wandern, bräche die
+        # PQC-Hash-Chain-Verifikation aller alten, in SQLite gespeicherten
+        # Messages (deren Hashes wurden ohne tau gebildet).
         return canonical_json({
             "msg_id":    self.msg_id,
             "mission_id": self.mission_id,
