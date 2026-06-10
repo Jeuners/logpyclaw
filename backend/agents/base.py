@@ -25,6 +25,7 @@ class AsyncAgent(ABC):
         self._op_count: int = 0
         self._last_op_ts: float = 0.0  # Wall-Time des letzten Ops (EWMA-Basis)
         self._rate: float = 1.0  # EWMA-geglättete Momentanrate (ops/s)
+        self._rate_dev: float = 0.0  # EWMA der |inst_rate − rate|-Abweichung (Streuung)
 
     @abstractmethod
     async def handle(self, msg: Message) -> Message:
@@ -50,10 +51,33 @@ class AsyncAgent(ABC):
             dt = max(now - self._last_op_ts, 1e-3)
             inst_rate = 1.0 / dt
             self._rate = 0.7 * self._rate + 0.3 * inst_rate
+            self._rate = round(min(max(self._rate, 0.01), 100.0), 4)
+            # Streuung NACH dem Rate-Update: frische inst_rate gegen die NEUE Rate.
+            self._rate_dev = round(0.7 * self._rate_dev + 0.3 * abs(inst_rate - self._rate), 4)
         self._last_op_ts = now
         self._rate = round(min(max(self._rate, 0.01), 100.0), 4)
         self._clock.tick_with_rate(self.agent_id, rate=self._rate)
         return self._clock.copy()
+
+    @property
+    def rate_stats(self) -> dict:
+        """Momentanrate + Streuung + Variationskoeffizient (cv = dev/rate)."""
+        rate = self._rate
+        dev = self._rate_dev
+        cv = dev / rate if rate else 0.0
+        return {"rate": round(rate, 4), "dev": round(dev, 4), "cv": round(cv, 4)}
+
+    def time_sense(self) -> str:
+        """LLM-lesbarer Ein-Zeiler über die eigene Zeit-Verteilung, nicht nur den Punkt."""
+        s = self.rate_stats
+        cv = s["cv"]
+        if cv < 0.25:
+            wort = "stabil"
+        elif cv < 0.75:
+            wort = "schwankend"
+        else:
+            wort = "unstet"
+        return f"~{s['rate']:.1f} ops/s, Streuung ±{s['dev']:.1f} ({wort})"
 
     @property
     def clock(self) -> CausalDilationClock:
@@ -65,4 +89,11 @@ class AsyncAgent(ABC):
             "name": self.name,
             "op_count": self._op_count,
             "clock": self._clock.to_dict(),
+            "rate_stats": self.rate_stats,
         }
+
+    # Hinweis: Die Streuung lebt bewusst NUR hier im Agenten, nicht in der CDC.
+    # Die Clock (cdc.py) bleibt unberührt — kein neues Feld, kein Eingriff in
+    # tick/merge/serialize. Grund: Das Wire-Format ist PQC-signiert und muss
+    # kompatibel bleiben; die Streuung ist Agenten-Selbstwissen (wie breit ist
+    # mein "meistens"), keine kausal übertragbare Nachrichteneigenschaft.

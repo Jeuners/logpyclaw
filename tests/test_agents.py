@@ -1,5 +1,7 @@
 """Tests für AsyncAgent Basis + Conductor + A2A-Gateway."""
 
+import time
+
 import pytest
 
 from backend.agents.a2a_gateway import A2AGatewayAgent
@@ -47,6 +49,61 @@ class TestAsyncAgent:
         d = a.to_dict()
         assert d["agent_id"] == "agent:echo"
         assert "clock" in d
+
+
+# ── Distributionales Zeitgefühl (rate_stats / time_sense) ─────────────────────
+
+def _fake_clock(times: list[float]):
+    """Liefert eine deterministische time.time-Ersatzfunktion über eine Sequenz."""
+    seq = iter(times)
+    last = [times[-1]]
+
+    def fake() -> float:
+        try:
+            last[0] = next(seq)
+        except StopIteration:
+            pass
+        return last[0]
+
+    return fake
+
+
+class TestTimeSense:
+    def test_dev_starts_at_zero_and_stats_shape(self):
+        a = EchoAgent("agent:echo", "Echo")
+        stats = a.rate_stats
+        assert set(stats) == {"rate", "dev", "cv"}
+        assert stats["dev"] == 0.0
+        assert all(isinstance(v, float) for v in stats.values())
+
+    def test_stable_rate_gives_low_cv_and_stabil(self, monkeypatch):
+        a = EchoAgent("agent:echo", "Echo")
+        # Gleichmäßige Abstände von je 1s → konstante inst_rate → cv ~ 0.
+        times = [float(i) for i in range(20)]
+        monkeypatch.setattr(time, "time", _fake_clock(times))
+        for _ in range(len(times)):
+            a.advance_clock()
+        assert a.rate_stats["cv"] < 0.25
+        assert "stabil" in a.time_sense()
+
+    def test_jittery_rate_gives_high_cv(self, monkeypatch):
+        a = EchoAgent("agent:echo", "Echo")
+        # Abwechselnd 0.1s und 5s Abstand → stark wechselnde inst_rate.
+        times = [0.0]
+        for _ in range(15):
+            times.append(times[-1] + 0.1)
+            times.append(times[-1] + 5.0)
+        monkeypatch.setattr(time, "time", _fake_clock(times))
+        for _ in range(len(times)):
+            a.advance_clock()
+        assert a.rate_stats["cv"] >= 0.25
+        assert any(w in a.time_sense() for w in ("unstet", "schwankend"))
+
+    def test_to_dict_contains_rate_stats(self):
+        a = EchoAgent("agent:echo", "Echo")
+        d = a.to_dict()
+        assert "rate_stats" in d
+        assert set(d["rate_stats"]) == {"rate", "dev", "cv"}
 
 
 # ── Conductor ─────────────────────────────────────────────────────────────────

@@ -246,6 +246,14 @@ Hinweis: `signing_payload()` kanonisiert weiterhin nur `vector` + `dilation` —
 `tau` ist abgeleitete Buchhaltung. So bleiben alte PQC-Hash-Chains verifizierbar.
 `verify_chain()` ist fail-closed: eine Mission ganz ohne Signaturen gilt nicht als valid.
 
+Zusätzlich trackt jeder Agent die **Streuung** seiner Eigenzeit-Rate (EWMA der
+Absolutabweichung `|inst_rate − rate|`) und exponiert sie über `rate_stats`
+(rate/dev/cv) und `time_sense()`. Dieses Selbstwissen lebt bewusst agentenlokal
+und liegt **nicht** im Wire-Format — die Clock und ihre PQC-signierten Felder
+bleiben unberührt. Begründung: Entscheidungen unter Deadline brauchen Verteilungs-,
+nicht Punktwissen ("ich schaffe das meistens in X s, und so breit ist meistens").
+Siehe Paper §5.5 (Drachen-Experiment), wo der Median allein in die Irre führte.
+
 ### Trust & γ — die Mathematik
 
 Damit das Fraktionsmodell nicht philosophisch bleibt, hier die exakten
@@ -258,8 +266,12 @@ trust = (S + 1) / (S + F + 2)
 ```
 
 Eigenschaften: beschränkt auf (0,1), Startwert 0.5, konvergiert gegen die
-empirische Erfolgsrate. `success` ist definiert als RESPONSE statt ERROR der
-abgeschlossenen Interaktion; gelernt wird automatisch bei jedem
+empirische Erfolgsrate. `success` ist inhaltlich definiert: RESPONSE (statt
+ERROR) **und** (kein QC-Urteil **oder** QC bestanden). Liefert Martin nach
+gescheitertem QC-Loop eine RESPONSE mit `payload["_qc"].passed == False`,
+zählt das als Misserfolg — ein QC-Fail darf Vertrauen nicht aufblähen.
+Transport-Erfolg (RESPONSE) bleibt der Maßstab, solange kein QC-Urteil
+vorliegt (Skill, QC aus, kein Auditor). Gelernt wird automatisch bei jedem
 Cross-Faction-Dispatch im Conductor.
 
 **Vertrauen altert** (Evidenz-Halbwertszeit, Default 7 Tage): vor jedem

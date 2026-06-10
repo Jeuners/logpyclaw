@@ -329,6 +329,27 @@ class _StubAgent:
     async def stop(self): pass
 
 
+class _QCFailAgent:
+    """Martin-ähnlicher Stub: liefert eine RESPONSE, deren payload ein
+    _qc-Feld mit passed=False trägt (endgültig gescheiterter QC)."""
+
+    def __init__(self, agent_id: str, score: int = 3):
+        self.agent_id = agent_id
+        self.name = agent_id
+        self.score = score
+
+        def _respond(m: Message) -> Message:
+            resp = Message.response(m, f"[QC failed after 3 attempts, best score {score}/10] x")
+            resp.payload["_qc"] = {"checked": True, "score": score, "passed": False}
+            return resp
+
+        self.handle = AsyncMock(side_effect=_respond)
+
+    async def start(self): pass
+
+    async def stop(self): pass
+
+
 class TestConductorFactionWiring:
     async def test_dispatch_builds_envelope(self):
         reg = FactionRegistry.load_defaults()
@@ -411,6 +432,52 @@ class TestConductorFactionWiring:
         await c.dispatch(msg)
         guardian.handle.assert_awaited_once()
         martin.handle.assert_not_awaited()
+
+    async def test_qc_fail_response_counts_as_failure(self):
+        """Ende-zu-Ende: eine RESPONSE mit _qc.passed=False zählt als Misserfolg
+        in der Cross-Faction-Relation (failures+1 statt successes+1)."""
+        reg = FactionRegistry.load_defaults()
+        reg.assign("agent:martin", "operators")
+        reg.assign("agent:maker", "makers")
+
+        c = Conductor()
+        c.register(_QCFailAgent("agent:maker", score=3))
+
+        msg = Message.request(new_mission_id(), "agent:martin", "agent:maker", "build X")
+        resp = await c.dispatch(msg)
+        # Transport ist erfolgreich (RESPONSE), inhaltlich aber gescheitert
+        assert resp.type == MessageType.RESPONSE
+        rel = reg.relation("operators", "makers")
+        assert rel.interactions == 1
+        assert rel.failures == 1
+        assert rel.successes == 0
+
+    async def test_qc_pass_response_counts_as_success(self):
+        """Gegenprobe: RESPONSE mit _qc.passed=True zählt als Erfolg."""
+        reg = FactionRegistry.load_defaults()
+        reg.assign("agent:martin", "operators")
+        reg.assign("agent:maker", "makers")
+
+        class _QCPassAgent(_QCFailAgent):
+            def __init__(self, agent_id: str):
+                super().__init__(agent_id)
+
+                def _respond(m: Message) -> Message:
+                    resp = Message.response(m, "all good")
+                    resp.payload["_qc"] = {"checked": True, "score": 9, "passed": True}
+                    return resp
+
+                self.handle = AsyncMock(side_effect=_respond)
+
+        c = Conductor()
+        c.register(_QCPassAgent("agent:maker"))
+
+        msg = Message.request(new_mission_id(), "agent:martin", "agent:maker", "build X")
+        await c.dispatch(msg)
+        rel = reg.relation("operators", "makers")
+        assert rel.interactions == 1
+        assert rel.successes == 1
+        assert rel.failures == 0
 
 
 class TestTrustAging:

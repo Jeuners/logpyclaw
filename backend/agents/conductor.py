@@ -199,10 +199,15 @@ class Conductor:
         # record_cross_faction_outcome returnt früh — das ist ok.
         sender_rate = msg.clock.dilation.get(msg.sender, 0.0)
         recipient_rate = response.clock.dilation.get(msg.recipient, 0.0)
+        # Inhaltlicher Erfolg schlägt Transport-Erfolg: eine RESPONSE mit
+        # gescheitertem QC zählt als Misserfolg. Liegt kein QC-Urteil vor
+        # (Skill, QC aus, kein Auditor), bleibt RESPONSE der Maßstab.
+        qc = response.payload.get("_qc")
+        success = response.type == MessageType.RESPONSE and (qc is None or qc.get("passed", True))
         registry.record_cross_faction_outcome(
             msg.sender,
             msg.recipient,
-            success=(response.type == MessageType.RESPONSE),
+            success=success,
             sender_rate=sender_rate,
             recipient_rate=recipient_rate,
         )

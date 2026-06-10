@@ -279,6 +279,81 @@ class TestMartinQC:
         assert "QC failed" not in resp.payload.get("result", "")
         await c.stop()
 
+    @pytest.mark.asyncio
+    async def test_qc_pass_sets_qc_metadata(self):
+        """QC besteht → _qc {checked: True, passed: True, score >= min}."""
+        c = Conductor()
+        c.register(EchoAgent("agent:maker", "Maker"))
+        c.register(ScoreAgent("agent:auditor", "Auditor", score=9))
+        await c.start()
+
+        m = MartinAgent(
+            conductor=c,
+            qc=QCConfig(enabled=True, min_score=7, max_retries=1, auditor_id="agent:auditor"),
+        )
+        c.register(m)
+        await m.start()
+
+        mid = new_mission_id()
+        msg = Message.request(mid, "ext:user", MartinAgent.AGENT_ID, "@agent:maker do X")
+        resp = await m.handle(msg)
+        qc = resp.payload.get("_qc")
+        assert qc is not None
+        assert qc["checked"] is True
+        assert qc["passed"] is True
+        assert qc["score"] >= 7
+        await c.stop()
+
+    @pytest.mark.asyncio
+    async def test_qc_fail_sets_qc_metadata_passed_false(self):
+        """QC scheitert endgültig → RESPONSE mit _qc.passed False, Score < min."""
+        c = Conductor()
+        c.register(EchoAgent("agent:maker", "Maker"))
+        c.register(LowScoreAgent("agent:auditor", "LowScoreAuditor"))
+        await c.start()
+
+        m = MartinAgent(
+            conductor=c,
+            qc=QCConfig(enabled=True, min_score=7, max_retries=1, auditor_id="agent:auditor"),
+        )
+        c.register(m)
+        await m.start()
+
+        mid = new_mission_id()
+        msg = Message.request(mid, "ext:user", MartinAgent.AGENT_ID, "@agent:maker do X")
+        resp = await m.handle(msg)
+        assert resp.type == MessageType.RESPONSE
+        qc = resp.payload.get("_qc")
+        assert qc is not None
+        assert qc["checked"] is True
+        assert qc["passed"] is False
+        assert qc["score"] < 7
+        # Menschlicher Texthinweis bleibt zusätzlich erhalten
+        assert "QC failed" in resp.payload.get("result", "")
+        await c.stop()
+
+    @pytest.mark.asyncio
+    async def test_skill_delegation_has_no_qc_metadata(self):
+        """Skill-Delegation → kein _qc-Feld (deterministisch, kein QC-Loop)."""
+        c = Conductor()
+        c.register(EchoAgent("skill:coding", "Coding"))
+        c.register(ScoreAgent("agent:auditor", "Auditor", score=9))
+        await c.start()
+
+        m = MartinAgent(
+            conductor=c,
+            qc=QCConfig(enabled=True, min_score=7, max_retries=1, auditor_id="agent:auditor"),
+        )
+        c.register(m)
+        await m.start()
+
+        mid = new_mission_id()
+        msg = Message.request(mid, "ext:user", MartinAgent.AGENT_ID, "@skill:coding write X")
+        resp = await m.handle(msg)
+        assert resp.type == MessageType.RESPONSE
+        assert "_qc" not in resp.payload
+        await c.stop()
+
 
 # ── Plan-Ausführung (Wellen-Parallelisierung) ─────────────────────────────────
 

@@ -192,6 +192,12 @@ class MartinAgent(AsyncAgent):
         if not self.conductor:
             return Message.error(original, "Martin has no conductor", clock=clock)
 
+        # QC-Metadaten für den maschinellen Outcome-Konsumenten (Conductor).
+        # checked bleibt False, solange kein Auditor-Check tatsächlich lief.
+        qc_checked = False
+        qc_score = 0
+        qc_passed = True
+
         for attempt in range(self.qc.max_retries + 1):
             # Delegation
             sub_msg = Message.request(
@@ -215,6 +221,10 @@ class MartinAgent(AsyncAgent):
                 break
 
             score = await self._qc_check(original, result_text)
+            # Ab hier lief ein echter Auditor-Check — Metadaten festhalten
+            qc_checked = True
+            qc_score = score
+            qc_passed = score >= self.qc.min_score
             if score >= self.qc.min_score:
                 break
 
@@ -229,11 +239,17 @@ class MartinAgent(AsyncAgent):
                     f"[QC failed after {attempt + 1} attempts, best score {score}/10] {result_text}"
                 )
 
-        return Message.response(
+        out = Message.response(
             original,
             result_text,
             clock=self.advance_clock(response.clock),
         )
+        # _qc nur bei tatsächlich geprüften Delegationen setzen (additiv, alte
+        # Clients ignorieren es). Message.response() baut ein neues Payload-Dict —
+        # das Feld muss auf der ZURÜCKGEGEBENEN Message landen.
+        if qc_checked:
+            out.payload["_qc"] = {"checked": True, "score": qc_score, "passed": qc_passed}
+        return out
 
     async def _execute_plan(
         self,
