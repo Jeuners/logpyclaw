@@ -16,6 +16,7 @@ dependencies = [
     "pyyaml>=6.0",
     "pqcrypto>=0.4",                # ML-DSA-65 (FIPS 204) für Audit-Log-Signatur
     "apscheduler>=3.10",            # Daily Dream-Cycle, RSS-Fetcher
+    "yt-dlp>=2026.3",               # YouTube-Skill — neu wg. SABR/Bot-Schutz (läuft via venv-py3.12)
 ]
 
 [project.optional-dependencies]

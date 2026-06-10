@@ -54,6 +54,7 @@ from backend.skills.file import FileSkill
 from backend.skills.gmail import GmailSkill
 from backend.skills.linkedin import LinkedInSkill
 from backend.skills.ltxvideo import LTXVideoSkill
+from backend.skills.physorg import PhysOrgSkill
 from backend.skills.rss import RSSSkill
 from backend.skills.telegram import TelegramSkill
 from backend.skills.transcription import TranscriptionSkill
@@ -241,6 +242,7 @@ def _boot_agents() -> None:
         "deploy":        lambda c: DeploySkill(**c),
         "urlfetch":      lambda c: UrlFetchSkill(),
         "file":          lambda c: FileSkill(**c),
+        "physorg":       lambda c: PhysOrgSkill(),
         "rss":           lambda c: RSSSkill(),
         "linkedin":      lambda c: LinkedInSkill(**c),
         "telegram":      lambda c: TelegramSkill(**c),

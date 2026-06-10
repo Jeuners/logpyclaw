@@ -13,8 +13,9 @@ from backend.core.protocol import Message, external_ref, new_mission_id
 
 router = APIRouter()
 
-# Vision: lokales Ollama-Modell für Bildanalyse (gemma3 multimodal, deutsch)
-VISION_MODEL = os.environ.get("VISION_MODEL", "gemma3:latest")
+# Vision: lokales Ollama-Modell für Bildanalyse (gemma4:e4b — multimodal, liest
+# auch Text im Bild zuverlässig; per ENV VISION_MODEL überschreibbar).
+VISION_MODEL = os.environ.get("VISION_MODEL", "gemma4:e4b")
 
 
 class ChatRequest(BaseModel):
@@ -94,11 +95,14 @@ class VisionRequest(BaseModel):
     image: str            # base64 (optional mit data:-Präfix)
     prompt: str = ""
     model: str | None = None
+    agent_id: str | None = None   # gewählter Agent → seine Persona "sieht" das Bild
 
 
 @router.post("/vision")
-async def vision(req: VisionRequest):
-    """Analysiert ein Bild lokal via Ollama Vision-Modell (gemma3)."""
+async def vision(req: VisionRequest, request: Request):
+    """Lässt den gewählten Agenten ein Bild lokal über ein Ollama-Vision-Modell
+    (Default gemma4:e4b) analysieren — mit der Persona des Agenten via /api/chat,
+    sodass die Antwort aus dem Gespräch kommt statt aus einem anonymen One-Shot."""
     image = req.image or ""
     if image.startswith("data:"):
         image = image.split(",", 1)[-1]  # data:image/png;base64,XXXX → XXXX
@@ -107,14 +111,26 @@ async def vision(req: VisionRequest):
     prompt = (req.prompt or "").strip() or "Beschreibe dieses Bild ausführlich und präzise auf Deutsch."
     model = req.model or VISION_MODEL
     cfg = get_settings()
+
+    # Persona des gewählten Agenten übernehmen, damit DER AGENT das Bild sieht.
+    soul = ""
+    if req.agent_id:
+        agent = request.app.state.conductor.get_agent(req.agent_id)
+        soul = (getattr(agent, "soul", "") or "").strip()
+
+    messages = []
+    if soul:
+        messages.append({"role": "system", "content": soul})
+    messages.append({"role": "user", "content": prompt, "images": [image]})
+
     try:
-        async with httpx.AsyncClient(timeout=180.0) as client:
+        async with httpx.AsyncClient(timeout=240.0) as client:
             r = await client.post(
-                f"{cfg.ollama_url}/api/generate",
-                json={"model": model, "prompt": prompt, "images": [image], "stream": False},
+                f"{cfg.ollama_url}/api/chat",
+                json={"model": model, "messages": messages, "stream": False},
             )
             r.raise_for_status()
             data = r.json()
-        return {"result": (data.get("response") or "").strip(), "model": model}
+        return {"result": (data.get("message", {}).get("content") or "").strip(), "model": model}
     except Exception as e:
         return {"error": f"Vision-Fehler ({model}): {e}"}

@@ -1631,14 +1631,14 @@ async function sendVision(prompt) {
   try {
     const r = await fetch(`${API}/api/vision`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: img, prompt }),
+      body: JSON.stringify({ image: img, prompt, agent_id: selectedAgent }),
     });
     const d = await r.json();
     el.classList.remove('thinking');
     if (d.error) { el.querySelector('.text').textContent = '⚠️ ' + d.error; }
     else {
       renderMsgContent(el.querySelector('.text'), d.result || '(keine Antwort)');
-      el.querySelector('.meta').textContent = '🖼️ ' + (d.model || 'vision');
+      el.querySelector('.meta').textContent = '🖼️ ' + (selectedAgent || 'vision') + ' · ' + (d.model || '');
     }
   } catch (e) {
     el.classList.remove('thinking');
