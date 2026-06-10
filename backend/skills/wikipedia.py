@@ -79,7 +79,7 @@ class WikipediaSkill(Skill):
         return "\n".join(parts)
 
     async def _search(self, query: str, lang: str) -> str | None:
-        async with httpx.AsyncClient(timeout=8, headers={"User-Agent": "agentclaw-v3/1.0"}) as c:
+        async with httpx.AsyncClient(timeout=8, headers={"User-Agent": "logpyclaw-v3/1.0"}) as c:
             r = await c.get(
                 f"https://{lang}.wikipedia.org/w/api.php",
                 params={"action": "opensearch", "search": query, "limit": 1,
@@ -91,7 +91,7 @@ class WikipediaSkill(Skill):
             return titles[0] if titles else None
 
     async def _summary(self, title: str, lang: str) -> dict | None:
-        async with httpx.AsyncClient(timeout=8, headers={"User-Agent": "agentclaw-v3/1.0"}) as c:
+        async with httpx.AsyncClient(timeout=8, headers={"User-Agent": "logpyclaw-v3/1.0"}) as c:
             r = await c.get(
                 f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(title, safe='')}"
             )

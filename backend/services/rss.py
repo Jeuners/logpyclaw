@@ -99,7 +99,7 @@ def _strip_html(html: str) -> str:
 def _parse_feed(feed_id: str, url: str) -> list[RSSEntry]:
     meta = FEEDS[feed_id]
     try:
-        parsed = feedparser.parse(url, agent="agentclaw-v3/1.0")
+        parsed = feedparser.parse(url, agent="logpyclaw-v3/1.0")
     except Exception as e:
         raise RuntimeError(f"feedparser error: {e}") from e
 

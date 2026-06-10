@@ -1,7 +1,7 @@
 """
 backend/api/openai_compat.py — OpenAI-kompatibler Provider-Layer.
 
-Stellt agentclaw als „LLM-Provider" bereit, damit externe Systeme (z. B.
+Stellt logpyclaw als „LLM-Provider" bereit, damit externe Systeme (z. B.
 dillenberg.net oder jedes OpenAI-SDK) die Agenten wie ein Modell ansprechen:
 
   POST /v1/chat/completions   { "model": "martin", "messages": [...] }
@@ -91,7 +91,7 @@ async def _run_agent(conductor, agent_id: str, content: str) -> str:
         text = str(resp.payload.get("result", "")) if resp and resp.payload else ""
     except Exception as e:
         final = "failed"
-        text = f"[agentclaw error] {e}"
+        text = f"[logpyclaw error] {e}"
     finally:
         conductor.store.update_mission(mission_id, state=final, finished_at=time.time())
     return text
@@ -112,7 +112,7 @@ async def list_models(
     conductor = request.app.state.conductor
     now = int(time.time())
     data = [
-        {"id": a.agent_id, "object": "model", "created": now, "owned_by": "agentclaw"}
+        {"id": a.agent_id, "object": "model", "created": now, "owned_by": "logpyclaw"}
         for a in conductor.list_agents()
         if a.agent_id != "a2a:gateway" and is_allowed(a.agent_id)
     ]

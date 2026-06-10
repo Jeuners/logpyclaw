@@ -126,7 +126,7 @@ class BrowserSkill(Skill):
             async with httpx.AsyncClient(
                 timeout=_TIMEOUT,
                 follow_redirects=True,
-                headers={"User-Agent": "Mozilla/5.0 (compatible; AgentClaw/3)"},
+                headers={"User-Agent": "Mozilla/5.0 (compatible; LogpyClaw/3)"},
             ) as client:
                 r = await client.get(url)
                 r.raise_for_status()

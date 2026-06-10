@@ -2,7 +2,7 @@
 backend/core/logging.py — Strukturiertes Logging mit SSE-fähigem LogBroadcaster.
 
 - StreamHandler (stderr, INFO+)
-- RotatingFileHandler (/tmp/agentclaw.log, DEBUG+)
+- RotatingFileHandler (/tmp/logpyclaw.log, DEBUG+)
 - Format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 - get_logger(name) → logging.Logger
 - LogBroadcaster: hält letzte 200 Zeilen im RAM, unterstützt asyncio.Queue-Subscriber
@@ -113,10 +113,10 @@ def _configure_root() -> None:
         sh.setFormatter(fmt)
         root.addHandler(sh)
 
-    # RotatingFileHandler → /tmp/agentclaw.log, DEBUG+
+    # RotatingFileHandler → /tmp/logpyclaw.log, DEBUG+
     try:
         fh = RotatingFileHandler(
-            "/tmp/agentclaw.log",
+            "/tmp/logpyclaw.log",
             maxBytes=5 * 1024 * 1024,   # 5 MB
             backupCount=3,
             encoding="utf-8",

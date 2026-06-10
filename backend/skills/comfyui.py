@@ -20,7 +20,7 @@ from backend.skills import Skill
 _WORKFLOW_TEMPLATE = {
     "9": {
         "class_type": "SaveImage",
-        "inputs": {"filename_prefix": "agentclaw", "images": ["57:8", 0]},
+        "inputs": {"filename_prefix": "logpyclaw", "images": ["57:8", 0]},
     },
     "57:30": {
         "class_type": "CLIPLoader",

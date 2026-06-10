@@ -97,7 +97,7 @@ class TranscriptionSkill(Skill):
         wav = audio_path
         cleanup = False
         if not audio_path.lower().endswith(".wav"):
-            wav = f"/tmp/agentclaw_whisper_{uuid.uuid4().hex[:8]}.wav"
+            wav = f"/tmp/logpyclaw_whisper_{uuid.uuid4().hex[:8]}.wav"
             r = subprocess.run(
                 [_FFMPEG, "-i", audio_path, "-ar", "16000", "-ac", "1", "-f", "wav", wav, "-y"],
                 capture_output=True, timeout=120,
@@ -106,7 +106,7 @@ class TranscriptionSkill(Skill):
                 return f"❌ WAV-Konvertierung fehlgeschlagen: {r.stderr.decode()[:200]}"
             cleanup = True
 
-        out_base = f"/tmp/agentclaw_wout_{uuid.uuid4().hex[:8]}"
+        out_base = f"/tmp/logpyclaw_wout_{uuid.uuid4().hex[:8]}"
         try:
             r = subprocess.run(
                 [cli, "-m", model, "-f", wav, "-l", "auto",
@@ -134,7 +134,7 @@ class TranscriptionSkill(Skill):
                     log.debug("Cleanup fehlgeschlagen (%s): %s", wav, e)
 
     def _whisper_from_video(self, video_path: str) -> str:
-        wav = f"/tmp/agentclaw_vidaudio_{uuid.uuid4().hex[:8]}.wav"
+        wav = f"/tmp/logpyclaw_vidaudio_{uuid.uuid4().hex[:8]}.wav"
         try:
             r = subprocess.run(
                 [_FFMPEG, "-i", video_path, "-ar", "16000", "-ac", "1", "-f", "wav", wav, "-y"],
@@ -190,7 +190,7 @@ class TranscriptionSkill(Skill):
         return None
 
     def _extract_frames(self, video_path: str, max_frames: int = 6) -> list[str]:
-        tmp = f"/tmp/agentclaw_frames_{uuid.uuid4().hex[:8]}"
+        tmp = f"/tmp/logpyclaw_frames_{uuid.uuid4().hex[:8]}"
         os.makedirs(tmp, exist_ok=True)
         try:
             subprocess.run(
