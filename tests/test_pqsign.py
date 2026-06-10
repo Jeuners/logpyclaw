@@ -157,14 +157,17 @@ def test_verify_chain_break_after_idx_alters_next(clean_keys):
 
 
 def test_legacy_message_skipped(clean_keys):
-    """Messages ohne sig (legacy) brechen die Verifikation nicht."""
+    """Komplett unsignierte Mission: kein Chain-Bruch, aber valid=False (fail-closed)."""
     store = MissionStore()
     legacy = _make_msg("mis_legacy", "old", "m_old")
     # NICHT durch record_message → bleibt unsigned
     store._traces[legacy.mission_id].append(legacy)
 
     r = store.verify_chain("mis_legacy")
-    assert r["valid"] is True
+    # Fail-closed: komplett unsignierte Mission ist nicht mehr "valid"
+    # (stiller Signatur-Downgrade soll sichtbar sein) — aber kein broken_at
+    assert r["valid"] is False
+    assert r["broken_at"] is None
     assert r["signed"] == 0
 
 

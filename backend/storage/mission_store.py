@@ -81,28 +81,52 @@ class MissionStore:
     # ── Traces ────────────────────────────────────────────────────────────────
 
     def record_message(self, msg: Message) -> None:
+        """Hängt eine Message signiert an den Mission-Trace an (blockierend).
+
+        Async-Caller sollten record_message_async() bevorzugen — Signatur (CPU)
+        und ggf. SQLite-Commit würden sonst den Event-Loop blockieren.
+        """
         # PQC-Chain + Signatur bauen (falls noch nicht gesetzt z.B. von Replay)
         if msg.sig is None:
             try:
                 from backend.core import pqsign
+                # Die gesamte Sequenz (idx/prev lesen, Payload, Hash, Signatur,
+                # Append) muss atomar unter EINER Lock-Spanne laufen: sonst
+                # können konkurrierende Aufrufe (sync FastAPI-Endpoints laufen
+                # im Threadpool) denselben prev_hash bekommen → Chain bricht.
+                # pqsign.sign ist CPU-gebunden im einstelligen ms-Bereich —
+                # das ist unter dem Lock vertretbar.
                 with self._lock:
                     chain = self._traces[msg.mission_id]
-                    idx = len(chain)
-                    prev = chain[-1].msg_hash if chain and chain[-1].msg_hash else pqsign.GENESIS_HASH
-                msg.chain_idx = idx
-                msg.prev_hash = prev
-                payload = msg.signing_payload()
-                msg.msg_hash = pqsign.hash_message(prev, payload)
-                msg.signer_id, msg.sig = pqsign.sign(payload)
+                    msg.chain_idx = len(chain)
+                    if chain and chain[-1].msg_hash:
+                        msg.prev_hash = chain[-1].msg_hash
+                    else:
+                        msg.prev_hash = pqsign.GENESIS_HASH
+                    payload = msg.signing_payload()
+                    msg.msg_hash = pqsign.hash_message(msg.prev_hash, payload)
+                    msg.signer_id, msg.sig = pqsign.sign(payload)
+                    chain.append(msg)
             except Exception:
                 # Fail-soft: bei Signatur-Problem unsigniert weiterlaufen (legacy-Modus)
                 log.exception("PQC-Signatur fehlgeschlagen für mission %s", msg.mission_id)
-
-        with self._lock:
-            self._traces[msg.mission_id].append(msg)
+                with self._lock:
+                    self._traces[msg.mission_id].append(msg)
+        else:
+            with self._lock:
+                self._traces[msg.mission_id].append(msg)
         d = msg.to_dict()
         d.pop("mission_id", None)  # bereits als erster _emit-Parameter übergeben
         self._emit(msg.mission_id, "message", **d)
+
+    async def record_message_async(self, msg: Message) -> None:
+        """Bevorzugter Pfad für async-Caller.
+
+        Lagert record_message() (CPU-Signatur + bei PersistentMissionStore
+        synchroner SQLite-Commit) via asyncio.to_thread aus, damit der
+        Event-Loop nicht blockiert.
+        """
+        await asyncio.to_thread(self.record_message, msg)
 
     def get_trace(self, mission_id: str) -> list[Message]:
         with self._lock:
@@ -167,7 +191,10 @@ class MissionStore:
             "verified":      verified,
             "broken_at":     broken_at,
             "broken_reason": broken_reason,
-            "valid":         broken_at is None,
+            # Fail-closed: eine Mission mit Messages aber ohne eine einzige
+            # Signatur ist NICHT "valid" — sonst wäre ein stiller Signatur-
+            # Downgrade (Key fehlt, fail-soft greift dauerhaft) unsichtbar.
+            "valid":         broken_at is None and not (len(trace) > 0 and signed == 0),
         }
 
     # ── Tasks ─────────────────────────────────────────────────────────────────
@@ -182,6 +209,14 @@ class MissionStore:
             state=task.state.value,
             owner=task.owner,
         )
+
+    async def upsert_task_async(self, task: TaskRecord) -> None:
+        """Bevorzugter Pfad für async-Caller.
+
+        Lagert upsert_task() (bei PersistentMissionStore synchroner
+        SQLite-Commit) via asyncio.to_thread aus.
+        """
+        await asyncio.to_thread(self.upsert_task, task)
 
     def get_task(self, task_id: str) -> TaskRecord | None:
         return self._tasks.get(task_id)
@@ -206,6 +241,12 @@ class MissionStore:
 
     def emit_token(self, mission_id: str, task_id: str, token: str) -> None:
         """Streamt ein LLM-Token live an alle SSE-Subscriber."""
+        # Token-Fluss = Lebenszeichen: Heartbeat aktualisieren, damit der
+        # Conductor-Watchdog "streamt noch" von "hängt" unterscheiden kann
+        # (statt nur das Task-Alter zu messen).
+        task = self._tasks.get(task_id)
+        if task:
+            task.heartbeat()
         self._emit(mission_id, "thinking_token", task_id=task_id, token=token)
 
     def emit_step_progress(

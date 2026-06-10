@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import time
 
+from sqlalchemy import event
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 from backend.core.protocol import Message, TaskRecord, TaskState
@@ -52,6 +53,18 @@ class PersistentMissionStore(MissionStore):
     def __init__(self, db_url: str) -> None:
         super().__init__()
         self._engine = create_engine(db_url, connect_args={"check_same_thread": False})
+
+        # WAL-Mode: erlaubt parallele Reader während ein Writer committet
+        # (Default-Rollback-Journal blockiert Reader bei jedem Write).
+        # busy_timeout statt sofortigem "database is locked" bei Kontention.
+        # Per Event-Listener, damit JEDE Pool-Connection die PRAGMAs bekommt.
+        @event.listens_for(self._engine, "connect")
+        def _set_sqlite_pragmas(dbapi_conn, _connection_record) -> None:
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA busy_timeout=5000")
+            cursor.close()
+
         SQLModel.metadata.create_all(self._engine)
         self._load_from_db()
 
@@ -96,7 +109,10 @@ class PersistentMissionStore(MissionStore):
         super().upsert_task(task)
         self._db_upsert_task(task)
 
-    # ── Sync DB-Writes (laufen im Thread-Pool) ────────────────────────────────
+    # ── Sync DB-Writes (blockierend im Aufrufer-Thread!) ─────────────────────
+    # Diese Methoden laufen NICHT automatisch im Thread-Pool — sie blockieren
+    # den Caller bis zum SQLite-Commit. Async-Caller nutzen daher die
+    # *_async-Methoden des MissionStore (asyncio.to_thread-Offload).
 
     def _db_upsert_mission(self, mission_id: str, meta: dict) -> None:
         with Session(self._engine) as session:
@@ -133,7 +149,9 @@ class PersistentMissionStore(MissionStore):
     def _db_upsert_task(self, task: TaskRecord) -> None:
         with Session(self._engine) as session:
             existing = session.get(TaskRow, task.task_id)
-            data = json.dumps(_task_to_dict(task))
+            # default=str: result kann beliebige Objekte enthalten (fail-soft
+            # statt TypeError — nicht-JSON-Typen werden zu Strings).
+            data = json.dumps(_task_to_dict(task), default=str)
             if existing:
                 existing.task_json = data
             else:
@@ -160,9 +178,12 @@ def _task_to_dict(task: TaskRecord) -> dict:
         "content": task.content,
         "state": task.state.value,
         "created_at": task.created_at,
+        "updated_at": task.updated_at,
         "started_at": task.started_at,
         "finished_at": task.finished_at,
         "last_heartbeat": task.last_heartbeat,
+        "result": task.result,
+        "error": task.error,
         "sub_task_ids": list(task.sub_task_ids),
     }
 
@@ -178,10 +199,15 @@ def _task_from_dict(d: dict) -> TaskRecord:
     )
     task.state = TaskState(d["state"])
     task.created_at = d.get("created_at", time.time())
+    task.updated_at = d.get("updated_at", task.created_at)
     task.started_at = d.get("started_at")
     task.finished_at = d.get("finished_at")
     task.last_heartbeat = d.get("last_heartbeat")
-    task.sub_task_ids = set(d.get("sub_task_ids", []))
+    # result roh übernehmen (wurde mit default=str serialisiert)
+    task.result = d.get("result")
+    task.error = d.get("error")
+    # TaskRecord deklariert list — set() war ein Bug (Typ + Reihenfolge)
+    task.sub_task_ids = list(d.get("sub_task_ids", []))
     return task
 
 
