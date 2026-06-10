@@ -27,6 +27,34 @@
       "size_kb": 148,
       "source": "builds/bluetoids",
       "url": "https://dev.dillenberg.net/bluetoids/"
+    },
+    "rock-concerts-1970": {
+      "slug": "rock-concerts-1970",
+      "deployed_at": "2026-05-30T18:36:17",
+      "size_kb": 56,
+      "source": "/Users/jeuner/Desktop/rock-concerts-1970/",
+      "url": "https://dev.dillenberg.net/rock-concerts-1970/"
+    },
+    "duesseldorf-3am": {
+      "slug": "duesseldorf-3am",
+      "deployed_at": "2026-06-02T02:36:28",
+      "size_kb": 2248,
+      "source": "builds/duesseldorf-3am",
+      "url": "https://dev.dillenberg.net/duesseldorf-3am/"
+    },
+    "liftwerk": {
+      "slug": "liftwerk",
+      "deployed_at": "2026-06-10T08:24:55",
+      "size_kb": 28,
+      "source": "builds/liftwerk",
+      "url": "https://dev.dillenberg.net/liftwerk/"
+    },
+    "sky-vanguard": {
+      "slug": "sky-vanguard",
+      "deployed_at": "2026-06-10T08:02:41",
+      "size_kb": 68,
+      "source": "builds/sky-vanguard",
+      "url": "https://dev.dillenberg.net/sky-vanguard/"
     }
   }
 }

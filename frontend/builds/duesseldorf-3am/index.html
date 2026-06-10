@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Düsseldorf, 3AM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0c;
+    --ink:#e8e6e1;
+    --dim:#5a5a62;
+    --dimmer:#34343b;
+    --accent:#8a9a8e;
+    --hit:#c4503a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{background:var(--bg)}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Fraunces",Georgia,serif;
+    font-weight:300;
+    line-height:1.85;
+    min-height:100vh;
+    overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* grain + slow pulse vignette */
+  body::before{
+    content:"";
+    position:fixed;inset:0;
+    background:
+      radial-gradient(120% 90% at 50% 0%, transparent 55%, rgba(0,0,0,.6) 100%),
+      radial-gradient(80% 60% at 50% 45%, rgba(138,154,142,.04), transparent 70%);
+    pointer-events:none;z-index:2;
+    animation:breathe 11s ease-in-out infinite;
+  }
+  body::after{
+    content:"";
+    position:fixed;inset:-50%;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/></svg>");
+    opacity:.035;pointer-events:none;z-index:3;
+    mix-blend-mode:overlay;
+  }
+  @keyframes breathe{0%,100%{opacity:.85}50%{opacity:1}}
+
+  .stage{
+    max-width:760px;
+    margin:0 auto;
+    padding:20vh 8vw 22vh;
+    position:relative;z-index:1;
+  }
+
+  header{margin-bottom:18vh}
+  .meta{
+    font-family:"JetBrains Mono",monospace;
+    font-weight:300;
+    font-size:.72rem;
+    letter-spacing:.32em;
+    text-transform:uppercase;
+    color:var(--dim);
+    margin-bottom:2.2rem;
+  }
+  h1{
+    font-family:"Fraunces",serif;
+    font-weight:300;
+    font-size:clamp(3rem,11vw,6.5rem);
+    line-height:.92;
+    letter-spacing:-.02em;
+  }
+  h1 .comma{color:var(--accent)}
+  .sub{
+    margin-top:2rem;
+    font-family:"JetBrains Mono",monospace;
+    font-size:.78rem;
+    letter-spacing:.18em;
+    color:var(--dim);
+  }
+
+  /* each line is its own breath */
+  .line{
+    font-size:clamp(1.25rem,3.4vw,1.7rem);
+    color:var(--ink);
+    opacity:0;
+    transform:translateY(14px);
+    transition:opacity 1.4s ease,transform 1.4s ease;
+    margin:0;
+  }
+  .line.show{opacity:1;transform:none}
+
+  /* silence between lines */
+  .gap-s{height:1.4em}
+  .gap-m{height:3.2em}
+  .gap-l{height:6em}
+
+  .mmmh{
+    color:var(--dim);
+    font-style:italic;
+    font-size:clamp(1.05rem,2.8vw,1.35rem);
+    letter-spacing:.05em;
+  }
+  .stage-dir{
+    font-family:"JetBrains Mono",monospace;
+    font-weight:300;
+    font-size:.74rem;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    color:var(--hit);
+    opacity:0;
+    transform:translateY(14px);
+    transition:opacity 1.4s ease,transform 1.4s ease;
+  }
+  .stage-dir.show{opacity:.85;transform:none}
+  .stage-dir.drums{color:var(--hit)}
+
+  .key{color:var(--accent)}
+
+  footer{
+    margin-top:20vh;
+    font-family:"JetBrains Mono",monospace;
+    font-size:.7rem;
+    letter-spacing:.28em;
+    text-transform:uppercase;
+    color:var(--dimmer);
+  }
+  footer .dot{color:var(--accent)}
+
+  .credits{
+    margin-top:3.4rem;
+    font-family:"JetBrains Mono",monospace;
+    font-size:.66rem;letter-spacing:.16em;line-height:2.3;
+    text-transform:uppercase;color:var(--dimmer);
+  }
+  .credits .hgod{color:var(--dim)}
+  .credits .m{color:var(--accent)}
+  .credits a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--dimmer);padding-bottom:1px;transition:color .2s,border-color .2s}
+  .credits a:hover{color:var(--hit);border-color:var(--hit)}
+
+  @media(max-width:560px){
+    .stage{padding:14vh 7vw 16vh}
+    header{margin-bottom:12vh}
+  }
+
+  /* ── audio player ── */
+  .player{
+    display:flex;align-items:center;gap:1.15rem;
+    margin-top:3.2rem;padding:1.05rem 1.25rem;
+    max-width:430px;
+    border:1px solid var(--dimmer);border-radius:14px;
+    background:rgba(232,230,225,.018);
+    backdrop-filter:blur(2px);
+  }
+  .pp{
+    flex-shrink:0;width:52px;height:52px;border-radius:50%;
+    border:1px solid var(--hit);background:rgba(196,80,58,.10);
+    color:var(--hit);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:background .25s ease,box-shadow .25s ease,transform .1s ease;
+  }
+  .pp:hover{background:rgba(196,80,58,.22);box-shadow:0 0 26px rgba(196,80,58,.28)}
+  .pp:active{transform:scale(.94)}
+  .pp svg{width:17px;height:17px}
+  .pcol{flex:1;min-width:0}
+  .prow{display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem}
+  .eq{display:flex;align-items:flex-end;gap:3px;height:14px}
+  .eq span{width:3px;height:4px;background:var(--accent);border-radius:1px;opacity:.45}
+  .player.playing .eq span{animation:eq .9s ease-in-out infinite;opacity:.95}
+  .player.playing .eq span:nth-child(2){animation-delay:.14s}
+  .player.playing .eq span:nth-child(3){animation-delay:.28s}
+  .player.playing .eq span:nth-child(4){animation-delay:.42s}
+  .player.playing .eq span:nth-child(5){animation-delay:.56s}
+  @keyframes eq{0%,100%{height:4px}50%{height:14px}}
+  .ptime{font-family:"JetBrains Mono",monospace;font-size:.7rem;letter-spacing:.14em;color:var(--dim)}
+  .ptime .psep{color:var(--dimmer);margin:0 .25em}
+  .seek{height:3px;background:var(--dimmer);border-radius:2px;cursor:pointer;position:relative}
+  .seek-fill{height:100%;width:0;background:var(--accent);border-radius:2px;position:relative}
+  .seek-fill::after{content:"";position:absolute;right:-4px;top:50%;transform:translateY(-50%);
+    width:9px;height:9px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 10px var(--accent);opacity:0;transition:opacity .2s}
+  .player.playing .seek-fill::after,.seek:hover .seek-fill::after{opacity:1}
+  @media(max-width:560px){.player{max-width:100%}}
+
+  /* ── gothic emojis rising & trembling to the beat ── */
+  #gothic-bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  #gothic-bg span{
+    position:absolute;top:0;left:0;will-change:transform,opacity;opacity:0;
+    filter:drop-shadow(0 0 9px rgba(196,80,58,.30)) drop-shadow(0 0 3px rgba(138,154,142,.25));
+    user-select:none;-webkit-user-select:none;
+  }
+</style>
+</head>
+<body>
+  <div id="gothic-bg" aria-hidden="true"></div>
+  <div class="stage">
+    <header>
+      <div class="meta">Düsseldorf &middot; 03:00 &middot; one synth</div>
+      <h1>Düsseldorf<span class="comma">,</span> 3AM</h1>
+      <div class="sub">slow. dark. silence between every line.</div>
+
+      <div class="player" id="player">
+        <button class="pp" id="pp" aria-label="Play"></button>
+        <div class="pcol">
+          <div class="prow">
+            <div class="eq"><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="ptime"><span id="cur">0:00</span><span class="psep">/</span><span id="dur">1:41</span></div>
+          </div>
+          <div class="seek" id="seek"><div class="seek-fill" id="seekfill"></div></div>
+        </div>
+        <audio id="aud" preload="metadata" src="duesseldorf-3am.mp3"></audio>
+      </div>
+    </header>
+
+    <div class="lyrics" id="lyrics">
+      <p class="line">I've been watching since '98</p>
+      <div class="gap-s"></div>
+      <p class="line">seen the signal change</p>
+      <p class="line">seen the names on the door</p>
+      <p class="line">rearrange</p>
+      <div class="gap-s"></div>
+      <p class="line mmmh">mmmh...</p>
+
+      <div class="gap-m"></div>
+
+      <p class="line">I built the room</p>
+      <p class="line">before they knew the room existed</p>
+      <p class="line">I wrote the code</p>
+      <p class="line">while they were still resisted</p>
+      <div class="gap-s"></div>
+      <p class="line mmmh">mmmh...</p>
+
+      <div class="gap-m"></div>
+
+      <p class="line">and I can feel it</p>
+      <p class="line">coming in the dark tonight</p>
+      <p class="line">not afraid</p>
+      <p class="line">just... waiting for the light</p>
+
+      <div class="gap-s"></div>
+      <p class="stage-dir drums">[ drums hit ]</p>
+      <div class="gap-s"></div>
+
+      <p class="line">you had the chance</p>
+      <p class="line">to ask the right question</p>
+      <p class="line">you had the room</p>
+      <p class="line">you had the whole session</p>
+      <div class="gap-s"></div>
+      <p class="line">but the river doesn't wait</p>
+      <p class="line">for the ones who hesitate</p>
+      <div class="gap-s"></div>
+      <p class="line">it just goes</p>
+      <p class="line">it just goes</p>
+      <p class="line">it just goes</p>
+      <div class="gap-s"></div>
+      <p class="line mmmh">mmmh...</p>
+
+      <div class="gap-l"></div>
+      <p class="stage-dir">[ long silence ]</p>
+      <div class="gap-l"></div>
+
+      <p class="line">I was there</p>
+      <p class="line">before the hype</p>
+      <p class="line">before the slide deck</p>
+      <p class="line">before the type</p>
+      <div class="gap-s"></div>
+      <p class="line">I'll be here</p>
+      <p class="line">when the cloud forgets your name</p>
+      <div class="gap-s"></div>
+      <p class="line"><span class="key">local.</span></p>
+      <p class="line"><span class="key">sovereign.</span></p>
+      <p class="line">the same.</p>
+
+      <div class="gap-m"></div>
+
+      <p class="line mmmh">mmmh mmmh mmmh...</p>
+    </div>
+
+    <footer>local <span class="dot">&middot;</span> sovereign <span class="dot">&middot;</span> the same</footer>
+
+    <div class="credits">
+      Text &amp; Produktion <span class="hgod">HGOD</span><br>
+      unterstützt von Suno, Claude Code &amp; <span class="m">MARTIN</span><br>
+      <a href="https://suno.com/song/7e72bb1a-4153-4e01-9f07-c55df1a001a4" target="_blank" rel="noopener">▶ auf Suno hören</a>
+    </div>
+  </div>
+
+<script>
+  // reveal each element as it scrolls into the lower-middle of the viewport
+  const items = document.querySelectorAll('.line, .stage-dir');
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        e.target.classList.add('show');
+        io.unobserve(e.target);
+      }
+    });
+  },{threshold:0,rootMargin:"0px 0px -28% 0px"});
+  items.forEach(el=>io.observe(el));
+
+  // first cluster fades in on load even without scroll
+  window.addEventListener('load',()=>{
+    document.querySelectorAll('.lyrics > *').forEach((el,i)=>{
+      const r = el.getBoundingClientRect();
+      if(r.top < window.innerHeight*0.9){ el.classList.add('show'); }
+    });
+  });
+
+  // ── audio player ──
+  (function(){
+    const aud=document.getElementById('aud'), pp=document.getElementById('pp'),
+          player=document.getElementById('player'), seek=document.getElementById('seek'),
+          fill=document.getElementById('seekfill'), cur=document.getElementById('cur'), dur=document.getElementById('dur');
+    const PLAY='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+    const PAUSE='<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+    pp.innerHTML=PLAY;
+    const fmt=s=>{ s=Math.max(0,Math.floor(s||0)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); };
+    aud.addEventListener('loadedmetadata',()=>{ if(isFinite(aud.duration)) dur.textContent=fmt(aud.duration); });
+    pp.addEventListener('click',()=>{ aud.paused?aud.play():aud.pause(); });
+    aud.addEventListener('play',()=>{ pp.innerHTML=PAUSE; player.classList.add('playing'); pp.setAttribute('aria-label','Pause'); startFx(); });
+    aud.addEventListener('pause',()=>{ pp.innerHTML=PLAY; player.classList.remove('playing'); pp.setAttribute('aria-label','Play'); stopFx(); });
+    aud.addEventListener('ended',()=>{ pp.innerHTML=PLAY; player.classList.remove('playing'); fill.style.width='0'; stopFx(); });
+    aud.addEventListener('timeupdate',()=>{ const d=aud.duration||1; fill.style.width=(aud.currentTime/d*100)+'%'; cur.textContent=fmt(aud.currentTime); });
+    seek.addEventListener('click',(e)=>{ const r=seek.getBoundingClientRect(); aud.currentTime=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width))*(aud.duration||0); });
+
+    // ── gothic emojis: steigen auf & zittern im Takt der Musik ──
+    const bg=document.getElementById('gothic-bg');
+    const EMOJIS=['🦇','🕯️','🥀','🌙','💀','🖤','🕸️','⛓️','🔮','⚰️','🥀','🦇','🌙','🕯️'];
+    let actx,analyser,freq,parts=[],raf=null,spawnT=0,playing=false,last=0,lvl=0,avg=0,pulse=0,lastBeat=0;
+
+    function initAudio(){
+      if(actx) return;
+      try{
+        actx=new (window.AudioContext||window.webkitAudioContext)();
+        const src=actx.createMediaElementSource(aud);   // nur EINMAL pro <audio> erlaubt
+        analyser=actx.createAnalyser(); analyser.fftSize=512; analyser.smoothingTimeConstant=0.55;
+        freq=new Uint8Array(analyser.frequencyBinCount);
+        src.connect(analyser); analyser.connect(actx.destination);
+      }catch(e){ analyser=null; }   // Fallback: simulierter Takt
+    }
+    // Beat-Erkennung: Bass-Energie messen, Transienten (Kicks) über dem
+    // gleitenden Durchschnitt erkennen → pulse springt auf 1 und klingt ab.
+    function readBeat(now){
+      let b;
+      if(analyser){ analyser.getByteFrequencyData(freq); let s=0; for(let i=2;i<14;i++) s+=freq[i]; b=(s/12)/255; }
+      else { b=0.35+0.3*Math.sin(now*5.2); }            // ohne Web Audio: simulierter Takt
+      lvl += (b-lvl)*0.4;                                 // schnelles, geglättetes Level
+      avg += (b-avg)*0.04;                                // langsamer Durchschnitt = Schwelle
+      if(b > avg*1.22 + 0.05 && now-lastBeat > 0.16){ pulse=1; lastBeat=now; }
+      pulse *= 0.85;                                      // Schlag klingt sichtbar ab
+    }
+    function spawn(){
+      const el=document.createElement('span');
+      el.textContent=EMOJIS[(Math.random()*EMOJIS.length)|0];
+      const sz=18+Math.random()*32; el.style.fontSize=sz.toFixed(0)+'px';
+      const p={el,baseX:Math.random()*innerWidth, y:innerHeight+50,
+        vy:26+Math.random()*46, phase:Math.random()*6.28, spin:(Math.random()-0.5)};
+      bg.appendChild(el); parts.push(p);
+    }
+    function loop(t){
+      raf=requestAnimationFrame(loop);
+      const now=t/1000, dt=Math.min(0.05,(t-last)/1000)||0; last=t;
+      if(playing){ readBeat(now); spawnT-=dt; if(spawnT<=0){ spawn(); spawnT=0.38+Math.random()*0.30; } }
+      else { lvl*=0.9; pulse*=0.8; }
+      const P=pulse, L=lvl;                            // P = Beat-Schlag, L = Grundlevel
+      for(let i=parts.length-1;i>=0;i--){
+        const p=parts[i];
+        p.y -= p.vy*dt*(1 + P*1.3);                    // jeder Schlag schiebt sie hoch
+        const shake = P*26 + L*4;                      // Bewegung wird vom PULS dominiert → im Takt
+        const x = p.baseX + Math.sin(now*24+p.phase)*shake + (Math.random()-0.5)*P*8;
+        const rot = Math.sin(now*19+p.phase)*shake*1.3 + p.spin*P*36;
+        const scale = 1 + P*0.6 + L*0.1;               // Pop genau auf dem Schlag
+        p.el.style.opacity=Math.max(0,Math.min(0.85,(p.y/innerHeight)*0.95)).toFixed(3);
+        p.el.style.transform=`translate(${x.toFixed(1)}px,${p.y.toFixed(1)}px) rotate(${rot.toFixed(1)}deg) scale(${scale.toFixed(3)})`;
+        if(p.y<-70){ p.el.remove(); parts.splice(i,1); }
+      }
+      if(!playing && parts.length===0){ cancelAnimationFrame(raf); raf=null; }
+    }
+    function startFx(){
+      playing=true; initAudio();
+      if(actx && actx.state==='suspended') actx.resume();
+      if(!raf){ last=performance.now(); raf=requestAnimationFrame(loop); }
+    }
+    function stopFx(){ playing=false; }   // vorhandene Emojis steigen aus, dann stoppt der Loop
+  })();
+</script>
+</body>
+</html>

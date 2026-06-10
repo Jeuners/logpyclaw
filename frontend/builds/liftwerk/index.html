@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LIFTWERK</title>
+<style>
+  :root { --amber:#ffb000; --green:#33ff66; --red:#ff3a4a; --steel:#7a8896; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body {
+    height:100%; background:#0a0a0d; color:#ffb000;
+    font-family:'Courier New',monospace; overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+  }
+  #wrap {
+    position:relative;
+    image-rendering:pixelated;
+    box-shadow:0 0 60px rgba(255,176,0,.15), inset 0 0 120px rgba(0,0,0,.6);
+    border-radius:14px;
+    background:#000;
+    padding:10px;
+  }
+  canvas {
+    display:block;
+    background:#05060a;
+    border-radius:8px;
+  }
+  /* CRT scanlines + vignette overlay */
+  #crt {
+    pointer-events:none;
+    position:absolute; inset:10px;
+    border-radius:8px;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        rgba(0,0,0,0) 0px,
+        rgba(0,0,0,0) 2px,
+        rgba(0,0,0,.28) 3px,
+        rgba(0,0,0,.28) 4px
+      );
+    mix-blend-mode:multiply;
+  }
+  #vig {
+    pointer-events:none;
+    position:absolute; inset:10px; border-radius:8px;
+    box-shadow:inset 0 0 90px rgba(0,0,0,.8);
+    background:radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,.45) 100%);
+  }
+  #hint {
+    position:absolute; bottom:-26px; left:0; right:0;
+    text-align:center; font-size:11px; color:#5a6470; letter-spacing:1px;
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="640" height="480"></canvas>
+  <div id="crt"></div>
+  <div id="vig"></div>
+  <div id="hint">← → BEWEGEN · SPACE SPRUNG · ↑↓ LEITER · ENTER NEUSTART</div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+const cv = document.getElementById('game');
+const ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+ctx.imageSmoothingEnabled = false;
+
+/* ---------- WebAudio Piepser ---------- */
+let AC = null;
+function ac(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return AC; }
+function beep(freq, dur, type, vol){
+  const a = ac(); if(!a) return;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type||'square'; o.frequency.value = freq;
+  g.gain.value = vol==null?0.06:vol;
+  o.connect(g); g.connect(a.destination);
+  const t = a.currentTime;
+  o.start(t);
+  g.gain.setValueAtTime(g.gain.value, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+  o.stop(t+dur+0.02);
+}
+const sfx = {
+  jump(){ beep(440,0.12,'square',0.05); setTimeout(()=>beep(660,0.10,'square',0.05),40); },
+  step(){ beep(180,0.04,'square',0.02); },
+  die(){ beep(300,0.15,'sawtooth',0.08); setTimeout(()=>beep(160,0.25,'sawtooth',0.08),120); setTimeout(()=>beep(80,0.4,'sawtooth',0.08),300); },
+  win(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,0.22,'square',0.06),i*130)); },
+  point(){ beep(880,0.08,'triangle',0.04); },
+  spring(){ beep(520,0.06,'square',0.03); }
+};
+
+/* ---------- Input ---------- */
+const keys = {};
+addEventListener('keydown', e=>{
+  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space','Enter'].includes(e.code)) e.preventDefault();
+  if(!keys[e.code]) keys[e.code+'_p'] = true; // pressed-this-frame flag set
+  keys[e.code] = true;
+  if(e.code==='Space' || e.code==='Enter') { ac(); }
+});
+addEventListener('keyup', e=>{ keys[e.code] = false; });
+function pressed(code){ if(keys[code+'_p']){ keys[code+'_p']=false; return true; } return false; }
+
+/* ---------- AABB ---------- */
+function aabb(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
+
+/* ---------- Level Geometry ----------
+   Two shafts in the middle. Left shaft cabins go UP, right shaft cabins go DOWN.
+   Platforms link the outer edges to the shafts and the top.
+*/
+const GROUND = H - 24;
+
+// Static platforms: {x,y,w}  (h fixed = 10)
+const PH = 10;
+const platforms = [
+  // bottom row (start, left)
+  {x:0,   y:GROUND,    w:230},
+  // bottom right landing (exit of right/down shaft area)
+  {x:410, y:GROUND,    w:230},
+  // mid-low left
+  {x:0,   y:GROUND-110,w:170},
+  // mid-low right
+  {x:470, y:GROUND-110,w:170},
+  // mid-high left
+  {x:0,   y:GROUND-220,w:170},
+  // mid-high right
+  {x:470, y:GROUND-220,w:170},
+  // top platform (full width-ish) where springs run
+  {x:0,   y:70,        w:640},
+];
+
+// Ladders {x,y,h} connect platform tops (x = center)
+const LADW = 14;
+const ladders = [
+  {x:120, y:GROUND-110, h:110},      // bottom-left -> mid-low left
+  {x:120, y:GROUND-220, h:110},      // mid-low left -> mid-high left
+  {x:120, y:70,         h:GROUND-220-70+PH}, // mid-high left -> top
+  {x:540, y:GROUND-110, h:110},      // bottom-right -> mid-low right
+  {x:540, y:GROUND-220, h:110},      // mid-low right -> mid-high right
+  {x:540, y:70,         h:GROUND-220-70+PH}, // mid-high right -> top
+];
+
+// Shafts: left goes up, right goes down. Each has moving cabin platforms.
+const SHAFT = {
+  topY: 70+PH,           // cabins travel between these
+  botY: GROUND,
+  left:  {x:255, w:54, dir:-1, cabins:[], speed:0.9}, // up
+  right: {x:331, w:54, dir: 1, cabins:[], speed:0.9}, // down
+  spacing: 130,
+  cabinH: 12
+};
+function initShafts(){
+  const span = SHAFT.botY - SHAFT.topY;
+  [SHAFT.left, SHAFT.right].forEach(s=>{
+    s.cabins = [];
+    for(let yy = SHAFT.topY; yy < SHAFT.botY+SHAFT.spacing; yy += SHAFT.spacing){
+      s.cabins.push({ y: yy });
+    }
+    s._span = span;
+  });
+}
+
+/* ---------- Player: Bolt ---------- */
+const player = {
+  x:30, y:GROUND-26, w:14, h:24,
+  vx:0, vy:0, onGround:false, onLadder:false, face:1,
+  walkT:0, alive:true
+};
+
+let springs = [];
+let spawnTimer = 0;
+let state = 'play'; // play | dead | win | over
+let lives = 3, score = 0, highscore = 0;
+let level = 1;
+let deathTimer = 0;
+let winTimer = 0;
+let startBonus = 5000, bonusTimer = 0;
+
+const GRAV = 0.45, MOVE = 1.9, JUMP = -7.6, MAXFALL = 9;
+
+// Goal: toolbox top-left, near crane Magnetus
+const goal = {x:24, y:70-30, w:30, h:24};
+
+function resetPlayer(){
+  player.x = 30; player.y = GROUND-26; player.vx=0; player.vy=0;
+  player.onGround=false; player.onLadder=false; player.face=1; player.alive=true;
+}
+function resetLevel(full){
+  initShafts();
+  springs = [];
+  spawnTimer = 60;
+  resetPlayer();
+  if(full){ lives=3; score=0; level=1; }
+  startBonus = 5000; bonusTimer = 0;
+  state='play';
+}
+resetLevel(true);
+
+/* ---------- Update ---------- */
+function ladderFloorY(l){
+  // Plattform-Oberkante am unteren Leiterende (Leitern enden teils an der
+  // Oberkante, teils an der Unterkante des Trägers — beides abfangen)
+  const end = l.y + l.h;
+  for(const pl of platforms){
+    if(l.x >= pl.x && l.x <= pl.x+pl.w && Math.abs(pl.y - end) <= PH+2) return pl.y;
+  }
+  return end;
+}
+
+function grabLadder(){
+  // Richtungsbewusst greifen: nur eine Leiter nehmen, auf der in der
+  // gedrückten Richtung auch Weg ist (verhindert Festhängen an den Enden,
+  // wenn mehrere Leitern übereinander dieselbe x-Position teilen).
+  const p = player;
+  const cands = ladders.filter(l =>
+    p.x+p.w/2 > l.x-LADW/2-3 && p.x+p.w/2 < l.x+LADW/2+3 &&
+    p.y+p.h > l.y-4 && p.y < l.y+l.h+4);
+  if(keys['ArrowUp']){
+    const up = cands.find(l => p.y+p.h > l.y + 4);
+    if(up) return up;
+  }
+  if(keys['ArrowDown']){
+    const down = cands.find(l => p.y+p.h < ladderFloorY(l) - 2);
+    if(down) return down;
+  }
+  return null;
+}
+
+function update(){
+  if(state==='play'){
+    bonusTimer++;
+    if(bonusTimer>=24){ bonusTimer=0; if(startBonus>0) startBonus-=100; }
+
+    // shafts
+    [SHAFT.left, SHAFT.right].forEach(s=>{
+      for(const c of s.cabins){
+        c.y += s.dir * s.speed;
+        if(s.dir<0 && c.y < SHAFT.topY - 6) c.y += (s._span + SHAFT.spacing);
+        if(s.dir>0 && c.y > SHAFT.botY + 6) c.y -= (s._span + SHAFT.spacing);
+      }
+    });
+
+    updatePlayer();
+    updateSprings();
+    checkGoal();
+  } else if(state==='dead'){
+    deathTimer--;
+    if(deathTimer<=0){
+      if(lives<=0){ state='over'; if(score>highscore) highscore=score; }
+      else { resetPlayer(); fallStartY=null; springs = []; spawnTimer=60; state='play'; startBonus=Math.max(2000,startBonus); }
+    }
+  } else if(state==='win'){
+    winTimer--;
+    if(winTimer<=0){
+      if(score>highscore) highscore=score;
+      state='over';
+      player._won = true;
+    }
+  } else if(state==='over'){
+    if(pressed('Enter')){
+      player._won=false;
+      resetLevel(true);
+      fallStartY=null; // sonst stirbt Bolt nach Neustart sofort am alten Sturz-Startwert
+    }
+  }
+  // also allow Enter restart while playing-dead chain handled; clear pressed flags lingering
+}
+
+function cabinRects(){
+  const r=[];
+  [SHAFT.left, SHAFT.right].forEach(s=>{
+    for(const c of s.cabins){
+      if(c.y > SHAFT.topY-SHAFT.cabinH && c.y < SHAFT.botY+SHAFT.cabinH){
+        r.push({x:s.x, y:c.y, w:s.w, h:SHAFT.cabinH, dir:s.dir});
+      }
+    }
+  });
+  return r;
+}
+
+function updatePlayer(){
+  const p = player;
+
+  // Leiter greifen (richtungsbewusst)
+  if(!p.onLadder && (keys['ArrowUp']||keys['ArrowDown'])){
+    const l = grabLadder();
+    if(l){ p.onLadder = true; p.ladder = l; }
+  }
+
+  if(p.onLadder){
+    const lad = p.ladder;
+    p.vx = 0; p.vy = 0;
+    if(keys['ArrowUp'])   { p.y -= 1.7; sfxStep(); }
+    if(keys['ArrowDown']) { p.y += 1.7; sfxStep(); }
+    // auf Leiter zentrieren
+    p.x += (lad.x - (p.x+p.w/2)) * 0.4;
+    if(keys['ArrowLeft'])  { p.onLadder=false; p.face=-1; }
+    if(keys['ArrowRight']) { p.onLadder=false; p.face=1; }
+    if(pressed('Space')){ p.onLadder=false; p.vy = JUMP*0.8; sfx.jump(); }
+    // Oben angekommen → sauber AUF der Plattform absetzen (vorher wurde der
+    // Spieler 20px in die Plattform geklemmt und hing in einer Grab-Schleife)
+    if(p.y + p.h <= lad.y){
+      p.y = lad.y - p.h;
+      p.onLadder=false; p.onGround=true; p.vy=0; fallStartY=null;
+    }
+    // Unten angekommen → auf der unteren Plattform absetzen
+    else if(p.y + p.h >= ladderFloorY(lad)){
+      p.y = ladderFloorY(lad) - p.h;
+      p.onLadder=false; p.onGround=true; p.vy=0; fallStartY=null;
+    }
+    return;
+  }
+
+  // horizontal
+  let mv = 0;
+  if(keys['ArrowLeft']){ mv=-1; p.face=-1; }
+  if(keys['ArrowRight']){ mv=1; p.face=1; }
+  p.vx = mv*MOVE;
+
+  // jump
+  if(pressed('Space') && p.onGround){ p.vy = JUMP; p.onGround=false; sfx.jump(); }
+
+  // gravity
+  p.vy += GRAV;
+  if(p.vy>MAXFALL) p.vy = MAXFALL;
+
+  const prevBottom = p.y + p.h;
+
+  // horizontal move + walls (screen bounds)
+  p.x += p.vx;
+  if(p.x < 0) p.x = 0;
+  if(p.x + p.w > W) p.x = W - p.w;
+
+  // walk anim
+  if(mv!==0 && p.onGround){ p.walkT += 0.3; if((p.walkT|0)%6===0) sfxStep(); } else p.walkT=0;
+
+  // vertical move + collide platforms (one-way, land from above)
+  p.y += p.vy;
+  p.onGround = false;
+
+  const solids = platforms.map(pl=>({x:pl.x,y:pl.y,w:pl.w,h:PH}))
+    .concat(cabinRects());
+
+  for(const s of solids){
+    if(aabb(p,s)){
+      // landing on top
+      if(p.vy >= 0 && prevBottom <= s.y+4){
+        p.y = s.y - p.h;
+        // squeeze check: if it's an upward cabin moving into ceiling? handled below
+        if(p.vy>7.5 && wasHighFall){ /* high fall handled via fallStart */ }
+        p.vy = 0; p.onGround = true;
+        if(s.dir){ // riding a cabin: move with it
+          p.y += s.dir*SHAFT.speed;
+        }
+      }
+    }
+  }
+
+  // Ride cabin: if standing on a moving cabin, follow horizontal? cabins don't move horiz. ok.
+
+  // Death: fall off bottom of screen
+  if(p.y > H+30){ die('fall'); return; }
+
+  // Squeeze death: cabin moving up pushing player into a platform above
+  squeezeCheck();
+
+  // Track fall for high-fall death
+  trackFall();
+}
+
+// high-fall tracking
+let fallStartY = null, wasHighFall=false;
+function trackFall(){
+  const p=player;
+  if(!p.onGround && p.vy>0){
+    if(fallStartY===null) fallStartY = p.y;
+  } else if(p.onGround){
+    if(fallStartY!==null){
+      const dist = p.y - fallStartY;
+      if(dist > 200){ die('fall'); }
+    }
+    fallStartY = null;
+  } else if(p.vy<0){
+    fallStartY = null;
+  }
+}
+
+function squeezeCheck(){
+  const p = player;
+  // Find an upward cabin overlapping player from below while a platform/ceiling is just above
+  for(const c of cabinRects()){
+    if(c.dir<0 && aabb(p,c)){
+      // cabin overlapping and pushing up; check ceiling above
+      const head = {x:p.x, y:p.y-3, w:p.w, h:3};
+      for(const pl of platforms){
+        const r={x:pl.x,y:pl.y,w:pl.w,h:PH};
+        if(aabb(head,r) && c.y < p.y+p.h){ die('squeeze'); return; }
+      }
+    }
+  }
+}
+
+let stepCd=0;
+function sfxStep(){ if(stepCd<=0){ sfx.step(); stepCd=8; } }
+
+function updateSprings(){
+  // spawn springs from top-right area, travel left to right? Spec: left->right over top platform, then fall
+  spawnTimer--;
+  if(spawnTimer<=0 && state==='play'){
+    spawnTimer = 110 + ((springs.length*7)%60);
+    springs.push({ x:-16, y:70-14, w:14, h:14, vx:1.6+level*0.2, vy:0, onTop:true, hop:0 });
+  }
+  const topPlat = platforms.find(pl=>pl.y===70);
+  for(const s of springs){
+    if(s.onTop){
+      s.hop += 0.18;
+      s.x += s.vx;
+      // bounce hopping on top platform
+      s.bounce = Math.abs(Math.sin(s.hop))*10;
+      s.y = 70 - 14 - s.bounce;
+      // fall off right edge of top platform
+      if(s.x > topPlat.x+topPlat.w - 4){ s.onTop=false; s.vy=0; }
+    } else {
+      s.vy += GRAV;
+      if(s.vy>MAXFALL) s.vy=MAXFALL;
+      s.y += s.vy;
+      s.x += s.vx*0.4;
+      // can land on lower platforms then keep bouncing along
+      for(const pl of platforms){
+        if(pl.y===70) continue;
+        const r={x:pl.x,y:pl.y,w:pl.w,h:PH};
+        if(s.x+s.w>r.x && s.x<r.x+r.w && s.y+s.h>r.y && s.y+s.h<r.y+18 && s.vy>0){
+          s.vy = -5.5; sfx.spring();
+        }
+      }
+    }
+    // collision with player
+    if(state==='play' && aabb(player, {x:s.x+1,y:s.y+1,w:s.w-2,h:s.h-2})){
+      die('spring'); return;
+    }
+  }
+  springs = springs.filter(s=> s.y < H+40 && s.x < W+40);
+  if(stepCd>0) stepCd--;
+}
+
+function die(cause){
+  if(state!=='play') return;
+  lives--;
+  player.alive=false;
+  sfx.die();
+  deathTimer = 70;
+  state='dead';
+  player._cause = cause;
+  fallStartY = null; // Sturz-Tracking zurücksetzen — sonst Insta-Tod nach Respawn
+}
+
+function checkGoal(){
+  if(aabb(player, goal)){
+    score += Math.max(0,startBonus) + 2000;
+    sfx.win();
+    winTimer = 140;
+    state='win';
+  }
+}
+
+/* ---------- Render ---------- */
+function px(x){ return Math.round(x); }
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  // bg
+  ctx.fillStyle = '#070810';
+  ctx.fillRect(0,0,W,H);
+
+  drawGirders();
+  drawShafts();
+  drawPlatforms();
+  drawLadders();
+  drawGoalAndCrane();
+  drawSprings();
+  if(state!=='over') drawBolt();
+  drawHUD();
+
+  if(state==='over') drawOverlay();
+  else if(state==='dead') drawCenterMsg(deathMsg(player._cause), '#ff3a4a');
+  else if(state==='win') drawCenterMsg('WERKZEUGKISTE GESICHERT!', '#33ff66');
+}
+
+function drawGirders(){
+  // faint structural background girders
+  ctx.strokeStyle = 'rgba(120,60,30,0.18)';
+  ctx.lineWidth = 6;
+  for(let y=40;y<H;y+=60){
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+  }
+}
+
+function drawShafts(){
+  [SHAFT.left, SHAFT.right].forEach(s=>{
+    // shaft column
+    ctx.fillStyle = '#11131c';
+    ctx.fillRect(s.x-4, SHAFT.topY-6, s.w+8, SHAFT.botY-SHAFT.topY+12);
+    // rails
+    ctx.fillStyle = '#2a3142';
+    ctx.fillRect(s.x-4, SHAFT.topY-6, 3, SHAFT.botY-SHAFT.topY+12);
+    ctx.fillRect(s.x+s.w+1, SHAFT.topY-6, 3, SHAFT.botY-SHAFT.topY+12);
+    // direction arrows
+    ctx.fillStyle = s.dir<0 ? 'rgba(51,255,102,0.25)' : 'rgba(255,176,0,0.22)';
+    for(let yy=SHAFT.topY+20; yy<SHAFT.botY; yy+=64){
+      const cy = yy;
+      ctx.beginPath();
+      if(s.dir<0){ ctx.moveTo(s.x+s.w/2, cy-6); ctx.lineTo(s.x+s.w/2-6, cy+4); ctx.lineTo(s.x+s.w/2+6, cy+4); }
+      else { ctx.moveTo(s.x+s.w/2, cy+6); ctx.lineTo(s.x+s.w/2-6, cy-4); ctx.lineTo(s.x+s.w/2+6, cy-4); }
+      ctx.closePath(); ctx.fill();
+    }
+    // cabins
+    for(const c of s.cabins){
+      if(c.y > SHAFT.topY-SHAFT.cabinH-2 && c.y < SHAFT.botY+SHAFT.cabinH){
+        drawCabin(s.x, c.y, s.w, s.dir);
+      }
+    }
+  });
+}
+
+function drawCabin(x,y,w,dir){
+  const h=SHAFT.cabinH;
+  // platform deck
+  ctx.fillStyle = dir<0 ? '#3ad06a' : '#ffb000';
+  ctx.fillRect(px(x), px(y), w, h);
+  // grating lines
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  for(let i=4;i<w;i+=8) ctx.fillRect(px(x+i), px(y), 2, h);
+  // edge highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.fillRect(px(x), px(y), w, 2);
+  // bottom shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(px(x), px(y+h-2), w, 2);
+}
+
+function drawPlatforms(){
+  for(const pl of platforms){
+    // riveted steel beam
+    ctx.fillStyle = '#c2410c';
+    ctx.fillRect(pl.x, pl.y, pl.w, PH);
+    ctx.fillStyle = '#7a2208';
+    ctx.fillRect(pl.x, pl.y+PH-3, pl.w, 3);
+    ctx.fillStyle = '#ff7a3a';
+    ctx.fillRect(pl.x, pl.y, pl.w, 2);
+    // rivets
+    ctx.fillStyle = '#3a1304';
+    for(let i=6;i<pl.w-4;i+=18) ctx.fillRect(pl.x+i, pl.y+4, 2, 2);
+  }
+}
+
+function drawLadders(){
+  ctx.strokeStyle = '#8fa0b4';
+  ctx.lineWidth = 2;
+  for(const l of ladders){
+    const lx = l.x - LADW/2;
+    ctx.beginPath();
+    ctx.moveTo(lx, l.y); ctx.lineTo(lx, l.y+l.h);
+    ctx.moveTo(lx+LADW, l.y); ctx.lineTo(lx+LADW, l.y+l.h);
+    ctx.stroke();
+    ctx.beginPath();
+    for(let ry=l.y+5; ry<l.y+l.h; ry+=9){
+      ctx.moveTo(lx, ry); ctx.lineTo(lx+LADW, ry);
+    }
+    ctx.stroke();
+  }
+}
+
+function drawGoalAndCrane(){
+  // Crane Magnetus top-left
+  const cx=10, cy=6;
+  ctx.fillStyle = '#444b58';
+  ctx.fillRect(cx, cy, 8, 50);          // mast
+  ctx.fillRect(cx, cy, 64, 7);          // boom
+  ctx.fillStyle = '#2c313c';
+  ctx.fillRect(cx+60, cy+2, 6, 22);     // cable holder
+  // cable
+  ctx.strokeStyle='#222'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(cx+63, cy+24); ctx.lineTo(cx+63, cy+34); ctx.stroke();
+  // magnet (red/white)
+  ctx.fillStyle='#ff3a4a'; ctx.fillRect(cx+54, cy+34, 18, 8);
+  ctx.fillStyle='#eaeaea'; ctx.fillRect(cx+54, cy+42, 18, 4);
+  // tiny "MAGNETUS" label
+  ctx.fillStyle='#7a8896'; ctx.font='8px "Courier New"'; ctx.textAlign='left';
+  ctx.fillText('MAGNETUS', cx, cy+62);
+
+  // Toolbox (goal)
+  const g=goal;
+  ctx.fillStyle='#1f7a3a'; ctx.fillRect(g.x, g.y+6, g.w, g.h-6);
+  ctx.fillStyle='#2fae54'; ctx.fillRect(g.x, g.y+6, g.w, 4);
+  ctx.fillStyle='#155026'; ctx.fillRect(g.x, g.y+g.h-4, g.w, 4);
+  // handle
+  ctx.strokeStyle='#cfd6df'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(g.x+8,g.y+6); ctx.lineTo(g.x+10,g.y); ctx.lineTo(g.x+g.w-10,g.y); ctx.lineTo(g.x+g.w-8,g.y+6); ctx.stroke();
+  // latch
+  ctx.fillStyle='#ffb000'; ctx.fillRect(g.x+g.w/2-2, g.y+8, 4, 5);
+  // sparkle
+  const t=(performance.now()/300)%2;
+  if(t<1){ ctx.fillStyle='rgba(255,255,180,0.9)'; ctx.fillRect(g.x+g.w-6,g.y+2,2,2); }
+}
+
+function drawSprings(){
+  for(const s of springs){
+    // coiled spring - red bouncing enemy
+    const x=px(s.x), y=px(s.y);
+    ctx.fillStyle='#ff3a4a';
+    // coils
+    for(let i=0;i<3;i++){
+      ctx.fillRect(x, y+i*4+2, s.w, 2);
+      ctx.fillStyle = i%2? '#ff7080':'#ff3a4a';
+    }
+    ctx.fillStyle='#cfd6df';
+    ctx.fillRect(x, y, s.w, 3);          // top cap
+    ctx.fillRect(x, y+s.h-3, s.w, 3);    // bottom cap
+    // eyes (menacing)
+    ctx.fillStyle='#fff';
+    ctx.fillRect(x+3,y-0+4,2,2); ctx.fillRect(x+s.w-5,y+4,2,2);
+  }
+}
+
+function drawBolt(){
+  const p=player;
+  const x=px(p.x), y=px(p.y), f=p.face;
+  const blink = (state==='dead' && (deathTimer>>2)%2===0);
+  if(blink) return;
+
+  // legs (walk)
+  const step = (p.walkT|0)%4;
+  ctx.fillStyle='#2a6cc4';
+  if(p.onGround && (keys['ArrowLeft']||keys['ArrowRight'])){
+    if(step<2){ ctx.fillRect(x+2,y+20,3,4); ctx.fillRect(x+9,y+18,3,6); }
+    else { ctx.fillRect(x+2,y+18,3,6); ctx.fillRect(x+9,y+20,3,4); }
+  } else {
+    ctx.fillRect(x+2,y+19,3,5); ctx.fillRect(x+9,y+19,3,5);
+  }
+  // body / overall
+  ctx.fillStyle='#f2a900'; // orange jumpsuit
+  ctx.fillRect(x+1,y+10,12,10);
+  ctx.fillStyle='#2a6cc4';
+  ctx.fillRect(x+1,y+14,12,3); // tool belt
+  // chest bolt logo
+  ctx.fillStyle='#7a8896';
+  ctx.fillRect(x+6,y+12,2,2);
+  // arms
+  ctx.fillStyle='#f2a900';
+  ctx.fillRect(f>0? x+11 : x-1, y+11, 3, 6);
+  // head (metal)
+  ctx.fillStyle='#aeb8c4';
+  ctx.fillRect(x+2,y+2,10,8);
+  ctx.fillStyle='#8893a1';
+  ctx.fillRect(x+2,y+2,10,2);
+  // visor
+  ctx.fillStyle='#0a0a0d';
+  ctx.fillRect(x+3,y+5,8,3);
+  ctx.fillStyle='#33ff66';
+  ctx.fillRect(f>0? x+7 : x+4, y+6, 2, 1); // eye glow
+  // antenna
+  ctx.fillStyle='#7a8896'; ctx.fillRect(x+6,y-1,1,3);
+  ctx.fillStyle='#ff3a4a'; ctx.fillRect(x+5,y-3,3,2);
+}
+
+/* ---------- HUD ---------- */
+function drawHUD(){
+  ctx.textAlign='left';
+  ctx.font='12px "Courier New"';
+  ctx.fillStyle='#ffb000';
+  ctx.fillText('SCORE', 12, 16);
+  ctx.fillStyle='#fff';
+  ctx.fillText(String(score).padStart(6,'0'), 12, 30);
+
+  ctx.textAlign='center';
+  ctx.fillStyle='#ffb000';
+  ctx.fillText('BONUS', W/2, 16);
+  ctx.fillStyle = startBonus>1000?'#33ff66':'#ff3a4a';
+  ctx.fillText(String(Math.max(0,startBonus)), W/2, 30);
+
+  ctx.textAlign='right';
+  ctx.fillStyle='#ffb000';
+  ctx.fillText('HIGH', W-12, 16);
+  ctx.fillStyle='#fff';
+  ctx.fillText(String(Math.max(highscore,score)).padStart(6,'0'), W-12, 30);
+
+  // lives as little Bolt heads
+  for(let i=0;i<lives;i++){
+    const hx = 12+i*18, hy=38;
+    ctx.fillStyle='#aeb8c4'; ctx.fillRect(hx,hy,9,7);
+    ctx.fillStyle='#0a0a0d'; ctx.fillRect(hx+1,hy+2,7,3);
+    ctx.fillStyle='#33ff66'; ctx.fillRect(hx+6,hy+3,1,1);
+  }
+
+  // title tag
+  ctx.textAlign='right';
+  ctx.fillStyle='rgba(255,176,0,0.5)';
+  ctx.font='10px "Courier New"';
+  ctx.fillText('LIFTWERK · LVL '+level, W-12, 46);
+}
+
+function deathMsg(c){
+  if(c==='spring') return 'VON SPRUNGFEDER ERWISCHT!';
+  if(c==='squeeze') return 'VON KABINE GEQUETSCHT!';
+  return 'ABGESTÜRZT!';
+}
+
+function drawCenterMsg(txt,col){
+  ctx.textAlign='center';
+  ctx.fillStyle='rgba(0,0,0,0.55)';
+  ctx.fillRect(0,H/2-26,W,46);
+  ctx.fillStyle=col;
+  ctx.font='bold 20px "Courier New"';
+  ctx.fillText(txt, W/2, H/2+5);
+}
+
+function drawOverlay(){
+  ctx.fillStyle='rgba(0,0,0,0.78)';
+  ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  if(player._won){
+    ctx.fillStyle='#33ff66';
+    ctx.font='bold 34px "Courier New"';
+    ctx.fillText('MISSION ERFÜLLT', W/2, H/2-40);
+    ctx.fillStyle='#ffb000';
+    ctx.font='14px "Courier New"';
+    ctx.fillText('Bolt hat die Werkzeugkiste von Magnetus zurückgeholt.', W/2, H/2-12);
+  } else {
+    ctx.fillStyle='#ff3a4a';
+    ctx.font='bold 38px "Courier New"';
+    ctx.fillText('GAME OVER', W/2, H/2-40);
+  }
+  ctx.fillStyle='#fff';
+  ctx.font='18px "Courier New"';
+  ctx.fillText('SCORE  '+String(score).padStart(6,'0'), W/2, H/2+6);
+  ctx.fillStyle='#ffb000';
+  ctx.fillText('HIGHSCORE  '+String(Math.max(highscore,score)).padStart(6,'0'), W/2, H/2+34);
+  ctx.fillStyle='rgba(255,255,255,0.85)';
+  ctx.font='14px "Courier New"';
+  const blink = (Math.floor(performance.now()/450)%2)===0;
+  if(blink) ctx.fillText('▸ ENTER FÜR NEUSTART', W/2, H/2+74);
+
+  // title art
+  ctx.fillStyle='rgba(255,176,0,0.85)';
+  ctx.font='bold 12px "Courier New"';
+  ctx.fillText('L I F T W E R K', W/2, 60);
+}
+
+/* ---------- Loop ---------- */
+let last=0;
+function loop(t){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
