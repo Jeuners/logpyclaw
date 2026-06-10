@@ -224,6 +224,8 @@ Damit beginnt der Übergang von sternförmig zu Peer-Verkehr: der CDC-Klassifika
 kann jetzt erstmals echten Agent-zu-Agent-Drift sehen. Bewusst NOCH NICHT dabei:
 LLM-getriebene Spontanität — erst die Mechanik, dann die Intelligenz.
 
+Eine Live-Ansicht des bewohnten Kerns (Fraktions-Orbit, Zeitgefühl, Peer-Verkehr) liegt unter `/static/builds/spacetime/`.
+
 ---
 
 ## Dateistruktur

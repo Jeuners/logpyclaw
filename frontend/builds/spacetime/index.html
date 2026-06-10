@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZEITRAUM — LogpyClaw v3</title>
+<style>
+  :root{
+    --bg:#0a0c0a; --bg2:#0e120e; --panel:#0d100d; --grid:#16201a;
+    --amber:#ffb000; --amber-dim:#8a6010; --green:#39d353; --green-dim:#1d6a2f;
+    --red:#ff4d4d; --teal:#36d6c3; --grey:#7a857d; --orange:#ff9b3d;
+    --fg:#cfe8cf; --fg-dim:#6f8a72; --line:#1c281e;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:radial-gradient(120% 90% at 50% 0%,#0d120e 0%,var(--bg) 60%,#060806 100%);
+    color:var(--fg); font-family:"Courier New",ui-monospace,Menlo,monospace;
+    font-size:13px; overflow:hidden;
+  }
+  /* CRT scanlines */
+  body::after{
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:50;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 2px,rgba(0,0,0,.16) 3px,rgba(0,0,0,0) 4px);
+    mix-blend-mode:multiply;
+  }
+  body::before{
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:49;
+    background:radial-gradient(120% 120% at 50% 45%,rgba(0,0,0,0) 55%,rgba(0,0,0,.55) 100%);
+  }
+  #app{display:flex; flex-direction:column; height:100vh}
+  /* header */
+  header{
+    display:flex; align-items:center; gap:18px; padding:9px 16px;
+    border-bottom:1px solid var(--line); background:linear-gradient(180deg,#0e130f,#0a0c0a);
+  }
+  header h1{
+    margin:0; font-size:16px; letter-spacing:3px; color:var(--amber);
+    text-shadow:0 0 8px rgba(255,176,0,.45); font-weight:700;
+  }
+  header .sub{color:var(--fg-dim); letter-spacing:1px; font-size:11px}
+  .spacer{flex:1}
+  .stat{color:var(--fg-dim); letter-spacing:1px}
+  .stat b{color:var(--fg)}
+  .conn{display:flex; align-items:center; gap:7px; letter-spacing:1px}
+  .dot{width:10px; height:10px; border-radius:50%; box-shadow:0 0 6px currentColor}
+  .dot.live{background:var(--green); color:var(--green)}
+  .dot.off{background:var(--red); color:var(--red)}
+  .conn.live{color:var(--green)} .conn.off{color:var(--red)}
+  /* main */
+  main{flex:1 1 auto; display:flex; min-height:0; min-height:640px}
+  #stage{
+    flex:1 1 auto; position:relative; min-width:0;
+    min-height:640px; height:100%; overflow:hidden;
+  }
+  #orbit{display:block; width:100%; height:100%; position:absolute; inset:0}
+  /* sidebar */
+  aside{
+    width:300px; flex:0 0 300px; border-left:1px solid var(--line);
+    background:var(--panel); overflow-y:auto; padding:8px 0;
+  }
+  aside h2{
+    margin:0 0 4px; padding:4px 12px; font-size:11px; letter-spacing:2px;
+    color:var(--amber-dim); text-transform:uppercase;
+  }
+  .ag-row{
+    padding:7px 12px 8px; border-bottom:1px solid #111711;
+  }
+  .ag-row .top{display:flex; align-items:baseline; gap:6px}
+  .ag-row .nm{color:var(--fg); font-weight:700; letter-spacing:.5px}
+  .ag-row .fac{color:var(--fg-dim); font-size:10px; margin-left:auto; letter-spacing:1px}
+  .ag-row .meta{color:var(--fg-dim); font-size:11px; margin-top:2px; display:flex; align-items:center; gap:6px}
+  .word{padding:0 5px; border-radius:3px; font-size:10px; letter-spacing:1px}
+  .w-stabil{color:var(--green); border:1px solid var(--green-dim)}
+  .w-schwankend{color:var(--amber); border:1px solid var(--amber-dim)}
+  .w-unstet{color:var(--orange); border:1px solid #7a4d18}
+  .spark{display:block; margin-top:4px}
+  /* footer ticker */
+  footer{
+    flex:0 0 auto; border-top:1px solid var(--line); background:linear-gradient(180deg,#0a0c0a,#0c100c);
+    padding:6px 14px; height:92px; overflow-y:auto;
+  }
+  footer h2{
+    margin:0 0 4px; font-size:11px; letter-spacing:2px; color:var(--amber-dim); text-transform:uppercase;
+    position:sticky; top:0;
+  }
+  .mrow{display:flex; align-items:center; gap:10px; padding:2px 0; font-size:12px; line-height:1.45}
+  .mrow .t{color:var(--fg-dim); width:62px; flex:0 0 62px}
+  .mrow .ti{color:var(--fg); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .mrow .st{width:84px; flex:0 0 84px; text-align:right; letter-spacing:1px; font-size:11px}
+  .st-completed{color:var(--green)}
+  .st-failed{color:var(--red)}
+  .st-running{color:var(--amber)}
+  .badge{
+    flex:0 0 auto; color:#0a0c0a; background:var(--amber); font-weight:700;
+    padding:0 6px; border-radius:3px; font-size:10px; letter-spacing:1px;
+    box-shadow:0 0 8px rgba(255,176,0,.6);
+  }
+  /* tooltip */
+  #tip{
+    position:fixed; z-index:60; pointer-events:none; display:none; max-width:300px;
+    background:#070907; border:1px solid var(--amber-dim); border-radius:5px;
+    padding:8px 10px; font-size:11px; color:var(--fg); line-height:1.5;
+    box-shadow:0 6px 24px rgba(0,0,0,.7);
+  }
+  #tip b{color:var(--amber)}
+  #tip .k{color:var(--fg-dim)}
+  .pulse{animation:pl 1.2s ease-in-out infinite}
+  @keyframes pl{0%,100%{opacity:.45}50%{opacity:1}}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#1c281e;border-radius:4px}
+  ::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>ZEITRAUM</h1>
+    <span class="sub">— LogpyClaw v3</span>
+    <div class="spacer"></div>
+    <span class="stat"><b id="nAgents">0</b> Agenten</span>
+    <span class="stat"><b id="nFactions">0</b> Fraktionen</span>
+    <div class="conn off" id="conn"><span class="dot off" id="connDot"></span><span id="connTxt">offline</span></div>
+  </header>
+  <main>
+    <div id="stage">
+      <canvas id="orbit"></canvas>
+    </div>
+    <aside>
+      <h2>Zeitgefühl-Tafel</h2>
+      <div id="senseList"></div>
+    </aside>
+  </main>
+  <footer>
+    <h2>Missions-Ticker</h2>
+    <div id="ticker"></div>
+  </footer>
+</div>
+<div id="tip"></div>
+
+<script>
+"use strict";
+(function(){
+  // ── Zentraler State ──────────────────────────────────────────────────────
+  const state = {
+    agents: [],          // [{agent_id,name,op_count,clock,rate_stats,faction}]
+    factions: [],        // [{id,label,members,...}]
+    relations: [],       // gerichtete Relationen, dedupliziert (source,target)
+    missions: [],        // metadata-dicts, neueste zuerst
+    online: false,
+    lastErrLogged: null, // letzter geloggter Fehler-Status (kein Spam)
+  };
+  // Pro-Agent gepollte Raten-Historie für Sparklines (max 30)
+  const rateHist = new Map(); // agent_id → number[]
+  const HIST_MAX = 30;
+
+  // Layout-Cache: agent_id → {x,y,r} (im Canvas-Koordinatensystem)
+  const nodePos = new Map();
+  // Faktions-Cluster-Zentren: fid → {x,y,rad,angle}
+  const facCenters = new Map();
+  const FREE = "__free__";
+
+  const STANCE_COLOR = {
+    allied:      "#39d353",
+    cooperative: "#36d6c3",
+    neutral:     "#7a857d",
+    skeptical:   "#ff9b3d",
+    adversarial: "#ff4d4d",
+  };
+  // Reihenfolge der Fraktions-Cluster auf dem Orbit (operators oben)
+  const FAC_ORDER = ["operators","makers","auditors","gatherers","guardians","scribes"];
+
+  // ── DOM ──────────────────────────────────────────────────────────────────
+  const cv  = document.getElementById("orbit");
+  const ctx = cv.getContext("2d");
+  const tip = document.getElementById("tip");
+  let W = 0, H = 0, DPR = 1;
+
+  const stage = document.getElementById("stage");
+
+  function resize(){
+    // Container verlässlich vermessen: #stage hat CSS-Mindesthöhe (640px),
+    // daher liefert getBoundingClientRect auch beim ersten Layout-Frame
+    // brauchbare Werte. Fallbacks greifen nur, wenn das Layout noch 0 ist.
+    const r = stage.getBoundingClientRect();
+    DPR = window.devicePixelRatio || 1;
+    const w = r.width  || stage.clientWidth  || cv.clientWidth  || 0;
+    const h = r.height || stage.clientHeight || cv.clientHeight || 0;
+    W = Math.max(320, Math.floor(w));
+    H = Math.max(240, Math.floor(h));
+    cv.width  = Math.floor(W * DPR);
+    cv.height = Math.floor(H * DPR);
+    cv.style.width  = W + "px";
+    cv.style.height = H + "px";
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    // Layout-Caches invalidieren und neu aufbauen
+    nodePos.clear();
+    facCenters.clear();
+    computeLayout();
+  }
+
+  // Bei echten Größenänderungen des Containers neu vermessen (zuverlässiger
+  // als nur window-resize, fängt auch Flex-/Grid-Reflows beim ersten Paint).
+  if(typeof ResizeObserver === "function"){
+    let roPending = false;
+    const ro = new ResizeObserver(()=>{
+      if(roPending) return;
+      roPending = true;
+      requestAnimationFrame(()=>{ roPending = false; resize(); });
+    });
+    ro.observe(stage);
+  }
+  window.addEventListener("resize", ()=>{ requestAnimationFrame(resize); });
+
+  // ── Datenabruf (fail-soft) ───────────────────────────────────────────────
+  async function getJSON(url){
+    const r = await fetch(url, {cache:"no-store"});
+    if(!r.ok) throw new Error(url + " → " + r.status);
+    return r.json();
+  }
+
+  function setOnline(ok, reason){
+    if(ok === state.online){ return; }
+    state.online = ok;
+    const conn = document.getElementById("conn");
+    const dot  = document.getElementById("connDot");
+    const txt  = document.getElementById("connTxt");
+    conn.className = "conn " + (ok ? "live" : "off");
+    dot.className  = "dot "  + (ok ? "live" : "off");
+    txt.textContent = ok ? "live" : "offline";
+    // genau 1x pro Statuswechsel loggen
+    if(!ok && state.lastErrLogged !== "off"){
+      console.warn("[ZEITRAUM] offline:", reason || "");
+      state.lastErrLogged = "off";
+    } else if(ok){
+      state.lastErrLogged = null;
+    }
+  }
+
+  async function pollFast(){
+    try{
+      const [agents, missions] = await Promise.all([
+        getJSON("/api/agents"),
+        getJSON("/api/missions"),
+      ]);
+      state.agents = Array.isArray(agents) ? agents : [];
+      ingestMissions(Array.isArray(missions) ? missions : []);
+      ingestRates();
+      computeLayout();
+      renderSidebar();
+      renderTicker();
+      updateHeaderCounts();
+      setOnline(true);
+    }catch(e){
+      setOnline(false, e && e.message);
+    }
+  }
+
+  async function pollSlow(){
+    // Fraktionen + Relationen (6 Einzel-Requests sequenziell)
+    try{
+      const facs = await getJSON("/api/factions");
+      state.factions = Array.isArray(facs) ? facs : [];
+      const relMap = new Map(); // "src>tgt" → relation (zuletzt gesehen gewinnt)
+      for(const f of state.factions){
+        try{
+          const detail = await getJSON("/api/factions/" + encodeURIComponent(f.id));
+          for(const rel of (detail.relations || [])){
+            relMap.set(rel.source + ">" + rel.target, rel);
+          }
+        }catch(_){ /* einzelne Fraktion fehlt → weiter */ }
+      }
+      state.relations = Array.from(relMap.values());
+      computeLayout();
+      updateHeaderCounts();
+      setOnline(true);
+    }catch(e){
+      setOnline(false, e && e.message);
+    }
+  }
+
+  function ingestMissions(list){
+    // neueste zuerst nach started_at / registered_at
+    const ts = m => (m.started_at || m.registered_at || m.finished_at || 0);
+    state.missions = list.slice().sort((a,b)=> ts(b) - ts(a)).slice(0, 8);
+  }
+
+  function ingestRates(){
+    const seen = new Set();
+    for(const a of state.agents){
+      seen.add(a.agent_id);
+      const rs = a.rate_stats;
+      if(!rs) continue;
+      let h = rateHist.get(a.agent_id);
+      if(!h){ h = []; rateHist.set(a.agent_id, h); }
+      h.push(typeof rs.rate === "number" ? rs.rate : 0);
+      if(h.length > HIST_MAX) h.shift();
+    }
+    // verschwundene Agenten ausräumen
+    for(const id of Array.from(rateHist.keys())){
+      if(!seen.has(id)) rateHist.delete(id);
+    }
+  }
+
+  function updateHeaderCounts(){
+    document.getElementById("nAgents").textContent = state.agents.length;
+    document.getElementById("nFactions").textContent = state.factions.length;
+  }
+
+  // ── Layout: Fraktions-Cluster + Knoten ───────────────────────────────────
+  function factionIdsForLayout(){
+    const ids = [];
+    const known = new Set(state.factions.map(f=>f.id));
+    for(const fid of FAC_ORDER){ if(known.has(fid)) ids.push(fid); }
+    for(const f of state.factions){ if(!ids.includes(f.id)) ids.push(f.id); }
+    return ids;
+  }
+
+  function computeLayout(){
+    facCenters.clear();
+    nodePos.clear();
+    if(W === 0) return;
+
+    const cx = W * 0.5, cy = H * 0.52;
+    const ringR = Math.min(W, H) * 0.34;
+    const facRad = Math.min(W, H) * 0.115;
+
+    const fids = factionIdsForLayout();
+    const n = Math.max(fids.length, 1);
+    // operators (erstes Element) nach oben → Start bei -90°
+    fids.forEach((fid, i)=>{
+      const ang = -Math.PI/2 + (i / n) * Math.PI * 2;
+      facCenters.set(fid, {
+        x: cx + Math.cos(ang) * ringR,
+        y: cy + Math.sin(ang) * ringR,
+        rad: facRad, angle: ang,
+      });
+    });
+    // "frei"-Bereich: Mitte
+    facCenters.set(FREE, {x: cx, y: cy, rad: facRad*0.9, angle: 0, free:true});
+
+    // Agenten ihren Clustern zuordnen
+    const byFac = new Map();
+    for(const a of state.agents){
+      const fid = (a.faction && facCenters.has(a.faction)) ? a.faction : FREE;
+      if(!byFac.has(fid)) byFac.set(fid, []);
+      byFac.get(fid).push(a);
+    }
+    for(const [fid, members] of byFac){
+      const c = facCenters.get(fid);
+      const m = members.length;
+      members.forEach((a, idx)=>{
+        let x, y;
+        if(m === 1){ x = c.x; y = c.y; }
+        else{
+          const a2 = (idx / m) * Math.PI * 2 - Math.PI/2;
+          const rr = c.rad * 0.58;
+          x = c.x + Math.cos(a2) * rr;
+          y = c.y + Math.sin(a2) * rr;
+        }
+        nodePos.set(a.agent_id, {x, y, r: 8, agent:a, fid});
+      });
+    }
+  }
+
+  // ── Animation ────────────────────────────────────────────────────────────
+  let raf = 0;
+  // Hilfs-Puffer, einmal angelegt (keine Allokation im Hotpath)
+  function pulseFreq(rate){
+    // logarithmische Skalierung: schneller = schnelleres Pulsieren
+    const r = Math.max(0.01, rate || 0.01);
+    return 0.4 + Math.log10(r + 1) * 1.6; // Hz-artig
+  }
+
+  function draw(now){
+    raf = requestAnimationFrame(draw);
+    const t = now * 0.001;
+    ctx.clearRect(0,0,W,H);
+
+    // dezenter Hintergrund-Ring
+    const cx = W*0.5, cy = H*0.52, ringR = Math.min(W,H)*0.34;
+    ctx.save();
+    ctx.strokeStyle = "rgba(40,60,46,.5)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, ringR, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+
+    drawEdges(t);
+    drawClusters();
+    drawNodes(t);
+  }
+
+  function drawClusters(){
+    ctx.save();
+    ctx.font = "11px 'Courier New',monospace";
+    ctx.textAlign = "center";
+    for(const [fid, c] of facCenters){
+      if(fid === FREE){
+        // frei-Bereich nur zeigen, wenn belegt
+        const hasFree = state.agents.some(a=> !a.faction || !facCenters.has(a.faction));
+        if(!hasFree) continue;
+      }
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, c.rad, 0, Math.PI*2);
+      ctx.strokeStyle = fid === FREE ? "rgba(120,133,125,.30)" : "rgba(255,176,0,.22)";
+      ctx.setLineDash(fid === FREE ? [3,4] : []);
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Label
+      const fac = state.factions.find(f=>f.id===fid);
+      const label = fid === FREE ? "frei" : (fac ? fac.label : fid);
+      ctx.fillStyle = fid === FREE ? "rgba(120,133,125,.85)" : "rgba(255,176,0,.78)";
+      ctx.fillText(label.toUpperCase(), c.x, c.y - c.rad - 6);
+    }
+    ctx.restore();
+  }
+
+  function drawEdges(t){
+    if(!state.relations.length) return;
+    ctx.save();
+    ctx.font = "9px 'Courier New',monospace";
+    ctx.textAlign = "center";
+    for(const rel of state.relations){
+      const a = facCenters.get(rel.source);
+      const b = facCenters.get(rel.target);
+      if(!a || !b) continue;
+      // Kante von Rand zu Rand (an den Cluster-Kreisen abschneiden)
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const ux = dx/dist, uy = dy/dist;
+      // leichter Perp-Offset, damit Hin- und Rückrichtung sich nicht überlagern
+      const px = -uy, py = ux, off = 7;
+      const x1 = a.x + ux*a.rad + px*off, y1 = a.y + uy*a.rad + py*off;
+      const x2 = b.x - ux*b.rad + px*off, y2 = b.y - uy*b.rad + py*off;
+
+      const col = STANCE_COLOR[rel.stance] || STANCE_COLOR.neutral;
+      const trust = Math.max(0, Math.min(1, rel.trust || 0));
+      ctx.lineWidth = 0.8 + trust * 3.4;          // Stärke = trust
+      ctx.strokeStyle = col;
+      ctx.globalAlpha = 0.35 + trust * 0.55;
+      if(rel.stance === "adversarial") ctx.setLineDash([5,5]); else ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Pfeilspitze
+      const ah = 8;
+      ctx.globalAlpha = 0.5 + trust*0.5;
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - ux*ah - px*ah*0.5, y2 - uy*ah - py*ah*0.5);
+      ctx.lineTo(x2 - ux*ah + px*ah*0.5, y2 - uy*ah + py*ah*0.5);
+      ctx.closePath();
+      ctx.fillStyle = col; ctx.fill();
+
+      // γ-Label am Mittelpunkt
+      const mx = (x1+x2)/2 + px*4, my = (y1+y2)/2 + py*4;
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = "rgba(8,10,8,.85)";
+      const g = "γ" + (rel.gamma != null ? rel.gamma.toFixed(2) : "?");
+      const tw = ctx.measureText(g).width + 4;
+      ctx.fillRect(mx - tw/2, my - 6, tw, 11);
+      ctx.fillStyle = col;
+      ctx.fillText(g, mx, my + 3);
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+
+  function drawNodes(t){
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.font = "10px 'Courier New',monospace";
+    for(const [id, p] of nodePos){
+      const a = p.agent;
+      const hasRS = hasRateStats(a);
+      const rs = a.rate_stats || {};
+      const rate = rs.rate || 0;
+      const dev  = rs.dev  || 0;
+      const cv   = rs.cv   || 0;
+
+      // Puls: bei fehlendem rate_stats neutraler, langsamer Atem-Puls
+      // (nicht mit der 1.0-Initialrate verwechseln).
+      const baseR = 7;
+      let phase, haloW, haloAlpha;
+      if(hasRS){
+        const freq = pulseFreq(rate);
+        phase = (Math.sin(t * freq * Math.PI * 2) + 1) * 0.5; // 0..1
+        // Halo: Breite = Streuung (dev), Flackern bei cv > 0.75
+        haloW = baseR + 6 + Math.min(dev, 6) * 3;
+        haloAlpha = 0.10 + Math.min(dev,3)*0.06;
+        if(cv > 0.75){
+          // unstet → flackern
+          haloAlpha *= 0.5 + Math.abs(Math.sin(t * 9 + p.x)) * 0.9;
+        }
+      }else{
+        // neutraler Puls: ruhig, gedämpft, kein Halo-Wachstum
+        phase = (Math.sin(t * 0.6 * Math.PI * 2) + 1) * 0.5;
+        haloW = baseR + 6;
+        haloAlpha = 0.08;
+      }
+      const r = baseR + phase * 3;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, haloW, 0, Math.PI*2);
+      ctx.fillStyle = hasRS
+        ? "rgba(255,176,0," + haloAlpha.toFixed(3) + ")"
+        : "rgba(122,133,125," + haloAlpha.toFixed(3) + ")";
+      ctx.fill();
+
+      // Knoten: ohne rate_stats neutrales Grau, sonst cv-gefärbt
+      const col = !hasRS ? "#7a857d"
+        : (cv > 0.75 ? "#ff9b3d" : (cv > 0.25 ? "#ffb000" : "#39d353"));
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+      ctx.fillStyle = col;
+      ctx.shadowColor = col; ctx.shadowBlur = 8 + phase*8;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = 1; ctx.strokeStyle = "rgba(0,0,0,.5)"; ctx.stroke();
+
+      // Kurzname
+      const short = (a.name || a.agent_id).split(/[\s_:]/).pop().slice(0, 9);
+      ctx.fillStyle = "rgba(207,232,207,.92)";
+      ctx.fillText(short, p.x, p.y + haloW + 11);
+
+      p.hitR = Math.max(r, baseR + 4); // für Hover
+    }
+    ctx.restore();
+  }
+
+  // ── Hover-Tooltip ────────────────────────────────────────────────────────
+  cv.addEventListener("mousemove", (e)=>{
+    const rect = cv.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    let hit = null;
+    for(const [id, p] of nodePos){
+      const d = Math.hypot(mx - p.x, my - p.y);
+      if(d <= (p.hitR || 10)){ hit = p; break; }
+    }
+    if(!hit){ tip.style.display = "none"; return; }
+    const a = hit.agent;
+    const rs = a.rate_stats || {};
+    const hasRS = hasRateStats(a);
+    const tau = a.clock && a.clock.tau ? a.clock.tau[a.agent_id] : undefined;
+    tip.innerHTML =
+      "<b>" + esc(a.name || a.agent_id) + "</b><br>" +
+      "<span class='k'>id:</span> " + esc(a.agent_id) + "<br>" +
+      (hasRS
+        ? "<span class='k'>rate:</span> " + fmt(rs.rate) + " ops/s &nbsp; " +
+          "<span class='k'>dev:</span> ±" + fmt(rs.dev) + "<br>" +
+          "<span class='k'>cv:</span> " + fmt(rs.cv)
+        : "<span class='k'>rate:</span> — <span class='k'>(kein Zeitgefühl)</span>") +
+      (tau != null ? " &nbsp; <span class='k'>τ:</span> " + fmt(tau) : "") + "<br>" +
+      "<span class='k'>op_count:</span> " + (a.op_count != null ? a.op_count : "?") +
+      (a.faction ? "<br><span class='k'>faction:</span> " + esc(a.faction) : "");
+    tip.style.display = "block";
+    let tx = e.clientX + 14, ty = e.clientY + 14;
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    if(tx + tw > window.innerWidth)  tx = e.clientX - tw - 14;
+    if(ty + th > window.innerHeight) ty = e.clientY - th - 14;
+    tip.style.left = tx + "px"; tip.style.top = ty + "px";
+  });
+  cv.addEventListener("mouseleave", ()=>{ tip.style.display = "none"; });
+
+  // ── Sidebar: Zeitgefühl-Tafel ────────────────────────────────────────────
+  // Echtes rate_stats-Objekt vorhanden? (Skill-Agenten liefern es u. U. nicht.)
+  function hasRateStats(a){
+    return a && a.rate_stats != null && typeof a.rate_stats === "object" &&
+           typeof a.rate_stats.rate === "number";
+  }
+  function senseWord(cv){
+    if(cv < 0.25) return "stabil";
+    if(cv < 0.75) return "schwankend";
+    return "unstet";
+  }
+
+  function renderSidebar(){
+    const host = document.getElementById("senseList");
+    // Agenten mit Raten-Daten zuerst, nach rate absteigend
+    const rows = state.agents.slice().sort((a,b)=>{
+      const ra = (a.rate_stats && a.rate_stats.rate) || 0;
+      const rb = (b.rate_stats && b.rate_stats.rate) || 0;
+      return rb - ra;
+    });
+    if(!rows.length){
+      host.innerHTML = "<div class='ag-row' style='color:var(--fg-dim)'>— keine Agenten —</div>";
+      return;
+    }
+    let html = "";
+    for(const a of rows){
+      const hasRS = hasRateStats(a);
+      const rs = a.rate_stats || {};
+      const short = (a.name || a.agent_id).split(/[\s_:]/).pop();
+      const fac = a.faction ? a.faction : "frei";
+      const hist = rateHist.get(a.agent_id) || [];
+      let metaInner;
+      if(hasRS){
+        const word = senseWord(rs.cv || 0);
+        metaInner =
+          "~" + fmt(rs.rate) + " ops/s ±" + fmt(rs.dev) +
+          " <span class='word w-" + word + "'>" + word + "</span>";
+      }else{
+        // Kein rate_stats-Feld (z. B. Skill-Agent ohne to_dict-Raten):
+        // nicht stillschweigend 1.00 anzeigen, sondern neutral „—".
+        metaInner =
+          "<span style='color:var(--fg-dim)'>— ops/s</span>" +
+          " <span class='word' style='color:var(--grey);border:1px solid var(--line)'>kein Zeitgefühl</span>";
+      }
+      html +=
+        "<div class='ag-row'>" +
+          "<div class='top'>" +
+            "<span class='nm'>" + esc(short) + "</span>" +
+            "<span class='fac'>" + esc(fac) + "</span>" +
+          "</div>" +
+          "<div class='meta'>" + metaInner + "</div>" +
+          sparkSVG(hist) +
+        "</div>";
+    }
+    host.innerHTML = html;
+  }
+
+  function sparkSVG(hist){
+    const w = 276, h = 22;
+    if(!hist.length){
+      return "<svg class='spark' width='"+w+"' height='"+h+"'></svg>";
+    }
+    const max = Math.max.apply(null, hist) || 1;
+    const min = Math.min.apply(null, hist);
+    const span = (max - min) || 1;
+    const n = hist.length;
+    let pts = "";
+    for(let i=0;i<n;i++){
+      const x = (n === 1) ? w : (i/(n-1))*w;
+      const y = h - 2 - ((hist[i]-min)/span)*(h-4);
+      pts += (i?" ":"") + x.toFixed(1) + "," + y.toFixed(1);
+    }
+    return "<svg class='spark' width='"+w+"' height='"+h+"' viewBox='0 0 "+w+" "+h+"' preserveAspectRatio='none'>"+
+      "<polyline points='"+pts+"' fill='none' stroke='#ffb000' stroke-width='1.4' opacity='0.85'/>"+
+      "</svg>";
+  }
+
+  // ── Footer: Missions-Ticker ──────────────────────────────────────────────
+  function renderTicker(){
+    const host = document.getElementById("ticker");
+    if(!state.missions.length){
+      host.innerHTML = "<div class='mrow'><span class='ti' style='color:var(--fg-dim)'>— keine Missionen —</span></div>";
+      return;
+    }
+    let html = "";
+    for(const m of state.missions){
+      const st = (m.state || "running").toLowerCase();
+      const peer = !!m.initiated_by;
+      const time = fmtTime(m.started_at || m.registered_at);
+      const title = m.title || m.mission_id || "(ohne Titel)";
+      const stCls = "st-" + (st === "completed" ? "completed" : st === "failed" ? "failed" : "running");
+      const stTxt = st === "running" ? "<span class='pulse'>running</span>" : st;
+      html +=
+        "<div class='mrow'>" +
+          "<span class='t'>" + time + "</span>" +
+          (peer ? "<span class='badge' title='von Agent "+esc(m.initiated_by)+" angestoßen'>⚡ PEER</span>" : "") +
+          "<span class='ti' title='"+esc(title)+"'>" + esc(title) + "</span>" +
+          "<span class='st "+stCls+"'>" + stTxt + "</span>" +
+        "</div>";
+    }
+    host.innerHTML = html;
+  }
+
+  // ── Utils ────────────────────────────────────────────────────────────────
+  function fmt(v){ return (typeof v === "number") ? (Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(2)) : "?"; }
+  function fmtTime(ts){
+    if(!ts) return "--:--:--";
+    const d = new Date(ts * 1000);
+    const p = n => String(n).padStart(2,"0");
+    return p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds());
+  }
+  function esc(s){
+    return String(s == null ? "" : s)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;");
+  }
+
+  // ── Debug-Hook (nur Lesezugriff für Diagnose/Tests, kein API-Versprechen) ─
+  // Erlaubt z. B. dem Supervisor, eine Mission mit initiated_by in den State
+  // zu injizieren und via redraw() das ⚡ PEER-Badge im Ticker zu prüfen.
+  window.__zeitraum = {
+    state: state,
+    resize: resize,
+    redraw: function(){
+      renderSidebar();
+      renderTicker();
+      updateHeaderCounts();
+      computeLayout();
+    },
+  };
+
+  // ── Lifecycle ────────────────────────────────────────────────────────────
+  // Erste Vermessung erst, wenn das Layout steht: synchron + ein rAF später,
+  // damit getBoundingClientRect des Containers verlässliche Werte liefert.
+  // Zusätzlich setTimeout- und visibilitychange-Fallbacks: in HINTERGRUND-Tabs
+  // feuert requestAnimationFrame nicht — ohne Fallback bliebe das Canvas auf
+  // den Floor-Maßen stehen, bis der Tab in den Vordergrund kommt.
+  resize();
+  requestAnimationFrame(resize);
+  setTimeout(resize, 250);
+  setTimeout(resize, 1000);
+  document.addEventListener("visibilitychange", resize);
+  pollFast();
+  pollSlow();
+  setInterval(pollFast, 3000);
+  setInterval(pollSlow, 10000);
+  raf = requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>
