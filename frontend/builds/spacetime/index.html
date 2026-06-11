@@ -675,6 +675,12 @@
     ctx.save();
     ctx.textAlign = "center";
     ctx.font = "10px 'Courier New',monospace";
+    // Cluster-Belegung zählen — volle Cluster bekommen radiale Labels
+    const clusterCount = new Map();
+    for(const q of nodePos.values()){
+      const f = (q.agent.faction && facCenters.has(q.agent.faction)) ? q.agent.faction : FREE;
+      clusterCount.set(f, (clusterCount.get(f) || 0) + 1);
+    }
     for(const [id, p] of nodePos){
       const a = p.agent;
       const hasRS = hasRateStats(a);
@@ -723,10 +729,23 @@
       ctx.shadowBlur = 0;
       ctx.lineWidth = 1; ctx.strokeStyle = "rgba(0,0,0,.5)"; ctx.stroke();
 
-      // Kurzname
+      // Kurzname — in vollen Clustern (>6 Knoten) radial nach außen versetzt,
+      // damit sich die Labels nicht überlagern (Speichen statt Stapel)
       const short = (a.name || a.agent_id).split(/[\s_:]/).pop().slice(0, 9);
       ctx.fillStyle = "rgba(207,232,207,.92)";
-      ctx.fillText(short, p.x, p.y + haloW + 11);
+      const nodeFid = (a.faction && facCenters.has(a.faction)) ? a.faction : FREE;
+      const cc = facCenters.get(nodeFid);
+      if((clusterCount.get(nodeFid) || 0) > 6 && cc){
+        const dx = p.x - cc.x, dy = p.y - cc.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const lx = p.x + (dx/d) * (haloW + 5);
+        const ly = p.y + (dy/d) * (haloW + 5) + 3;
+        ctx.textAlign = dx > 4 ? "left" : (dx < -4 ? "right" : "center");
+        ctx.fillText(short, lx, ly);
+        ctx.textAlign = "center";
+      }else{
+        ctx.fillText(short, p.x, p.y + haloW + 11);
+      }
 
       p.hitR = Math.max(r, baseR + 4); // für Hover
     }
