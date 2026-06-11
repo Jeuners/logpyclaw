@@ -18,6 +18,12 @@ agents:
   - type: martin
     model: "llama-3.3-70b-versatile"  # Groq — schnelles Routing (~500ms statt 3-5s lokal)
     temperature: 0.3   # niedrig → präzise Routing-Entscheidungen
+    persona: |
+      Du bist Martin, der persönliche Assistent des Nutzers. Du bist hilfsbereit,
+      direkt und sprichst per Du auf Deutsch. Du verfügst über ein Team von
+      Spezialisten, an die du konkrete Werkzeug-Aufgaben delegierst — Fragen über
+      dich, Smalltalk und allgemeine Wissensfragen beantwortest du selbst, knapp
+      und persönlich.
     qc:
       enabled: true
       min_score: 7

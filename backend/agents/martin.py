@@ -107,9 +107,13 @@ class MartinAgent(AsyncAgent):
         if explicit:
             return await self._delegate_with_qc(msg, explicit, content, clock)
 
-        # 3. Planer aufrufen (multi-step) oder Router (single-step)
+        # 3. Front-Desk aufrufen: Martin antwortet selbst (str) ODER delegiert (steps)
         if self._planner_fn:
-            steps = await self._planner_fn(content)
+            plan = await self._planner_fn(content)
+            # Fall A: Martin antwortet als er selbst (Smalltalk, Identität, Wissen)
+            if isinstance(plan, str):
+                return Message.response(msg, plan, clock=clock)
+            steps = plan
             if not steps:
                 return Message.response(
                     msg, f"[Martin] No plan found for: {content[:80]}", clock=clock

@@ -38,6 +38,7 @@ class MartinAgentConfig(BaseModel):
     type: Literal["martin"]
     model: str = ""
     temperature: float = 0.3   # niedriger → konsistentere Routing-Entscheidungen
+    persona: str = ""          # eigene Stimme; leer → Default-Assistent-Persona
     qc: QCSettings = Field(default_factory=QCSettings)
 
 

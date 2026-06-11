@@ -72,12 +72,24 @@ conductor = Conductor(db_url=get_settings().db_url)
 memory = SemanticMemory()  # semantisches Langzeit-Gedächtnis (RAG, sqlite-vec)
 
 
-def _make_planner_fn(cfg, temperature: float = 0.3):
-    """Baut eine async Planner-Funktion für Martin.
+_DEFAULT_MARTIN_PERSONA = (
+    "Du bist Martin, der persönliche Assistent des Nutzers. Du bist hilfsbereit, "
+    "direkt und sprichst per Du auf Deutsch. Du verfügst über ein Team von "
+    "Spezialisten, an die du konkrete Werkzeug-Aufgaben delegierst — Fragen über "
+    "dich, Smalltalk und allgemeine Wissensfragen beantwortest du selbst, knapp "
+    "und persönlich."
+)
 
-    Gibt eine Liste von DelegationSteps zurück — ein Step für einfache
-    Anfragen, mehrere Steps für Batch/Multi-Task-Anfragen.
+
+def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = ""):
+    """Baut Martins async Front-Desk-Funktion.
+
+    Martin entscheidet pro Nachricht: entweder er antwortet SELBST in seiner
+    Persona (Smalltalk, Identität, allgemeine Fragen) — Rückgabe als str —,
+    oder er erstellt einen Delegations-Plan (eine/mehrere DelegationSteps) für
+    echte Werkzeug-Aufgaben. None = kein verwertbares Ergebnis.
     """
+    persona = persona.strip() or _DEFAULT_MARTIN_PERSONA
     import json as _json
 
     import httpx
@@ -105,7 +117,7 @@ def _make_planner_fn(cfg, temperature: float = 0.3):
                 return aid
         return None
 
-    async def planner_fn(content: str) -> list[DelegationStep] | None:
+    async def planner_fn(content: str) -> str | list[DelegationStep] | None:
         agents = [
             a for a in conductor.list_agents() if a.agent_id not in ("agent:martin", "a2a:gateway")
         ]
@@ -120,10 +132,20 @@ def _make_planner_fn(cfg, temperature: float = 0.3):
         agent_list = "\n".join(_agent_desc(a) for a in agents)
 
         prompt = (
-            "Du bist ein Planungs-Agent. Weise die Anfrage dem passenden Agenten zu.\n\n"
-            f"Verfügbare Agenten:\n{agent_list}\n\n"
-            f"Anfrage: {content[:600]}\n\n"
-            "Routing-Regeln (höchste Priorität zuerst):\n"
+            f"{persona}\n\n"
+            "Du bekommst eine Nachricht vom Nutzer. Entscheide:\n\n"
+            "A) SELBST ANTWORTEN — wenn es Smalltalk ist, eine Frage über dich oder "
+            "deine Fähigkeiten, oder eine allgemeine Wissens-/Gesprächsfrage, die du "
+            "ohne Werkzeug beantworten kannst. Antworte direkt und persönlich.\n"
+            '   → {"reply": "<deine Antwort an den Nutzer>"}\n\n'
+            "B) DELEGIEREN — wenn es eine konkrete Werkzeug-Aufgabe ist (Bild "
+            "generieren, Web durchsuchen, Datei lesen/schreiben, Code ausführen, "
+            "Nachricht senden, deployen, transkribieren, YouTube …). Erstelle einen "
+            "Routing-Plan an die passenden Spezialisten.\n"
+            '   → {"tasks": [{"agent": "<agent_id>", "content": "<anweisung>", "depends_on": [<idx>]}, ...]}\n\n'
+            f"Verfügbare Spezialisten:\n{agent_list}\n\n"
+            f"Nachricht des Nutzers: {content[:600]}\n\n"
+            "Routing-Regeln für Fall B (höchste Priorität zuerst):\n"
             "- 'linkedin' im Text → skill:linkedin\n"
             "- 'whatsapp', 'sende nachricht' → skill:whatsapp\n"
             "- 'telegram' → skill:telegram\n"
@@ -138,7 +160,8 @@ def _make_planner_fn(cfg, temperature: float = 0.3):
             "- 'transkrib', 'audio', 'video transkript' → skill:transcription\n"
             "- 'deploy', 'publish', 'publiziere', 'online stellen', 'list deploys', 'undeploy' → skill:deploy\n"
             "- 'claude', 'frontier', 'komplex', 'schreib', 'essay', 'analyse', 'refactor', 'architektur' → agent:claude\n"
-            "- Allgemeine Fragen, Texte schreiben, Analyse → agent:alice\n"
+            "- Längere Texte/Analysen, die du bewusst an einen Spezialisten abgeben willst → agent:alice\n"
+            "  (allgemeine Wissens-/Gesprächsfragen beantwortest du dagegen SELBST via Fall A)\n"
             "- Mehrere gleichartige Tasks (z.B. '5 Bilder') → einen Task pro Einheit\n\n"
             "CHAINING: Wenn ein Task das Ergebnis eines vorherigen braucht (z.B. Bild → Video),\n"
             'setze "depends_on": [<index>] mit dem 0-basierten Index des vorherigen Steps.\n'
@@ -148,7 +171,8 @@ def _make_planner_fn(cfg, temperature: float = 0.3):
             '    {"agent": "skill:comfyui", "content": "cat sitting in garden, photorealistic"},\n'
             '    {"agent": "skill:ltxvideo", "content": "prompt: cat slowly looks around, gentle breeze", "depends_on": [0]}\n'
             "  ]}\n\n"
-            'Antworte NUR mit JSON: {"tasks": [{"agent": "<agent_id>", "content": "<anweisung>", "depends_on": [<idx>]}, ...]}'
+            'Antworte NUR mit JSON — ENTWEDER {"reply": "..."} (Fall A) ODER '
+            '{"tasks": [{"agent": "<agent_id>", "content": "<anweisung>", "depends_on": [<idx>]}, ...]} (Fall B).'
         )
 
         try:
@@ -170,6 +194,13 @@ def _make_planner_fn(cfg, temperature: float = 0.3):
                 raw = r.json()["choices"][0]["message"]["content"]
 
             data = _extract_json(raw)
+
+            # Fall A: Martin antwortet selbst in Persona
+            reply = data.get("reply")
+            if isinstance(reply, str) and reply.strip():
+                return reply.strip()
+
+            # Fall B: Delegations-Plan
             tasks = data.get("tasks", [])
             if not tasks:
                 return None
@@ -312,7 +343,7 @@ def _boot_agents() -> None:
             conductor.register(MartinAgent(
                 conductor=conductor,
                 qc=qc,
-                llm_planner_fn=_make_planner_fn(cfg, entry.temperature),
+                llm_planner_fn=_make_planner_fn(cfg, entry.temperature, entry.persona),
                 model=entry.model or cfg.ollama_model,
                 temperature=entry.temperature,
             ))
