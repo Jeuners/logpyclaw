@@ -153,3 +153,81 @@ class TestMartinSkillRouting:
         assert "dummy" in response.payload.get("result", "").lower()
 
         await conductor_with_skill.stop()
+
+
+# ── CodingSkill ───────────────────────────────────────────────────────────────
+
+from backend.core.protocol import MessageType
+from backend.skills.coding import CodingSkill, _extract_code
+
+
+class TestCodingExtraction:
+    def test_fenced_block(self):
+        assert _extract_code("```python\nprint(1)\n```") == "print(1)"
+
+    def test_fuehre_aus_prefix(self):
+        assert _extract_code("führe aus: print(1)") == "print(1)"
+
+    def test_bare_valid_code(self):
+        assert _extract_code("x = 1\nprint(x)") == "x = 1\nprint(x)"
+
+    def test_run_mid_sentence_is_not_code(self):
+        # Regression: das englische Wort "run" mitten in Prosa darf nicht
+        # den Rest des Satzes als Code extrahieren
+        assert _extract_code(
+            "please run these commands and report the FULL output of these "
+            "commands (one by one, don't skip any — adjust per OS):"
+        ) is None
+
+    def test_english_prose_is_not_code(self):
+        # Regression: Provisioning-Prompt-Fragmente, die via python -c
+        # SyntaxErrors produzierten
+        assert _extract_code(
+            "STEP 1 — Build candidate list. Pick from Ollama's library based "
+            "on available VRAM/unified memory (use ~75% of GPU VRAM, or ~60% "
+            "of total unified memory on Apple Silicon as the budget)."
+        ) is None
+        assert _extract_code("anytime to re-verify the setup is healthy") is None
+
+    def test_single_word_is_not_code(self):
+        assert _extract_code("anytime") is None
+
+
+class TestCodingSkill:
+    @pytest.mark.asyncio
+    async def test_executes_code(self):
+        out = await CodingSkill().execute("```python\nprint('ok')\n```")
+        assert "ok" in out
+
+    @pytest.mark.asyncio
+    async def test_prose_rejected_with_hint(self):
+        out = await CodingSkill().execute(
+            "Set up a working local LLM for me with tool-calling support."
+        )
+        assert "Kein ausführbarer Python-Code" in out
+        assert "agent:coder" in out
+
+    @pytest.mark.asyncio
+    async def test_nonzero_exit_raises(self):
+        # Exit ≠ 0 → Exception, damit der SkillAgent eine ERROR-Message baut
+        with pytest.raises(RuntimeError, match="Exit 1"):
+            await CodingSkill().execute("```python\nimport sys\nsys.exit(1)\n```")
+
+    @pytest.mark.asyncio
+    async def test_syntax_error_in_fenced_block_raises(self):
+        with pytest.raises(RuntimeError, match="SyntaxError"):
+            await CodingSkill().execute("```python\ndef kaputt(\n```")
+
+    @pytest.mark.asyncio
+    async def test_skill_agent_marks_failure_as_error(self):
+        agent = SkillAgent(CodingSkill())
+        await agent.start()
+        msg = Message.request(
+            mission_id=new_mission_id(),
+            sender=external_ref("test"),
+            recipient="skill:coding",
+            content="```python\nimport sys\nsys.exit(2)\n```",
+        )
+        resp = await agent.handle(msg)
+        assert resp.type == MessageType.ERROR
+        await agent.stop()
