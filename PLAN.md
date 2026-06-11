@@ -4,11 +4,20 @@ Stand: 2026-06-10. Lebendes Dokument; erledigte Punkte wandern nach unten.
 
 ## Nordstern
 
-Der Maschine ein **Bauchgefühl für Zeit** geben: Agenten, die wissen, was sie
-in der verbleibenden Zeit schaffen — und auf dieser Basis delegieren,
-eskalieren oder selbst handeln. Der Weg dahin führt vom heutigen zentral
-orchestrierten System (siehe README, "Einordnung") zu echtem Peer-Verkehr,
-bei dem Zeit, Vertrauen und Kausalität im Protokoll stecken.
+Der Maschine ein **Bauchgefühl für Zeit** geben — als Grundlage für
+**Echtzeit-Koordination**: Teams aus Menschen, Agenten oder beidem, die in
+jedem Moment wissen, wer was in der verbleibenden Zeit schafft, und auf
+dieser Basis delegieren, eskalieren oder selbst handeln. Das Ziel ist der
+Spielmacher, nicht der Buchhalter: Timing-Fenster zwischen verschieden
+schnellen Akteuren treffen (Pässe, Würfe, Übergaben, Einsätze) — vom
+Echtzeit-Spiel bis zur Leitstelle. Der signierte Audit-Trail ist das
+wertvolle **Nebenprodukt**: Wo Maschinen in Echtzeit koordinieren, will
+hinterher jemand beweisen können, warum entschieden wurde.
+
+Endausbau: **logpy.com** — Koordination als Produkt, Beweiskette inklusive.
+Der Weg dahin führt vom heutigen zentral orchestrierten System (siehe
+README, "Einordnung") zu echtem Peer-Verkehr, bei dem Zeit, Vertrauen und
+Kausalität im Protokoll stecken.
 
 ---
 
@@ -38,6 +47,13 @@ bei dem Zeit, Vertrauen und Kausalität im Protokoll stecken.
 
 ## 2. Experiment — der fehlende Beweis
 
+- [ ] **Flaggschiff-Demo: Echtzeit-Spiel.** Ein Agenten-Team spielt ein
+      Echtzeit-Spiel (Fernziel: Fußball-Sim à la EA FC26; realistischer
+      Einstieg: eigenes Echtzeit-Spielfeld, z. B. Liftwerk/Sky-Vanguard-
+      Engine oder ein simples 2D-Fußball) — Entscheidungen wie "Sprint oder
+      Pass auf den Schnelleren?" fallen über gelernte Tempo-Profile
+      (rate ± dev) aller Mitspieler. Das ist die Drachen-Frage bei 60 fps
+      und die sichtbarste Demonstration des Zeitgefühls, die möglich ist.
 - [ ] **Drachen v5**: (a) Rollen randomisieren (mal ist der Ritter schneller,
       mal der Magier — die Ordnungsrelation darf nicht erratbar sein),
       (b) Entscheidungskorrektheit als primärer Endpunkt, Überleben sekundär,
