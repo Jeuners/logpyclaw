@@ -54,12 +54,10 @@ Kausalität im Protokoll stecken.
       Pass auf den Schnelleren?" fallen über gelernte Tempo-Profile
       (rate ± dev) aller Mitspieler. Das ist die Drachen-Frage bei 60 fps
       und die sichtbarste Demonstration des Zeitgefühls, die möglich ist.
-- [ ] **Drachen v5**: (a) Rollen randomisieren (mal ist der Ritter schneller,
-      mal der Magier — die Ordnungsrelation darf nicht erratbar sein),
-      (b) Entscheidungskorrektheit als primärer Endpunkt, Überleben sekundär,
-      (c) Deadlines mit Puffer ≥ Latenz-Streuung statt Knife-Edge.
-      Skripte: `experiments/dragon4.py` als Basis.
-- [ ] Stichprobe groß genug für Signifikanz (n ≥ 100, Fisher exact).
+- [x] **Drachen v5** — GELAUFEN (11.06., `experiments/dragon5.py`, n=200):
+      randomisierte Rollen, Entscheidung als primärer Endpunkt, gepufferte
+      Deadlines. Ergebnis: CDC 100/100 korrekt vs. Kontrolle 55/100
+      (Fisher exact p ≈ 9e-17), Survival 95% vs. 57%. Der saubere Beweis.
 - [ ] CONCURRENT_DRIFT real erzeugen: Mission mit parallelen Plan-Wellen
       auf ungleich schnelle Agenten, Klassifikator-Output auswerten.
 
@@ -69,7 +67,8 @@ Kausalität im Protokoll stecken.
 - [ ] §4 Stack-Beschreibung aktualisieren: beschreibt noch den alten
       AgentClaw-Stack (NiceGUI, Qdrant); LogpyClaw v3 als Nachfolger
       präzisieren oder §4 explizit als historische Fallstudie rahmen.
-- [ ] v5-Ergebnisse in §5 nachtragen, sobald gelaufen.
+- [x] v5-Ergebnisse in §5 nachgetragen (§5.6 Decisive Replication,
+      Threats → §5.7; gepusht 11.06.).
 - [ ] Offen: `index.html` im Paper-Repo — behalten oder entfernen?
 
 ## 4. Repo & Außenwirkung
@@ -101,7 +100,9 @@ Kausalität im Protokoll stecken.
   async Offload, Heartbeat via Token-Stream
 - Security-Review (4 MEDIUMs gefixt), Public-Release-Hygiene, MIT-Lizenz
 - Spiele Liftwerk + Sky Vanguard (gebaut via Martin→Claude, deployed)
-- Drachen-Experiment v1–v4 inkl. Replay-Viewer; Missions-DB-Auswertung
+- Drachen-Experiment v1–v5 inkl. Replay-Viewer; Missions-DB-Auswertung;
+  v5 = entscheidende Replikation (n=200, CDC 100% vs. 55%, p ≈ 9e-17),
+  Ergebnisse als §5.6 ins Paper übernommen
 - Paper: Laien-Intro, Reference Implementation, §5 Preliminary Evaluation,
   Topologie-Diagnose in §5.3, Renummerierung §6/§7
 - Repo public: main = LogpyClaw v3, alter Stand in `legacy-agentclaw`

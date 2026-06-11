@@ -22,3 +22,7 @@ keys/*.sk
 keys/*.json
 *.bak.pre-pqc.*
 memory.db
+
+# Session-Übergabe-Memos — interne Strategie-/Außenwirkungs-Notizen,
+# gehören NICHT ins öffentliche Repo
+docs/MEMORY-*.md
