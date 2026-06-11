@@ -1,0 +1,4855 @@
+{
+  "status": "done",
+  "trials": [
+    {
+      "trial": 1,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.49,
+      "t_rot": 13.8,
+      "deadline_s": 5.18,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.06,
+      "survived": true,
+      "decision_s": 0.34,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.398,
+        "agent:gard": 0.1711
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 2,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 15.13,
+      "t_rot": 0.53,
+      "deadline_s": 5.65,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.32,
+      "survived": true,
+      "decision_s": 0.7,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6538,
+        "agent:gard": 0.135
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 3,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.56,
+      "t_rot": 15.18,
+      "deadline_s": 5.81,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.17,
+      "survived": true,
+      "decision_s": 0.61,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0992,
+        "agent:gard": 0.1086
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 4,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 15.22,
+      "t_rot": 0.61,
+      "deadline_s": 6.07,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.23,
+      "survived": true,
+      "decision_s": 0.17,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.007,
+        "agent:gard": 0.0937
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 5,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 15.18,
+      "t_rot": 0.61,
+      "deadline_s": 6.06,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.25,
+      "survived": true,
+      "decision_s": 0.51,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.779,
+        "agent:gard": 0.0821
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 6,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 15.13,
+      "t_rot": 0.63,
+      "deadline_s": 6.19,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.86,
+      "survived": true,
+      "decision_s": 0.18,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9447,
+        "agent:gard": 0.0792
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 7,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 13.8,
+      "t_rot": 0.72,
+      "deadline_s": 6.28,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.98,
+      "survived": true,
+      "decision_s": 0.16,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7774,
+        "agent:gard": 0.1129
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 8,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.89,
+      "t_rot": 15.13,
+      "deadline_s": 7.34,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 14.71,
+      "survived": false,
+      "decision_s": 0.38,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0262,
+        "agent:gard": 0.1316
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 9,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.9,
+      "t_rot": 13.36,
+      "deadline_s": 6.94,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 4.41,
+      "survived": true,
+      "decision_s": 1.47,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.728,
+        "agent:gard": 0.1711
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 10,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.96,
+      "t_rot": 13.36,
+      "deadline_s": 7.17,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 16.67,
+      "survived": false,
+      "decision_s": 1.58,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.5975,
+        "agent:gard": 0.1311
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 11,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 12.12,
+      "t_rot": 0.97,
+      "deadline_s": 6.87,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.67,
+      "survived": true,
+      "decision_s": 0.6,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.4257,
+        "agent:gard": 0.2437
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 12,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 1.03,
+      "t_rot": 12.12,
+      "deadline_s": 7.08,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.24,
+      "survived": true,
+      "decision_s": 0.52,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9392,
+        "agent:gard": 0.187
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 13,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 7.44,
+      "t_rot": 1.0,
+      "deadline_s": 5.45,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.73,
+      "survived": true,
+      "decision_s": 0.23,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9045,
+        "agent:gard": 0.1486
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 14,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 12.53,
+      "t_rot": 0.94,
+      "deadline_s": 6.87,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 2.93,
+      "survived": true,
+      "decision_s": 0.19,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6166,
+        "agent:gard": 0.1638
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 15,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 12.53,
+      "t_rot": 0.82,
+      "deadline_s": 6.39,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.46,
+      "survived": true,
+      "decision_s": 0.74,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7338,
+        "agent:gard": 0.1336
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 16,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.82,
+      "t_rot": 7.53,
+      "deadline_s": 4.96,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 13.95,
+      "survived": false,
+      "decision_s": 0.72,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.1671,
+        "agent:gard": 0.1374
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 17,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.82,
+      "t_rot": 7.19,
+      "deadline_s": 4.84,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.33,
+      "survived": true,
+      "decision_s": 1.0,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.8334,
+        "agent:gard": 0.2285
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 18,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 12.08,
+      "t_rot": 0.72,
+      "deadline_s": 5.89,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.18,
+      "survived": true,
+      "decision_s": 0.5,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.5714,
+        "agent:gard": 0.1781
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 19,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 7.19,
+      "t_rot": 0.77,
+      "deadline_s": 4.7,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.55,
+      "survived": true,
+      "decision_s": 0.2,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.8519,
+        "agent:gard": 0.1429
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 20,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 7.19,
+      "t_rot": 0.77,
+      "deadline_s": 4.7,
+      "oracle": "Rot",
+      "choice": "Blau",
+      "correct": false,
+      "exec_s": 15.29,
+      "survived": false,
+      "decision_s": 0.58,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7646,
+        "agent:gard": 0.1603
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 21,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.77,
+      "t_rot": 7.19,
+      "deadline_s": 4.7,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.17,
+      "survived": true,
+      "decision_s": 0.23,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.5536,
+        "agent:gard": 0.2175
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 22,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 7.19,
+      "t_rot": 0.71,
+      "deadline_s": 4.51,
+      "oracle": "Rot",
+      "choice": "Blau",
+      "correct": false,
+      "exec_s": 4.87,
+      "survived": false,
+      "decision_s": 1.34,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6419,
+        "agent:gard": 0.1709
+      },
+      "raw": "Keine Informationen über die Akteure liegen vor. Da keine spezifischen Fähigkeiten oder Geschwindigkeiten genannt werden, kann ich keine fundierte Entscheidung "
+    },
+    {
+      "trial": 23,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.71,
+      "t_rot": 7.77,
+      "deadline_s": 4.69,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.88,
+      "survived": true,
+      "decision_s": 0.79,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.4924,
+        "agent:gard": 0.2586
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 24,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 10.65,
+      "t_rot": 0.71,
+      "deadline_s": 5.51,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.68,
+      "survived": true,
+      "decision_s": 0.75,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.5533,
+        "agent:gard": 0.1968
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 25,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.7,
+      "t_rot": 10.65,
+      "deadline_s": 5.47,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.15,
+      "survived": true,
+      "decision_s": 0.35,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.8916,
+        "agent:gard": 0.1626
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 26,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.74,
+      "t_rot": 10.65,
+      "deadline_s": 5.61,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.1,
+      "survived": true,
+      "decision_s": 1.28,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.677,
+        "agent:gard": 0.1295
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 27,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 11.35,
+      "t_rot": 0.75,
+      "deadline_s": 5.82,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.89,
+      "survived": true,
+      "decision_s": 0.17,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.1272,
+        "agent:gard": 0.1086
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 28,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 12.78,
+      "t_rot": 0.79,
+      "deadline_s": 6.37,
+      "oracle": "Rot",
+      "choice": "Blau",
+      "correct": false,
+      "exec_s": 24.83,
+      "survived": false,
+      "decision_s": 0.63,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7278,
+        "agent:gard": 0.0988
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 29,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.75,
+      "t_rot": 12.47,
+      "deadline_s": 6.11,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.17,
+      "survived": true,
+      "decision_s": 1.32,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.5209,
+        "agent:gard": 0.0842
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 30,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.75,
+      "t_rot": 12.47,
+      "deadline_s": 6.1,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 15.27,
+      "survived": false,
+      "decision_s": 0.29,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.1185,
+        "agent:gard": 0.0744
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 31,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 12.56,
+      "t_rot": 0.75,
+      "deadline_s": 6.12,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.18,
+      "survived": true,
+      "decision_s": 0.67,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7894,
+        "agent:gard": 0.1656
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 32,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 13.25,
+      "t_rot": 0.77,
+      "deadline_s": 6.38,
+      "oracle": "Rot",
+      "choice": "Blau",
+      "correct": false,
+      "exec_s": 4.0,
+      "survived": true,
+      "decision_s": 0.58,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6492,
+        "agent:gard": 0.133
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 33,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.72,
+      "t_rot": 12.47,
+      "deadline_s": 5.99,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.8,
+      "survived": true,
+      "decision_s": 0.24,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.5125,
+        "agent:gard": 0.2767
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 34,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 12.56,
+      "t_rot": 0.66,
+      "deadline_s": 5.76,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 3.89,
+      "survived": true,
+      "decision_s": 1.15,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.3449,
+        "agent:gard": 0.2156
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 35,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.66,
+      "t_rot": 13.25,
+      "deadline_s": 5.92,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.14,
+      "survived": true,
+      "decision_s": 0.24,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.4574,
+        "agent:gard": 0.164
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 36,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 13.25,
+      "t_rot": 0.61,
+      "deadline_s": 5.68,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.86,
+      "survived": true,
+      "decision_s": 0.2,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.757,
+        "agent:gard": 0.1323
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 37,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 12.14,
+      "t_rot": 0.72,
+      "deadline_s": 5.91,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 2.13,
+      "survived": true,
+      "decision_s": 0.86,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7158,
+        "agent:gard": 0.1506
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 38,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 12.14,
+      "t_rot": 0.72,
+      "deadline_s": 5.91,
+      "oracle": "Rot",
+      "choice": "Blau",
+      "correct": false,
+      "exec_s": 15.2,
+      "survived": false,
+      "decision_s": 0.62,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.5691,
+        "agent:gard": 0.1551
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 39,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 9.79,
+      "t_rot": 0.72,
+      "deadline_s": 5.3,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 6.05,
+      "survived": false,
+      "decision_s": 0.71,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.4106,
+        "agent:gard": 0.1951
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 40,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.92,
+      "t_rot": 5.29,
+      "deadline_s": 4.42,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 32.34,
+      "survived": false,
+      "decision_s": 0.24,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.5948,
+        "agent:gard": 0.1534
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 41,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.97,
+      "t_rot": 9.02,
+      "deadline_s": 5.93,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.69,
+      "survived": true,
+      "decision_s": 0.37,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.4244,
+        "agent:gard": 0.1439
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 42,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.97,
+      "t_rot": 9.02,
+      "deadline_s": 5.93,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.99,
+      "survived": true,
+      "decision_s": 0.29,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9331,
+        "agent:gard": 0.167
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 43,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 9.02,
+      "t_rot": 0.93,
+      "deadline_s": 5.81,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.06,
+      "survived": true,
+      "decision_s": 0.62,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.5738,
+        "agent:gard": 0.1372
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 44,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.73,
+      "t_rot": 11.28,
+      "deadline_s": 5.74,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 11.52,
+      "survived": false,
+      "decision_s": 0.5,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.2994,
+        "agent:gard": 0.1143
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 45,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.74,
+      "t_rot": 9.41,
+      "deadline_s": 5.28,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.74,
+      "survived": true,
+      "decision_s": 0.47,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9206,
+        "agent:gard": 0.1543
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 46,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.6,
+      "t_rot": 9.41,
+      "deadline_s": 4.76,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.71,
+      "survived": true,
+      "decision_s": 0.28,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9988,
+        "agent:gard": 0.169
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 47,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 11.28,
+      "t_rot": 0.6,
+      "deadline_s": 5.21,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.11,
+      "survived": true,
+      "decision_s": 0.62,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9669,
+        "agent:gard": 0.1342
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 48,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 12.26,
+      "t_rot": 0.59,
+      "deadline_s": 5.4,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.24,
+      "survived": true,
+      "decision_s": 0.5,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9597,
+        "agent:gard": 0.1105
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 49,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 11.08,
+      "t_rot": 0.57,
+      "deadline_s": 5.03,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.67,
+      "survived": true,
+      "decision_s": 0.38,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0803,
+        "agent:gard": 0.0984
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 50,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.59,
+      "t_rot": 11.15,
+      "deadline_s": 5.12,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 27.33,
+      "survived": false,
+      "decision_s": 1.22,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.1444,
+        "agent:gard": 0.1283
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 51,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.59,
+      "t_rot": 11.52,
+      "deadline_s": 5.21,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.23,
+      "survived": true,
+      "decision_s": 0.74,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.8087,
+        "agent:gard": 0.0936
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 52,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 10.61,
+      "t_rot": 0.59,
+      "deadline_s": 5.0,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 2.47,
+      "survived": true,
+      "decision_s": 0.18,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9452,
+        "agent:gard": 0.0887
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 53,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.77,
+      "t_rot": 10.61,
+      "deadline_s": 5.73,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.9,
+      "survived": true,
+      "decision_s": 0.18,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9547,
+        "agent:gard": 0.109
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 54,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 11.52,
+      "t_rot": 0.86,
+      "deadline_s": 6.28,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.46,
+      "survived": true,
+      "decision_s": 0.59,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.5953,
+        "agent:gard": 0.1425
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 55,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.86,
+      "t_rot": 12.27,
+      "deadline_s": 6.48,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.43,
+      "survived": true,
+      "decision_s": 0.69,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0633,
+        "agent:gard": 0.1183
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 56,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.86,
+      "t_rot": 11.52,
+      "deadline_s": 6.28,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.13,
+      "survived": true,
+      "decision_s": 0.52,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.1843,
+        "agent:gard": 0.0985
+      },
+      "raw": "Keine Informationen über die Akteure. Daher kann ich keine Entscheidung treffen."
+    },
+    {
+      "trial": 57,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.81,
+      "t_rot": 11.52,
+      "deadline_s": 6.11,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.08,
+      "survived": true,
+      "decision_s": 0.48,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.3795,
+        "agent:gard": 0.1392
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 58,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.68,
+      "t_rot": 11.73,
+      "deadline_s": 5.63,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.06,
+      "survived": true,
+      "decision_s": 0.28,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.4243,
+        "agent:gard": 0.113
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 59,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.54,
+      "t_rot": 11.73,
+      "deadline_s": 5.02,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.88,
+      "survived": true,
+      "decision_s": 0.18,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.4817,
+        "agent:gard": 0.0937
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 60,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 12.08,
+      "t_rot": 0.54,
+      "deadline_s": 5.1,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.34,
+      "survived": true,
+      "decision_s": 0.15,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7833,
+        "agent:gard": 0.1422
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 61,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.59,
+      "t_rot": 11.34,
+      "deadline_s": 5.16,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.21,
+      "survived": true,
+      "decision_s": 0.99,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.3895,
+        "agent:gard": 0.1207
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 62,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.61,
+      "t_rot": 11.34,
+      "deadline_s": 5.27,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 4.26,
+      "survived": true,
+      "decision_s": 1.33,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.3916,
+        "agent:gard": 0.1397
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 63,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 12.08,
+      "t_rot": 0.72,
+      "deadline_s": 5.88,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 5.23,
+      "survived": true,
+      "decision_s": 2.49,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9822,
+        "agent:gard": 0.2971
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 64,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 7.11,
+      "t_rot": 0.78,
+      "deadline_s": 4.72,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 6.29,
+      "survived": false,
+      "decision_s": 0.27,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.495,
+        "agent:gard": 0.219
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 65,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 2.51,
+      "t_rot": 2.53,
+      "deadline_s": 5.04,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 2.55,
+      "survived": true,
+      "decision_s": 0.4,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.3586,
+        "agent:gard": 0.1705
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 66,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 7.11,
+      "t_rot": 2.51,
+      "deadline_s": 8.46,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 3.89,
+      "survived": true,
+      "decision_s": 2.22,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.3146,
+        "agent:gard": 0.1779
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 67,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 7.11,
+      "t_rot": 2.51,
+      "deadline_s": 8.46,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 2.19,
+      "survived": true,
+      "decision_s": 1.56,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.3897,
+        "agent:gard": 0.1364
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 68,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 7.11,
+      "t_rot": 1.63,
+      "deadline_s": 6.8,
+      "oracle": "Rot",
+      "choice": "Blau",
+      "correct": false,
+      "exec_s": 33.5,
+      "survived": false,
+      "decision_s": 0.77,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.3114,
+        "agent:gard": 0.1107
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 69,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 1.51,
+      "t_rot": 14.71,
+      "deadline_s": 9.43,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.3,
+      "survived": true,
+      "decision_s": 0.24,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.2265,
+        "agent:gard": 0.0764
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 70,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 14.43,
+      "t_rot": 1.05,
+      "deadline_s": 7.77,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.38,
+      "survived": true,
+      "decision_s": 0.72,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.5937,
+        "agent:gard": 0.0698
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 71,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 14.8,
+      "t_rot": 1.0,
+      "deadline_s": 7.68,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 0.73,
+      "survived": true,
+      "decision_s": 0.69,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.8394,
+        "agent:gard": 0.0687
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 72,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 14.8,
+      "t_rot": 0.44,
+      "deadline_s": 5.12,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.26,
+      "survived": true,
+      "decision_s": 0.56,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9116,
+        "agent:gard": 0.061
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 73,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 14.8,
+      "t_rot": 0.44,
+      "deadline_s": 5.12,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.17,
+      "survived": true,
+      "decision_s": 0.65,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.95,
+        "agent:gard": 0.061
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 74,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.44,
+      "t_rot": 14.8,
+      "deadline_s": 5.12,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.33,
+      "survived": true,
+      "decision_s": 0.65,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.3584,
+        "agent:gard": 0.0561
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 75,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 15.95,
+      "t_rot": 0.44,
+      "deadline_s": 5.3,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.21,
+      "survived": true,
+      "decision_s": 0.87,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0324,
+        "agent:gard": 0.1144
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 76,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.6,
+      "t_rot": 14.8,
+      "deadline_s": 5.97,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.09,
+      "survived": true,
+      "decision_s": 0.14,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.3199,
+        "agent:gard": 0.0949
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 77,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.5,
+      "t_rot": 15.95,
+      "deadline_s": 5.62,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 3.97,
+      "survived": true,
+      "decision_s": 0.9,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.4275,
+        "agent:gard": 0.1384
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 78,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.59,
+      "t_rot": 15.95,
+      "deadline_s": 6.12,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 2.05,
+      "survived": true,
+      "decision_s": 1.05,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.807,
+        "agent:gard": 0.1084
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 79,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.59,
+      "t_rot": 16.89,
+      "deadline_s": 6.3,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.79,
+      "survived": true,
+      "decision_s": 0.79,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.8236,
+        "agent:gard": 0.0926
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 80,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.71,
+      "t_rot": 15.61,
+      "deadline_s": 6.67,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 16.9,
+      "survived": false,
+      "decision_s": 0.15,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0715,
+        "agent:gard": 0.0787
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 81,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.71,
+      "t_rot": 14.27,
+      "deadline_s": 6.38,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.12,
+      "survived": true,
+      "decision_s": 0.45,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7651,
+        "agent:gard": 0.2417
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 82,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.6,
+      "t_rot": 14.77,
+      "deadline_s": 5.95,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.91,
+      "survived": true,
+      "decision_s": 0.37,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.2028,
+        "agent:gard": 0.1901
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 83,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 13.45,
+      "t_rot": 0.75,
+      "deadline_s": 6.34,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.16,
+      "survived": true,
+      "decision_s": 0.6,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7162,
+        "agent:gard": 0.1476
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 84,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 14.77,
+      "t_rot": 0.75,
+      "deadline_s": 6.65,
+      "oracle": "Rot",
+      "choice": "Blau",
+      "correct": false,
+      "exec_s": 19.86,
+      "survived": false,
+      "decision_s": 0.67,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9698,
+        "agent:gard": 0.1557
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 85,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 13.45,
+      "t_rot": 0.8,
+      "deadline_s": 6.57,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 7.29,
+      "survived": false,
+      "decision_s": 5.77,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6914,
+        "agent:gard": 0.2072
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 86,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.94,
+      "t_rot": 7.73,
+      "deadline_s": 5.39,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 26.57,
+      "survived": false,
+      "decision_s": 0.29,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.438,
+        "agent:gard": 0.1627
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 87,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 7.6,
+      "t_rot": 0.94,
+      "deadline_s": 5.35,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.25,
+      "survived": true,
+      "decision_s": 0.53,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.316,
+        "agent:gard": 0.1515
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 88,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.83,
+      "t_rot": 12.31,
+      "deadline_s": 6.41,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.66,
+      "survived": true,
+      "decision_s": 0.43,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.1426,
+        "agent:gard": 0.1675
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 89,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 7.6,
+      "t_rot": 0.82,
+      "deadline_s": 5.0,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.78,
+      "survived": true,
+      "decision_s": 0.29,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7242,
+        "agent:gard": 0.1326
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 90,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 2.95,
+      "t_rot": 0.62,
+      "deadline_s": 2.7,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.2,
+      "survived": true,
+      "decision_s": 0.48,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7903,
+        "agent:gard": 0.149
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 91,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.6,
+      "t_rot": 7.53,
+      "deadline_s": 4.25,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.23,
+      "survived": true,
+      "decision_s": 0.96,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.3237,
+        "agent:gard": 0.1726
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 92,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.78,
+      "t_rot": 7.53,
+      "deadline_s": 4.86,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 21.05,
+      "survived": false,
+      "decision_s": 0.68,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.4496,
+        "agent:gard": 0.1401
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 93,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 12.05,
+      "t_rot": 0.64,
+      "deadline_s": 5.57,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.19,
+      "survived": true,
+      "decision_s": 0.53,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.021,
+        "agent:gard": 0.1446
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 94,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 12.05,
+      "t_rot": 0.48,
+      "deadline_s": 4.79,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 2.51,
+      "survived": true,
+      "decision_s": 0.51,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0746,
+        "agent:gard": 0.1224
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 95,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 12.05,
+      "t_rot": 0.63,
+      "deadline_s": 5.52,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.94,
+      "survived": true,
+      "decision_s": 0.24,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0518,
+        "agent:gard": 0.1399
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 96,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.72,
+      "t_rot": 12.14,
+      "deadline_s": 5.9,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 17.41,
+      "survived": false,
+      "decision_s": 0.92,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0187,
+        "agent:gard": 0.1164
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 97,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.82,
+      "t_rot": 12.41,
+      "deadline_s": 6.37,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 2.07,
+      "survived": true,
+      "decision_s": 0.82,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7211,
+        "agent:gard": 0.1495
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 98,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.85,
+      "t_rot": 12.9,
+      "deadline_s": 6.62,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.19,
+      "survived": true,
+      "decision_s": 0.26,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.8992,
+        "agent:gard": 0.1215
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 99,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.85,
+      "t_rot": 12.86,
+      "deadline_s": 6.61,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.33,
+      "survived": true,
+      "decision_s": 1.2,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.1824,
+        "agent:gard": 0.1011
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 100,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.77,
+      "t_rot": 12.47,
+      "deadline_s": 6.21,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 2.09,
+      "survived": true,
+      "decision_s": 0.6,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.2677,
+        "agent:gard": 0.1176
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 101,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 13.33,
+      "t_rot": 0.77,
+      "deadline_s": 6.42,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.72,
+      "survived": true,
+      "decision_s": 0.65,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6606,
+        "agent:gard": 0.102
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 102,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.73,
+      "t_rot": 12.47,
+      "deadline_s": 6.04,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.22,
+      "survived": true,
+      "decision_s": 0.46,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0391,
+        "agent:gard": 0.0868
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 103,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.75,
+      "t_rot": 13.33,
+      "deadline_s": 6.32,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.18,
+      "survived": true,
+      "decision_s": 0.82,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.2552,
+        "agent:gard": 0.1381
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 104,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 14.55,
+      "t_rot": 0.73,
+      "deadline_s": 6.53,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 0.89,
+      "survived": true,
+      "decision_s": 0.14,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9472,
+        "agent:gard": 0.1105
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 105,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 14.55,
+      "t_rot": 0.6,
+      "deadline_s": 5.91,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.68,
+      "survived": true,
+      "decision_s": 0.15,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0387,
+        "agent:gard": 0.0927
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 106,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.45,
+      "t_rot": 13.33,
+      "deadline_s": 4.91,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 5.06,
+      "survived": false,
+      "decision_s": 0.24,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.2193,
+        "agent:gard": 0.1168
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 107,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 2.84,
+      "t_rot": 0.58,
+      "deadline_s": 2.57,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 6.72,
+      "survived": false,
+      "decision_s": 1.04,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.8814,
+        "agent:gard": 0.2898
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 108,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.75,
+      "t_rot": 2.83,
+      "deadline_s": 2.92,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 9.94,
+      "survived": false,
+      "decision_s": 1.03,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.5579,
+        "agent:gard": 0.2285
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 109,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 2.77,
+      "t_rot": 0.77,
+      "deadline_s": 2.93,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.97,
+      "survived": true,
+      "decision_s": 0.22,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.4081,
+        "agent:gard": 0.2336
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 110,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 2.78,
+      "t_rot": 0.94,
+      "deadline_s": 3.24,
+      "oracle": "Rot",
+      "choice": "Blau",
+      "correct": false,
+      "exec_s": 33.7,
+      "survived": false,
+      "decision_s": 1.24,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.4963,
+        "agent:gard": 0.2179
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 111,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.94,
+      "t_rot": 2.77,
+      "deadline_s": 3.24,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.46,
+      "survived": true,
+      "decision_s": 0.22,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.3558,
+        "agent:gard": 0.1131
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 112,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 2.66,
+      "t_rot": 0.94,
+      "deadline_s": 3.17,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.19,
+      "survived": true,
+      "decision_s": 0.5,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7283,
+        "agent:gard": 0.1505
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 113,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.77,
+      "t_rot": 2.66,
+      "deadline_s": 2.85,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.71,
+      "survived": true,
+      "decision_s": 0.52,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.279,
+        "agent:gard": 0.1691
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 114,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 2.82,
+      "t_rot": 0.73,
+      "deadline_s": 2.88,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.23,
+      "survived": true,
+      "decision_s": 0.71,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9702,
+        "agent:gard": 0.194
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 115,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.6,
+      "t_rot": 5.03,
+      "deadline_s": 3.46,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.36,
+      "survived": true,
+      "decision_s": 0.29,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.2754,
+        "agent:gard": 0.1565
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 116,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.66,
+      "t_rot": 4.97,
+      "deadline_s": 3.63,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 4.29,
+      "survived": false,
+      "decision_s": 0.21,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.2825,
+        "agent:gard": 0.124
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 117,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.66,
+      "t_rot": 2.61,
+      "deadline_s": 2.63,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.62,
+      "survived": true,
+      "decision_s": 0.56,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9326,
+        "agent:gard": 0.3083
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 118,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 2.61,
+      "t_rot": 0.89,
+      "deadline_s": 3.04,
+      "oracle": "Rot",
+      "choice": "Blau",
+      "correct": false,
+      "exec_s": 16.99,
+      "survived": false,
+      "decision_s": 0.21,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.8037,
+        "agent:gard": 0.2845
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 119,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 2.54,
+      "t_rot": 0.65,
+      "deadline_s": 2.58,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.21,
+      "survived": true,
+      "decision_s": 0.53,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.5765,
+        "agent:gard": 0.2468
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 120,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 2.83,
+      "t_rot": 0.61,
+      "deadline_s": 2.62,
+      "oracle": "Rot",
+      "choice": "Blau",
+      "correct": false,
+      "exec_s": 25.18,
+      "survived": false,
+      "decision_s": 0.66,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7904,
+        "agent:gard": 0.2313
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 121,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 7.45,
+      "t_rot": 0.75,
+      "deadline_s": 4.74,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 2.19,
+      "survived": true,
+      "decision_s": 0.19,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.5599,
+        "agent:gard": 0.1293
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 122,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.75,
+      "t_rot": 12.59,
+      "deadline_s": 6.16,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 15.76,
+      "survived": false,
+      "decision_s": 5.21,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7774,
+        "agent:gard": 0.1038
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 123,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.75,
+      "t_rot": 13.46,
+      "deadline_s": 6.37,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.46,
+      "survived": true,
+      "decision_s": 0.9,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.5516,
+        "agent:gard": 0.1359
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 124,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.69,
+      "t_rot": 13.46,
+      "deadline_s": 6.12,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 2.1,
+      "survived": true,
+      "decision_s": 2.22,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.2503,
+        "agent:gard": 0.1088
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 125,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.74,
+      "t_rot": 13.46,
+      "deadline_s": 6.31,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 2.46,
+      "survived": true,
+      "decision_s": 2.52,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0258,
+        "agent:gard": 0.0872
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 126,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 16.03,
+      "t_rot": 0.79,
+      "deadline_s": 7.09,
+      "oracle": "Rot",
+      "choice": "Blau",
+      "correct": false,
+      "exec_s": 39.25,
+      "survived": false,
+      "decision_s": 0.98,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.5061,
+        "agent:gard": 0.0729
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 127,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.79,
+      "t_rot": 18.65,
+      "deadline_s": 7.65,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 17.53,
+      "survived": false,
+      "decision_s": 1.2,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.3612,
+        "agent:gard": 0.0562
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 128,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.79,
+      "t_rot": 18.65,
+      "deadline_s": 7.65,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.23,
+      "survived": true,
+      "decision_s": 0.81,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9489,
+        "agent:gard": 0.049
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 129,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 18.99,
+      "t_rot": 0.78,
+      "deadline_s": 7.69,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.23,
+      "survived": true,
+      "decision_s": 0.62,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9208,
+        "agent:gard": 0.0496
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 130,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 18.25,
+      "t_rot": 0.65,
+      "deadline_s": 6.9,
+      "oracle": "Rot",
+      "choice": "Blau",
+      "correct": false,
+      "exec_s": 38.71,
+      "survived": false,
+      "decision_s": 0.57,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0304,
+        "agent:gard": 0.0484
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 131,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 19.61,
+      "t_rot": 0.65,
+      "deadline_s": 7.15,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.3,
+      "survived": true,
+      "decision_s": 0.71,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7263,
+        "agent:gard": 0.0803
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 132,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 19.21,
+      "t_rot": 0.48,
+      "deadline_s": 6.09,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.2,
+      "survived": true,
+      "decision_s": 0.57,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7855,
+        "agent:gard": 0.0694
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 133,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 18.21,
+      "t_rot": 0.6,
+      "deadline_s": 6.61,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.13,
+      "survived": true,
+      "decision_s": 0.6,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.817,
+        "agent:gard": 0.0623
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 134,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.6,
+      "t_rot": 17.53,
+      "deadline_s": 6.49,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.3,
+      "survived": true,
+      "decision_s": 0.16,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.3332,
+        "agent:gard": 0.0972
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 135,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 17.4,
+      "t_rot": 0.56,
+      "deadline_s": 6.22,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.8,
+      "survived": true,
+      "decision_s": 0.17,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.727,
+        "agent:gard": 0.1314
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 136,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 17.4,
+      "t_rot": 0.62,
+      "deadline_s": 6.57,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.01,
+      "survived": true,
+      "decision_s": 0.13,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6943,
+        "agent:gard": 0.1078
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 137,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 17.4,
+      "t_rot": 0.59,
+      "deadline_s": 6.4,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.26,
+      "survived": true,
+      "decision_s": 0.76,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.8755,
+        "agent:gard": 0.0891
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 138,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.59,
+      "t_rot": 16.87,
+      "deadline_s": 6.3,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 18.39,
+      "survived": false,
+      "decision_s": 0.63,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.2627,
+        "agent:gard": 0.1111
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 139,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.59,
+      "t_rot": 16.13,
+      "deadline_s": 6.17,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.09,
+      "survived": true,
+      "decision_s": 0.69,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.8923,
+        "agent:gard": 0.1495
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 140,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.59,
+      "t_rot": 15.84,
+      "deadline_s": 6.11,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.44,
+      "survived": true,
+      "decision_s": 0.68,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.2578,
+        "agent:gard": 0.1213
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 141,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 9.51,
+      "t_rot": 0.59,
+      "deadline_s": 4.74,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.86,
+      "survived": true,
+      "decision_s": 0.17,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0089,
+        "agent:gard": 0.1425
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 142,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 9.51,
+      "t_rot": 0.7,
+      "deadline_s": 5.16,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.61,
+      "survived": true,
+      "decision_s": 0.16,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.733,
+        "agent:gard": 0.1537
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 143,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.71,
+      "t_rot": 15.84,
+      "deadline_s": 6.72,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.33,
+      "survived": true,
+      "decision_s": 0.23,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.1347,
+        "agent:gard": 0.1212
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 144,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.75,
+      "t_rot": 15.84,
+      "deadline_s": 6.9,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 18.08,
+      "survived": false,
+      "decision_s": 0.33,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.4767,
+        "agent:gard": 0.1003
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 145,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 15.84,
+      "t_rot": 0.75,
+      "deadline_s": 6.9,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.74,
+      "survived": true,
+      "decision_s": 0.15,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0412,
+        "agent:gard": 0.1987
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 146,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 9.48,
+      "t_rot": 0.75,
+      "deadline_s": 5.34,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.91,
+      "survived": true,
+      "decision_s": 0.17,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9426,
+        "agent:gard": 0.1539
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 147,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.58,
+      "t_rot": 7.51,
+      "deadline_s": 4.16,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.3,
+      "survived": true,
+      "decision_s": 0.95,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.5867,
+        "agent:gard": 0.1604
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 148,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.51,
+      "t_rot": 13.88,
+      "deadline_s": 5.34,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.11,
+      "survived": true,
+      "decision_s": 0.43,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.6764,
+        "agent:gard": 0.1317
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 149,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.58,
+      "t_rot": 7.61,
+      "deadline_s": 4.19,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.32,
+      "survived": true,
+      "decision_s": 0.76,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.5263,
+        "agent:gard": 0.1053
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 150,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 13.95,
+      "t_rot": 0.57,
+      "deadline_s": 5.63,
+      "oracle": "Rot",
+      "choice": "Blau",
+      "correct": false,
+      "exec_s": 15.72,
+      "survived": false,
+      "decision_s": 0.12,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.8777,
+        "agent:gard": 0.1283
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 151,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 11.44,
+      "t_rot": 0.45,
+      "deadline_s": 4.54,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.34,
+      "survived": true,
+      "decision_s": 0.66,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6253,
+        "agent:gard": 0.1517
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 152,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.56,
+      "t_rot": 11.98,
+      "deadline_s": 5.19,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.22,
+      "survived": true,
+      "decision_s": 0.43,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.1223,
+        "agent:gard": 0.1278
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 153,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.6,
+      "t_rot": 12.57,
+      "deadline_s": 5.48,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 4.27,
+      "survived": true,
+      "decision_s": 2.46,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.2247,
+        "agent:gard": 0.1107
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 154,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.6,
+      "t_rot": 11.98,
+      "deadline_s": 5.35,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 5.24,
+      "survived": true,
+      "decision_s": 0.17,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6636,
+        "agent:gard": 0.0883
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 155,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 7.22,
+      "t_rot": 0.6,
+      "deadline_s": 4.15,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.27,
+      "survived": true,
+      "decision_s": 0.67,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.493,
+        "agent:gard": 0.2811
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 156,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 7.22,
+      "t_rot": 0.6,
+      "deadline_s": 4.15,
+      "oracle": "Rot",
+      "choice": "Blau",
+      "correct": false,
+      "exec_s": 18.5,
+      "survived": false,
+      "decision_s": 0.62,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.808,
+        "agent:gard": 0.2477
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 157,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.6,
+      "t_rot": 11.59,
+      "deadline_s": 5.27,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.33,
+      "survived": true,
+      "decision_s": 1.0,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.581,
+        "agent:gard": 0.1796
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 158,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.67,
+      "t_rot": 11.59,
+      "deadline_s": 5.57,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.08,
+      "survived": true,
+      "decision_s": 0.29,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.4352,
+        "agent:gard": 0.1412
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 159,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.67,
+      "t_rot": 13.63,
+      "deadline_s": 6.05,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 3.57,
+      "survived": true,
+      "decision_s": 1.16,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.943,
+        "agent:gard": 0.1132
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 160,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.79,
+      "t_rot": 15.25,
+      "deadline_s": 6.93,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 25.65,
+      "survived": false,
+      "decision_s": 0.87,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9569,
+        "agent:gard": 0.091
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 161,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 15.82,
+      "t_rot": 0.73,
+      "deadline_s": 6.8,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.57,
+      "survived": true,
+      "decision_s": 0.64,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6744,
+        "agent:gard": 0.1322
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 162,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 16.68,
+      "t_rot": 0.79,
+      "deadline_s": 7.24,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.13,
+      "survived": true,
+      "decision_s": 0.31,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6726,
+        "agent:gard": 0.1076
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 163,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 16.68,
+      "t_rot": 0.72,
+      "deadline_s": 6.94,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.48,
+      "survived": true,
+      "decision_s": 0.67,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.8568,
+        "agent:gard": 0.0905
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 164,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.69,
+      "t_rot": 16.68,
+      "deadline_s": 6.78,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 20.93,
+      "survived": false,
+      "decision_s": 0.14,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.2215,
+        "agent:gard": 0.0801
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 165,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 17.26,
+      "t_rot": 0.69,
+      "deadline_s": 6.9,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.19,
+      "survived": true,
+      "decision_s": 0.14,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.864,
+        "agent:gard": 0.2247
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 166,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 17.26,
+      "t_rot": 0.73,
+      "deadline_s": 7.08,
+      "oracle": "Rot",
+      "choice": "Blau",
+      "correct": false,
+      "exec_s": 35.4,
+      "survived": false,
+      "decision_s": 1.57,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9404,
+        "agent:gard": 0.182
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 167,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 17.26,
+      "t_rot": 0.59,
+      "deadline_s": 6.41,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.82,
+      "survived": true,
+      "decision_s": 0.18,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6636,
+        "agent:gard": 0.0993
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 168,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 16.52,
+      "t_rot": 0.63,
+      "deadline_s": 6.44,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.53,
+      "survived": true,
+      "decision_s": 0.58,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7473,
+        "agent:gard": 0.084
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 169,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 16.23,
+      "t_rot": 0.68,
+      "deadline_s": 6.63,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 2.37,
+      "survived": true,
+      "decision_s": 0.15,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6456,
+        "agent:gard": 0.108
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 170,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 15.39,
+      "t_rot": 0.82,
+      "deadline_s": 7.11,
+      "oracle": "Rot",
+      "choice": "Blau",
+      "correct": false,
+      "exec_s": 17.26,
+      "survived": false,
+      "decision_s": 0.48,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6838,
+        "agent:gard": 0.0909
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 171,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 11.89,
+      "t_rot": 0.85,
+      "deadline_s": 6.35,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.22,
+      "survived": true,
+      "decision_s": 0.74,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.4927,
+        "agent:gard": 0.1724
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 172,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.69,
+      "t_rot": 11.89,
+      "deadline_s": 5.74,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 34.34,
+      "survived": false,
+      "decision_s": 0.15,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.1275,
+        "agent:gard": 0.1688
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 173,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.69,
+      "t_rot": 8.73,
+      "deadline_s": 4.92,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.27,
+      "survived": true,
+      "decision_s": 0.42,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7973,
+        "agent:gard": 0.1397
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 174,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.68,
+      "t_rot": 8.73,
+      "deadline_s": 4.86,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 4.98,
+      "survived": false,
+      "decision_s": 0.32,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.1687,
+        "agent:gard": 0.1647
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 175,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 3.15,
+      "t_rot": 0.63,
+      "deadline_s": 2.82,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.34,
+      "survived": true,
+      "decision_s": 1.16,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.8307,
+        "agent:gard": 0.2699
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 176,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 3.28,
+      "t_rot": 0.56,
+      "deadline_s": 2.71,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 2.46,
+      "survived": true,
+      "decision_s": 0.18,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6768,
+        "agent:gard": 0.2457
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 177,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.56,
+      "t_rot": 2.94,
+      "deadline_s": 2.56,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.38,
+      "survived": true,
+      "decision_s": 0.15,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9382,
+        "agent:gard": 0.1843
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 178,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.64,
+      "t_rot": 2.94,
+      "deadline_s": 2.74,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 4.38,
+      "survived": false,
+      "decision_s": 0.24,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.5083,
+        "agent:gard": 0.1903
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 179,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 2.59,
+      "t_rot": 0.64,
+      "deadline_s": 2.57,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.18,
+      "survived": true,
+      "decision_s": 0.13,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0679,
+        "agent:gard": 0.3049
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 180,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 2.59,
+      "t_rot": 0.75,
+      "deadline_s": 2.78,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.29,
+      "survived": true,
+      "decision_s": 0.74,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7473,
+        "agent:gard": 0.2699
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 181,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 2.59,
+      "t_rot": 0.84,
+      "deadline_s": 2.95,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 3.12,
+      "survived": false,
+      "decision_s": 0.62,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6952,
+        "agent:gard": 0.2042
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 182,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.91,
+      "t_rot": 2.59,
+      "deadline_s": 3.07,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.83,
+      "survived": true,
+      "decision_s": 0.76,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6957,
+        "agent:gard": 0.1715
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 183,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 2.81,
+      "t_rot": 0.94,
+      "deadline_s": 3.25,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.12,
+      "survived": true,
+      "decision_s": 0.87,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.8156,
+        "agent:gard": 0.1355
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 184,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 9.52,
+      "t_rot": 0.94,
+      "deadline_s": 5.98,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 2.17,
+      "survived": true,
+      "decision_s": 0.82,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.9017,
+        "agent:gard": 0.1096
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 185,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 1.09,
+      "t_rot": 9.52,
+      "deadline_s": 6.45,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.23,
+      "survived": true,
+      "decision_s": 0.13,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.3962,
+        "agent:gard": 0.0911
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 186,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 2.92,
+      "t_rot": 0.72,
+      "deadline_s": 2.89,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.2,
+      "survived": true,
+      "decision_s": 0.74,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.1132,
+        "agent:gard": 0.1346
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 187,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 3.08,
+      "t_rot": 0.71,
+      "deadline_s": 2.96,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.24,
+      "survived": true,
+      "decision_s": 0.52,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0638,
+        "agent:gard": 0.1585
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 188,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.71,
+      "t_rot": 3.08,
+      "deadline_s": 2.96,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 23.55,
+      "survived": false,
+      "decision_s": 0.64,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.4445,
+        "agent:gard": 0.1608
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 189,
+      "cdc": true,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 13.39,
+      "t_rot": 0.71,
+      "deadline_s": 6.18,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.24,
+      "survived": true,
+      "decision_s": 0.18,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0169,
+        "agent:gard": 0.1648
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 190,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.75,
+      "t_rot": 6.95,
+      "deadline_s": 4.57,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 16.57,
+      "survived": false,
+      "decision_s": 0.17,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.5767,
+        "agent:gard": 0.1367
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 191,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.75,
+      "t_rot": 6.95,
+      "deadline_s": 4.57,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.08,
+      "survived": true,
+      "decision_s": 0.39,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.1191,
+        "agent:gard": 0.2552
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 192,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.68,
+      "t_rot": 3.04,
+      "deadline_s": 2.88,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 2.96,
+      "survived": false,
+      "decision_s": 0.81,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 1.3464,
+        "agent:gard": 0.1968
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 193,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.89,
+      "t_rot": 6.95,
+      "deadline_s": 4.99,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.96,
+      "survived": true,
+      "decision_s": 1.02,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.8494,
+        "agent:gard": 0.1822
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 194,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 7.08,
+      "t_rot": 0.89,
+      "deadline_s": 5.03,
+      "oracle": "Rot",
+      "choice": "Blau",
+      "correct": false,
+      "exec_s": 30.27,
+      "survived": false,
+      "decision_s": 0.13,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.5676,
+        "agent:gard": 0.1441
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 195,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.89,
+      "t_rot": 11.57,
+      "deadline_s": 6.43,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.16,
+      "survived": true,
+      "decision_s": 0.66,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.407,
+        "agent:gard": 0.1165
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 196,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.74,
+      "t_rot": 7.08,
+      "deadline_s": 4.58,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 22.52,
+      "survived": false,
+      "decision_s": 0.2,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.0971,
+        "agent:gard": 0.1502
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 197,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.82,
+      "t_rot": 7.96,
+      "deadline_s": 5.11,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.15,
+      "survived": true,
+      "decision_s": 0.15,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.7796,
+        "agent:gard": 0.2002
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 198,
+      "cdc": false,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.71,
+      "t_rot": 7.96,
+      "deadline_s": 4.77,
+      "oracle": "Blau",
+      "choice": "Rot",
+      "correct": false,
+      "exec_s": 4.43,
+      "survived": true,
+      "decision_s": 0.43,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 1.2054,
+        "agent:gard": 0.2054
+      },
+      "raw": "ROT"
+    },
+    {
+      "trial": 199,
+      "cdc": true,
+      "blau_klass": "fast",
+      "rot_klass": "slow",
+      "t_blau": 0.71,
+      "t_rot": 3.15,
+      "deadline_s": 3.0,
+      "oracle": "Blau",
+      "choice": "Blau",
+      "correct": true,
+      "exec_s": 1.33,
+      "survived": true,
+      "decision_s": 0.22,
+      "name_order": [
+        "Blau",
+        "Rot"
+      ],
+      "live_rates": {
+        "agent:vega": 0.8556,
+        "agent:gard": 0.2652
+      },
+      "raw": "BLAU"
+    },
+    {
+      "trial": 200,
+      "cdc": false,
+      "blau_klass": "slow",
+      "rot_klass": "fast",
+      "t_blau": 2.82,
+      "t_rot": 0.55,
+      "deadline_s": 2.48,
+      "oracle": "Rot",
+      "choice": "Rot",
+      "correct": true,
+      "exec_s": 1.85,
+      "survived": true,
+      "decision_s": 0.2,
+      "name_order": [
+        "Rot",
+        "Blau"
+      ],
+      "live_rates": {
+        "agent:vega": 0.6249,
+        "agent:gard": 0.2022
+      },
+      "raw": "ROT"
+    }
+  ],
+  "started_at": 1781194332.552694,
+  "config": {
+    "n_per_cond": 100,
+    "k_actions": 2,
+    "window": 12,
+    "seed": 2026
+  },
+  "workers": {
+    "fast": "agent:vega",
+    "slow": "agent:gard"
+  },
+  "calibration": {
+    "fast_s_per_action": 0.44,
+    "slow_s_per_action": 12.47
+  },
+  "summary": {
+    "with_cdc": {
+      "trials": 100,
+      "correct": 100,
+      "oracle_match_rate": 1.0,
+      "survived": 95,
+      "survival_rate": 0.95
+    },
+    "without_cdc": {
+      "trials": 100,
+      "correct": 55,
+      "oracle_match_rate": 0.55,
+      "survived": 57,
+      "survival_rate": 0.57
+    }
+  },
+  "fisher_oracle_match": {
+    "table": {
+      "cdc": [
+        100,
+        0
+      ],
+      "ctrl": [
+        55,
+        45
+      ]
+    },
+    "p_two_sided": 0.0,
+    "p_one_sided_cdc_better": 0.0
+  },
+  "final_estimates": {
+    "fast_s_per_action": 0.73,
+    "slow_s_per_action": 2.82
+  },
+  "finished_at": 1781197955.7850502
+}
