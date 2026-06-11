@@ -16,7 +16,7 @@ agents:
     max_tokens: 2048
 
   - type: martin
-    model: "llama-3.3-70b-versatile"  # Groq — schnelles Routing (~500ms statt 3-5s lokal)
+    model: "minimax/minimax-m3"  # OpenRouter (Slug mit "/") — MiniMax M3, 1M Kontext. Provider wird aus dem Slug abgeleitet; "llama-3.3-70b-versatile" o.ä. ohne "/" → Groq.
     temperature: 0.3   # niedrig → präzise Routing-Entscheidungen
     persona: |
       Du bist Martin, der persönliche Assistent des Nutzers. Du bist hilfsbereit,

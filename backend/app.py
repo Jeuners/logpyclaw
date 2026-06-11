@@ -80,8 +80,7 @@ _DEFAULT_MARTIN_PERSONA = (
     "und persönlich."
 )
 
-
-def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = ""):
+def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: str = ""):
     """Baut Martins async Front-Desk-Funktion.
 
     Martin entscheidet pro Nachricht: entweder er antwortet SELBST in seiner
@@ -90,6 +89,11 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = ""):
     echte Werkzeug-Aufgaben. None = kein verwertbares Ergebnis.
     """
     persona = persona.strip() or _DEFAULT_MARTIN_PERSONA
+    # Provider aus dem Modell-Slug ableiten — so ist agents.yaml die einzige
+    # Wahrheit und das im UI angezeigte Modell ist garantiert das, das wirklich
+    # plant: "/" → OpenRouter-Slug (z.B. minimax/minimax-m3), sonst Groq.
+    planner_model = model or "llama-3.3-70b-versatile"
+    use_openrouter = "/" in planner_model
     import json as _json
 
     import httpx
@@ -117,7 +121,9 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = ""):
                 return aid
         return None
 
-    async def planner_fn(content: str) -> str | list[DelegationStep] | None:
+    async def planner_fn(
+        content: str, history: list | None = None
+    ) -> str | list[DelegationStep] | None:
         agents = [
             a for a in conductor.list_agents() if a.agent_id not in ("agent:martin", "a2a:gateway")
         ]
@@ -130,6 +136,21 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = ""):
             return f"- {a.agent_id}: {name}" + (f" — {desc}" if desc else "")
 
         agent_list = "\n".join(_agent_desc(a) for a in agents)
+
+        # Gesprächsverlauf als Kontext (älteste zuerst). Macht Folge-Fragen wie
+        # "wer bin ich?" beantwortbar, ohne dass jede Nachricht zustandslos ist.
+        convo_block = ""
+        if history:
+            lines = "\n".join(
+                f"{'Nutzer' if role == 'user' else 'Du (Martin)'}: {text[:300]}"
+                for role, text in history
+            )
+            convo_block = (
+                "Bisheriger Gesprächsverlauf mit demselben Nutzer (älteste zuerst, "
+                "nur zur Kontext-Erinnerung — beziehe dich darauf, wenn die aktuelle "
+                "Nachricht ihn voraussetzt):\n"
+                f"{lines}\n\n"
+            )
 
         prompt = (
             f"{persona}\n\n"
@@ -144,7 +165,8 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = ""):
             "Routing-Plan an die passenden Spezialisten.\n"
             '   → {"tasks": [{"agent": "<agent_id>", "content": "<anweisung>", "depends_on": [<idx>]}, ...]}\n\n'
             f"Verfügbare Spezialisten:\n{agent_list}\n\n"
-            f"Nachricht des Nutzers: {content[:600]}\n\n"
+            f"{convo_block}"
+            f"Aktuelle Nachricht des Nutzers: {content[:600]}\n\n"
             "Routing-Regeln für Fall B (höchste Priorität zuerst):\n"
             "- 'linkedin' im Text → skill:linkedin\n"
             "- 'whatsapp', 'sende nachricht' → skill:whatsapp\n"
@@ -176,16 +198,29 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = ""):
         )
 
         try:
-            from backend.core.key_pool import get_groq_key
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            if use_openrouter:
+                endpoint = "https://openrouter.ai/api/v1/chat/completions"
+                headers = {
+                    "Authorization": f"Bearer {cfg.openrouter_api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://logpyclaw.local",
+                    "X-Title": "LogpyClaw",
+                }
+            else:
+                from backend.core.key_pool import get_groq_key
+                endpoint = "https://api.groq.com/openai/v1/chat/completions"
+                headers = {
+                    "Authorization": f"Bearer {get_groq_key()}",
+                    "Content-Type": "application/json",
+                }
+            # Timeout großzügig — OpenRouter-Modelle (z.B. MiniMax M3) können
+            # träger antworten als Groq.
+            async with httpx.AsyncClient(timeout=60.0) as client:
                 r = await client.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {get_groq_key()}",
-                        "Content-Type": "application/json",
-                    },
+                    endpoint,
+                    headers=headers,
                     json={
-                        "model": "llama-3.3-70b-versatile",
+                        "model": planner_model,
                         "messages": [{"role": "user", "content": prompt}],
                         "temperature": temperature,
                     },
@@ -343,7 +378,7 @@ def _boot_agents() -> None:
             conductor.register(MartinAgent(
                 conductor=conductor,
                 qc=qc,
-                llm_planner_fn=_make_planner_fn(cfg, entry.temperature, entry.persona),
+                llm_planner_fn=_make_planner_fn(cfg, entry.temperature, entry.persona, entry.model),
                 model=entry.model or cfg.ollama_model,
                 temperature=entry.temperature,
             ))

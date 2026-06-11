@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from collections import deque
 from dataclasses import dataclass, field
 
 from backend.agents.base import AsyncAgent
@@ -30,6 +31,11 @@ log = get_logger("logpyclaw.martin")
 # indirekt durch User-Content beeinflussbar)
 _MAX_PLAN_STEPS = 20
 _MAX_PARALLEL_STEPS = 4
+
+# Kurzzeitgedächtnis: wie viele Konversations-Einträge (User+Martin zählen
+# je einzeln) Martin als Kontext mitführt. 12 ≈ 6 Wechsel — genug, damit
+# "ich bin Peter" … "wer bin ich?" funktioniert, ohne den Prompt zu sprengen.
+_CONVO_MAXLEN = 12
 
 # ── QC-Konfiguration ──────────────────────────────────────────────────────────
 
@@ -88,10 +94,26 @@ class MartinAgent(AsyncAgent):
         self._registry = registry or FactionRegistry.get()
         self.model = model
         self.temperature = temperature
+        # Kurzzeitgedächtnis der laufenden Unterhaltung (Einträge: ("user"|"martin", text)).
+        # Personal-Assistant-System mit einem Nutzer → ein gemeinsamer Puffer genügt.
+        self._convo: deque[tuple[str, str]] = deque(maxlen=_CONVO_MAXLEN)
 
     # ── Handle ────────────────────────────────────────────────────────────────
 
     async def handle(self, msg: Message) -> Message:
+        """Beantwortet/routet eine Nutzer-Nachricht und protokolliert den
+        Verlauf, damit Folge-Fragen ("wer bin ich?") Kontext haben."""
+        out = await self._handle_inner(msg)
+        user_text = msg.payload.get("content", "")
+        if user_text:
+            reply = out.payload.get("result")
+            if reply is None:
+                reply = out.payload.get("reason", "")  # Error-Pfad
+            self._convo.append(("user", user_text))
+            self._convo.append(("martin", str(reply)))
+        return out
+
+    async def _handle_inner(self, msg: Message) -> Message:
         clock = self.advance_clock(msg.clock)
         content = msg.payload.get("content", "")
 
@@ -109,7 +131,7 @@ class MartinAgent(AsyncAgent):
 
         # 3. Front-Desk aufrufen: Martin antwortet selbst (str) ODER delegiert (steps)
         if self._planner_fn:
-            plan = await self._planner_fn(content)
+            plan = await self._planner_fn(content, list(self._convo))
             # Fall A: Martin antwortet als er selbst (Smalltalk, Identität, Wissen)
             if isinstance(plan, str):
                 return Message.response(msg, plan, clock=clock)

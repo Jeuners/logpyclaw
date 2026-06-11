@@ -377,7 +377,7 @@ class TestMartinExecutePlan:
             DelegationStep(agent_id="agent:worker", content="step s3", depends_on=[0]),
         ]
 
-        async def planner(content: str):
+        async def planner(content: str, history=None):
             return steps
 
         c = Conductor()
@@ -414,7 +414,7 @@ class TestMartinExecutePlan:
             DelegationStep(agent_id="agent:worker", content="step b", depends_on=[0]),
         ]
 
-        async def planner(content: str):
+        async def planner(content: str, history=None):
             return steps
 
         c = Conductor()
@@ -440,7 +440,7 @@ class TestMartinExecutePlan:
             DelegationStep(agent_id="agent:worker", content="step b", depends_on=[99]),
         ]
 
-        async def planner(content: str):
+        async def planner(content: str, history=None):
             return steps
 
         c = Conductor()
@@ -606,7 +606,7 @@ class TestExplicitAddressingBeatsPlanner:
     async def test_explicit_agent_skips_planner(self):
         planner_called = {"n": 0}
 
-        async def planner(content):
+        async def planner(content, history=None):
             planner_called["n"] += 1
             return [DelegationStep(agent_id="skill:coding", content="umgeschrieben")]
 
@@ -630,7 +630,7 @@ class TestExplicitAddressingBeatsPlanner:
         await c.stop()
 
     async def test_no_explicit_syntax_still_uses_planner(self):
-        async def planner(content):
+        async def planner(content, history=None):
             return [DelegationStep(agent_id="agent:maker", content=content)]
 
         c = Conductor()
