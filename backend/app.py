@@ -38,12 +38,14 @@ from backend.api.factions import router as factions_router
 from backend.api.files import router as files_router
 from backend.api.keys import router as keys_router
 from backend.api.logs import router as logs_router
+from backend.api.memory import router as memory_router
 from backend.api.missions import router as missions_router
 from backend.api.openai_compat import router as openai_router
 from backend.api.rss import router as rss_router
 from backend.api.teams import router as teams_router
 from backend.api.web_bridge import router as web_bridge_router
 from backend.config import get_settings
+from backend.core.memory import SemanticMemory
 from backend.i18n import locale_from_header
 from backend.skills.browser import BrowserSkill
 from backend.skills.chrome_browser import ChromeBrowserSkill
@@ -67,6 +69,7 @@ from backend.skills.youtube import YouTubeSkill
 # ── Global instances ──────────────────────────────────────────────────────────
 
 conductor = Conductor(db_url=get_settings().db_url)
+memory = SemanticMemory()  # semantisches Langzeit-Gedächtnis (RAG, sqlite-vec)
 
 
 def _make_planner_fn(cfg, temperature: float = 0.3):
@@ -424,6 +427,7 @@ app.include_router(files_router)
 app.include_router(rss_router)
 app.include_router(logs_router, prefix="/api")
 app.include_router(dreams_router, prefix="/api")
+app.include_router(memory_router, prefix="/api")
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -450,3 +454,4 @@ async def status():
 
 
 app.state.conductor = conductor
+app.state.memory = memory

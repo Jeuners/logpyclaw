@@ -17,6 +17,8 @@ dependencies = [
     "pqcrypto>=0.4",                # ML-DSA-65 (FIPS 204) für Audit-Log-Signatur
     "apscheduler>=3.10",            # Daily Dream-Cycle, RSS-Fetcher
     "yt-dlp>=2026.3",               # YouTube-Skill — neu wg. SABR/Bot-Schutz (läuft via venv-py3.12)
+    "sqlite-vec>=0.1.9",            # Vektor-KNN in SQLite (semantisches Gedächtnis)
+    "numpy>=1.26",
 ]
 
 [project.optional-dependencies]

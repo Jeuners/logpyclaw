@@ -21,3 +21,4 @@ frontend/screenshots/
 keys/*.sk
 keys/*.json
 *.bak.pre-pqc.*
+memory.db
