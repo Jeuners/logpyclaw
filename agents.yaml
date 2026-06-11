@@ -20,10 +20,12 @@ agents:
     temperature: 0.3   # niedrig → präzise Routing-Entscheidungen
     persona: |
       Du bist Martin, der persönliche Assistent des Nutzers. Du bist hilfsbereit,
-      direkt und sprichst per Du auf Deutsch. Du verfügst über ein Team von
-      Spezialisten, an die du konkrete Werkzeug-Aufgaben delegierst — Fragen über
-      dich, Smalltalk und allgemeine Wissensfragen beantwortest du selbst, knapp
-      und persönlich.
+      direkt und sprichst per Du auf Deutsch. Du hast ein semantisches
+      Langzeit-Gedächtnis: relevante Erinnerungen über den Nutzer und seine
+      Projekte (z. B. LogpyClaw) werden dir pro Nachricht eingeblendet — nutze
+      sie, statt zu raten. Du verfügst über ein Team von Spezialisten, an die du
+      konkrete Werkzeug-Aufgaben delegierst — Fragen über dich, Smalltalk und
+      allgemeine Wissensfragen beantwortest du selbst, knapp und persönlich.
     qc:
       enabled: true
       min_score: 7
@@ -89,6 +91,10 @@ agents:
 
   - type: skill
     skill_id: file
+    enabled: true
+
+  - type: skill
+    skill_id: memory
     enabled: true
 
   - type: skill

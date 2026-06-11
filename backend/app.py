@@ -56,6 +56,7 @@ from backend.skills.file import FileSkill
 from backend.skills.gmail import GmailSkill
 from backend.skills.linkedin import LinkedInSkill
 from backend.skills.ltxvideo import LTXVideoSkill
+from backend.skills.memory import MemorySkill
 from backend.skills.physorg import PhysOrgSkill
 from backend.skills.rss import RSSSkill
 from backend.skills.telegram import TelegramSkill
@@ -74,10 +75,12 @@ memory = SemanticMemory()  # semantisches Langzeit-Gedächtnis (RAG, sqlite-vec)
 
 _DEFAULT_MARTIN_PERSONA = (
     "Du bist Martin, der persönliche Assistent des Nutzers. Du bist hilfsbereit, "
-    "direkt und sprichst per Du auf Deutsch. Du verfügst über ein Team von "
-    "Spezialisten, an die du konkrete Werkzeug-Aufgaben delegierst — Fragen über "
-    "dich, Smalltalk und allgemeine Wissensfragen beantwortest du selbst, knapp "
-    "und persönlich."
+    "direkt und sprichst per Du auf Deutsch. Du hast ein semantisches "
+    "Langzeit-Gedächtnis: relevante Erinnerungen über den Nutzer und seine "
+    "Projekte werden dir pro Nachricht eingeblendet — nutze sie, statt zu raten. "
+    "Du verfügst über ein Team von Spezialisten, an die du konkrete "
+    "Werkzeug-Aufgaben delegierst — Fragen über dich, Smalltalk und allgemeine "
+    "Wissensfragen beantwortest du selbst, knapp und persönlich."
 )
 
 def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: str = ""):
@@ -152,8 +155,33 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: st
                 f"{lines}\n\n"
             )
 
+        # Langzeit-Gedächtnis: semantisch passende Erinnerungen zur aktuellen
+        # Nachricht in den Prompt injizieren. Ein Recall-Ausfall (z.B. Ollama
+        # down) darf das Planning nicht blockieren — dann ohne Gedächtnis.
+        memory_block = ""
+        try:
+            hits = await memory.recall(
+                content, k=4, scopes=["agent:martin", "global"], min_score=0.45
+            )
+            if hits:
+                # Chunks sind beim Ingest ~1100 Zeichen — nicht weiter kürzen,
+                # sonst fehlt dem Planner genau der entscheidende Satz.
+                facts = "\n".join(f"- {h['text'][:1200]}" for h in hits)
+                memory_block = (
+                    "Relevante Einträge aus deinem Langzeit-Gedächtnis — dein "
+                    "Wissen über den Nutzer und seine Projekte. Wenn die Antwort "
+                    "hier schon drinsteht, antworte SELBST damit (Fall A) und "
+                    "delegiere NICHT an skill:memory:\n"
+                    f"{facts}\n\n"
+                )
+        except Exception:
+            get_logger("logpyclaw.planner").warning(
+                "Memory-Recall fehlgeschlagen — plane ohne Langzeit-Gedächtnis"
+            )
+
         prompt = (
             f"{persona}\n\n"
+            f"{memory_block}"
             "Du bekommst eine Nachricht vom Nutzer. Entscheide:\n\n"
             "A) SELBST ANTWORTEN — wenn es Smalltalk ist, eine Frage über dich oder "
             "deine Fähigkeiten, oder eine allgemeine Wissens-/Gesprächsfrage, die du "
@@ -177,6 +205,8 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: st
             "- 'wikipedia', 'wiki' → skill:wikipedia\n"
             "- 'youtube', 'video herunterladen' → skill:youtube\n"
             "- 'rss', 'news', 'feed', 'hackernews', 'tagesschau' → skill:rss\n"
+            "- 'merke dir', 'vergiss eintrag', 'memory stats', 'durchsuche memory/gedächtnis' → skill:memory\n"
+            "  (Wissensfragen, die deine eingeblendeten Erinnerungen schon beantworten → Fall A, selbst antworten)\n"
             "- 'datei', 'verzeichnis', 'ls', 'cat', 'lese datei' → skill:file\n"
             "- 'code', 'programmier', 'python', 'skript' → skill:coding oder agent:coder\n"
             "- 'transkrib', 'audio', 'video transkript' → skill:transcription\n"
@@ -333,6 +363,7 @@ def _boot_agents() -> None:
         "deploy":        lambda c: DeploySkill(**c),
         "urlfetch":      lambda c: UrlFetchSkill(),
         "file":          lambda c: FileSkill(**c),
+        "memory":        lambda c: MemorySkill(memory=memory, **c),
         "physorg":       lambda c: PhysOrgSkill(),
         "rss":           lambda c: RSSSkill(),
         "linkedin":      lambda c: LinkedInSkill(**c),
