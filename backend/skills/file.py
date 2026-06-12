@@ -2,6 +2,8 @@
 backend/skills/file.py — Dateisystem-Skill für Agenten.
 
 Operationen (automatisch erkannt):
+  - write:    "schreibe nach ~/pfad/datei.html: <inhalt>" — Inhalt kann auch als
+              ```fence``` oder als gechainter "[Vorherige Ergebnisse]"-Block kommen
   - ls/list:  "liste ~/Downloads" oder "ls /tmp"
   - read/cat: "lese ~/datei.txt" oder "zeige /pfad/code.py"
   - find:     "finde *.py in ~/Desktop"
@@ -19,6 +21,18 @@ _BLOCKED = {"/etc/shadow", "/etc/passwd", "/proc", "/sys", "/dev"}
 _MAX_READ  = 8_000
 _MAX_LIST  = 100
 _MAX_FIND  = 40
+_MAX_WRITE = 2 * 1024 * 1024  # 2 MB
+
+# Schreib-Befehl: "schreibe/speichere ... nach/als/in <pfad>". Der Pfad wird
+# hier extrahiert; der Inhalt kann VOR dem Befehl stehen (Martin-Chaining legt
+# "[Vorherige Ergebnisse]" an den Anfang), als ```fence``` oder nach ":".
+_WRITE_CMD = re.compile(
+    r"\b(?:schreib\w*|speicher\w*|write|save)\b[^\n]*?"
+    r"(?:nach|als|in|unter|to|at)\s+(~[/\w.\-]*|/[/\w.\-]+)",
+    re.I,
+)
+_FENCE = re.compile(r"```[\w]*\s*\n?(.*?)```", re.DOTALL)
+_CHAIN_MARKER = "[Vorherige Ergebnisse]"
 
 _EXT_TEXT = re.compile(
     r"\.(py|js|ts|jsx|tsx|html|css|md|txt|yaml|yml|json|toml|sh|env|"
@@ -42,7 +56,11 @@ def _fmt(n: int) -> str:
 
 class FileSkill(Skill):
     skill_id   = "file"
-    description = "Liest, listet und durchsucht Dateien auf dem lokalen Dateisystem."
+    description = (
+        "Liest, listet, durchsucht UND schreibt Dateien auf dem lokalen "
+        "Dateisystem. Schreiben: 'schreibe nach <pfad>: <inhalt>' — Inhalt "
+        "kann auch aus dem gechainten Vorschritt (depends_on) kommen."
+    )
     CONFIG_FIELDS = (
         SkillConfigField("root_dir", env="FILE_SKILL_ROOT",
                          default=os.path.expanduser("~")),
@@ -51,6 +69,12 @@ class FileSkill(Skill):
     async def execute(self, query: str) -> str:
         q = query.strip()
         try:
+            # Write ZUERST prüfen — der zu schreibende Inhalt (HTML/Code) würde
+            # sonst über Wörter wie "list"/"show" die Lese-Operationen triggern.
+            m = _WRITE_CMD.search(q)
+            if m:
+                return self._write(m.group(1), q, m)
+
             if re.search(r"\b(ls|list|liste|dir|verzeichnis)\b", q, re.I):
                 path = self._path(q) or self.config["root_dir"]
                 return self._list(path)
@@ -84,10 +108,60 @@ class FileSkill(Skill):
 
     # ── Operationen ───────────────────────────────────────────────────────────
 
+    def _write(self, raw_path: str, query: str, cmd_match: re.Match) -> str:
+        path = _safe(raw_path)
+        home = os.path.realpath(os.path.expanduser("~"))
+        if not path.startswith(home + os.sep):
+            return f"[File] ⛔ Schreiben nur unterhalb von ~ erlaubt: {path}"
+
+        content = self._extract_content(query, cmd_match)
+        if content is None:
+            return (
+                "[File] Kein Inhalt zum Schreiben erkannt.\n"
+                "Formate: 'schreibe nach ~/datei.txt: <inhalt>', Inhalt als "
+                "```block``` oder via depends_on aus dem Vorschritt."
+            )
+        if len(content.encode("utf-8", errors="replace")) > _MAX_WRITE:
+            return f"[File] Inhalt zu groß (max {_fmt(_MAX_WRITE)})."
+
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        return f"📝 Geschrieben: {path} ({_fmt(os.path.getsize(path))})"
+
+    @staticmethod
+    def _extract_content(query: str, cmd_match: re.Match) -> str | None:
+        """Ermittelt den zu schreibenden Inhalt — drei Quellen, in dieser Reihenfolge:
+        1. größter ```fence```-Block irgendwo in der Query — der zuverlässigste
+           Marker für echten (Coder-)Output; schlägt Doppelpunkt-Text, denn der
+           ist beim LLM-Planning oft nur eine Beschreibung statt Inhalt
+        2. expliziter Doppelpunkt nach dem Pfad ("… nach ~/x.txt: <inhalt>")
+        3. gechainter "[Vorherige Ergebnisse]"-Block vor dem Schreib-Befehl
+        """
+        fences = _FENCE.findall(query)
+        if fences:
+            return max(fences, key=len).strip()
+
+        after = query[cmd_match.end():]
+        m = re.match(r"\s*:\s*(.+)", after, re.DOTALL)
+        if m and m.group(1).strip():
+            return m.group(1).strip()
+
+        if _CHAIN_MARKER in query:
+            start = query.index(_CHAIN_MARKER) + len(_CHAIN_MARKER)
+            chained = query[start:cmd_match.start()].strip()
+            if chained:
+                return chained
+
+        return None
+
     def _list(self, raw: str) -> str:
         path = _safe(raw)
         if not os.path.isdir(path):
-            return f"[File] Kein Verzeichnis: {path}"
+            # "ls <datei>" / "gibts <datei>?" → Datei zeigen statt ablehnen
+            if os.path.isfile(path):
+                return self._read(raw)
+            return f"[File] Nicht gefunden: {path}"
         try:
             entries = sorted(os.listdir(path),
                              key=lambda x: (not os.path.isdir(os.path.join(path, x)), x.lower()))

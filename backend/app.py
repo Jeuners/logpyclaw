@@ -208,6 +208,17 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: st
             "- 'merke dir', 'vergiss eintrag', 'memory stats', 'durchsuche memory/gedächtnis' → skill:memory\n"
             "  (Wissensfragen, die deine eingeblendeten Erinnerungen schon beantworten → Fall A, selbst antworten)\n"
             "- 'datei', 'verzeichnis', 'ls', 'cat', 'lese datei' → skill:file\n"
+            "- 'speichere/schreibe als Datei' → skill:file mit Syntax 'schreibe nach <pfad>'. WICHTIG:\n"
+            "  skill:file schreibt nur FERTIGEN Inhalt — es erzeugt nichts. Inhalt (HTML, Text, Code)\n"
+            "  muss ein vorheriger Step erzeugen (z.B. agent:coder), der per depends_on gechaint wird.\n"
+            "  Beispiel 'News als HTML-Seite nach ~/zeitung.html':\n"
+            '  {"tasks": [\n'
+            '    {"agent": "skill:rss", "content": "Hole Top 5 Hacker News"},\n'
+            '    {"agent": "agent:coder", "content": "Baue aus den News eine HTML-Seite. Gib NUR den Code im ```html-Block zurück.", "depends_on": [0]},\n'
+            '    {"agent": "skill:file", "content": "schreibe nach ~/zeitung.html", "depends_on": [1]}\n'
+            "  ]}\n"
+            "- 'wo ist der output?', 'existiert/gibts <datei>?' → skill:file (ls/lese den Pfad) —\n"
+            "  NIEMALS die Erzeuger-Pipeline (RSS/Coder/…) neu starten, nur nachsehen\n"
             "- Nachricht ENTHÄLT fertigen Python-Code (Codeblock o.ä.) → skill:coding\n"
             "- 'code', 'programmier', 'python', 'skript' — Code SCHREIBEN/eine Aufgabe lösen → agent:coder\n"
             "- Mehrschrittige Aufgabenbeschreibungen in Prosa (Setup, Provisioning, Diagnose, "

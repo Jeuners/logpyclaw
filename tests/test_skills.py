@@ -231,3 +231,80 @@ class TestCodingSkill:
         resp = await agent.handle(msg)
         assert resp.type == MessageType.ERROR
         await agent.stop()
+
+
+# ── FileSkill write ───────────────────────────────────────────────────────────
+
+import os
+from backend.skills.file import FileSkill
+
+
+class TestFileSkillWrite:
+    @pytest.mark.asyncio
+    async def test_write_explicit_colon(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("HOME", str(tmp_path))
+        target = tmp_path / "notiz.txt"
+        out = await FileSkill().execute(f"schreibe nach {target}: hallo welt")
+        assert "📝" in out
+        assert target.read_text() == "hallo welt"
+
+    @pytest.mark.asyncio
+    async def test_write_fenced_block(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("HOME", str(tmp_path))
+        target = tmp_path / "seite.html"
+        q = f"speichere als {target}:\n```html\n<h1>Zeitung</h1>\n```"
+        out = await FileSkill().execute(q)
+        assert "📝" in out
+        assert target.read_text() == "<h1>Zeitung</h1>"
+
+    @pytest.mark.asyncio
+    async def test_write_chained_previous_results(self, tmp_path, monkeypatch):
+        # Regression: Martin-Chaining legt den Inhalt VOR den Befehl
+        # ("[Vorherige Ergebnisse]\n<output>\n\n<step content>")
+        monkeypatch.setenv("HOME", str(tmp_path))
+        target = tmp_path / "zeitung.html"
+        q = (
+            "[Vorherige Ergebnisse]\n"
+            "```html\n<!DOCTYPE html><h1>HN Top 10</h1>\n```\n\n"
+            f"schreibe das Ergebnis nach {target}"
+        )
+        out = await FileSkill().execute(q)
+        assert "📝" in out
+        assert "HN Top 10" in target.read_text()
+
+    @pytest.mark.asyncio
+    async def test_write_chained_plain_text(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("HOME", str(tmp_path))
+        target = tmp_path / "liste.txt"
+        q = f"[Vorherige Ergebnisse]\n1. Eins\n2. Zwei\n\nspeichere unter {target}"
+        out = await FileSkill().execute(q)
+        assert "📝" in out
+        assert "2. Zwei" in target.read_text()
+
+    @pytest.mark.asyncio
+    async def test_write_outside_home_blocked(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("HOME", str(tmp_path))
+        out = await FileSkill().execute("schreibe nach /tmp/boese.txt: x")
+        assert "⛔" in out
+        assert not os.path.exists("/tmp/boese.txt") or open("/tmp/boese.txt").read() != "x"
+
+    @pytest.mark.asyncio
+    async def test_write_creates_parent_dirs(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("HOME", str(tmp_path))
+        target = tmp_path / "neu" / "tief" / "datei.txt"
+        out = await FileSkill().execute(f"schreibe nach {target}: ok")
+        assert "📝" in out
+        assert target.read_text() == "ok"
+
+    @pytest.mark.asyncio
+    async def test_write_without_content_hint(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("HOME", str(tmp_path))
+        out = await FileSkill().execute(f"schreibe nach {tmp_path}/leer.txt")
+        assert "Kein Inhalt" in out
+
+    @pytest.mark.asyncio
+    async def test_read_ops_still_work(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("HOME", str(tmp_path))
+        (tmp_path / "a.txt").write_text("inhalt-a")
+        out = await FileSkill(root_dir=str(tmp_path)).execute(f"lese {tmp_path}/a.txt")
+        assert "inhalt-a" in out
