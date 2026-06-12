@@ -57,13 +57,14 @@ agents:
   - type: llm
     id: agent:coder
     name: Coder
-    model: "llama-3.3-70b-versatile"
-    provider: groq
+    model: "minimax/minimax-m3"   # OpenRouter — MiniMax M3 als Coder (war llama-3.3-70b/Groq)
+    provider: openrouter
     soul: "Du bist ein Experten-Programmierer. Schreibe sauberen, effizienten Code. Erkläre kurz was du tust. Nutze Codeblöcke."
     faction: makers
     enabled: true
     temperature: 0.15
-    max_tokens: 4096
+    max_tokens: 32768   # komplette Single-File-Spiele brauchen Platz — 4096 schnitt Builds ab
+    reasoning_max_tokens: 4096   # M3 denkt sonst bei komplexen Specs das ganze Budget weg (0 Content)
 
   - type: llm
     id: agent:local

@@ -32,7 +32,10 @@ def _client() -> httpx.AsyncClient:
         # Connection-Cap: verhindert, dass ein Mission-Burst (parallele
         # Plan-Steps) unbeschränkt viele Upstream-Connections öffnet
         _shared_client = httpx.AsyncClient(
-            timeout=120,
+            # Lange Generationen (z.B. komplette Single-File-Spiele mit 32k
+            # Output-Tokens auf M3) brauchen deutlich mehr als 120s. Connect
+            # bleibt kurz, damit tote Endpoints schnell auffallen.
+            timeout=httpx.Timeout(600.0, connect=10.0),
             limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
         )
     return _shared_client
@@ -50,6 +53,7 @@ class LLMAgent(AsyncAgent):
         ollama_url: str = "http://localhost:11434",
         temperature: float = 0.7,
         max_tokens: int = 2048,
+        reasoning_max_tokens: int = 0,
         conductor=None,
     ) -> None:
         super().__init__(agent_id, name)
@@ -60,6 +64,10 @@ class LLMAgent(AsyncAgent):
         self.ollama_url = ollama_url
         self.temperature = temperature
         self.max_tokens = max_tokens
+        # Denkmodelle (M3 & Co.) können bei komplexen Prompts ihr komplettes
+        # Token-Budget mit Reasoning verbrennen und 0 Content liefern — bei
+        # Bedarf via OpenRouter-Param kappen (0 = kein Cap).
+        self.reasoning_max_tokens = reasoning_max_tokens
         self._conductor = conductor
 
     # ── Handle ────────────────────────────────────────────────────────────────
@@ -182,6 +190,11 @@ class LLMAgent(AsyncAgent):
         store     = self._conductor.store if self._conductor else None
         can_stream = bool(store and mission_id and task_id)
 
+        # Reasoning-Cap nur für OpenRouter (vereinheitlichter reasoning-Param)
+        reasoning_extra = {}
+        if self.provider == "openrouter" and self.reasoning_max_tokens > 0:
+            reasoning_extra = {"reasoning": {"max_tokens": self.reasoning_max_tokens}}
+
         client = _client()
         if can_stream:
             full = ""
@@ -195,6 +208,7 @@ class LLMAgent(AsyncAgent):
                     "max_tokens": self.max_tokens,
                     "temperature": self.temperature,
                     "stream": True,
+                    **reasoning_extra,
                 },
             ) as resp:
                 resp.raise_for_status()
@@ -212,6 +226,14 @@ class LLMAgent(AsyncAgent):
                     if token:
                         full += token
                         store.emit_token(mission_id, task_id, token)
+            if not full.strip():
+                # Denkmodelle können das komplette Budget mit Reasoning
+                # verbrennen (finish_reason=length, content leer) — das ist
+                # ein Fehler, kein leeres Ergebnis.
+                raise RuntimeError(
+                    "LLM lieferte keinen Content (Token-Budget vermutlich "
+                    "komplett vom Reasoning aufgebraucht)"
+                )
             return full
         else:
             r = await client.post(
@@ -222,6 +244,7 @@ class LLMAgent(AsyncAgent):
                     "messages": messages,
                     "max_tokens": self.max_tokens,
                     "temperature": self.temperature,
+                    **reasoning_extra,
                 },
             )
             r.raise_for_status()

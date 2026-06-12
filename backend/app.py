@@ -411,6 +411,7 @@ def _boot_agents() -> None:
                 ollama_url=ollama_url,
                 temperature=entry.temperature,
                 max_tokens=entry.max_tokens,
+                reasoning_max_tokens=entry.reasoning_max_tokens,
                 conductor=conductor,
             ))
 

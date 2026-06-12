@@ -83,6 +83,13 @@
       "size_kb": 140,
       "source": "builds/id-crabs",
       "url": "https://dev.dillenberg.net/id-crabs/"
+    },
+    "space-vaders": {
+      "slug": "space-vaders",
+      "deployed_at": "2026-06-12T10:57:10",
+      "size_kb": 100,
+      "source": "builds/space-vaders",
+      "url": "https://dev.dillenberg.net/space-vaders/"
     }
   }
 }
