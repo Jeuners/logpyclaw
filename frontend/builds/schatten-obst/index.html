@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Schatten-Obst (2020) — HGOD · Originalwerk</title>
+<meta name="description" content="Schatten-Obst, 2020. Acryl auf Leinwand, 20 × 30 cm. Das erste gemalte Werk von H.G.O. Dillenberg — Unikat, 42.000 €.">
+<meta property="og:title" content="Schatten-Obst (2020) — HGOD">
+<meta property="og:description" content="Acryl auf Leinwand · 20 × 30 cm · First paint — c time · 42.000 €">
+<meta property="og:image" content="schatten-obst-2020.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #14110d;
+  --bg-raise: #1b1712;
+  --ink: #ece5d8;
+  --ink-dim: #a89c88;
+  --accent: #c9a437;
+  --line: #2c2620;
+  --section-py: clamp(4rem, 8vw, 10rem);
+  --radius-sm: 0.5rem;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: clamp(1rem, 0.875rem + 0.4vw, 1.125rem);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+.serif { font-family: "Fraunces", Georgia, serif; }
+
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 clamp(1.25rem, 4vw, 3rem); }
+
+/* ── Hero: Editorial-Split, Bild dominiert (7/5) ─────────────────── */
+.hero {
+  min-height: 88vh;
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  align-items: center;
+  padding-top: clamp(3rem, 6vw, 5rem);
+  padding-bottom: clamp(3rem, 6vw, 5rem);
+}
+.hero-art { display: flex; justify-content: center; }
+.hero-art figure { margin: 0; max-width: 560px; width: 100%; }
+.hero-art img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 2px;
+  box-shadow:
+    0 1px 2px rgba(0,0,0,.4),
+    0 30px 80px -20px rgba(0,0,0,.75),
+    0 0 0 10px #0e0c09,
+    0 0 0 11px #393228;
+}
+.hero-art figcaption {
+  margin-top: 1.5rem;
+  font-size: 0.8125rem;
+  color: var(--ink-dim);
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.eyebrow {
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  font-weight: 500;
+}
+h1 {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(2.75rem, 4.8vw, 5rem);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1.06;
+  margin-top: 1.25rem;
+  text-wrap: balance;
+}
+.lead {
+  margin-top: 1.75rem;
+  font-size: clamp(1.125rem, 1rem + 0.6vw, 1.375rem);
+  color: var(--ink-dim);
+  text-wrap: pretty;
+  max-width: 34rem;
+}
+.lead em { color: var(--ink); font-style: italic; }
+
+.specs {
+  margin-top: 2.5rem;
+  border-top: 1px solid var(--line);
+  max-width: 34rem;
+}
+.specs div {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 0.875rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9375rem;
+}
+.specs dt { color: var(--ink-dim); }
+.specs dd { text-align: right; font-variant-numeric: tabular-nums; }
+
+.price-row {
+  margin-top: 2.5rem;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+.price {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(1.875rem, 2.6vw, 2.625rem);
+  letter-spacing: -0.02em;
+}
+.cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 12px 32px;
+  border-radius: 9999px;
+  background: var(--accent);
+  color: #171204;
+  font-weight: 500;
+  text-decoration: none;
+  transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease;
+}
+.cta:hover {
+  transform: translateY(-1px);
+  background: #d8b34a;
+  box-shadow: 0 8px 24px -8px rgba(201,164,55,.45);
+}
+
+/* ── Text-Sektion DE/EN ───────────────────────────────────────────── */
+.about {
+  padding-top: var(--section-py);
+  padding-bottom: var(--section-py);
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(2.5rem, 6vw, 6rem);
+}
+.about h2 {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(1.5rem, 2vw, 2rem);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin-bottom: 1.5rem;
+}
+.about p { color: var(--ink-dim); text-wrap: pretty; }
+.about p + p { margin-top: 1.25rem; }
+.about .en { font-style: italic; }
+.about .en h2 { font-style: normal; }
+
+footer {
+  border-top: 1px solid var(--line);
+  padding: 2.5rem 0 3rem;
+  font-size: 0.8125rem;
+  color: var(--ink-dim);
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+footer a { color: var(--ink-dim); }
+
+@media (max-width: 860px) {
+  .hero {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    gap: 3rem;
+  }
+  .hero-art figure { max-width: 420px; }
+  .about { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <section class="hero">
+    <div class="hero-art">
+      <figure>
+        <img src="schatten-obst-2020.webp" width="800" height="1228"
+             alt="Schatten-Obst (2020) — Acrylgemälde: eine Frucht vor ockergelbem Grund, scharf geteilt in Licht und Schatten" />
+        <figcaption>Schatten-Obst · 2020 · Acryl auf Leinwand · 20 × 30 cm</figcaption>
+      </figure>
+    </div>
+
+    <div class="hero-text">
+      <p class="eyebrow">HGOD · Originalwerk · Unikat</p>
+      <h1>Schatten-Obst</h1>
+      <p class="lead">Das erste gemalte Werk von H.G.O. Dillenberg.
+        <em>First paint&nbsp;—&nbsp;c&nbsp;time:</em> der Nullpunkt, ab dem alles
+        Weitere gezählt wird.</p>
+
+      <dl class="specs">
+        <div><dt>Künstler</dt><dd>H.G.O. Dillenberg (HGOD)</dd></div>
+        <div><dt>Jahr</dt><dd>2020</dd></div>
+        <div><dt>Technik</dt><dd>Acryl auf Leinwand</dd></div>
+        <div><dt>Format</dt><dd>20 × 30 cm</dd></div>
+        <div><dt>Werkstatus</dt><dd>First paint — c time</dd></div>
+      </dl>
+
+      <div class="price-row">
+        <span class="price">42.000&nbsp;€</span>
+        <a class="cta" href="mailto:gdg@webbinder.de?subject=Anfrage%3A%20Schatten-Obst%20(2020)">Anfrage senden</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="about">
+    <div class="de">
+      <h2>Über das Werk</h2>
+      <p>Eine einzelne Frucht, frontal, fast lebensgroß — und mitten durch das
+      Bild läuft die Grenze: links Dunkel, rechts Ockergelb, dazwischen die
+      Frucht, die beides zugleich ist. Der Schatten fällt nicht hinter das
+      Motiv, er gehört zum Motiv. Daher der Titel.</p>
+      <p>„Schatten-Obst" ist das erste gemalte Bild des Künstlers — kein
+      Jugendwerk aus dem Archiv, sondern der dokumentierte Anfang. In der
+      Logik von Dateisystemen wäre es die <em>creation time</em> des
+      Gesamtwerks: alles, was danach kommt, referenziert dieses Bild. Der
+      Preis bewertet nicht die Leinwand, sondern die Position — Nullpunkte
+      gibt es pro Werk genau einen.</p>
+    </div>
+    <div class="en">
+      <h2>About this work</h2>
+      <p>A single fruit, frontal, almost life-size — and straight through the
+      picture runs the divide: darkness on the left, ochre yellow on the
+      right, and between them the fruit, belonging to both at once. The
+      shadow doesn't fall behind the subject; it is part of it. Hence the
+      title.</p>
+      <p>"Schatten-Obst" (Shadow Fruit) is the artist's first painting — not
+      an early piece retrieved from some archive, but the documented
+      beginning. In file-system terms, it is the <em>creation time</em> of
+      the entire body of work: everything that follows references this
+      canvas. The price does not value the canvas; it values the position —
+      every œuvre has exactly one origin.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>© 2020–2026 H.G.O. Dillenberg (HGOD)</span>
+    <span>Anfragen: <a href="mailto:gdg@webbinder.de">gdg@webbinder.de</a></span>
+  </footer>
+</div>
+
+</body>
+</html>

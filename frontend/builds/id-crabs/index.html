@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ID Crabs — Giveaway-Krabben mit NFC &amp; QR · für Dev-Teams</title>
+<meta name="description" content="3D-gedruckte, bewegliche Geschenk-Krabben mit NFC-Tag (programmierbar oder fest) und/oder QR-Code. Das Giveaway, das jeder Entwickler behalten will — ideal für IT-Abteilungen.">
+<meta property="og:title" content="ID Crabs — Giveaway-Krabben mit NFC &amp; QR">
+<meta property="og:description" content="3D-Druck · beweglich · NFC programmierbar oder fest · QR-Code · ideal für IT-Abteilungen">
+<meta property="og:image" content="id-crabs.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #14110d;
+  --ink: #ece5d8;
+  --ink-dim: #a89c88;
+  --accent: #e05548;
+  --line: #2c2620;
+  --section-py: clamp(4rem, 8vw, 10rem);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: clamp(1rem, 0.875rem + 0.4vw, 1.125rem);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 clamp(1.25rem, 4vw, 3rem); }
+
+.hero {
+  min-height: 85vh;
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  align-items: center;
+  padding: clamp(3rem, 6vw, 5rem) 0;
+}
+.hero-art figure { margin: 0; }
+.hero-art img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 30px 80px -20px rgba(0,0,0,.7);
+}
+.hero-art figcaption {
+  margin-top: 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--ink-dim);
+  letter-spacing: 0.02em;
+}
+.eyebrow {
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  font-weight: 500;
+}
+h1 {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(2.5rem, 4.5vw, 4.5rem);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1.06;
+  margin-top: 1.25rem;
+  text-wrap: balance;
+}
+.lead {
+  margin-top: 1.75rem;
+  font-size: clamp(1.125rem, 1rem + 0.6vw, 1.375rem);
+  color: var(--ink-dim);
+  text-wrap: pretty;
+  max-width: 32rem;
+}
+.specs { margin-top: 2.5rem; border-top: 1px solid var(--line); max-width: 32rem; }
+.specs div {
+  display: flex; justify-content: space-between; gap: 2rem;
+  padding: 0.875rem 0; border-bottom: 1px solid var(--line);
+  font-size: 0.9375rem;
+}
+.specs dt { color: var(--ink-dim); white-space: nowrap; }
+.specs dd { text-align: right; }
+
+.price-row { margin-top: 2.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.price {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(1.5rem, 2.2vw, 2.125rem);
+  letter-spacing: -0.02em;
+  margin-right: 1rem;
+}
+.cta {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  min-height: 48px; padding: 12px 28px;
+  border-radius: 9999px;
+  font-weight: 500; text-decoration: none;
+  transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease, border-color 200ms ease;
+}
+.cta-primary { background: var(--accent); color: #1d0c0a; }
+.cta-primary:hover { transform: translateY(-1px); background: #e96d61; box-shadow: 0 8px 24px -8px rgba(224,85,72,.45); }
+.cta-secondary { border: 1px solid #4a4138; color: var(--ink); }
+.cta-secondary:hover { transform: translateY(-1px); border-color: var(--accent); }
+
+.usecases {
+  padding: var(--section-py) 0;
+  border-top: 1px solid var(--line);
+  margin-top: clamp(2rem, 4vw, 4rem);
+}
+.usecases h2 {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(1.5rem, 2vw, 2rem);
+  letter-spacing: -0.02em;
+  margin-bottom: 2.5rem;
+  text-wrap: balance;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+.card {
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 1.75rem;
+  transition: border-color 200ms ease;
+}
+.card:hover { border-color: #4a4138; }
+.card h3 {
+  font-size: 1.0625rem;
+  font-weight: 500;
+  margin-bottom: 0.625rem;
+}
+.card p { font-size: 0.9375rem; color: var(--ink-dim); }
+
+footer {
+  border-top: 1px solid var(--line);
+  padding: 2.5rem 0 3rem;
+  font-size: 0.8125rem; color: var(--ink-dim);
+  display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+}
+footer a { color: var(--ink-dim); }
+
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; min-height: auto; gap: 2.5rem; }
+  .grid { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <section class="hero">
+    <div class="hero-art">
+      <figure>
+        <img src="id-crabs.webp" width="1600" height="1200"
+             alt="Bewegliche 3D-gedruckte Krabben in Weiß, Blau, Rot und Rosa mit großen Augen auf einem Schreibtisch" />
+        <figcaption>ID Crabs · beweglich gedruckt · viele Farben</figcaption>
+      </figure>
+    </div>
+
+    <div class="hero-text">
+      <p class="eyebrow">3D-Druck · NFC · QR — Giveaway</p>
+      <h1>ID Crabs</h1>
+      <p class="lead">Bewegliche Geschenk-Krabben mit eingebautem NFC-Tag —
+      programmierbar oder fest beschrieben — und auf Wunsch mit QR-Code.
+      Das Giveaway, das nicht in der Schublade landet, sondern auf dem
+      Monitor sitzt. Jeder Entwickler will eine. Ideal für IT-Abteilungen.</p>
+
+      <dl class="specs">
+        <div><dt>Fertigung</dt><dd>3D-Druck, beweglich (print-in-place)</dd></div>
+        <div><dt>NFC-Tag</dt><dd>programmierbar oder fest beschrieben</dd></div>
+        <div><dt>QR-Code</dt><dd>optional, frei belegbar</dd></div>
+        <div><dt>Farben</dt><dd>frei wählbar — auch in Firmenfarben</dd></div>
+        <div><dt>Einsatz</dt><dd>Giveaway · Onboarding · Messe · Team-Geschenk</dd></div>
+      </dl>
+
+      <div class="price-row">
+        <span class="price">Preis auf Anfrage</span>
+        <a class="cta cta-primary" href="mailto:gdg@webbinder.de?subject=Anfrage%3A%20ID%20Crabs">✉ Anfragen</a>
+        <a class="cta cta-secondary" href="https://t.me/DillesContactAgent_bot">Telegram</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="usecases">
+    <h2>Eine Krabbe, drei Jobs</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Visitenkarte zum Anfassen</h3>
+        <p>NFC-Tap öffnet Profil, Kontakt oder Portfolio. Fest beschrieben für
+        Events — oder programmierbar, wenn sich die Ziel-URL ändern soll.</p>
+      </div>
+      <div class="card">
+        <h3>Onboarding &amp; IT-Abteilung</h3>
+        <p>Wiki-Link, WLAN-Zugang oder Ticket-Portal per Tap am Schreibtisch.
+        Die Krabbe in Teamfarbe sitzt am Monitor — der Link gleich mit.</p>
+      </div>
+      <div class="card">
+        <h3>Messe-Giveaway</h3>
+        <p>QR auf dem Bauch, NFC im Panzer: Landingpage, Demo oder Recruiting-
+        Funnel. Bleibt auf dem Schreibtisch statt im Messebeutel.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>© 2026 H.G.O. Dillenberg (HGOD)</span>
+    <span>Anfragen: <a href="mailto:gdg@webbinder.de">gdg@webbinder.de</a> · <a href="https://t.me/DillesContactAgent_bot">t.me/DillesContactAgent_bot</a></span>
+  </footer>
+</div>
+
+</body>
+</html>

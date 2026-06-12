@@ -55,6 +55,34 @@
       "size_kb": 68,
       "source": "builds/sky-vanguard",
       "url": "https://dev.dillenberg.net/sky-vanguard/"
+    },
+    "spacetime": {
+      "slug": "spacetime",
+      "deployed_at": "2026-06-11T09:53:58",
+      "size_kb": 52,
+      "source": "builds/spacetime",
+      "url": "https://dev.dillenberg.net/spacetime/"
+    },
+    "schatten-obst": {
+      "slug": "schatten-obst",
+      "deployed_at": "2026-06-12T00:37:35",
+      "size_kb": 244,
+      "source": "builds/schatten-obst",
+      "url": "https://dev.dillenberg.net/schatten-obst/"
+    },
+    "vasen": {
+      "slug": "vasen",
+      "deployed_at": "2026-06-12T00:44:47",
+      "size_kb": 352,
+      "source": "builds/vasen",
+      "url": "https://dev.dillenberg.net/vasen/"
+    },
+    "id-crabs": {
+      "slug": "id-crabs",
+      "deployed_at": "2026-06-12T00:44:58",
+      "size_kb": 140,
+      "source": "builds/id-crabs",
+      "url": "https://dev.dillenberg.net/id-crabs/"
     }
   }
 }

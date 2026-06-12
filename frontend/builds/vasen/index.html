@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spiral-Vasen — 3D-Druck für Trockenblumen · VB</title>
+<meta name="description" content="3D-gedruckte Spiral-Vasen für Trockenblumen in fünf Farben. Preis VB — direkt anfragen per E-Mail oder Telegram.">
+<meta property="og:title" content="Spiral-Vasen — 3D-Druck für Trockenblumen">
+<meta property="og:description" content="Fünf Farben · 3D-Druck · Preis VB — Anfrage per E-Mail oder Telegram">
+<meta property="og:image" content="spiral-vasen.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #14110d;
+  --ink: #ece5d8;
+  --ink-dim: #a89c88;
+  --accent: #e0705e;
+  --line: #2c2620;
+  --section-py: clamp(4rem, 8vw, 10rem);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: clamp(1rem, 0.875rem + 0.4vw, 1.125rem);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 clamp(1.25rem, 4vw, 3rem); }
+
+.hero {
+  min-height: 85vh;
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  align-items: center;
+  padding: clamp(3rem, 6vw, 5rem) 0;
+}
+.hero-art figure { margin: 0; }
+.hero-art img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 30px 80px -20px rgba(0,0,0,.7);
+}
+.hero-art figcaption {
+  margin-top: 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--ink-dim);
+  letter-spacing: 0.02em;
+}
+.eyebrow {
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  font-weight: 500;
+}
+h1 {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(2.5rem, 4.5vw, 4.5rem);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1.06;
+  margin-top: 1.25rem;
+  text-wrap: balance;
+}
+.lead {
+  margin-top: 1.75rem;
+  font-size: clamp(1.125rem, 1rem + 0.6vw, 1.375rem);
+  color: var(--ink-dim);
+  text-wrap: pretty;
+  max-width: 32rem;
+}
+.specs { margin-top: 2.5rem; border-top: 1px solid var(--line); max-width: 32rem; }
+.specs div {
+  display: flex; justify-content: space-between; gap: 2rem;
+  padding: 0.875rem 0; border-bottom: 1px solid var(--line);
+  font-size: 0.9375rem;
+}
+.specs dt { color: var(--ink-dim); }
+.specs dd { text-align: right; }
+
+.price-row { margin-top: 2.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.price {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(1.5rem, 2.2vw, 2.125rem);
+  letter-spacing: -0.02em;
+  margin-right: 1rem;
+}
+.cta {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  min-height: 48px; padding: 12px 28px;
+  border-radius: 9999px;
+  font-weight: 500; text-decoration: none;
+  transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease, border-color 200ms ease;
+}
+.cta-primary { background: var(--accent); color: #1d0f0c; }
+.cta-primary:hover { transform: translateY(-1px); background: #e98370; box-shadow: 0 8px 24px -8px rgba(224,112,94,.45); }
+.cta-secondary { border: 1px solid #4a4138; color: var(--ink); }
+.cta-secondary:hover { transform: translateY(-1px); border-color: var(--accent); }
+
+.making {
+  padding: var(--section-py) 0;
+  border-top: 1px solid var(--line);
+  margin-top: clamp(2rem, 4vw, 4rem);
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  align-items: center;
+}
+.making figure { margin: 0; max-width: 460px; }
+.making img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 30px 80px -20px rgba(0,0,0,.7);
+}
+.making figcaption {
+  margin-top: 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--ink-dim);
+  letter-spacing: 0.02em;
+}
+.making h2 {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(1.5rem, 2vw, 2rem);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin-bottom: 1.5rem;
+  text-wrap: balance;
+}
+.making p { color: var(--ink-dim); text-wrap: pretty; max-width: 36rem; }
+.making p + p { margin-top: 1.25rem; }
+
+footer {
+  border-top: 1px solid var(--line);
+  padding: 2.5rem 0 3rem;
+  font-size: 0.8125rem; color: var(--ink-dim);
+  display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+}
+footer a { color: var(--ink-dim); }
+
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; min-height: auto; gap: 2.5rem; }
+  .making { grid-template-columns: 1fr; gap: 2.5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <section class="hero">
+    <div class="hero-art">
+      <figure>
+        <img src="spiral-vasen.webp" width="1600" height="1200"
+             alt="Fünf 3D-gedruckte Spiral-Vasen in Schwarz, Nachtblau, Blau, Koralle und Rosé auf dunklem Holz" />
+        <figcaption>Spiral-Vasen · fünf Farben · 3D-Druck</figcaption>
+      </figure>
+    </div>
+
+    <div class="hero-text">
+      <p class="eyebrow">3D-Druck · Handgefertigt auf Bestellung</p>
+      <h1>Spiral-Vasen für Trockenblumen</h1>
+      <p class="lead">Bauchige Silhouette, feine Spiralrillen, matte Oberfläche —
+      gedruckt in fünf Farben von Schwarz bis Rosé. Gemacht für Trockenblumen
+      und Pampasgras: skulptural genug, um auch leer gut auszusehen.</p>
+
+      <dl class="specs">
+        <div><dt>Fertigung</dt><dd>3D-Druck</dd></div>
+        <div><dt>Farben</dt><dd>Schwarz · Nachtblau · Blau · Koralle · Rosé</dd></div>
+        <div><dt>Bestimmung</dt><dd>Trockenblumen &amp; Deko</dd></div>
+        <div><dt>Verfügbarkeit</dt><dd>einzeln oder als Set</dd></div>
+      </dl>
+
+      <div class="price-row">
+        <span class="price">Preis VB</span>
+        <a class="cta cta-primary" href="mailto:gdg@webbinder.de?subject=Anfrage%3A%20Spiral-Vasen">✉ Preis anfragen</a>
+        <a class="cta cta-secondary" href="https://t.me/DillesContactAgent_bot">Telegram</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="making">
+    <figure>
+      <img src="vase-im-drucker.webp" width="1200" height="1600" loading="lazy"
+           alt="Blaue Spiral-Vase frisch gedruckt auf dem Druckbett, der Druckkopf steht noch über dem Vasenhals" />
+      <figcaption>Frisch vom Druckbett — letzte Schicht gerade gelegt</figcaption>
+    </figure>
+    <div>
+      <h2>Aus dem Drucker, nicht aus dem Regal</h2>
+      <p>Jede Vase entsteht auf Bestellung, Schicht für Schicht in einem Stück —
+      keine Naht, kein Kleben, keine Lagerware. Das Foto zeigt eine der blauen
+      Vasen, Sekunden nachdem der Druckkopf die letzte Bahn gelegt hat.</p>
+      <p>Weil jede Vase einzeln gedruckt wird, sind Wunschfarbe und kleine
+      Anpassungen kein Sonderfall, sondern der Normalfall — einfach bei der
+      Anfrage dazuschreiben.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>© 2026 H.G.O. Dillenberg (HGOD)</span>
+    <span>Anfragen: <a href="mailto:gdg@webbinder.de">gdg@webbinder.de</a> · <a href="https://t.me/DillesContactAgent_bot">t.me/DillesContactAgent_bot</a></span>
+  </footer>
+</div>
+
+</body>
+</html>
