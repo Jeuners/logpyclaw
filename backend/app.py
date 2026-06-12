@@ -400,6 +400,7 @@ def _boot_agents() -> None:
         elif isinstance(entry, LLMAgentConfig):
             if not entry.enabled:
                 continue
+            ollama_url = entry.ollama_url or cfg.ollama_url
             conductor.register(LLMAgent(
                 agent_id=entry.id,
                 name=entry.name,
@@ -407,7 +408,7 @@ def _boot_agents() -> None:
                 provider=entry.provider,
                 soul=entry.soul or t("agent.default_soul"),
                 faction=entry.faction,
-                ollama_url=cfg.ollama_url,
+                ollama_url=ollama_url,
                 temperature=entry.temperature,
                 max_tokens=entry.max_tokens,
                 conductor=conductor,

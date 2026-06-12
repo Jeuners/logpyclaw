@@ -25,6 +25,7 @@ class LLMAgentConfig(BaseModel):
     enabled: bool = True
     temperature: float = 0.7
     max_tokens: int = 2048
+    ollama_url: str = ""  # leer → aus cfg.ollama_url
 
 
 class QCSettings(BaseModel):
