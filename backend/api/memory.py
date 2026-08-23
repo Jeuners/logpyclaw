@@ -5,6 +5,8 @@ backend/api/memory.py — REST für das semantische Gedächtnis.
   GET    /api/memory/recall?q=…&k=5&scope=agent:martin
   GET    /api/memory/stats
   DELETE /api/memory/{id}
+  GET    /api/memory/enabled
+  POST   /api/memory/enabled    {enabled}
 
 `scope` beim Recall sucht im eigenen Scope + global (Hybrid); ohne scope → alle.
 """
@@ -46,3 +48,18 @@ async def stats(request: Request):
 @router.delete("/memory/{mem_id}")
 async def forget(mem_id: int, request: Request):
     return {"removed": request.app.state.memory.forget(mem_id)}
+
+
+class EnabledReq(BaseModel):
+    enabled: bool
+
+
+@router.get("/memory/enabled")
+async def get_enabled(request: Request):
+    return {"enabled": request.app.state.memory.enabled}
+
+
+@router.post("/memory/enabled")
+async def set_enabled(req: EnabledReq, request: Request):
+    request.app.state.memory.enabled = req.enabled
+    return {"enabled": request.app.state.memory.enabled}

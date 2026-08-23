@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>Martin — LogpyClaw</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --bg:      #111113;
+    --surface: #1c1c1f;
+    --border:  #2c2c30;
+    --accent:  #5e81f4;
+    --text:    #f5f5f7;
+    --text2:   #aeaeb2;
+    --muted:   #636366;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    overscroll-behavior-y: contain;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+  }
+
+  header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 12px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  header .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  header .dot.busy { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+  header h1 { font-size: 16px; font-weight: 600; }
+  header .sub { font-size: 12px; color: var(--muted); margin-left: auto; }
+
+  #chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .msg { max-width: 88%; padding: 10px 13px; border-radius: 16px; font-size: 15px; line-height: 1.45; word-break: break-word; }
+  .msg.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+  .msg.agent { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .msg.system { align-self: center; background: none; color: var(--muted); font-size: 13px; }
+  .msg.agent.thinking .text::after { content: '▍'; animation: blink 1s step-start infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ── Markdown-Rendering in Chat-Messages ── */
+  .msg .text p { margin: 0 0 .6em 0; }
+  .msg .text p:last-child { margin-bottom: 0; }
+  .msg .text strong { font-weight: 700; }
+  .msg .text em { font-style: italic; opacity: .9; }
+  .msg .text code {
+    background: rgba(94,129,244,.16); color: var(--accent-h, var(--accent));
+    padding: 1px 6px; border-radius: 3px;
+    font-size: .9em; font-family: 'SF Mono', Menlo, monospace;
+  }
+  .msg .text pre {
+    background: #0000004d; border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px; margin: .5em 0;
+    overflow-x: auto; font-size: 13px;
+  }
+  .msg .text pre code { background: transparent; padding: 0; font-size: inherit; }
+  .msg .text h2 { font-size: 1.1em; margin: .7em 0 .3em; font-weight: 700; }
+  .msg .text h3 { font-size: 1em;   margin: .6em 0 .25em; color: var(--text2); font-weight: 600; }
+  .msg .text ul, .msg .text ol { margin: .3em 0 .6em 1.1em; padding-left: .6em; }
+  .msg .text li { margin: .15em 0; }
+  .msg .text blockquote {
+    border-left: 3px solid var(--accent); padding: .2em 0 .2em .8em;
+    margin: .5em 0; color: var(--text2); font-style: italic;
+  }
+  .msg .text a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+  .msg .text img.md-img {
+    max-width: 100%; max-height: 340px; border-radius: 8px;
+    margin: .4em 0; display: block; object-fit: contain;
+  }
+
+  form#chat-form {
+    flex-shrink: 0;
+    display: grid;
+    grid-template-columns: 1fr 40px;
+    align-items: end;
+    gap: 8px;
+    padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 10px);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  textarea#chat-input {
+    width: 100%;
+    resize: none;
+    max-height: 120px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 10px 16px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 16px;
+    line-height: 1.3;
+  }
+  textarea#chat-input:focus { outline: none; border-color: var(--accent); }
+  button#send-btn {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  button#send-btn:disabled { opacity: .4; }
+  button#send-btn:active { transform: scale(.92); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="dot" id="status-dot"></div>
+  <h1>Martin</h1>
+  <span class="sub">LogpyClaw</span>
+</header>
+
+<div id="chat-area"></div>
+
+<form id="chat-form">
+  <textarea id="chat-input" rows="1" placeholder="Nachricht an Martin …" autofocus></textarea>
+  <button id="send-btn" type="submit">↑</button>
+</form>
+
+<script>
+const API = '';
+const AGENT_ID = 'agent:martin';
+const HISTORY_KEY = 'logpyclaw_mobile_history';
+
+const chatArea = document.getElementById('chat-area');
+const input = document.getElementById('chat-input');
+const form = document.getElementById('chat-form');
+const btn = document.getElementById('send-btn');
+const dot = document.getElementById('status-dot');
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Markdown-Rendering (Bilder, Code-Fences, Listen, Links, …) ──────────────
+// Portiert aus frontend/index.html — gleiche Regeln, damit ComfyUI-Bildpfade
+// (z. B. ".../view?filename=x.png&type=output") als <img> statt Rohtext erscheinen.
+function renderMd(src) {
+  const imgRe = /((?:https?:\/\/[^\s)]+?|\/[^\s)]+?)\.(?:png|jpg|jpeg|gif|webp))(?:[?&][^\s)]*)?/gi;
+  const tokens = [];
+  let last = 0, m;
+  imgRe.lastIndex = 0;
+  while ((m = imgRe.exec(src)) !== null) {
+    if (m.index > last) tokens.push({t:'md', v: src.slice(last, m.index)});
+    tokens.push({t:'img', v: src.slice(m.index, m.index + m[0].length)});
+    last = m.index + m[0].length;
+  }
+  if (last < src.length) tokens.push({t:'md', v: src.slice(last)});
+
+  return tokens.map(tok => {
+    if (tok.t === 'img') {
+      const safe = esc(tok.v);
+      return `<a href="${safe}" target="_blank" rel="noopener"><img src="${safe}" class="md-img" alt=""></a>`;
+    }
+    return mdToHtml(tok.v);
+  }).join('');
+}
+
+function mdToHtml(s) {
+  const fences = [];
+  s = s.replace(/```([a-z0-9_-]*)\n([\s\S]*?)```/gi, (_, lang, code) => {
+    fences.push({lang, code});
+    return ` FENCE${fences.length - 1} `;
+  });
+
+  s = s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  s = s.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  s = s.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  s = s.replace(/^# (.+)$/gm,  '<h2>$1</h2>');
+
+  s = s.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+
+  s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  s = s.replace(/(^|[\s(])((?:https?|ftp):\/\/[^\s<)]+)/g,
+    '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+
+  const lines = s.split('\n');
+  const out = [];
+  let inUl = false, inOl = false;
+  for (let i = 0; i < lines.length; i++) {
+    const ln = lines[i];
+    const ulMatch = /^[-*]\s+(.+)$/.exec(ln);
+    const olMatch = /^\d+\.\s+(.+)$/.exec(ln);
+    if (ulMatch) {
+      if (inOl) { out.push('</ol>'); inOl = false; }
+      if (!inUl) { out.push('<ul>'); inUl = true; }
+      out.push(`<li>${ulMatch[1]}</li>`);
+    } else if (olMatch) {
+      if (inUl) { out.push('</ul>'); inUl = false; }
+      if (!inOl) { out.push('<ol>'); inOl = true; }
+      out.push(`<li>${olMatch[1]}</li>`);
+    } else {
+      if (inUl) { out.push('</ul>'); inUl = false; }
+      if (inOl) { out.push('</ol>'); inOl = false; }
+      out.push(ln);
+    }
+  }
+  if (inUl) out.push('</ul>');
+  if (inOl) out.push('</ol>');
+  s = out.join('\n');
+
+  const blocks = s.split(/\n{2,}/).map(b => {
+    if (/^<(h[1-6]|ul|ol|li|blockquote|pre|p)/.test(b.trim())) return b;
+    if (!b.trim()) return '';
+    return `<p>${b.replace(/\n/g, '<br>')}</p>`;
+  });
+  s = blocks.join('\n');
+
+  s = s.replace(/ FENCE(\d+) /g, (_, i) => {
+    const f = fences[+i];
+    const safe = f.code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `<pre><code class="lang-${esc(f.lang||'')}">${safe}</code></pre>`;
+  });
+
+  return s;
+}
+
+function appendMsg(role, text) {
+  const el = document.createElement('div');
+  el.className = `msg ${role}`;
+  el.dataset.raw = text;
+  const inner = document.createElement('div');
+  inner.className = 'text';
+  inner.innerHTML = renderMd(text);
+  el.appendChild(inner);
+  chatArea.appendChild(el);
+  chatArea.scrollTop = chatArea.scrollHeight;
+  return el;
+}
+
+function saveHistory() {
+  const items = [...chatArea.querySelectorAll('.msg')].slice(-60).map(el => ({
+    role: [...el.classList].find(c => c !== 'msg'),
+    text: el.dataset.raw ?? el.querySelector('.text')?.textContent ?? el.textContent,
+  }));
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(items)); } catch {}
+}
+
+function restoreHistory() {
+  try {
+    const items = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    items.forEach(m => appendMsg(m.role, m.text));
+  } catch {}
+}
+
+let busy = false;
+
+async function sendChat(msg) {
+  if (!msg.trim() || busy) return;
+  busy = true;
+  btn.disabled = true;
+  dot.classList.add('busy');
+
+  appendMsg('user', msg);
+  saveHistory();
+
+  const thinkingEl = appendMsg('agent', '');
+  thinkingEl.classList.add('thinking');
+  const textEl = thinkingEl.querySelector('.text');
+
+  let rootTaskId = null;
+  let buffer = '';
+  const es = new EventSource(`${API}/api/chat/stream?agent_id=${encodeURIComponent(AGENT_ID)}&message=${encodeURIComponent(msg)}`);
+
+  function finish() {
+    es.close();
+    busy = false;
+    btn.disabled = false;
+    dot.classList.remove('busy');
+    thinkingEl.classList.remove('thinking');
+    saveHistory();
+  }
+
+  es.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.event === 'heartbeat') return;
+
+      if (data.event === 'init') {
+        rootTaskId = data.root_task_id;
+        return;
+      }
+
+      if (data.event === 'thinking_token' && data.token) {
+        buffer += data.token;
+        thinkingEl.dataset.raw = buffer;
+        textEl.innerHTML = renderMd(buffer);
+        chatArea.scrollTop = chatArea.scrollHeight;
+        return;
+      }
+
+      if (data.event === 'message' && data.type === 'response') {
+        const result = data.payload?.result ?? '';
+        if (data.sender === AGENT_ID || data.recipient === 'ext:user') {
+          thinkingEl.dataset.raw = result || buffer;
+          textEl.innerHTML = renderMd(result || buffer);
+          buffer = '';
+        }
+      }
+
+      if (['task_completed','task_failed','task_timeout'].includes(data.event)) {
+        if (data.task_id === rootTaskId) {
+          if (buffer && !textEl.textContent) {
+            thinkingEl.dataset.raw = buffer;
+            textEl.innerHTML = renderMd(buffer);
+          }
+          if (!textEl.textContent.trim()) {
+            thinkingEl.dataset.raw = '(keine Antwort)';
+            textEl.textContent = '(keine Antwort)';
+          }
+          finish();
+        }
+      }
+    } catch {}
+  };
+
+  es.onerror = () => {
+    if (!textEl.textContent.trim()) {
+      thinkingEl.dataset.raw = 'Verbindungsfehler.';
+      textEl.textContent = 'Verbindungsfehler.';
+    }
+    finish();
+  };
+}
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  input.style.height = 'auto';
+  sendChat(msg);
+});
+
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    form.requestSubmit();
+  }
+});
+
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+});
+
+restoreHistory();
+if (!chatArea.children.length) appendMsg('system', 'Chat mit Martin — LogpyClaw');
+</script>
+</body>
+</html>

@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     # ── LLM ───────────────────────────────────────────────────────────────────
     ollama_url: str = Field("http://localhost:11434", description="Ollama base URL")
-    ollama_model: str = Field("gemma4:e4b", description="Default Ollama model")
+    ollama_model: str = Field("gemma4:latest", description="Default Ollama model")
     anthropic_api_key: str = Field("", description="Anthropic API key")
     openai_api_key: str = Field("", description="OpenAI API key")
     openrouter_api_key: str = Field("", description="OpenRouter API key")
@@ -41,6 +41,13 @@ class Settings(BaseSettings):
 
     # ── Storage ───────────────────────────────────────────────────────────────
     db_url: str = Field("sqlite:///./logpyclaw.db", description="SQLAlchemy DB URL")
+
+    # ── Scheduler ─────────────────────────────────────────────────────────────
+    enable_scheduler: bool = Field(
+        True,
+        description="APScheduler-Jobs (dream_cycle, rss_fetch) in diesem Prozess aktivieren. "
+        "False für Zusatz-Instanzen (z. B. Tailscale-Expose), damit Jobs nicht doppelt laufen.",
+    )
 
     # ── Auth ──────────────────────────────────────────────────────────────────
     web_bridge_token: str = Field("", description="Auth token for /ext/dilles/v1/* und /v1/* (Bearer)")
@@ -60,7 +67,7 @@ class Settings(BaseSettings):
     )
 
     # ── Skills ────────────────────────────────────────────────────────────────
-    comfyui_url: str = Field("http://192.168.4.15:8000", description="ComfyUI endpoint")
+    comfyui_url: str = Field("http://100.125.107.123:8000", description="ComfyUI endpoint")
 
     # ── Server ────────────────────────────────────────────────────────────────
     host: str = Field("127.0.0.1", description="Bind host")
@@ -72,6 +79,14 @@ class Settings(BaseSettings):
     martin_qc_min_score: int = Field(7, description="Minimum QC score (1-10)")
     martin_qc_max_retries: int = Field(2, description="Max retries in QC loop")
     martin_qc_auditor_id: str = Field("", description="Auditor agent ID for QC (empty = disabled)")
+
+    # ── ARD Publisher (Agentic Resource Discovery, v0.9 Draft) ─────────────────
+    # Wenn aktiv, wird das ai-catalog.json unter /.well-known/ai-catalog.json
+    # serviert (ard-spec §6.1). publisher_domain MUSS ein FQDN sein — die
+    # ARD-Spec verlangt das für die urn:air:<publisher> NSS (§4.2.1).
+    ard_publisher_enabled: bool = Field(True, description="Enable /.well-known/ai-catalog.json")
+    ard_publisher_domain: str = Field("logpyclaw.local", description="FQDN for urn:air:<publisher>")
+    ard_publisher_name: str = Field("LogpyClaw", description="Host displayName in ai-catalog.json")
 
 
 @lru_cache

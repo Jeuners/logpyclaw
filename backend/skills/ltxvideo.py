@@ -72,7 +72,7 @@ class LTXVideoSkill(Skill):
     skill_id    = "ltxvideo"
     description = "Generiert Videos via LTX 2.3 in ComfyUI (Image-to-Video oder Text-to-Video)"
 
-    def __init__(self, endpoint: str = "http://192.168.4.15:8000") -> None:
+    def __init__(self, endpoint: str = "http://100.125.107.123:8000") -> None:
         self.endpoint = endpoint.rstrip("/")
 
     async def execute(self, query: str) -> str:

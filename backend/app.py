@@ -30,6 +30,7 @@ from backend.agents.martin import MartinAgent
 from backend.agents.skill_agent import SkillAgent
 from backend.api.a2a.gateway_router import router as a2a_router
 from backend.api.agents import router as agents_router
+from backend.api.ard import router as ard_router
 from backend.api.chat import router as chat_router
 from backend.api.chrome_ws import router as chrome_ws_router
 from backend.api.deploys import router as deploys_router
@@ -54,6 +55,7 @@ from backend.skills.comfyui import ComfyUISkill
 from backend.skills.deploy import DeploySkill
 from backend.skills.file import FileSkill
 from backend.skills.gmail import GmailSkill
+from backend.skills.krea2_turbo import Krea2TurboSkill
 from backend.skills.linkedin import LinkedInSkill
 from backend.skills.ltxvideo import LTXVideoSkill
 from backend.skills.memory import MemorySkill
@@ -61,6 +63,7 @@ from backend.skills.physorg import PhysOrgSkill
 from backend.skills.rss import RSSSkill
 from backend.skills.telegram import TelegramSkill
 from backend.skills.transcription import TranscriptionSkill
+from backend.skills.upscale import UpscaleSkill
 from backend.skills.urlfetch import UrlFetchSkill
 from backend.skills.websearch import WebSearchSkill
 from backend.skills.whatsapp import WhatsAppSkill
@@ -83,7 +86,7 @@ _DEFAULT_MARTIN_PERSONA = (
     "Wissensfragen beantwortest du selbst, knapp und persönlich."
 )
 
-def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: str = ""):
+def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: str = "", provider: str = "ollama", ollama_url: str = ""):
     """Baut Martins async Front-Desk-Funktion.
 
     Martin entscheidet pro Nachricht: entweder er antwortet SELBST in seiner
@@ -92,16 +95,40 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: st
     echte Werkzeug-Aufgaben. None = kein verwertbares Ergebnis.
     """
     persona = persona.strip() or _DEFAULT_MARTIN_PERSONA
-    # Provider aus dem Modell-Slug ableiten — so ist agents.yaml die einzige
-    # Wahrheit und das im UI angezeigte Modell ist garantiert das, das wirklich
-    # plant: "/" → OpenRouter-Slug (z.B. minimax/minimax-m3), sonst Groq.
-    planner_model = model or "llama-3.3-70b-versatile"
-    use_openrouter = "/" in planner_model
+    # Provider kommt explizit aus agents.yaml (MartinAgentConfig.provider) —
+    # Default "ollama". Slug-Heuristik ("/" → OpenRouter) ist nicht mehr
+    # ausreichend, weil Ollama-Modell-Namen wie "VladimirGav/gemma4-…-Uncensored"
+    # ebenfalls "/" enthalten und sonst fälschlich als OpenRouter-Slug interpretiert würden.
+    planner_model = model or cfg.ollama_model
+    planner_provider = (provider or "ollama").lower()
+    planner_ollama_url = ollama_url or cfg.ollama_url
     import json as _json
+    import re as _re
 
     import httpx
 
     from backend.agents.martin import DelegationStep
+
+    # Zeilen mit Datei-/Deploy-Pfaden — die stehen in Martins Multi-Step-Antworten
+    # meist ganz am Ende (nach "Schritt 1/3 ... Schritt 2/3 ..."), landen bei
+    # einem naiven [:300]-Schnitt also nie im Verlauf. Ein Folge-"deploy" kannte
+    # dadurch nie den Pfad, den skill:file gerade erst geschrieben hatte
+    # (reproduziert am 2026-08-21: "deploy" nach erfolgreichem Website-Build
+    # musste extra nachfragen, statt den bekannten Pfad zu nutzen).
+    _ARTIFACT_LINE_RE = _re.compile(r"^.*(?:📝 Geschrieben:|\[Deploy\]).*$", _re.MULTILINE)
+
+    def _convo_preview(text: str, limit: int = 300) -> str:
+        """Kürzt einen Verlaufs-Eintrag aufs Prompt-Budget, behält aber Datei-/
+        Deploy-Zeilen immer vollständig, egal wo im Text sie stehen."""
+        if len(text) <= limit:
+            return text
+        preview = text[:limit]
+        artifacts = [
+            m.strip() for m in _ARTIFACT_LINE_RE.findall(text) if m.strip() not in preview
+        ]
+        if not artifacts:
+            return preview
+        return preview + "\n… [Datei-/Deploy-Pfade aus dieser Antwort]: " + " | ".join(artifacts)
 
     def _extract_json(raw: str) -> dict:
         start = raw.find("{")
@@ -145,7 +172,7 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: st
         convo_block = ""
         if history:
             lines = "\n".join(
-                f"{'Nutzer' if role == 'user' else 'Du (Martin)'}: {text[:300]}"
+                f"{'Nutzer' if role == 'user' else 'Du (Martin)'}: {_convo_preview(text)}"
                 for role, text in history
             )
             convo_block = (
@@ -198,10 +225,13 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: st
             "Routing-Regeln für Fall B (höchste Priorität zuerst):\n"
             "- 'linkedin' im Text → skill:linkedin\n"
             "- 'whatsapp', 'sende nachricht' → skill:whatsapp\n"
-            "- 'telegram' → skill:telegram\n"
+            "- 'telegram' → skill:telegram (senden: 'sende … an telegram'; bild: 'sende bild/image: <pfad> caption: \"…\" an telegram'; video: 'sende video: <pfad> caption: \"…\" an telegram'; lesen: 'lies telegram updates', 'was kam auf telegram')\n"
             "- 'bild', 'generiere', 'comfyui', 'zeichne' → skill:comfyui\n"
             "- 'video', 'ltx', 'animier' → skill:ltxvideo\n"
-            "- 'suche', 'search', 'web', 'google' → skill:websearch\n"
+            "- 'upscale', 'hochskalieren', 'vergrößern', '2x', '4x' (auf Bilder) → skill:upscale\n"
+            "- 'suche', 'search', 'web', 'google' (Suchbegriff, keine konkrete URL) → skill:websearch\n"
+            "- Nachricht nennt eine konkrete URL/Domain als Datenquelle (z.B. 'mit Daten von "
+            "example.com', 'von https://…') → skill:urlfetch, NICHT skill:websearch\n"
             "- 'wikipedia', 'wiki' → skill:wikipedia\n"
             "- 'youtube', 'video herunterladen' → skill:youtube\n"
             "- 'rss', 'news', 'feed', 'hackernews', 'tagesschau' → skill:rss\n"
@@ -219,6 +249,32 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: st
             "  ]}\n"
             "- 'wo ist der output?', 'existiert/gibts <datei>?' → skill:file (ls/lese den Pfad) —\n"
             "  NIEMALS die Erzeuger-Pipeline (RSS/Coder/…) neu starten, nur nachsehen\n"
+            "- 'website', 'webseite', 'landingpage', 'homepage bauen/erstellen' → agent:claude "
+            "(NICHT agent:coder) baut die fertige HTML-Seite — Qualitätsanspruch produktionsreif,\n"
+            "  kein Platzhalter. Direkt danach IMMER skill:file anhängen, AUCH WENN 'deploy' nicht\n"
+            "  erwähnt wurde — sonst existiert der Output nur als Chat-Text und ein späteres\n"
+            "  'deploy' findet keine Datei (genau das ist am 2026-08-20 mit 'heiler-website'\n"
+            "  passiert: Claude hat gebaut, nichts wurde gespeichert, jeder Deploy-Versuch schlug\n"
+            "  mit 'Quelle nicht gefunden' fehl).\n"
+            "  skill:urlfetch/skill:websearch liefern nur Rohdaten — NIEMALS als einzigen oder\n"
+            "  letzten Step stehen lassen, das ist keine Website, nur ein Text-Dump.\n"
+            "  Beispiel 'Cineastische Website für X, Daten von https://example.com':\n"
+            '  {"tasks": [\n'
+            '    {"agent": "skill:urlfetch", "content": "https://example.com"},\n'
+            '    {"agent": "agent:claude", "content": "Baue aus diesen Daten eine cineastische, '
+            'produktionsreife HTML-Seite für X. Gib NUR den Code im ```html-Block zurück.", '
+            '"depends_on": [0]},\n'
+            '    {"agent": "skill:file", "content": "schreibe nach ~/websites/x.html", "depends_on": [1]}\n'
+            "  ]}\n"
+            "  Falls zusätzlich 'online stellen'/'deploy' erwähnt wird, skill:deploy als weiteren\n"
+            "  Step mit depends_on auf den skill:file-Step anhängen (nicht auf den Claude-Step —\n"
+            "  skill:deploy braucht einen Dateipfad, keinen rohen HTML-Text).\n"
+            "- 'deploy <name>', 'entwickle/baue die website weiter', 'stell das online' — wenn die\n"
+            "  AKTUELLE Nachricht KEINEN neuen Website-Inhalt beschreibt (kein Auftrag, keine\n"
+            "  Daten/URL) → NIEMALS einen Dateinamen für skill:deploy raten. Nur wenn der\n"
+            "  Gesprächsverlauf oben eine vorher via skill:file gespeicherte Datei zeigt, exakt\n"
+            "  diesen Pfad an skill:deploy übergeben. Sonst Fall A: antworte selbst und frage nach,\n"
+            "  welcher Inhalt/welche Datei gemeint ist, statt zu raten.\n"
             "- Nachricht ENTHÄLT fertigen Python-Code (Codeblock o.ä.) → skill:coding\n"
             "- 'code', 'programmier', 'python', 'skript' — Code SCHREIBEN/eine Aufgabe lösen → agent:coder\n"
             "- Mehrschrittige Aufgabenbeschreibungen in Prosa (Setup, Provisioning, Diagnose, "
@@ -242,7 +298,16 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: st
         )
 
         try:
-            if use_openrouter:
+            if planner_provider == "ollama":
+                endpoint = f"{planner_ollama_url.rstrip('/')}/api/chat"
+                payload = {
+                    "model": planner_model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": False,
+                    "options": {"temperature": temperature},
+                }
+                headers = {"Content-Type": "application/json"}
+            elif planner_provider == "openrouter":
                 endpoint = "https://openrouter.ai/api/v1/chat/completions"
                 headers = {
                     "Authorization": f"Bearer {cfg.openrouter_api_key}",
@@ -250,27 +315,33 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: st
                     "HTTP-Referer": "https://logpyclaw.local",
                     "X-Title": "LogpyClaw",
                 }
+                payload = {
+                    "model": planner_model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": temperature,
+                }
             else:
+                # "groq" (Default-Fallback)
                 from backend.core.key_pool import get_groq_key
                 endpoint = "https://api.groq.com/openai/v1/chat/completions"
                 headers = {
                     "Authorization": f"Bearer {get_groq_key()}",
                     "Content-Type": "application/json",
                 }
-            # Timeout großzügig — OpenRouter-Modelle (z.B. MiniMax M3) können
-            # träger antworten als Groq.
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                r = await client.post(
-                    endpoint,
-                    headers=headers,
-                    json={
-                        "model": planner_model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": temperature,
-                    },
-                )
+                payload = {
+                    "model": planner_model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": temperature,
+                }
+            # Timeout großzügig — lokale 26B-Modelle brauchen ~12s für load + ~4s für Eval.
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                r = await client.post(endpoint, headers=headers, json=payload)
                 r.raise_for_status()
-                raw = r.json()["choices"][0]["message"]["content"]
+                body = r.json()
+                if planner_provider == "ollama":
+                    raw = body["message"]["content"]
+                else:
+                    raw = body["choices"][0]["message"]["content"]
 
             data = _extract_json(raw)
 
@@ -369,6 +440,8 @@ def _boot_agents() -> None:
         "websearch":     lambda c: WebSearchSkill(),
         "comfyui":       lambda c: ComfyUISkill(endpoint=c.get("endpoint") or cfg.comfyui_url),
         "ltxvideo":      lambda c: LTXVideoSkill(endpoint=c.get("endpoint") or cfg.comfyui_url),
+        "upscale":       lambda c: UpscaleSkill(endpoint=c.get("endpoint") or cfg.comfyui_url),
+        "krea2_turbo":   lambda c: Krea2TurboSkill(endpoint=c.get("endpoint") or cfg.comfyui_url),
         "whatsapp":      lambda c: WhatsAppSkill(),
         "coding":        lambda c: CodingSkill(),
         "gmail":         lambda c: GmailSkill(),
@@ -425,7 +498,14 @@ def _boot_agents() -> None:
             conductor.register(MartinAgent(
                 conductor=conductor,
                 qc=qc,
-                llm_planner_fn=_make_planner_fn(cfg, entry.temperature, entry.persona, entry.model),
+                llm_planner_fn=_make_planner_fn(
+                    cfg,
+                    entry.temperature,
+                    entry.persona,
+                    entry.model,
+                    entry.provider,
+                    entry.ollama_url,
+                ),
                 model=entry.model or cfg.ollama_model,
                 temperature=entry.temperature,
             ))
@@ -461,11 +541,7 @@ def _boot_agents() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
     from backend.core.faction_protocol import FactionRegistry
-    from backend.services.dream import run_dream_cycle
-    from backend.services.rss import fetch_all as rss_fetch_all
 
     # Standard-Faktionen (operators/makers/gatherers/auditors/scribes/guardians)
     FactionRegistry.load_defaults()
@@ -474,20 +550,27 @@ async def lifespan(app: FastAPI):
     await conductor.start()
 
     cfg = get_settings()
-    scheduler = AsyncIOScheduler()
-    # täglich um 3:00 Uhr nachts
-    scheduler.add_job(
-        run_dream_cycle,
-        "cron", hour=3, minute=0,
-        args=[conductor, cfg.comfyui_url],
-    )
-    # RSS alle 30 Minuten
-    scheduler.add_job(rss_fetch_all, "interval", minutes=30, id="rss_fetch")
-    scheduler.start()
+    scheduler = None
+    if cfg.enable_scheduler:
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-    # Initialer RSS-Fetch beim Start
-    import asyncio as _asyncio
-    _asyncio.create_task(rss_fetch_all())
+        from backend.services.dream import run_dream_cycle
+        from backend.services.rss import fetch_all as rss_fetch_all
+
+        scheduler = AsyncIOScheduler()
+        # täglich um 3:00 Uhr nachts
+        scheduler.add_job(
+            run_dream_cycle,
+            "cron", hour=3, minute=0,
+            args=[conductor, cfg.comfyui_url],
+        )
+        # RSS alle 30 Minuten
+        scheduler.add_job(rss_fetch_all, "interval", minutes=30, id="rss_fetch")
+        scheduler.start()
+
+        # Initialer RSS-Fetch beim Start
+        import asyncio as _asyncio
+        _asyncio.create_task(rss_fetch_all())
 
     # Optionaler Initiative-Loop: nur wenn agents.yaml einen initiatives:-Key hat.
     # Fehlt er (Normalfall), passiert nichts — Default-Verhalten unverändert.
@@ -503,7 +586,8 @@ async def lifespan(app: FastAPI):
 
     if app.state.initiative is not None:
         await app.state.initiative.stop()
-    scheduler.shutdown(wait=False)
+    if scheduler is not None:
+        scheduler.shutdown(wait=False)
     await conductor.stop()
 
 
@@ -533,6 +617,7 @@ app.include_router(teams_router, prefix="/api")
 app.include_router(a2a_router)
 app.include_router(web_bridge_router)
 app.include_router(openai_router)  # OpenAI-kompatibel: /v1/chat/completions, /v1/models
+app.include_router(ard_router)      # ARD-Publisher: /.well-known/ai-catalog.json
 app.include_router(chrome_ws_router)
 app.include_router(keys_router)
 app.include_router(deploys_router)
@@ -552,6 +637,14 @@ async def root():
     if index.exists():
         return index.read_text()
     return HTMLResponse("<h1>LogpyClaw v3</h1>")
+
+
+@app.get("/mobile", response_class=HTMLResponse)
+async def mobile():
+    page = Path(__file__).parent.parent / "frontend" / "mobile.html"
+    if page.exists():
+        return page.read_text()
+    return HTMLResponse("<h1>LogpyClaw v3 — Mobile</h1>")
 
 
 @app.get("/ping")

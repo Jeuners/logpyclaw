@@ -13,9 +13,9 @@ from backend.core.protocol import Message, external_ref, new_mission_id
 
 router = APIRouter()
 
-# Vision: lokales Ollama-Modell für Bildanalyse (gemma4:e4b — multimodal, liest
+# Vision: lokales Ollama-Modell für Bildanalyse (gemma4:latest — multimodal, liest
 # auch Text im Bild zuverlässig; per ENV VISION_MODEL überschreibbar).
-VISION_MODEL = os.environ.get("VISION_MODEL", "gemma4:e4b")
+VISION_MODEL = os.environ.get("VISION_MODEL", "gemma4:latest")
 
 
 class ChatRequest(BaseModel):

@@ -39,6 +39,8 @@ class QCSettings(BaseModel):
 class MartinAgentConfig(BaseModel):
     type: Literal["martin"]
     model: str = ""
+    provider: str = "ollama"   # "ollama" | "openrouter" | "groq" — leeres "model" fällt auf cfg.ollama_model
+    ollama_url: str = ""       # leer → aus cfg.ollama_url
     temperature: float = 0.3   # niedriger → konsistentere Routing-Entscheidungen
     persona: str = ""          # eigene Stimme; leer → Default-Assistent-Persona
     qc: QCSettings = Field(default_factory=QCSettings)

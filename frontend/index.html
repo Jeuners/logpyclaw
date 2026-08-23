@@ -994,6 +994,14 @@
           <div class="admin-card">
             <div class="admin-title" data-i18n="admin.martin.title">Martin — Ops Config</div>
             <div id="admin-martin-info" style="font-size:10px;color:var(--text2);line-height:1.8;"></div>
+            <div class="form-row" style="margin-top:10px;">
+              <label class="form-label" data-i18n="admin.memory.title">Long-term memory</label>
+              <div class="lang-toggle">
+                <button class="lang-btn" id="memory-on" onclick="setMemoryEnabled(true)" data-i18n="admin.memory.on">On</button>
+                <button class="lang-btn" id="memory-off" onclick="setMemoryEnabled(false)" data-i18n="admin.memory.off">Off</button>
+              </div>
+            </div>
+            <div id="admin-memory-hint" style="font-size:10px;color:var(--muted);margin-top:4px;" data-i18n="admin.memory.hint">Off: Martin neither recalls nor stores memories. Existing entries are kept.</div>
           </div>
 
           <!-- System Status -->
@@ -1035,6 +1043,8 @@ const I18N = {
     "admin.spawn.model":"Model","admin.spawn.faction":"Faction",
     "admin.spawn.soul":"Soul / System Prompt","admin.spawn.btn":"Spawn",
     "admin.martin.title":"Martin — Ops Config",
+    "admin.memory.title":"Long-term memory","admin.memory.on":"On","admin.memory.off":"Off",
+    "admin.memory.hint":"Off: Martin neither recalls nor stores memories. Existing entries are kept.",
     "admin.system.title":"System",
     "nav.logs":"Log","logs.title":"Live Log Stream","logs.clear":"Clear",
   },
@@ -1061,6 +1071,8 @@ const I18N = {
     "admin.spawn.model":"Modell","admin.spawn.faction":"Fraktion",
     "admin.spawn.soul":"Soul / System-Prompt","admin.spawn.btn":"Spawnen",
     "admin.martin.title":"Martin — Ops-Konfiguration",
+    "admin.memory.title":"Langzeit-Gedächtnis","admin.memory.on":"An","admin.memory.off":"Aus",
+    "admin.memory.hint":"Aus: Martin ruft weder Erinnerungen ab noch speichert er neue. Bestehende Einträge bleiben erhalten.",
     "admin.system.title":"System",
     "logs.title":"Live Log Stream","logs.clear":"Leeren",
   },
@@ -2209,6 +2221,32 @@ async function loadAdmin() {
       <div>agents: <b>${status.agents?.length ?? 0}</b></div>
       <div>missions: <b>${status.missions ?? 0}</b></div>
     `;
+  } catch {}
+  loadMemoryToggle();
+}
+
+// ── Long-term memory toggle ─────────────────────────────────────────────────
+function _renderMemoryToggle(enabled) {
+  document.getElementById('memory-on').classList.toggle('active', enabled);
+  document.getElementById('memory-off').classList.toggle('active', !enabled);
+}
+
+async function loadMemoryToggle() {
+  try {
+    const data = await (await fetch(`${API}/api/memory/enabled`)).json();
+    _renderMemoryToggle(!!data.enabled);
+  } catch {}
+}
+
+async function setMemoryEnabled(enabled) {
+  try {
+    const res = await fetch(`${API}/api/memory/enabled`, {
+      method: 'POST',
+      headers: {'content-type':'application/json'},
+      body: JSON.stringify({enabled}),
+    });
+    const data = await res.json();
+    _renderMemoryToggle(!!data.enabled);
   } catch {}
 }
 

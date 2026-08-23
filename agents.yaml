@@ -7,8 +7,9 @@ agents:
   - type: llm
     id: agent:alice
     name: Alice
-    model: "llama-3.3-70b-versatile"
-    provider: groq
+    model: "qwen3:8b"
+    provider: ollama
+    ollama_url: "http://100.125.107.123:11434"   # Netz-Ollama (gdg-pc-w11, Tailscale)
     soul: ""           # leer → i18n default
     faction: makers
     enabled: true
@@ -16,7 +17,14 @@ agents:
     max_tokens: 2048
 
   - type: martin
-    model: "minimax/minimax-m3"  # OpenRouter (Slug mit "/") — MiniMax M3, 1M Kontext. Provider wird aus dem Slug abgeleitet; "llama-3.3-70b-versatile" o.ä. ohne "/" → Groq.
+    model: "qwen3:8b"
+    provider: ollama
+    ollama_url: "http://localhost:11434"   # lokales Mac-Ollama — kein GPU-Konflikt mit
+    # ComfyUI-Jobs auf gdg-pc-w11 mehr. qwen3:8b lief vorher übers Netz-Ollama
+    # (gdg-pc-w11) und machte dort beim Routing Fehler (Plan-JSON kaputt, Folge-
+    # Nachrichten falsch geroutet) UND hing fest wenn die GPU durch ComfyUI belegt
+    # war — 2026-08-21. Jetzt lokal gezogen: GPU-Konflikt entfällt; Routing-
+    # Verhalten nach dem Wechsel neu beobachten (2026-08-22).
     temperature: 0.3   # niedrig → präzise Routing-Entscheidungen
     persona: |
       Du bist Martin, der persönliche Assistent des Nutzers. Du bist hilfsbereit,
@@ -30,7 +38,7 @@ agents:
       enabled: true
       min_score: 7
       max_retries: 2
-      auditor_id: "agent:alice"  # Groq → schnelle QC (war agent:claude, lokal lahm)
+      auditor_id: "agent:alice"  # Alice (Gemma 4 26B Uncensored lokal) → schnelle QC ohne externe API
 
   - type: skill
     skill_id: websearch
@@ -40,13 +48,25 @@ agents:
     skill_id: comfyui
     enabled: true
     config:
-      endpoint: ""     # leer → COMFYUI_URL aus .env
+      endpoint: "http://100.125.107.123:8000"   # ComfyUI — leer fällt auf cfg.comfyui_url zurück
+
+  - type: skill
+    skill_id: krea2_turbo
+    enabled: true
+    config:
+      endpoint: "http://100.125.107.123:8000"   # krea2_turbo + darkbrush-LoRA, Pre-Check inklusive
 
   - type: skill
     skill_id: ltxvideo
     enabled: true
     config:
-      endpoint: ""     # leer → COMFYUI_URL aus .env
+      endpoint: "http://100.125.107.123:8000"   # ComfyUI — leer fällt auf cfg.comfyui_url zurück
+
+  - type: skill
+    skill_id: upscale
+    enabled: true
+    config:
+      endpoint: "http://100.125.107.123:8000"   # ComfyUI — leer fällt auf cfg.comfyui_url zurück
 
   - type: skill
     skill_id: whatsapp
@@ -57,14 +77,14 @@ agents:
   - type: llm
     id: agent:coder
     name: Coder
-    model: "minimax/minimax-m3"   # OpenRouter — MiniMax M3 als Coder (war llama-3.3-70b/Groq)
-    provider: openrouter
+    model: "qwen3:8b"
+    provider: ollama
+    ollama_url: "http://100.125.107.123:11434"   # Netz-Ollama (gdg-pc-w11, Tailscale)
     soul: "Du bist ein Experten-Programmierer. Schreibe sauberen, effizienten Code. Erkläre kurz was du tust. Nutze Codeblöcke."
     faction: makers
     enabled: true
     temperature: 0.15
     max_tokens: 32768   # komplette Single-File-Spiele brauchen Platz — 4096 schnitt Builds ab
-    reasoning_max_tokens: 4096   # M3 denkt sonst bei komplexen Specs das ganze Budget weg (0 Content)
 
   - type: llm
     id: agent:local
@@ -81,8 +101,9 @@ agents:
   - type: llm
     id: agent:router
     name: Router
-    model: "deepseek/deepseek-v4-flash"
-    provider: openrouter
+    model: "VladimirGav/gemma4-26b-16GB-VRAM-Uncensored:latest"   # Ollama — Gemma 4 26B Uncensored
+    provider: ollama
+    ollama_url: "http://localhost:11434"
     soul: "Du bist ein hilfreicher Assistent. Antworte präzise und nutze Tool-Aufrufe wenn sinnvoll."
     faction: makers
     enabled: true

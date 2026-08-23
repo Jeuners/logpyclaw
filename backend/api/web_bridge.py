@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import logging
 
+import httpx
 from fastapi import APIRouter, Header, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from backend.api.agent_select import build_content, is_allowed, resolve_agent
 from backend.config import get_settings
@@ -23,6 +24,49 @@ log = logging.getLogger("logpyclaw.bridge")
 def _check_token(token: str | None) -> bool:
     expected = get_settings().web_bridge_token
     return not expected or token == expected
+
+
+@router.post("/comfy-fetch")
+async def comfy_fetch(
+    request: Request,
+    x_logpyclaw_token: str | None = Header(default=None),
+):
+    """Holt ein ComfyUI-Bild (Mac hat LAN-Zugriff) und gibt es als binary zurück.
+
+    WP-Container kann 100.125.107.123:8000 nicht erreichen — diese Brücke
+    läuft auf dem Mac und streamt das Bild 1:1 durch. PHP speichert es
+    danach lokal in wp-content/uploads/ und liefert eine öffentliche
+    dillenberg.net-URL aus."""
+    if not _check_token(x_logpyclaw_token):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+        url = (body.get("url") or "").strip()
+    except Exception:
+        return JSONResponse({"error": "invalid json body"}, status_code=400)
+    if not url.startswith("http://") and not url.startswith("https://"):
+        return JSONResponse({"error": "url must be http(s)"}, status_code=400)
+    if "192.168." in url or "127." in url or "10." in url:
+        # SSRF-Guard: nur erlaubte Hosts (ComfyUI)
+        allowed = get_settings().comfyui_url
+        if not allowed or not url.startswith(allowed.rstrip("/")):
+            return JSONResponse({"error": f"url not in allowlist ({allowed})"}, status_code=403)
+    try:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            r = await client.get(url, headers={"User-Agent": "logpyclaw-bridge/1.0"})
+            r.raise_for_status()
+            data = r.content
+            ctype = r.headers.get("content-type", "image/png")
+    except httpx.HTTPError as e:
+        log.warning("🌐 COMFY-FETCH fail: %s url=%s", e, url)
+        return JSONResponse({"error": f"fetch failed: {e}"}, status_code=502)
+    if len(data) < 100:
+        return JSONResponse({"error": "image too small, probably not an image"}, status_code=502)
+    log.info("🌐 COMFY-FETCH ok: %d bytes ctype=%s url=%s", len(data), ctype, url)
+    return Response(content=data, media_type=ctype, headers={
+        "X-Comfy-Source": url,
+        "Cache-Control": "public, max-age=86400",
+    })
 
 
 @router.get("/health")

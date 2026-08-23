@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LogpyClaw v3 — KI-Agenten-Schwarm · dillenberg.net</title>
+<meta name="description" content="LogpyClaw v3 orchestriert einen Schwarm aus sechs Agenten-Fraktionen. Einer befiehlt — der Schwarm liefert. Angebunden an dillenberg.net, WhatsApp, Telegram, Chrome.">
+<meta property="og:title" content="LogpyClaw v3 — KI-Agenten-Schwarm">
+<meta property="og:description" content="Einer befiehlt. Ein Schwarm aus sechs Fraktionen liefert.">
+<meta property="og:image" content="assets/hero.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:     oklch(14% .015 165);
+    --bg2:    oklch(17% .018 165);
+    --ink:    oklch(92% .012 165);
+    --muted:  oklch(62% .02 165);
+    --line:   oklch(30% .02 165);
+    --accent: oklch(82% .17 150);   /* Phosphor-Grün */
+    --amber:  oklch(80% .15 75);
+    --gold:   oklch(80% .13 85);
+    --purple: oklch(72% .14 300);
+    --orange: oklch(74% .15 45);
+    --blue:   oklch(74% .13 230);
+    --red:    oklch(68% .18 25);
+    --font:   'JetBrains Mono', ui-monospace, monospace;
+    --display:'Space Mono', 'JetBrains Mono', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: auto; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  ::selection { background: var(--accent); color: #06120c; }
+
+  /* ── Terminal-Fensterleiste oben ── */
+  .termbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 16px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--line);
+    font-size: 12px; color: var(--muted);
+    letter-spacing: .04em;
+  }
+  .termbar .dots { display: flex; gap: 6px; }
+  .termbar .dots i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+  .termbar .dots i:nth-child(1){ background: var(--red); }
+  .termbar .dots i:nth-child(2){ background: var(--amber); }
+  .termbar .dots i:nth-child(3){ background: var(--accent); }
+  .termbar .path { color: var(--ink); }
+  .termbar .path b { color: var(--accent); font-weight: 700; }
+  .termbar .blink { margin-left: auto; color: var(--accent); animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ── Scanline-Overlay (global, dezent) ── */
+  .scanlines {
+    position: fixed; inset: 0; z-index: 40; pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px,
+      rgba(0,0,0,.10) 3px, rgba(0,0,0,.10) 3px);
+    mix-blend-mode: multiply;
+  }
+  .vignette {
+    position: fixed; inset: 0; z-index: 39; pointer-events: none;
+    box-shadow: inset 0 0 220px rgba(0,0,0,.65);
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 clamp(1.25rem, 4vw, 3rem); }
+
+  .marker {
+    font-size: 12px; letter-spacing: .22em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 1.4rem;
+  }
+  .marker::before { content: "› "; color: var(--muted); }
+
+  h2 {
+    font-family: var(--display);
+    font-weight: 700; font-size: clamp(1.8rem, 4vw, 3rem);
+    letter-spacing: -.02em; line-height: 1.08;
+    text-wrap: balance; max-width: 18ch;
+  }
+  .lead { color: var(--muted); max-width: 52ch; margin-top: 1.1rem; }
+
+  /* ── HERO ── */
+  #hero {
+    position: relative; height: 100svh; min-height: 620px;
+    display: flex; align-items: flex-end;
+    overflow: hidden;
+  }
+  #scrub {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; z-index: 0;
+    image-rendering: auto;
+    filter: saturate(1.05) contrast(1.02);
+  }
+  #hero .veil {
+    position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background:
+      radial-gradient(120% 90% at 50% 110%, rgba(8,16,12,.92) 0%, rgba(8,16,12,.45) 45%, rgba(8,16,12,.15) 100%),
+      linear-gradient(180deg, rgba(8,16,12,.55) 0%, rgba(8,16,12,0) 35%);
+  }
+  .hero-copy {
+    position: relative; z-index: 2;
+    padding: 0 clamp(1.25rem, 4vw, 3rem) clamp(3rem, 8vh, 7rem);
+    max-width: 1180px; margin: 0 auto; width: 100%;
+  }
+  .hero-copy .kicker {
+    font-size: 13px; letter-spacing: .26em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 1rem;
+  }
+  .hero-copy h1 {
+    font-family: var(--display);
+    font-size: clamp(3.2rem, 12vw, 9rem);
+    font-weight: 700; line-height: .92; letter-spacing: -.03em;
+    text-shadow: 0 0 40px rgba(0,255,150,.25), 0 2px 0 #000;
+  }
+  .hero-copy h1 .v {
+    color: var(--accent); -webkit-text-fill-color: var(--accent);
+  }
+  .hero-copy .sub {
+    margin-top: 1.3rem; font-size: clamp(1.05rem, 2vw, 1.5rem);
+    color: var(--ink); max-width: 30ch; text-shadow: 0 1px 12px rgba(0,0,0,.85);
+  }
+  .cta-row { margin-top: 2rem; display: flex; gap: .8rem; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: .55rem;
+    font-family: var(--font); font-size: 14px; font-weight: 700;
+    letter-spacing: .04em; text-decoration: none; cursor: pointer;
+    padding: 13px 22px; border-radius: 4px; border: 1px solid var(--accent);
+    transition: transform .15s ease, background .15s ease, box-shadow .15s ease, color .15s ease;
+  }
+  .btn.primary { background: var(--accent); color: #06120c; }
+  .btn.primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px -10px rgba(0,255,150,.6); }
+  .btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+  .btn.ghost:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); }
+  .scrollhint {
+    margin-top: 2.2rem; font-size: 12px; color: var(--muted);
+    letter-spacing: .12em; animation: floaty 2.4s ease-in-out infinite;
+  }
+  @keyframes floaty { 50% { transform: translateY(6px); opacity: .6; } }
+
+  /* ── Sektionen ── */
+  section.block { padding: clamp(4.5rem, 11vw, 9rem) 0; border-top: 1px solid var(--line); }
+
+  /* Fraktionen: editoriale Liste, kein identisches Grid */
+  .factions { margin-top: 2.5rem; display: flex; flex-direction: column; }
+  .frow {
+    display: grid; grid-template-columns: 1fr 1.4fr; gap: clamp(1rem,4vw,3rem);
+    align-items: baseline;
+    padding: 1.6rem 0; border-top: 1px dashed var(--line);
+  }
+  .frow:last-child { border-bottom: 1px dashed var(--line); }
+  .frow:nth-child(even) { direction: rtl; }
+  .frow:nth-child(even) > * { direction: ltr; }
+  .fkey { display: flex; align-items: baseline; gap: .8rem; }
+  .fkey .num { font-size: 13px; color: var(--muted); }
+  .fkey .name {
+    font-family: var(--display); font-weight: 700;
+    font-size: clamp(1.4rem, 3vw, 2.1rem); letter-spacing: -.01em;
+  }
+  .fkey .bar { width: 34px; height: 4px; border-radius: 2px; align-self: center; }
+  .fdesc { color: var(--muted); font-size: 15px; }
+  .fdesc b { color: var(--ink); font-weight: 500; }
+  .c-gold{background:var(--gold);color:var(--gold)} .t-gold{color:var(--gold)}
+  .c-green{background:var(--accent);color:var(--accent)} .t-green{color:var(--accent)}
+  .c-purple{background:var(--purple);color:var(--purple)} .t-purple{color:var(--purple)}
+  .c-orange{background:var(--orange);color:var(--orange)} .t-orange{color:var(--orange)}
+  .c-blue{background:var(--blue);color:var(--blue)} .t-blue{color:var(--blue)}
+  .c-red{background:var(--red);color:var(--red)} .t-red{color:var(--red)}
+
+  /* Signal: Split mit Terminal-Fenster */
+  .split { display: grid; grid-template-columns: 1.1fr .9fr; gap: clamp(1.5rem,5vw,4rem); align-items: center; margin-top: 2.5rem; }
+  .termwin {
+    border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+    background: #050a07; box-shadow: 0 30px 80px -30px rgba(0,0,0,.8);
+  }
+  .termwin .bar { display:flex; gap:6px; padding:8px 12px; border-bottom:1px solid var(--line); }
+  .termwin .bar i { width:9px;height:9px;border-radius:50%;display:block; }
+  .termwin .bar i:nth-child(1){background:var(--red)} .termwin .bar i:nth-child(2){background:var(--amber)} .termwin .bar i:nth-child(3){background:var(--accent)}
+  .termwin video { display:block; width:100%; height:auto; }
+  .split .copy h3 { font-family: var(--display); font-size: clamp(1.3rem,2.5vw,1.8rem); margin-bottom:.8rem; }
+  .split .copy p { color: var(--muted); margin-bottom: 1rem; }
+  .split .copy .alert { color: var(--amber); border-left: 2px solid var(--amber); padding-left: 12px; font-size: 14px; }
+
+  /* Metriken */
+  .stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.5rem; margin-top: 2.5rem; }
+  .stat { border-top: 2px solid var(--accent); padding-top: 1rem; }
+  .stat .n { font-family: var(--display); font-weight: 700; font-size: clamp(2.2rem,5vw,3.4rem); letter-spacing: -.02em; }
+  .stat .l { color: var(--muted); font-size: 13px; margin-top: .4rem; letter-spacing: .03em; }
+
+  /* Swarm: Video als Hintergrund */
+  #swarm { position: relative; border-top: 1px solid var(--line); padding: 0; overflow: hidden;
+           background: #050a07 url('assets/hero.png') center/cover no-repeat; }
+  #swarm video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; opacity:.5; }
+  #swarm .veil { position:absolute; inset:0; z-index:1; background: linear-gradient(90deg, rgba(8,16,12,.9) 0%, rgba(8,16,12,.55) 60%, rgba(8,16,12,.85) 100%); }
+  #swarm .inner { position: relative; z-index:2; padding: clamp(5rem,12vw,9rem) 0; }
+  #swarm h2 { max-width: 16ch; }
+  .integrations { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:2rem; }
+  .chip { font-size:13px; border:1px solid var(--line); border-radius:999px; padding:7px 14px; color:var(--muted); }
+  .chip b { color: var(--accent); }
+
+  /* CTA */
+  #cta { text-align: center; }
+  #cta h2 { margin: 0 auto; max-width: 20ch; }
+  #cta .lead { margin: 1.1rem auto 0; text-align:center; }
+  #cta .cta-row { justify-content: center; margin-top: 2.2rem; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 2.5rem 0 3rem;
+    font-size: 12px; color: var(--muted);
+    display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--accent); }
+
+  @media (max-width: 800px) {
+    .split { grid-template-columns: 1fr; }
+    .frow { grid-template-columns: 1fr; gap: .5rem; }
+    .frow:nth-child(even) { direction: ltr; }
+    .stats { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scrollhint, .termbar .blink { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="scanlines"></div>
+<div class="vignette"></div>
+
+<div class="termbar">
+  <span class="dots"><i></i><i></i><i></i></span>
+  <span class="path">logpyclaw@<b>dillenberg</b>:~$ ./orchestrate --swarm</span>
+  <span class="blink">▌</span>
+</div>
+
+<!-- ── HERO (Scroll Scrub) ── -->
+<section id="hero">
+  <canvas id="scrub"></canvas>
+  <div class="veil"></div>
+  <div class="hero-copy">
+    <p class="kicker">// KI-Agenten-Schwarm · v3</p>
+    <h1>Logpy<span class="v">Claw</span></h1>
+    <p class="sub">Einer befiehlt. Ein Schwarm aus sechs Fraktionen liefert.</p>
+    <div class="cta-row">
+      <a class="btn primary" href="#fraktionen">› Schwarm starten</a>
+      <a class="btn ghost" href="#cta">Dokumentation</a>
+    </div>
+    <p class="scrollhint">↓ scrollen — der Kern rotiert mit dir</p>
+  </div>
+</section>
+
+<!-- ── 01 FRAKTIONEN ── -->
+<section class="block" id="fraktionen">
+  <div class="wrap">
+    <p class="marker">01 — Fraktionen</p>
+    <h2>Sechs Rollen, ein Kommando.</h2>
+    <p class="lead">Jeder Agent gehört einer Fraktion an. Du gibst das Ziel vor — die Fraktionen teilen sich die Arbeit und melden zurück, bevor du nachfragen musst.</p>
+
+    <div class="factions">
+      <div class="frow">
+        <div class="fkey"><span class="num">01</span><span class="name t-gold">Operators</span><span class="bar c-gold"></span></div>
+        <div class="fdesc"><b>Kommando &amp; Kontrolle.</b> Zerlegen deinen Auftrag in Tasks, delegieren an die Fraktionen und halten den Überblick über laufende Aufträge.</div>
+      </div>
+      <div class="frow">
+        <div class="fkey"><span class="num">02</span><span class="name t-green">Gatherers</span><span class="bar c-green"></span></div>
+        <div class="fdesc"><b>Daten beschaffen.</b> Crawlen Web, APIs, Repos und Dokus, filtern das Rauschen und liefern nur, was die anderen brauchen.</div>
+      </div>
+      <div class="frow">
+        <div class="fkey"><span class="num">03</span><span class="name t-purple">Makers</span><span class="bar c-purple"></span></div>
+        <div class="fdesc"><b>Bauen &amp; Code.</b> Schreiben Skripte, Pipelines und Prototypen — vom Einzeiler bis zum lauffähigen Service.</div>
+      </div>
+      <div class="frow">
+        <div class="fkey"><span class="num">04</span><span class="name t-orange">Auditors</span><span class="bar c-orange"></span></div>
+        <div class="fdesc"><b>Prüfen &amp; Gegenhalten.</b> Testen Ergebnisse, finden Fehler, bevor sie bei dir ankommen, und versionieren jede Entscheidung.</div>
+      </div>
+      <div class="frow">
+        <div class="fkey"><span class="num">05</span><span class="name t-blue">Scribes</span><span class="bar c-blue"></span></div>
+        <div class="fdesc"><b>Dokumentieren.</b> Halten den Schwarm in lesbaren Logs, Berichten und READMEs fest — damit Wissen bleibt, auch wenn der Agent schläft.</div>
+      </div>
+      <div class="frow">
+        <div class="fkey"><span class="num">06</span><span class="name t-red">Guardians</span><span class="bar c-red"></span></div>
+        <div class="fdesc"><b>Absichern.</b> Wachen über Secrets, Permissions und Grenzen — und stoppen einen Auftrag, der gefährlich wird.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 02 DAS SIGNAL ── -->
+<section class="block" id="signal">
+  <div class="wrap">
+    <p class="marker">02 — Das Signal</p>
+    <h2>Echtzeit, nicht Stapelverarbeitung.</h2>
+    <div class="split">
+      <div class="termwin">
+        <div class="bar"><i></i><i></i><i></i></div>
+        <video src="assets/signal-h264.mp4" poster="assets/hero.png" muted playsinline autoplay loop preload="auto"></video>
+      </div>
+      <div class="copy">
+        <h3>Der Schwarm meldet, was zählt.</h3>
+        <p>Jeder Knoten streamt seinen Zustand ins Kommando-Netz. Anomalien steigen sofort aus dem Rauschen — ein einziger Befehl genügt, um nachzubohren.</p>
+        <p class="alert">▲ ALERT · Agent 0xA4 blockiert auf externem API-Limit · Auto-Retry in 12s</p>
+        <p>Du siehst nicht, was fertig ist. Du siehst, was gerade passiert.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 03 IM BETRIEB ── -->
+<section class="block" id="metriken">
+  <div class="wrap">
+    <p class="marker">03 — Im Betrieb</p>
+    <h2>Was ein Schwarm an einem Tag schafft.</h2>
+    <div class="stats">
+      <div class="stat"><div class="n" data-count="6">0</div><div class="l">Fraktionen im Dauerbetrieb</div></div>
+      <div class="stat"><div class="n" data-count="248">0</div><div class="l">erledigte Tasks pro Tag</div></div>
+      <div class="stat"><div class="n" data-count="11">0</div><div class="l">Sekunden bis zur ersten Antwort</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 04 DER SCHWARM ── -->
+<section id="swarm">
+  <video src="assets/swarm-h264.mp4" poster="assets/hero.png" muted playsinline autoplay loop preload="auto"></video>
+  <div class="veil"></div>
+  <div class="inner">
+    <div class="wrap">
+      <p class="marker">04 — Der Schwarm</p>
+      <h2>Angebunden an alles, was du schon nutzt.</h2>
+      <p class="lead">LogpyClaw spricht die Kanäle, in denen dein Tag läuft — und hält dillenberg.net als Heimatbasis.</p>
+      <div class="integrations">
+        <span class="chip"><b>dillenberg.net</b> · Web-Bridge</span>
+        <span class="chip">WhatsApp</span>
+        <span class="chip">Telegram</span>
+        <span class="chip">Chrome</span>
+        <span class="chip">REST &amp; Webhooks</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section class="block" id="cta">
+  <div class="wrap">
+    <p class="marker">05 — Start</p>
+    <h2>Befiehl deinen Schwarm.</h2>
+    <p class="lead">LogpyClaw v3 läuft auf deiner Infrastruktur. Verbinde einen Kanal, lade die Fraktionen — und sag, was erledigt werden soll.</p>
+    <div class="cta-row">
+      <a class="btn primary" href="mailto:gdg@webbinder.de?subject=Anfrage%3A%20LogpyClaw%20v3">✉ Anfragen</a>
+      <a class="btn ghost" href="https://t.me/DillesContactAgent_bot">Telegram</a>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <span>© 2026 H.G.O. Dillenberg · LogpyClaw v3</span>
+  <span>Anfragen: <a href="mailto:gdg@webbinder.de">gdg@webbinder.de</a> · <a href="https://t.me/DillesContactAgent_bot">t.me/DillesContactAgent_bot</a></span>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
+<script>
+(function () {
+  /* ── Lenis Smooth Scroll ── */
+  let lenis = null;
+  if (window.Lenis && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    lenis = new Lenis({ lerp: 0.1, smoothWheel: true });
+    function raf(t){ lenis.raf(t); requestAnimationFrame(raf); }
+    requestAnimationFrame(raf);
+    if (window.ScrollTrigger) {
+      lenis.on('scroll', ScrollTrigger.update);
+      gsap.ticker.add((t)=>lenis.raf(t*1000));
+      gsap.ticker.lagSmoothing(0);
+    }
+  }
+
+  /* ── Scroll-Scrub Hero (Canvas-Framesequenz) ── */
+  const NFRAMES = 58;
+  const canvas = document.getElementById('scrub');
+  const ctx = canvas.getContext('2d');
+  const frames = [];
+  let loaded = 0, scrubP = -1, autoFrame = 0, ready = false;
+
+  for (let i = 1; i <= NFRAMES; i++) {
+    const img = new Image();
+    img.src = 'assets/frames/hero_' + String(i).padStart(4,'0') + '.jpg';
+    img.onload = () => { if (++loaded === NFRAMES) ready = true; };
+    frames.push(img);
+  }
+
+  function fit() {
+    const r = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.max(1, Math.floor(r.width * dpr));
+    canvas.height = Math.max(1, Math.floor(r.height * dpr));
+  }
+  window.addEventListener('resize', fit);
+  fit();
+
+  function draw(idx) {
+    const f = frames[idx];
+    if (!f || !f.complete) return;
+    const cw = canvas.width, ch = canvas.height;
+    const ir = f.width / f.height, cr = cw / ch;
+    let dw, dh, dx, dy;
+    if (ir > cr) { dh = ch; dw = ch * ir; dx = (cw - dw) / 2; dy = 0; }
+    else { dw = cw; dh = cw / ir; dx = 0; dy = (ch - dh) / 2; }
+    ctx.drawImage(f, dx, dy, dw, dh);
+  }
+
+  function tick() {
+    let idx;
+    if (ready) {
+      if (scrubP >= 0) idx = Math.round(scrubP * (NFRAMES - 1));
+      else { autoFrame = (autoFrame + 0.18) % NFRAMES; idx = Math.floor(autoFrame); }
+      draw(idx);
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  if (window.ScrollTrigger) {
+    gsap.registerPlugin(ScrollTrigger);
+    ScrollTrigger.create({
+      trigger: '#hero', start: 'top top', end: 'bottom top',
+      onUpdate: self => { scrubP = self.progress; }
+    });
+
+    /* Count-up bei Sichtbarkeit */
+    document.querySelectorAll('.stat .n').forEach(el => {
+      const target = parseInt(el.dataset.count, 10);
+      ScrollTrigger.create({
+        trigger: el, start: 'top 85%', once: true,
+        onEnter: () => {
+          const dur = 1100, t0 = performance.now();
+          (function step(now){
+            const p = Math.min(1, (now - t0) / dur);
+            const e = 1 - Math.pow(1 - p, 3);
+            el.textContent = Math.round(target * e);
+            if (p < 1) requestAnimationFrame(step);
+          })(t0);
+        }
+      });
+    });
+  }
+})();
+</script>
+</body>
+</html>

@@ -61,6 +61,11 @@ class SemanticMemory:
         self.db_path = db_path
         self.ollama = ollama_url
         self.model = model
+        # Laufzeit-Schalter fürs Langzeitgedächtnis (UI-Toggle in Admin →
+        # Martin Ops Config). Deaktiviert speichert remember() nichts Neues
+        # und recall() liefert nichts zurück — bestehende Einträge bleiben
+        # in der DB erhalten, sind aber bis zur Reaktivierung unsichtbar.
+        self.enabled = True
         self._lock = threading.Lock()
         self.db = sqlite3.connect(db_path, check_same_thread=False)
         self.db.enable_load_extension(True)
@@ -88,9 +93,9 @@ class SemanticMemory:
             return r.json()["embedding"]
 
     async def remember(self, text: str, kind: str = "note", scope: str = GLOBAL, meta: dict | None = None) -> int:
-        """Speichert einen Text als Erinnerung in einem Scope. Gibt die ID zurück (-1 wenn leer)."""
+        """Speichert einen Text als Erinnerung in einem Scope. Gibt die ID zurück (-1 wenn leer/deaktiviert)."""
         text = (text or "").strip()
-        if not text:
+        if not text or not self.enabled:
             return -1
         vec = await self._embed(text, is_query=False)
         with self._lock:
@@ -107,7 +112,7 @@ class SemanticMemory:
         """Findet die k ähnlichsten Erinnerungen. `scopes` schränkt auf Bereiche ein
         (z. B. ['agent:martin','global']); None = alle Scopes."""
         query = (query or "").strip()
-        if not query:
+        if not query or not self.enabled:
             return []
         qv = await self._embed(query, is_query=True)
         fetch = k * 5 if scopes else k  # bei Scope-Filter mehr holen, dann filtern
@@ -148,4 +153,7 @@ class SemanticMemory:
     def stats(self) -> dict:
         n = self.db.execute("SELECT count(*) FROM memory_items").fetchone()[0]
         by_scope = dict(self.db.execute("SELECT scope, count(*) FROM memory_items GROUP BY scope").fetchall())
-        return {"count": n, "dim": _DIM, "model": self.model, "db": self.db_path, "scopes": by_scope}
+        return {
+            "count": n, "dim": _DIM, "model": self.model, "db": self.db_path,
+            "scopes": by_scope, "enabled": self.enabled,
+        }
