@@ -54,7 +54,7 @@ class TestAsyncAgent:
 # ── Distributionales Zeitgefühl (rate_stats / time_sense) ─────────────────────
 
 def _fake_clock(times: list[float]):
-    """Liefert eine deterministische time.time-Ersatzfunktion über eine Sequenz."""
+    """Liefert eine deterministische time.monotonic-Ersatzfunktion über eine Sequenz."""
     seq = iter(times)
     last = [times[-1]]
 
@@ -80,7 +80,7 @@ class TestTimeSense:
         a = EchoAgent("agent:echo", "Echo")
         # Gleichmäßige Abstände von je 1s → konstante inst_rate → cv ~ 0.
         times = [float(i) for i in range(20)]
-        monkeypatch.setattr(time, "time", _fake_clock(times))
+        monkeypatch.setattr(time, "monotonic", _fake_clock(times))
         for _ in range(len(times)):
             a.advance_clock()
         assert a.rate_stats["cv"] < 0.25
@@ -93,7 +93,7 @@ class TestTimeSense:
         for _ in range(15):
             times.append(times[-1] + 0.1)
             times.append(times[-1] + 5.0)
-        monkeypatch.setattr(time, "time", _fake_clock(times))
+        monkeypatch.setattr(time, "monotonic", _fake_clock(times))
         for _ in range(len(times)):
             a.advance_clock()
         assert a.rate_stats["cv"] >= 0.25

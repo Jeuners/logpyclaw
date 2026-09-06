@@ -16,6 +16,7 @@ import asyncio
 
 from backend.agents.base import AsyncAgent
 from backend.core.protocol import Message
+from backend.core.timing import timing_span
 
 
 class ClaudeSSHAgent(AsyncAgent):
@@ -43,7 +44,8 @@ class ClaudeSSHAgent(AsyncAgent):
         clock = self.advance_clock(msg.clock)
         prompt = msg.payload.get("content", "")
         try:
-            result = await self._run(prompt)
+            with timing_span("model"):
+                result = await self._run(prompt)
             return Message.response(msg, result, clock=clock)
         except Exception as e:
             return Message.error(msg, f"[Claude] {e}", clock=clock)

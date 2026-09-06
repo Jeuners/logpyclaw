@@ -15,6 +15,7 @@ import httpx
 from backend.agents.base import AsyncAgent
 from backend.config import get_settings
 from backend.core.protocol import Message
+from backend.core.timing import timing_span
 
 # Modulweiter geteilter HTTP-Client mit Connection-Pooling — ein neuer
 # AsyncClient pro Call würde TCP/TLS-Handshakes pro Request kosten.
@@ -84,6 +85,10 @@ class LLMAgent(AsyncAgent):
     # ── Provider-Switch ───────────────────────────────────────────────────────
 
     async def _call_llm(self, content: str, mission_id: str = "", task_id: str = "") -> str:
+        with timing_span("model"):
+            return await self._call_provider(content, mission_id, task_id)
+
+    async def _call_provider(self, content: str, mission_id: str = "", task_id: str = "") -> str:
         if self.provider == "ollama":
             return await self._ollama(content, mission_id, task_id)
         if self.provider == "anthropic":

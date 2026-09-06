@@ -19,7 +19,7 @@ class SpawnRequest(BaseModel):
 @router.get("/agents")
 async def list_agents(request: Request):
     conductor = request.app.state.conductor
-    return [a.to_dict() for a in conductor.list_agents()]
+    return [{**a.to_dict(), "latency": conductor.timings.summary(a)} for a in conductor.list_agents()]
 
 
 @router.get("/agents/{agent_id:path}")
@@ -28,7 +28,7 @@ async def get_agent(agent_id: str, request: Request):
     agent = conductor.get_agent(agent_id)
     if not agent:
         raise HTTPException(404, f"Agent not found: {agent_id}")
-    return agent.to_dict()
+    return {**agent.to_dict(), "latency": conductor.timings.summary(agent)}
 
 
 @router.post("/agents/spawn")

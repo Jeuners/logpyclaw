@@ -1,8 +1,46 @@
 # LogpyClaw v3
 
 CDC-natives Agenten-Protokoll mit zentralem Orchestrator und
-zeitdilatations-bewusstem Routing — die Vorstufe zu einem Multi-Agent-System,
+protokollierter Eigenzeit und Fraktions-Routing — die Vorstufe zu einem Multi-Agent-System,
 bei dem Zeit, Vertrauen und Kausalität im Protokoll stecken statt im Framework.
+
+Forschungsgrundlage: [Time Is Not Metadata](https://github.com/Jeuners/Time_Dilation_in_LLM_Agent_Systems).
+Der [Implementierungsabgleich](docs/TIME-DILATION.md) dokumentiert, welche
+Paper-Komponenten dieser Code tatsächlich umsetzt und wo Messgrenzen bestehen.
+Die [Experimentübersicht](experiments/README.md) ordnet Skripte, Rohdaten und
+Endpunkte zu. Der Planner kann jetzt separat gemessene Aktionslatenzen erhalten;
+CDC-Protokollraten und Modelllaufzeiten bleiben unterschiedliche Größen.
+Einrichtung und Messgrenzen: [Gemessene Aktionslatenzen](docs/MEASURED-LATENCY.md).
+
+## Umsetzung: zuverlässiger Betrieb und gemessene Delegation
+
+Die Umsetzung umfasst drei überprüfbare Schritte:
+
+1. Martin und Alice mit `qwen3.5:latest` lokal betreiben und Chat sowie
+   Delegation praktisch prüfen. Frühere lokale Arbeiten gezielt abgleichen.
+2. Protokollrate, Modellaufruf, Wartephasen und Aufgabendauer mit monotonen
+   Uhren getrennt erfassen. Messreihen an Modell, Backend und Konfiguration binden.
+3. Martin optional einen begrenzten Block mit gemessenen Aktionslatenzen,
+   Stichprobenzahl, Alter und Unsicherheit geben. Explizite Zielvorgaben behalten
+   Vorrang; fehlende oder veraltete Messungen gelten nicht als schnelle Agenten.
+
+Diese Funktionen sind implementiert und durch Tests abgesichert. Der
+Latenzblock wird mit `MARTIN_LATENCY_CONTEXT_ENABLED=true` aktiviert; Details
+und Live-Prüfungen stehen im [Umsetzungsnachweis](docs/testing/measured-latency.tdd.md).
+
+Der Kontextform-Vergleich des Papers, dezentrale Netzwerktopologie und ein
+versioniertes Signaturformat für τ sind separate Folgearbeiten. Die vorhandenen
+historischen Experimentdaten bleiben unverändert.
+
+### Abgleich der früheren lokalen Arbeiten
+
+Gesichert sind die bisherigen Commits unter `backup/local-before-update-20260906`
+und die nicht eingecheckten Änderungen im Stash `local-before-update-20260906`.
+Die neue lokale qwen3.5-Auswahl ersetzt bewusst die früheren
+OpenRouter-Modellvorgaben für Martin und Alice. Share/Fileserve, YouTube-Cookie-
+Fallbacks, ComfyUI-Anpassungen sowie lokale Website-Skills und Frontend-Artefakte
+bleiben dort erhalten. Sie werden nicht pauschal über neuere Upstream-Funktionen
+kopiert; ihre Übernahme braucht einen eigenen fachlichen Abgleich.
 
 > **Zur Freigabe** — Der Code ist frei ([MIT-Lizenz](LICENSE)). Die zugrunde
 > liegende Idee — Causal-Dilation Clock und Fraktionsmodell — ist und bleibt
@@ -294,11 +332,12 @@ Hinweis: `signing_payload()` kanonisiert weiterhin nur `vector` + `dilation` —
 
 Zusätzlich trackt jeder Agent die **Streuung** seiner Eigenzeit-Rate (EWMA der
 Absolutabweichung `|inst_rate − rate|`) und exponiert sie über `rate_stats`
-(rate/dev/cv) und `time_sense()`. Dieses Selbstwissen lebt bewusst agentenlokal
+(rate/dev/cv) und `time_sense()`. `dev` ist eine geglättete absolute Abweichung,
+keine Standardabweichung oder Latenzverteilung. Dieses Selbstwissen lebt bewusst agentenlokal
 und liegt **nicht** im Wire-Format — die Clock und ihre PQC-signierten Felder
 bleiben unberührt. Begründung: Entscheidungen unter Deadline brauchen Verteilungs-,
 nicht Punktwissen ("ich schaffe das meistens in X s, und so breit ist meistens").
-Siehe Paper §5.5 (Drachen-Experiment), wo der Median allein in die Irre führte.
+Siehe Paper §6.5 (Drachen-Experiment), wo der Median allein in die Irre führte.
 
 ### Trust & γ — die Mathematik
 

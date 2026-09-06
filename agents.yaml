@@ -7,9 +7,9 @@ agents:
   - type: llm
     id: agent:alice
     name: Alice
-    model: "qwen3:8b"
+    model: "qwen3.5:latest"
     provider: ollama
-    ollama_url: "http://100.125.107.123:11434"   # Netz-Ollama (gdg-pc-w11, Tailscale)
+    ollama_url: "http://localhost:11434"   # gemeinsames lokales Modell auf diesem Mac
     soul: ""           # leer → i18n default
     faction: makers
     enabled: true
@@ -17,7 +17,7 @@ agents:
     max_tokens: 2048
 
   - type: martin
-    model: "qwen3:8b"
+    model: "qwen3.5:latest"
     provider: ollama
     ollama_url: "http://localhost:11434"   # lokales Mac-Ollama — kein GPU-Konflikt mit
     # ComfyUI-Jobs auf gdg-pc-w11 mehr. qwen3:8b lief vorher übers Netz-Ollama
@@ -38,7 +38,7 @@ agents:
       enabled: true
       min_score: 7
       max_retries: 2
-      auditor_id: "agent:alice"  # Alice (Gemma 4 26B Uncensored lokal) → schnelle QC ohne externe API
+      auditor_id: "agent:alice"  # Alice (qwen3.5 lokal) für QC ohne externe API
 
   - type: skill
     skill_id: websearch

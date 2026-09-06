@@ -4,7 +4,7 @@ backend/agents/martin.py — Martin, der Operator-Agent.
 Martin ist der kanonische OPERATORS-Fraktions-Agent. Er:
 - Empfängt komplexe Tasks und zerlegt sie (Intent-Detection)
 - Delegiert an die richtige Fraktion/Agent über den Conductor
-- Liest CDC llm_summary() und Faction-γ_ij für Routing-Entscheidungen
+- Verwendet optional gemessene Aktionslatenzen im injizierten Planner
 - Führt QC-Loops durch (Auditor-Delegation mit Score-Schwelle)
 - Dient als Operator-Bridge für cross-faction ADVERSARIAL-Verkehr
 
@@ -24,6 +24,7 @@ from backend.core.cdc import CausalDilationClock
 from backend.core.faction_protocol import FactionRegistry
 from backend.core.logging import get_logger
 from backend.core.protocol import Message, MessageType
+from backend.core.timing import current_timing
 
 log = get_logger("logpyclaw.martin")
 
@@ -127,6 +128,10 @@ class MartinAgent(AsyncAgent):
         # der Planner darf die Original-Spezifikation nicht umschreiben.
         explicit = self._explicit_target(content)
         if explicit:
+            measured = current_timing()
+            if measured is not None:
+                measured.routing = {"mode": "explicit", "latency_context_supplied": False,
+                                    "candidates": [], "selected_agents": [explicit]}
             return await self._delegate_with_qc(msg, explicit, content, clock)
 
         # 3. Front-Desk aufrufen: Martin antwortet selbst (str) ODER delegiert (steps)
@@ -137,9 +142,10 @@ class MartinAgent(AsyncAgent):
                 return Message.response(msg, plan, clock=clock)
             steps = plan
             if not steps:
-                return Message.response(
-                    msg, f"[Martin] No plan found for: {content[:80]}", clock=clock
-                )
+                measured = current_timing()
+                if measured is not None and measured.routing is not None:
+                    measured.routing["mode"] = "planner_error"
+                return Message.error(msg, "Martin konnte keinen gültigen Plan oder eine Antwort erzeugen.", clock=clock)
             if len(steps) == 1:
                 return await self._delegate_with_qc(msg, steps[0].agent_id, steps[0].content, clock)
             return await self._execute_plan(msg, steps, clock)

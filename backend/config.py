@@ -80,6 +80,12 @@ class Settings(BaseSettings):
     martin_qc_max_retries: int = Field(2, description="Max retries in QC loop")
     martin_qc_auditor_id: str = Field("", description="Auditor agent ID for QC (empty = disabled)")
 
+    # Laufzeitbeobachtungen sind prozesslokal und verändern die CDC nicht.
+    latency_max_age_s: float = Field(1800.0, gt=0, le=86400, allow_inf_nan=False)
+    latency_min_samples: int = Field(3, ge=1, le=64)
+    martin_latency_context_enabled: bool = Field(False, description="Gemessene Aktionslatenzen im Planner")
+    martin_latency_context_max_chars: int = Field(2400, ge=800, le=8000)
+
     # ── ARD Publisher (Agentic Resource Discovery, v0.9 Draft) ─────────────────
     # Wenn aktiv, wird das ai-catalog.json unter /.well-known/ai-catalog.json
     # serviert (ard-spec §6.1). publisher_domain MUSS ein FQDN sein — die

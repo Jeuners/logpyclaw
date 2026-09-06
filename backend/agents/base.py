@@ -23,7 +23,7 @@ class AsyncAgent(ABC):
         self._clock = CausalDilationClock()
         self._started_at: float = 0.0
         self._op_count: int = 0
-        self._last_op_ts: float = 0.0  # Wall-Time des letzten Ops (EWMA-Basis)
+        self._last_op_ts: float | None = None  # monotone Zeit des letzten Protokoll-Ticks
         self._rate: float = 1.0  # EWMA-geglättete Momentanrate (ops/s)
         self._rate_dev: float = 0.0  # EWMA der |inst_rate − rate|-Abweichung (Streuung)
 
@@ -46,8 +46,8 @@ class AsyncAgent(ABC):
         if incoming:
             self._clock.merge(incoming)
         self._op_count += 1
-        now = time.time()
-        if self._last_op_ts:
+        now = time.monotonic()
+        if self._last_op_ts is not None:
             dt = max(now - self._last_op_ts, 1e-3)
             inst_rate = 1.0 / dt
             self._rate = 0.7 * self._rate + 0.3 * inst_rate
