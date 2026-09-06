@@ -47,6 +47,7 @@ from backend.api.teams import router as teams_router
 from backend.api.web_bridge import router as web_bridge_router
 from backend.config import get_settings
 from backend.core.memory import SemanticMemory
+from backend.core.timing import TimingRegistry, current_timing, routing_context, timing_span
 from backend.i18n import locale_from_header
 from backend.skills.browser import BrowserSkill
 from backend.skills.chrome_browser import ChromeBrowserSkill
@@ -73,6 +74,8 @@ from backend.skills.youtube import YouTubeSkill
 # ── Global instances ──────────────────────────────────────────────────────────
 
 conductor = Conductor(db_url=get_settings().db_url)
+conductor.timings = TimingRegistry(max_age_s=get_settings().latency_max_age_s,
+                                  min_samples=get_settings().latency_min_samples)
 memory = SemanticMemory()  # semantisches Langzeit-Gedächtnis (RAG, sqlite-vec)
 
 
@@ -166,6 +169,15 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: st
             return f"- {a.agent_id}: {name}" + (f" — {desc}" if desc else "")
 
         agent_list = "\n".join(_agent_desc(a) for a in agents)
+        latency_block, latency_evidence = routing_context(
+            conductor.timings, agents,
+            enabled=cfg.martin_latency_context_enabled,
+            max_chars=cfg.martin_latency_context_max_chars,
+        )
+        measured = current_timing()
+        if measured is not None:
+            measured.routing = {"mode": "planner", "latency_context_supplied": bool(latency_block),
+                                "candidates": latency_evidence, "selected_agents": []}
 
         # Gesprächsverlauf als Kontext (älteste zuerst). Macht Folge-Fragen wie
         # "wer bin ich?" beantwortbar, ohne dass jede Nachricht zustandslos ist.
@@ -220,6 +232,7 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: st
             "Routing-Plan an die passenden Spezialisten.\n"
             '   → {"tasks": [{"agent": "<agent_id>", "content": "<anweisung>", "depends_on": [<idx>]}, ...]}\n\n'
             f"Verfügbare Spezialisten:\n{agent_list}\n\n"
+            f"{latency_block}\n"
             f"{convo_block}"
             f"Aktuelle Nachricht des Nutzers: {content[:600]}\n\n"
             "Routing-Regeln für Fall B (höchste Priorität zuerst):\n"
@@ -293,6 +306,7 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: st
             '    {"agent": "skill:comfyui", "content": "cat sitting in garden, photorealistic"},\n'
             '    {"agent": "skill:ltxvideo", "content": "prompt: cat slowly looks around, gentle breeze", "depends_on": [0]}\n'
             "  ]}\n\n"
+            'Bei Delegation darf "routing_reason" die Wahl kurz begründen. '
             'Antworte NUR mit JSON — ENTWEDER {"reply": "..."} (Fall A) ODER '
             '{"tasks": [{"agent": "<agent_id>", "content": "<anweisung>", "depends_on": [<idx>]}, ...]} (Fall B).'
         )
@@ -334,20 +348,23 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: st
                     "temperature": temperature,
                 }
             # Timeout großzügig — lokale 26B-Modelle brauchen ~12s für load + ~4s für Eval.
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                r = await client.post(endpoint, headers=headers, json=payload)
-                r.raise_for_status()
-                body = r.json()
-                if planner_provider == "ollama":
-                    raw = body["message"]["content"]
-                else:
-                    raw = body["choices"][0]["message"]["content"]
+            with timing_span("model"):
+                async with httpx.AsyncClient(timeout=120.0) as client:
+                    r = await client.post(endpoint, headers=headers, json=payload)
+                    r.raise_for_status()
+                    body = r.json()
+                    if planner_provider == "ollama":
+                        raw = body["message"]["content"]
+                    else:
+                        raw = body["choices"][0]["message"]["content"]
 
             data = _extract_json(raw)
 
             # Fall A: Martin antwortet selbst in Persona
             reply = data.get("reply")
             if isinstance(reply, str) and reply.strip():
+                if measured is not None:
+                    measured.routing["mode"] = "self"
                 return reply.strip()
 
             # Fall B: Delegations-Plan
@@ -367,6 +384,11 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: st
                         content=t.get("content", content),
                         depends_on=[int(d) for d in deps if str(d).strip().lstrip("-").isdigit()],
                     ))
+            if measured is not None:
+                measured.routing["selected_agents"] = [step.agent_id for step in steps]
+                reason = data.get("routing_reason")
+                if isinstance(reason, str):
+                    measured.routing["model_rationale"] = reason[:400]
             return steps or None
 
         except Exception:
@@ -495,7 +517,7 @@ def _boot_agents() -> None:
                 max_retries=entry.qc.max_retries,
                 auditor_id=entry.qc.auditor_id or cfg.martin_qc_auditor_id,
             )
-            conductor.register(MartinAgent(
+            martin = MartinAgent(
                 conductor=conductor,
                 qc=qc,
                 llm_planner_fn=_make_planner_fn(
@@ -508,7 +530,11 @@ def _boot_agents() -> None:
                 ),
                 model=entry.model or cfg.ollama_model,
                 temperature=entry.temperature,
-            ))
+            )
+            martin.provider = entry.provider
+            martin.ollama_url = entry.ollama_url or cfg.ollama_url
+            martin.soul = entry.persona
+            conductor.register(martin)
 
         elif isinstance(entry, SkillAgentConfig):
             if not entry.enabled:

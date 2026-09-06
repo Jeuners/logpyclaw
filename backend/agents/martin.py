@@ -4,7 +4,7 @@ backend/agents/martin.py — Martin, der Operator-Agent.
 Martin ist der kanonische OPERATORS-Fraktions-Agent. Er:
 - Empfängt komplexe Tasks und zerlegt sie (Intent-Detection)
 - Delegiert an die richtige Fraktion/Agent über den Conductor
-- Liest CDC llm_summary() und Faction-γ_ij für Routing-Entscheidungen
+- Verwendet optional gemessene Aktionslatenzen im injizierten Planner
 - Führt QC-Loops durch (Auditor-Delegation mit Score-Schwelle)
 - Dient als Operator-Bridge für cross-faction ADVERSARIAL-Verkehr
 
@@ -24,6 +24,7 @@ from backend.core.cdc import CausalDilationClock
 from backend.core.faction_protocol import FactionRegistry
 from backend.core.logging import get_logger
 from backend.core.protocol import Message, MessageType
+from backend.core.timing import current_timing
 
 log = get_logger("logpyclaw.martin")
 
@@ -127,6 +128,10 @@ class MartinAgent(AsyncAgent):
         # der Planner darf die Original-Spezifikation nicht umschreiben.
         explicit = self._explicit_target(content)
         if explicit:
+            measured = current_timing()
+            if measured is not None:
+                measured.routing = {"mode": "explicit", "latency_context_supplied": False,
+                                    "candidates": [], "selected_agents": [explicit]}
             return await self._delegate_with_qc(msg, explicit, content, clock)
 
         # 3. Front-Desk aufrufen: Martin antwortet selbst (str) ODER delegiert (steps)

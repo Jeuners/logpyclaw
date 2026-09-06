@@ -23,6 +23,7 @@ from backend.core.protocol import (
 )
 from backend.storage.mission_store import MissionStore
 from backend.storage.sqlite_store import make_store
+from backend.core.timing import TimingRegistry, timing_span
 
 log = get_logger(__name__)
 
@@ -36,14 +37,17 @@ class Conductor:
         self._agents: dict[str, object] = {}  # agent_id → AsyncAgent
         self.store = store or (make_store(db_url) if db_url else MissionStore())
         self._watchdog_task: asyncio.Task | None = None
+        self.timings = TimingRegistry()
 
     # ── Agenten-Registry ──────────────────────────────────────────────────────
 
     def register(self, agent) -> None:
+        self.timings.forget(agent.agent_id)
         self._agents[agent.agent_id] = agent
 
     def unregister(self, agent_id: str) -> None:
         self._agents.pop(agent_id, None)
+        self.timings.forget(agent_id)
 
     def get_agent(self, agent_id: str):
         return self._agents.get(agent_id)
@@ -157,12 +161,18 @@ class Conductor:
     # ── Dispatch ──────────────────────────────────────────────────────────────
 
     async def dispatch(self, msg: Message) -> Message:
+        # Ein Kind-Dispatch ist beobachtbare Wartezeit des aufrufenden Agenten.
+        with timing_span("delegation"):
+            return await self._dispatch(msg)
+
+    async def _dispatch(self, msg: Message) -> Message:
         """Leite eine CDC-Message an den Empfänger-Agenten weiter.
 
         Verdrahtet das Fraktionssystem: FactionEnvelope wird vor der
         Zustellung gebaut, ADVERSARIAL-Verkehr über Martins Bridge
         umgeleitet, und nach Abschluss lernen Trust/γ automatisch.
         """
+        dispatch_started = self.timings.clock()
         registry = FactionRegistry.get()
         envelope = registry.build_envelope(msg.sender, msg.recipient)
         if envelope and "_faction" not in msg.payload:
@@ -226,9 +236,10 @@ class Conductor:
         )
 
         try:
-            response = await asyncio.wait_for(
-                agent.handle(msg),
-                timeout=timeout,
+            response = await self.timings.observe(
+                agent,
+                lambda: asyncio.wait_for(agent.handle(msg), timeout=timeout),
+                started=dispatch_started,
             )
         except TimeoutError:
             task.transition(TaskState.TIMEOUT)

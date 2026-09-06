@@ -10,6 +10,7 @@ from __future__ import annotations
 from backend.agents.base import AsyncAgent
 from backend.core.protocol import Message
 from backend.skills import Skill
+from backend.core.timing import timing_span
 
 
 class SkillAgent(AsyncAgent):
@@ -21,7 +22,8 @@ class SkillAgent(AsyncAgent):
         clock = self.advance_clock(msg.clock)
         query = msg.payload.get("content", "")
         try:
-            result = await self._skill.execute(query)
+            with timing_span("tool"):
+                result = await self._skill.execute(query)
             return Message.response(msg, result, clock=clock)
         except Exception as e:
             return Message.error(msg, f"[{self._skill.skill_id}] {e}", clock=clock)
