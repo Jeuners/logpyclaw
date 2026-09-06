@@ -221,3 +221,19 @@ async def test_failed_planning_is_error_not_success_sample():
     result = await conductor.start_mission("test", martin.agent_id, "hello")
     assert result["state"] == "failed"
     assert conductor.timings.summary(martin)["samples"] == 0
+
+
+def test_agent_api_exposes_latency_with_unknown_not_zero():
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from backend.api.agents import router
+
+    app = FastAPI()
+    app.state.conductor = Conductor()
+    app.state.conductor.register(Echo("agent:echo", "Echo"))
+    app.include_router(router, prefix="/api")
+    with TestClient(app) as client:
+        item = client.get("/api/agents/agent:echo").json()
+        assert item["latency"]["status"] == "unknown"
+        assert item["latency"]["median_s"] is None
+        assert client.get("/api/agents").json()[0]["latency"] == item["latency"]
