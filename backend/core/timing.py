@@ -23,6 +23,13 @@ def agent_identity(agent: Any) -> dict[str, str]:
     provider = str(getattr(agent, "provider", type(agent).__name__))
     model = str(getattr(agent, "model", getattr(agent, "_model", "")))
     endpoint = str(getattr(agent, "ollama_url", getattr(agent, "_bin", provider)))
+    skill = getattr(agent, "_skill", None)
+    skill_config = {
+        key: value for key, value in vars(skill).items()
+        if isinstance(value, (str, int, float, bool, type(None)))
+    } if skill is not None else {}
+    if skill is not None:
+        endpoint = str(getattr(skill, "endpoint", getattr(skill, "_endpoint", endpoint)))
     backend_id = hashlib.sha256(f"{provider}|{endpoint}".encode()).hexdigest()[:16]
     config = {
         "provider": provider, "model": model, "endpoint": endpoint,
@@ -31,6 +38,7 @@ def agent_identity(agent: Any) -> dict[str, str]:
         "reasoning_max_tokens": getattr(agent, "reasoning_max_tokens", None),
         "model_revision": getattr(agent, "model_revision", None),
         "soul": getattr(agent, "soul", getattr(agent, "_goal", "")),
+        "skill_config": skill_config,
     }
     config_id = hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()[:16]
     return {"provider": provider, "model": model, "backend_id": backend_id,
@@ -129,8 +137,9 @@ class TimingRegistry:
         response = None
         try:
             response = await operation()
+            qc = response.payload.get("_qc")
             success = (response.type == MessageType.RESPONSE
-                       and response.payload.get("_qc", {}).get("passed", True))
+                       and (qc is None or isinstance(qc, dict) and qc.get("passed", True)))
             return response
         finally:
             finished = self.clock()

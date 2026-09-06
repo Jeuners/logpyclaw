@@ -77,6 +77,7 @@ class Conductor:
         content: str,
         timeout_sec: float = _DEFAULT_TASK_TIMEOUT,
     ) -> dict:
+        mission_started = time.monotonic()
         mission_id = new_mission_id()
         self.store.register_mission(
             mission_id,
@@ -96,10 +97,12 @@ class Conductor:
         )
         result_msg = await self.dispatch(msg)
         state = "completed" if result_msg.type == MessageType.RESPONSE else "failed"
-        self.store.update_mission(mission_id, state=state, finished_at=time.time())
+        duration = time.monotonic() - mission_started
+        self.store.update_mission(mission_id, state=state, finished_at=time.time(), duration_s=duration)
         return {
             "mission_id": mission_id,
             "state": state,
+            "duration_s": duration,
             "result": result_msg.payload,
         }
 
@@ -235,10 +238,21 @@ class Conductor:
             else _DEFAULT_TASK_TIMEOUT
         )
 
+        async def run_agent() -> Message:
+            result = await asyncio.wait_for(agent.handle(msg), timeout=timeout)
+            # Ein weitergereichtes Kind-Ergebnis ist bereits signiert. Für den
+            # Eltern-Task eine eigene Antwort erzeugen, bevor Timing ergänzt wird.
+            if result.sig is not None or result.task_id != msg.task_id:
+                wrapped = Message.response(msg, result.payload.get("result"), clock=result.clock)
+                wrapped.type = result.type
+                wrapped.payload = {**result.payload, "_source_msg_id": result.msg_id}
+                return wrapped
+            return result
+
         try:
             response = await self.timings.observe(
                 agent,
-                lambda: asyncio.wait_for(agent.handle(msg), timeout=timeout),
+                run_agent,
                 started=dispatch_started,
             )
         except TimeoutError:
