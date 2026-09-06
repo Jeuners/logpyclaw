@@ -238,3 +238,21 @@ def test_agent_api_exposes_latency_with_unknown_not_zero():
         assert item["latency"]["status"] == "unknown"
         assert item["latency"]["median_s"] is None
         assert client.get("/api/agents").json()[0]["latency"] == item["latency"]
+
+
+def test_browser_stream_records_failed_planning_as_failed_mission():
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from backend.api.chat import router
+
+    app = FastAPI()
+    conductor = Conductor()
+    martin = MartinAgent(conductor=conductor, llm_planner_fn=AsyncMock(return_value=None))
+    conductor.register(martin)
+    app.state.conductor = conductor
+    app.include_router(router, prefix="/api")
+    with TestClient(app) as client:
+        r = client.get("/api/chat/stream", params={"agent_id": martin.agent_id, "message": "hello"})
+        assert "task_failed" in r.text
+        mission = conductor.store.list_missions()[0]
+        assert mission["state"] == "failed"
