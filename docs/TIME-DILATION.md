@@ -1,5 +1,11 @@
 # Time Is Not Metadata — Implementierungsabgleich
 
+**Historischer Ausgangsstand:** Der folgende Abgleich beschreibt den unten
+gepinnten Commit vor der Umsetzung. Die inzwischen ergänzte monotone
+Laufzeitmessung und der optionale Planner-Kontext sind in
+[MEASURED-LATENCY.md](MEASURED-LATENCY.md) dokumentiert. Die dort beschriebenen
+Erweiterungen ändern die historische Auswertung nicht.
+
 Stand: 2026-09-06. Geprüfte Codebasis: `da935366521a00c25ae940ea0581ac9800064782`.
 Zugehöriges [Paper](https://github.com/Jeuners/Time_Dilation_in_LLM_Agent_Systems),
 geprüfte Ausgangsfassung: `ca45b8946ff0d6933afba8bb34c0b49610c333ed`.

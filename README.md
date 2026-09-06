@@ -8,12 +8,13 @@ Forschungsgrundlage: [Time Is Not Metadata](https://github.com/Jeuners/Time_Dila
 Der [Implementierungsabgleich](docs/TIME-DILATION.md) dokumentiert, welche
 Paper-Komponenten dieser Code tatsächlich umsetzt und wo Messgrenzen bestehen.
 Die [Experimentübersicht](experiments/README.md) ordnet Skripte, Rohdaten und
-Endpunkte zu. CDC-Raten sind derzeit nicht allgemein an Martins Planner angebunden;
-die Delegationsexperimente injizieren separat gemessene Aktionslatenzen.
+Endpunkte zu. Der Planner kann jetzt separat gemessene Aktionslatenzen erhalten;
+CDC-Protokollraten und Modelllaufzeiten bleiben unterschiedliche Größen.
+Einrichtung und Messgrenzen: [Gemessene Aktionslatenzen](docs/MEASURED-LATENCY.md).
 
 ## Umsetzung: zuverlässiger Betrieb und gemessene Delegation
 
-Die nächste Umsetzung umfasst drei überprüfbare Schritte:
+Die Umsetzung umfasst drei überprüfbare Schritte:
 
 1. Martin und Alice mit `qwen3.5:latest` lokal betreiben und Chat sowie
    Delegation praktisch prüfen. Frühere lokale Arbeiten gezielt abgleichen.
@@ -22,6 +23,10 @@ Die nächste Umsetzung umfasst drei überprüfbare Schritte:
 3. Martin optional einen begrenzten Block mit gemessenen Aktionslatenzen,
    Stichprobenzahl, Alter und Unsicherheit geben. Explizite Zielvorgaben behalten
    Vorrang; fehlende oder veraltete Messungen gelten nicht als schnelle Agenten.
+
+Diese Funktionen sind implementiert und durch Tests abgesichert. Der
+Latenzblock wird mit `MARTIN_LATENCY_CONTEXT_ENABLED=true` aktiviert; Details
+und Live-Prüfungen stehen im [Umsetzungsnachweis](docs/testing/measured-latency.tdd.md).
 
 Der Kontextform-Vergleich des Papers, dezentrale Netzwerktopologie und ein
 versioniertes Signaturformat für τ sind separate Folgearbeiten. Die vorhandenen
