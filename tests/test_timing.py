@@ -206,3 +206,48 @@ async def test_routing_context_is_bounded_explicit_and_switchable():
     assert len(block) <= 800
     assert "unbekannt" in block
     assert len(evidence) < 50
+
+
+@pytest.mark.asyncio
+async def test_optional_null_qc_does_not_break_successful_reply():
+    registry = timing.TimingRegistry()
+
+    async def run():
+        r = response()
+        r.payload["_qc"] = None
+        return r
+
+    r = await registry.observe(agent(), run)
+    assert r.payload["_timing"]["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_simultaneous_calls_keep_separate_model_spans():
+    registry = timing.TimingRegistry()
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    a = agent("first")
+    b = agent("second")
+    b.agent_id = "agent:bob"
+
+    async def slow():
+        with timing.timing_span("model"):
+            entered.set()
+            await release.wait()
+        return response()
+
+    task = asyncio.create_task(registry.observe(a, slow))
+    await entered.wait()
+    fast = await registry.observe(b, lambda: asyncio.sleep(0, result=response()))
+    release.set()
+    delayed = await task
+    assert fast.payload["_timing"]["model_request_s"] == 0
+    assert delayed.payload["_timing"]["model_request_s"] > 0
+    assert timing.current_timing() is None
+
+
+def test_skill_endpoint_changes_invalidate_identity():
+    worker = SimpleNamespace(agent_id="skill:test", _skill=SimpleNamespace(endpoint="http://first"))
+    before = timing.agent_identity(worker)
+    worker._skill.endpoint = "http://second"
+    assert timing.agent_identity(worker) != before

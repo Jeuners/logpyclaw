@@ -170,3 +170,32 @@ def test_timing_settings_are_validated():
         Settings(_env_file=None, latency_max_age_s=-1)
     with pytest.raises(ValueError):
         Settings(_env_file=None, martin_latency_context_max_chars=100)
+
+
+@pytest.mark.asyncio
+async def test_signed_child_error_is_not_mutated_when_returned_by_parent():
+    class Failing(Echo):
+        async def handle(self, msg):
+            return Message.error(msg, "child failed", clock=self.advance_clock(msg.clock))
+
+    conductor = Conductor()
+    child = Failing("agent:alice", "Alice")
+    martin = MartinAgent(conductor=conductor, qc=QCConfig(enabled=False))
+    conductor.register(child)
+    conductor.register(martin)
+    result = await conductor.start_mission("test", martin.agent_id, "@agent:alice hello")
+    trace = conductor.store.get_trace(result["mission_id"])
+    errors = [m for m in trace if m.type == MessageType.ERROR]
+    assert len(errors) == 2
+    assert errors[0].msg_id != errors[1].msg_id
+    assert errors[0].payload["_timing"]["identity"] != errors[1].payload["_timing"]["identity"]
+    assert conductor.store.verify_chain(result["mission_id"])["valid"] is True
+
+
+@pytest.mark.asyncio
+async def test_total_mission_duration_includes_dispatch_and_finalisation():
+    conductor = Conductor()
+    conductor.register(Echo("agent:echo", "Echo"))
+    result = await conductor.start_mission("test", "agent:echo", "hello")
+    assert result["duration_s"] >= result["result"]["_timing"]["total_s"]
+    assert conductor.store.get_mission(result["mission_id"])["duration_s"] == result["duration_s"]
