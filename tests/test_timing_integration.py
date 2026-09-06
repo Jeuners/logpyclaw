@@ -226,6 +226,7 @@ async def test_failed_planning_is_error_not_success_sample():
 def test_agent_api_exposes_latency_with_unknown_not_zero():
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+
     from backend.api.agents import router
 
     app = FastAPI()

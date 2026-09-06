@@ -267,7 +267,11 @@ async def test_ready_evidence_is_not_crowded_out_by_unknown_agents():
     known = agent()
     for _ in range(3):
         await registry.observe(known, lambda: asyncio.sleep(0, result=response()))
-    unknown = [SimpleNamespace(**{**vars(known), "agent_id": f"agent:unknown_{i}"}) for i in range(40)]
-    block, evidence = timing.routing_context(registry, [*unknown, known], enabled=True, max_chars=800)
+    unknown = [
+        SimpleNamespace(**{**vars(known), "agent_id": f"agent:unknown_{i}"}) for i in range(40)
+    ]
+    block, evidence = timing.routing_context(
+        registry, [*unknown, known], enabled=True, max_chars=800
+    )
     assert evidence[0]["agent_id"] == known.agent_id
     assert "Median" in block

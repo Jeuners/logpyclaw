@@ -224,8 +224,11 @@ def routing_context(
         return "", []
     block = header
     evidence = []
-    for agent in agents:
-        summary = registry.summary(agent)
+    # Verfügbare Messreihen zuerst, ohne Agenten anhand ihrer Geschwindigkeit
+    # vorzusortieren. Unbekannte dürfen den begrenzten Block nicht auffüllen.
+    summaries = [(agent, registry.summary(agent)) for agent in agents]
+    summaries.sort(key=lambda pair: pair[1]["status"] != "ready")
+    for agent, summary in summaries:
         # JSON escaping keeps agent/model names on one line even with unusual config.
         label = json.dumps(agent.agent_id, ensure_ascii=True)[:100]
         model = json.dumps(summary["identity"]["model"], ensure_ascii=True)[:100]
