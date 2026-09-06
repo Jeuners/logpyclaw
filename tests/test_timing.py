@@ -1,4 +1,5 @@
 """Contracts for monotonic action timing and bounded routing evidence."""
+
 from __future__ import annotations
 
 import asyncio
@@ -22,13 +23,20 @@ class Clock:
 
 
 def agent(model="qwen", endpoint="http://localhost:11434"):
-    return SimpleNamespace(agent_id="agent:alice", provider="ollama", model=model,
-                           ollama_url=endpoint, temperature=0.7, max_tokens=100)
+    return SimpleNamespace(
+        agent_id="agent:alice",
+        provider="ollama",
+        model=model,
+        ollama_url=endpoint,
+        temperature=0.7,
+        max_tokens=100,
+    )
 
 
 def response():
-    msg = Message.request(mission_id="mis_test", sender="ext:user",
-                          recipient="agent:alice", content="test")
+    msg = Message.request(
+        mission_id="mis_test", sender="ext:user", recipient="agent:alice", content="test"
+    )
     return Message.response(msg, "ok")
 
 

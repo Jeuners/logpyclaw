@@ -1,4 +1,5 @@
 """Dispatcher, monotonic CDC rate and planner wiring without network calls."""
+
 from __future__ import annotations
 
 import asyncio
@@ -16,7 +17,6 @@ from backend.agents.martin import MartinAgent, QCConfig
 from backend.config import Settings
 from backend.core.faction_protocol import FactionRegistry
 from backend.core.protocol import Message, MessageType, new_mission_id
-from backend.core.timing import TimingRegistry
 
 
 class Echo(AsyncAgent):
@@ -100,9 +100,11 @@ async def test_dispatch_timeout_records_failed_attempt_without_fast_sample():
 def planner_app(monkeypatch, tmp_path):
     # Prevent tests from opening the user's databases at app import.
     from backend.core.memory import SemanticMemory
+
     monkeypatch.setattr(SemanticMemory, "__init__", lambda self: None)
     monkeypatch.setenv("DB_URL", "sqlite://")
     from backend.config import get_settings
+
     get_settings.cache_clear()
     app = importlib.import_module("backend.app")
     monkeypatch.setattr(app, "memory", SimpleNamespace(recall=AsyncMock(return_value=[])))
@@ -113,7 +115,9 @@ def planner_app(monkeypatch, tmp_path):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("enabled", [False, True])
-async def test_planner_receives_optional_context_and_audits_decision(planner_app, monkeypatch, enabled):
+async def test_planner_receives_optional_context_and_audits_decision(
+    planner_app, monkeypatch, enabled
+):
     app = planner_app
     worker = Echo("agent:alice", "Alice")
     app.conductor.register(worker)
@@ -133,17 +137,25 @@ async def test_planner_receives_optional_context_and_audits_decision(planner_app
 
         async def post(self, url, *, json, headers):
             captured.update(json)
-            return SimpleNamespace(raise_for_status=lambda: None, json=lambda: {
-                "message": {"content": '{"tasks":[{"agent":"agent:alice","content":"test"}]}'}})
+            return SimpleNamespace(
+                raise_for_status=lambda: None,
+                json=lambda: {
+                    "message": {"content": '{"tasks":[{"agent":"agent:alice","content":"test"}]}'}
+                },
+            )
 
     import httpx
+
     monkeypatch.setattr(httpx, "AsyncClient", Client)
     cfg = Settings(_env_file=None, martin_latency_context_enabled=enabled)
     planner = app._make_planner_fn(cfg, model="test", provider="ollama")
-    martin = MartinAgent(conductor=app.conductor, llm_planner_fn=planner,
-                         qc=QCConfig(enabled=False), model="test")
+    martin = MartinAgent(
+        conductor=app.conductor, llm_planner_fn=planner, qc=QCConfig(enabled=False), model="test"
+    )
     app.conductor.register(martin)
     result = await app.conductor.start_mission("test", "agent:martin", "delegiere die Aufgabe")
+    assert captured["format"] == "json"
+    assert captured["think"] is False
     prompt = captured["messages"][0]["content"]
     assert ("Gemessene Aktionslatenzen" in prompt) is enabled
     audit = result["result"]["_timing"]["routing"]
@@ -199,3 +211,13 @@ async def test_total_mission_duration_includes_dispatch_and_finalisation():
     result = await conductor.start_mission("test", "agent:echo", "hello")
     assert result["duration_s"] >= result["result"]["_timing"]["total_s"]
     assert conductor.store.get_mission(result["mission_id"])["duration_s"] == result["duration_s"]
+
+
+@pytest.mark.asyncio
+async def test_failed_planning_is_error_not_success_sample():
+    conductor = Conductor()
+    martin = MartinAgent(conductor=conductor, llm_planner_fn=AsyncMock(return_value=None))
+    conductor.register(martin)
+    result = await conductor.start_mission("test", martin.agent_id, "hello")
+    assert result["state"] == "failed"
+    assert conductor.timings.summary(martin)["samples"] == 0
