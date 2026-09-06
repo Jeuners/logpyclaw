@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from backend.config import get_settings
-from backend.core.protocol import Message, external_ref, new_mission_id
+from backend.core.protocol import Message, MessageType, external_ref, new_mission_id
 
 router = APIRouter()
 
@@ -64,8 +64,9 @@ async def chat_stream(agent_id: str, message: str, request: Request):
         queue = conductor.store.subscribe(mission_id)
         try:
             async def run():
-                await conductor.dispatch(msg)
-                conductor.store.update_mission(mission_id, state="completed")
+                response = await conductor.dispatch(msg)
+                state = "completed" if response.type == MessageType.RESPONSE else "failed"
+                conductor.store.update_mission(mission_id, state=state, finished_at=time.time())
 
             asyncio.create_task(run())
             yield f"data: {json.dumps({'event': 'init', 'root_task_id': root_task_id, 'mission_id': mission_id})}\n\n"

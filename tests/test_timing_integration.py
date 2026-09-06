@@ -243,6 +243,7 @@ def test_agent_api_exposes_latency_with_unknown_not_zero():
 def test_browser_stream_records_failed_planning_as_failed_mission():
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+
     from backend.api.chat import router
 
     app = FastAPI()
