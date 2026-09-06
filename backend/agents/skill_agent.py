@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from backend.agents.base import AsyncAgent
 from backend.core.protocol import Message
-from backend.skills import Skill
 from backend.core.timing import timing_span
+from backend.skills import Skill
 
 
 class SkillAgent(AsyncAgent):

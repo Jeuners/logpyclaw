@@ -21,9 +21,9 @@ from backend.core.protocol import (
     external_ref,
     new_mission_id,
 )
+from backend.core.timing import TimingRegistry, timing_span
 from backend.storage.mission_store import MissionStore
 from backend.storage.sqlite_store import make_store
-from backend.core.timing import TimingRegistry, timing_span
 
 log = get_logger(__name__)
 

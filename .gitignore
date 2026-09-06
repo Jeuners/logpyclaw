@@ -13,6 +13,8 @@ dist/
 .vite/
 *.log
 .DS_Store
+.coverage
+htmlcov/
 .claude/
 dreams/
 frontend/screenshots/

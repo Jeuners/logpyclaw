@@ -1,4 +1,5 @@
 """Monotone Laufzeitmessung; unabhängig von CDC und historischen Signaturen."""
+
 from __future__ import annotations
 
 import hashlib
@@ -24,15 +25,22 @@ def agent_identity(agent: Any) -> dict[str, str]:
     model = str(getattr(agent, "model", getattr(agent, "_model", "")))
     endpoint = str(getattr(agent, "ollama_url", getattr(agent, "_bin", provider)))
     skill = getattr(agent, "_skill", None)
-    skill_config = {
-        key: value for key, value in vars(skill).items()
-        if isinstance(value, (str, int, float, bool, type(None)))
-    } if skill is not None else {}
+    skill_config = (
+        {
+            key: value
+            for key, value in vars(skill).items()
+            if isinstance(value, (str, int, float, bool, type(None)))
+        }
+        if skill is not None
+        else {}
+    )
     if skill is not None:
         endpoint = str(getattr(skill, "endpoint", getattr(skill, "_endpoint", endpoint)))
     backend_id = hashlib.sha256(f"{provider}|{endpoint}".encode()).hexdigest()[:16]
     config = {
-        "provider": provider, "model": model, "endpoint": endpoint,
+        "provider": provider,
+        "model": model,
+        "endpoint": endpoint,
         "temperature": getattr(agent, "temperature", None),
         "max_tokens": getattr(agent, "max_tokens", None),
         "reasoning_max_tokens": getattr(agent, "reasoning_max_tokens", None),
@@ -41,8 +49,7 @@ def agent_identity(agent: Any) -> dict[str, str]:
         "skill_config": skill_config,
     }
     config_id = hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()[:16]
-    return {"provider": provider, "model": model, "backend_id": backend_id,
-            "config_id": config_id}
+    return {"provider": provider, "model": model, "backend_id": backend_id, "config_id": config_id}
 
 
 def _union_duration(intervals: list[tuple[float, float]]) -> float:
@@ -105,9 +112,21 @@ def timing_span(kind: str) -> Iterator[None]:
 class TimingRegistry:
     """Begrenzte prozesslokale Messreihen pro Agent und Konfigurationsepoche."""
 
-    def __init__(self, *, clock: Callable[[], float] | None = None, window: int = 64,
-                 max_age_s: float = 1800, min_samples: int = 3) -> None:
-        if window < 1 or min_samples < 1 or min_samples > window or not math.isfinite(max_age_s) or max_age_s <= 0:
+    def __init__(
+        self,
+        *,
+        clock: Callable[[], float] | None = None,
+        window: int = 64,
+        max_age_s: float = 1800,
+        min_samples: int = 3,
+    ) -> None:
+        if (
+            window < 1
+            or min_samples < 1
+            or min_samples > window
+            or not math.isfinite(max_age_s)
+            or max_age_s <= 0
+        ):
             raise ValueError("invalid timing window, age or minimum sample count")
         self.clock = clock or time.monotonic
         self.window = window
@@ -126,8 +145,13 @@ class TimingRegistry:
             self._epochs[agent.agent_id] = existing
         return existing
 
-    async def observe(self, agent: Any, operation: Callable[[], Awaitable[Message]],
-                      *, started: float | None = None) -> Message:
+    async def observe(
+        self,
+        agent: Any,
+        operation: Callable[[], Awaitable[Message]],
+        *,
+        started: float | None = None,
+    ) -> Message:
         """Erfasst auch Fehler/Abbrüche, ohne sie als schnelle Erfolge zu verwenden."""
         identity, samples = self._epoch(agent)
         begin = self.clock()
@@ -138,8 +162,9 @@ class TimingRegistry:
         try:
             response = await operation()
             qc = response.payload.get("_qc")
-            success = (response.type == MessageType.RESPONSE
-                       and (qc is None or isinstance(qc, dict) and qc.get("passed", True)))
+            success = response.type == MessageType.RESPONSE and (
+                qc is None or isinstance(qc, dict) and qc.get("passed", True)
+            )
             return response
         finally:
             finished = self.clock()
@@ -158,12 +183,23 @@ class TimingRegistry:
         successful = [s for s in recent if s[1]]
         durations = sorted(s[2]["total_s"] for s in successful)
         n = len(durations)
-        status = ("ready" if n >= self.min_samples else "insufficient" if n else
-                  "stale" if samples and not recent else "unknown")
+        status = (
+            "ready"
+            if n >= self.min_samples
+            else "insufficient"
+            if n
+            else "stale"
+            if samples and not recent
+            else "unknown"
+        )
         return {
-            "identity": dict(identity), "status": status, "samples": n,
-            "attempts": len(recent), "failures": sum(not s[1] for s in recent),
-            "window": self.window, "max_age_s": self.max_age_s,
+            "identity": dict(identity),
+            "status": status,
+            "samples": n,
+            "attempts": len(recent),
+            "failures": sum(not s[1] for s in recent),
+            "window": self.window,
+            "max_age_s": self.max_age_s,
             "age_s": max(0.0, now - successful[-1][0]) if successful else None,
             "median_s": statistics.median(durations) if n else None,
             "p90_s": durations[math.ceil(0.9 * n) - 1] if n else None,
@@ -171,8 +207,9 @@ class TimingRegistry:
         }
 
 
-def routing_context(registry: TimingRegistry, agents: Sequence[Any], *, enabled: bool,
-                    max_chars: int = 2400) -> tuple[str, list[dict[str, Any]]]:
+def routing_context(
+    registry: TimingRegistry, agents: Sequence[Any], *, enabled: bool, max_chars: int = 2400
+) -> tuple[str, list[dict[str, Any]]]:
     """Begrenzte Beobachtungen; Eignung und explizite Ziele haben immer Vorrang."""
     if not enabled:
         return "", []
@@ -195,9 +232,11 @@ def routing_context(registry: TimingRegistry, agents: Sequence[Any], *, enabled:
         line = f"- {label} Modell={model} Backend={summary['identity']['backend_id']}: "
         if summary["status"] == "ready":
             low, high = summary["range_s"]
-            line += (f"Median={summary['median_s']:.3f}s p90={summary['p90_s']:.3f}s "
-                     f"Spanne={low:.3f}..{high:.3f}s n={summary['samples']} "
-                     f"Alter={summary['age_s']:.1f}s Fehler={summary['failures']}\n")
+            line += (
+                f"Median={summary['median_s']:.3f}s p90={summary['p90_s']:.3f}s "
+                f"Spanne={low:.3f}..{high:.3f}s n={summary['samples']} "
+                f"Alter={summary['age_s']:.1f}s Fehler={summary['failures']}\n"
+            )
         else:
             line += f"unbekannt ({summary['status']}, n={summary['samples']})\n"
         if len(block) + len(line) > max_chars:

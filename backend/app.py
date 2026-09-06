@@ -318,6 +318,8 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: st
                     "model": planner_model,
                     "messages": [{"role": "user", "content": prompt}],
                     "stream": False,
+                    "format": "json",
+                    "think": False,
                     "options": {"temperature": temperature},
                 }
                 headers = {"Content-Type": "application/json"}

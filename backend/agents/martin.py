@@ -142,9 +142,10 @@ class MartinAgent(AsyncAgent):
                 return Message.response(msg, plan, clock=clock)
             steps = plan
             if not steps:
-                return Message.response(
-                    msg, f"[Martin] No plan found for: {content[:80]}", clock=clock
-                )
+                measured = current_timing()
+                if measured is not None and measured.routing is not None:
+                    measured.routing["mode"] = "planner_error"
+                return Message.error(msg, "Martin konnte keinen gültigen Plan oder eine Antwort erzeugen.", clock=clock)
             if len(steps) == 1:
                 return await self._delegate_with_qc(msg, steps[0].agent_id, steps[0].content, clock)
             return await self._execute_plan(msg, steps, clock)
