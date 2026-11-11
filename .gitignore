@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.env
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+node_modules/
+dist/
+.vite/
+*.log
+.DS_Store
+.coverage
+htmlcov/
+.claude/
+dreams/
+frontend/screenshots/
+
+# PQC Audit-Log Signer-Keys — ONLY .pub darf ins Repo, .sk + .json niemals
+keys/*.sk
+keys/*.json
+*.bak.pre-pqc.*
+memory.db
+
+# Interne Session-Notizen (nicht versioniert)
+docs/MEMORY-*.md
+*.egg-info/

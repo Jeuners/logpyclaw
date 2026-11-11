@@ -1,0 +1,688 @@
+"""
+backend/app.py — LogpyClaw v3 FastAPI entry point.
+"""
+
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+# Logging früh initialisieren: BroadcastHandler an Root anhängen,
+# damit Live-Log alle module-level logger erfasst.
+from backend.core.logging import get_logger  # noqa: E402
+
+get_logger("logpyclaw.boot").info("LogpyClaw v3 boot")
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+
+from backend.agents.a2a_gateway import A2AGatewayAgent
+from backend.agents.claude_agent import ClaudeSSHAgent
+from backend.agents.conductor import Conductor
+from backend.agents.llm_agent import LLMAgent
+from backend.agents.martin import MartinAgent
+from backend.agents.skill_agent import SkillAgent
+from backend.api.a2a.gateway_router import router as a2a_router
+from backend.api.agents import router as agents_router
+from backend.api.ard import router as ard_router
+from backend.api.chat import router as chat_router
+from backend.api.chrome_ws import router as chrome_ws_router
+from backend.api.deploys import router as deploys_router
+from backend.api.dreams import router as dreams_router
+from backend.api.factions import router as factions_router
+from backend.api.files import router as files_router
+from backend.api.keys import router as keys_router
+from backend.api.logs import router as logs_router
+from backend.api.memory import router as memory_router
+from backend.api.missions import router as missions_router
+from backend.api.openai_compat import router as openai_router
+from backend.api.rss import router as rss_router
+from backend.api.teams import router as teams_router
+from backend.api.web_bridge import router as web_bridge_router
+from backend.config import get_settings
+from backend.core.memory import SemanticMemory
+from backend.core.timing import TimingRegistry, current_timing, routing_context, timing_span
+from backend.i18n import locale_from_header
+from backend.skills.browser import BrowserSkill
+from backend.skills.chrome_browser import ChromeBrowserSkill
+from backend.skills.coding import CodingSkill
+from backend.skills.comfyui import ComfyUISkill
+from backend.skills.deploy import DeploySkill
+from backend.skills.file import FileSkill
+from backend.skills.gmail import GmailSkill
+from backend.skills.krea2_turbo import Krea2TurboSkill
+from backend.skills.linkedin import LinkedInSkill
+from backend.skills.ltxvideo import LTXVideoSkill
+from backend.skills.memory import MemorySkill
+from backend.skills.physorg import PhysOrgSkill
+from backend.skills.rss import RSSSkill
+from backend.skills.telegram import TelegramSkill
+from backend.skills.transcription import TranscriptionSkill
+from backend.skills.upscale import UpscaleSkill
+from backend.skills.urlfetch import UrlFetchSkill
+from backend.skills.websearch import WebSearchSkill
+from backend.skills.wikipedia import WikipediaSkill
+from backend.skills.youtube import YouTubeSkill
+
+# ── Global instances ──────────────────────────────────────────────────────────
+
+conductor = Conductor(db_url=get_settings().db_url)
+conductor.timings = TimingRegistry(max_age_s=get_settings().latency_max_age_s,
+                                  min_samples=get_settings().latency_min_samples)
+memory = SemanticMemory()  # semantisches Langzeit-Gedächtnis (RAG, sqlite-vec)
+
+
+_DEFAULT_MARTIN_PERSONA = (
+    "Du bist Martin, der persönliche Assistent des Nutzers. Du bist hilfsbereit, "
+    "direkt und sprichst per Du auf Deutsch. Du hast ein semantisches "
+    "Langzeit-Gedächtnis: relevante Erinnerungen über den Nutzer und seine "
+    "Projekte werden dir pro Nachricht eingeblendet — nutze sie, statt zu raten. "
+    "Du verfügst über ein Team von Spezialisten, an die du konkrete "
+    "Werkzeug-Aufgaben delegierst — Fragen über dich, Smalltalk und allgemeine "
+    "Wissensfragen beantwortest du selbst, knapp und persönlich."
+)
+
+def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: str = "", provider: str = "ollama", ollama_url: str = ""):
+    """Baut Martins async Front-Desk-Funktion.
+
+    Martin entscheidet pro Nachricht: entweder er antwortet SELBST in seiner
+    Persona (Smalltalk, Identität, allgemeine Fragen) — Rückgabe als str —,
+    oder er erstellt einen Delegations-Plan (eine/mehrere DelegationSteps) für
+    echte Werkzeug-Aufgaben. None = kein verwertbares Ergebnis.
+    """
+    persona = persona.strip() or _DEFAULT_MARTIN_PERSONA
+    # Provider kommt explizit aus agents.yaml (MartinAgentConfig.provider) —
+    # Default "ollama". Slug-Heuristik ("/" → OpenRouter) ist nicht mehr
+    # ausreichend, weil Ollama-Modell-Namen wie "anbieter/modell-name:tag"
+    # ebenfalls "/" enthalten und sonst fälschlich als OpenRouter-Slug interpretiert würden.
+    planner_model = model or cfg.ollama_model
+    planner_provider = (provider or "ollama").lower()
+    planner_ollama_url = ollama_url or cfg.ollama_url
+    import json as _json
+    import re as _re
+
+    import httpx
+
+    from backend.agents.martin import DelegationStep
+
+    # Zeilen mit Datei-/Deploy-Pfaden — die stehen in Martins Multi-Step-Antworten
+    # meist ganz am Ende (nach "Schritt 1/3 ... Schritt 2/3 ..."), landen bei
+    # einem naiven [:300]-Schnitt also nie im Verlauf. Ein Folge-"deploy" kannte
+    # dadurch nie den Pfad, den skill:file gerade erst geschrieben hatte
+    # (reproduziert am 2026-08-21: "deploy" nach erfolgreichem Website-Build
+    # musste extra nachfragen, statt den bekannten Pfad zu nutzen).
+    _ARTIFACT_LINE_RE = _re.compile(r"^.*(?:📝 Geschrieben:|\[Deploy\]).*$", _re.MULTILINE)
+
+    def _convo_preview(text: str, limit: int = 300) -> str:
+        """Kürzt einen Verlaufs-Eintrag aufs Prompt-Budget, behält aber Datei-/
+        Deploy-Zeilen immer vollständig, egal wo im Text sie stehen."""
+        if len(text) <= limit:
+            return text
+        preview = text[:limit]
+        artifacts = [
+            m.strip() for m in _ARTIFACT_LINE_RE.findall(text) if m.strip() not in preview
+        ]
+        if not artifacts:
+            return preview
+        return preview + "\n… [Datei-/Deploy-Pfade aus dieser Antwort]: " + " | ".join(artifacts)
+
+    def _extract_json(raw: str) -> dict:
+        start = raw.find("{")
+        end = raw.rfind("}") + 1
+        if start >= 0 and end > start:
+            return _json.loads(raw[start:end])
+        raise ValueError("kein JSON gefunden")
+
+    def _validate_id(target: str, valid_ids: set[str]) -> str | None:
+        if target in valid_ids:
+            return target
+        # LLM schreibt manchmal "skill:comfyui: Comfyui" → links davon nehmen
+        parts = target.split(":")
+        if len(parts) >= 2:
+            candidate = parts[0] + ":" + parts[1].split(" ")[0]
+            if candidate in valid_ids:
+                return candidate
+        for aid in valid_ids:
+            if aid in target:
+                return aid
+        return None
+
+    async def planner_fn(
+        content: str, history: list | None = None
+    ) -> str | list[DelegationStep] | None:
+        agents = [
+            a for a in conductor.list_agents() if a.agent_id not in ("agent:martin", "a2a:gateway")
+        ]
+        valid_ids = {a.agent_id for a in agents}
+
+        # Agentenliste mit Beschreibungen für besseres Routing
+        def _agent_desc(a) -> str:
+            desc = getattr(a, "description", "") or getattr(getattr(a, "_skill", None), "description", "")
+            name = a.name
+            return f"- {a.agent_id}: {name}" + (f" — {desc}" if desc else "")
+
+        agent_list = "\n".join(_agent_desc(a) for a in agents)
+        latency_block, latency_evidence = routing_context(
+            conductor.timings, agents,
+            enabled=cfg.martin_latency_context_enabled,
+            max_chars=cfg.martin_latency_context_max_chars,
+        )
+        measured = current_timing()
+        if measured is not None:
+            measured.routing = {"mode": "planner", "latency_context_supplied": bool(latency_block),
+                                "candidates": latency_evidence, "selected_agents": []}
+
+        # Gesprächsverlauf als Kontext (älteste zuerst). Macht Folge-Fragen wie
+        # "wer bin ich?" beantwortbar, ohne dass jede Nachricht zustandslos ist.
+        convo_block = ""
+        if history:
+            lines = "\n".join(
+                f"{'Nutzer' if role == 'user' else 'Du (Martin)'}: {_convo_preview(text)}"
+                for role, text in history
+            )
+            convo_block = (
+                "Bisheriger Gesprächsverlauf mit demselben Nutzer (älteste zuerst, "
+                "nur zur Kontext-Erinnerung — beziehe dich darauf, wenn die aktuelle "
+                "Nachricht ihn voraussetzt):\n"
+                f"{lines}\n\n"
+            )
+
+        # Langzeit-Gedächtnis: semantisch passende Erinnerungen zur aktuellen
+        # Nachricht in den Prompt injizieren. Ein Recall-Ausfall (z.B. Ollama
+        # down) darf das Planning nicht blockieren — dann ohne Gedächtnis.
+        memory_block = ""
+        try:
+            hits = await memory.recall(
+                content, k=4, scopes=["agent:martin", "global"], min_score=0.45
+            )
+            if hits:
+                # Chunks sind beim Ingest ~1100 Zeichen — nicht weiter kürzen,
+                # sonst fehlt dem Planner genau der entscheidende Satz.
+                facts = "\n".join(f"- {h['text'][:1200]}" for h in hits)
+                memory_block = (
+                    "Relevante Einträge aus deinem Langzeit-Gedächtnis — dein "
+                    "Wissen über den Nutzer und seine Projekte. Wenn die Antwort "
+                    "hier schon drinsteht, antworte SELBST damit (Fall A) und "
+                    "delegiere NICHT an skill:memory:\n"
+                    f"{facts}\n\n"
+                )
+        except Exception:
+            get_logger("logpyclaw.planner").warning(
+                "Memory-Recall fehlgeschlagen — plane ohne Langzeit-Gedächtnis"
+            )
+
+        prompt = (
+            f"{persona}\n\n"
+            f"{memory_block}"
+            "Du bekommst eine Nachricht vom Nutzer. Entscheide:\n\n"
+            "A) SELBST ANTWORTEN — wenn es Smalltalk ist, eine Frage über dich oder "
+            "deine Fähigkeiten, oder eine allgemeine Wissens-/Gesprächsfrage, die du "
+            "ohne Werkzeug beantworten kannst. Antworte direkt und persönlich.\n"
+            '   → {"reply": "<deine Antwort an den Nutzer>"}\n\n'
+            "B) DELEGIEREN — wenn es eine konkrete Werkzeug-Aufgabe ist (Bild "
+            "generieren, Web durchsuchen, Datei lesen/schreiben, Code ausführen, "
+            "Nachricht senden, deployen, transkribieren, YouTube …). Erstelle einen "
+            "Routing-Plan an die passenden Spezialisten.\n"
+            '   → {"tasks": [{"agent": "<agent_id>", "content": "<anweisung>", "depends_on": [<idx>]}, ...]}\n\n'
+            f"Verfügbare Spezialisten:\n{agent_list}\n\n"
+            f"{latency_block}\n"
+            f"{convo_block}"
+            f"Aktuelle Nachricht des Nutzers: {content[:600]}\n\n"
+            "Routing-Regeln für Fall B (höchste Priorität zuerst):\n"
+            "- 'linkedin' im Text → skill:linkedin\n"
+            "- 'telegram' → skill:telegram (senden: 'sende … an telegram'; bild: 'sende bild/image: <pfad> caption: \"…\" an telegram'; video: 'sende video: <pfad> caption: \"…\" an telegram'; lesen: 'lies telegram updates', 'was kam auf telegram')\n"
+            "- 'bild', 'generiere', 'comfyui', 'zeichne' → skill:comfyui\n"
+            "- 'video', 'ltx', 'animier' → skill:ltxvideo\n"
+            "- 'upscale', 'hochskalieren', 'vergrößern', '2x', '4x' (auf Bilder) → skill:upscale\n"
+            "- 'suche', 'search', 'web', 'google' (Suchbegriff, keine konkrete URL) → skill:websearch\n"
+            "- Nachricht nennt eine konkrete URL/Domain als Datenquelle (z.B. 'mit Daten von "
+            "example.com', 'von https://…') → skill:urlfetch, NICHT skill:websearch\n"
+            "- 'wikipedia', 'wiki' → skill:wikipedia\n"
+            "- 'youtube', 'video herunterladen' → skill:youtube\n"
+            "- 'rss', 'news', 'feed', 'hackernews', 'tagesschau' → skill:rss\n"
+            "- 'merke dir', 'vergiss eintrag', 'memory stats', 'durchsuche memory/gedächtnis' → skill:memory\n"
+            "  (Wissensfragen, die deine eingeblendeten Erinnerungen schon beantworten → Fall A, selbst antworten)\n"
+            "- 'datei', 'verzeichnis', 'ls', 'cat', 'lese datei' → skill:file\n"
+            "- 'speichere/schreibe als Datei' → skill:file mit Syntax 'schreibe nach <pfad>'. WICHTIG:\n"
+            "  skill:file schreibt nur FERTIGEN Inhalt — es erzeugt nichts. Inhalt (HTML, Text, Code)\n"
+            "  muss ein vorheriger Step erzeugen (z.B. agent:coder), der per depends_on gechaint wird.\n"
+            "  Beispiel 'News als HTML-Seite nach ~/zeitung.html':\n"
+            '  {"tasks": [\n'
+            '    {"agent": "skill:rss", "content": "Hole Top 5 Hacker News"},\n'
+            '    {"agent": "agent:coder", "content": "Baue aus den News eine HTML-Seite. Gib NUR den Code im ```html-Block zurück.", "depends_on": [0]},\n'
+            '    {"agent": "skill:file", "content": "schreibe nach ~/zeitung.html", "depends_on": [1]}\n'
+            "  ]}\n"
+            "- 'wo ist der output?', 'existiert/gibts <datei>?' → skill:file (ls/lese den Pfad) —\n"
+            "  NIEMALS die Erzeuger-Pipeline (RSS/Coder/…) neu starten, nur nachsehen\n"
+            "- 'website', 'webseite', 'landingpage', 'homepage bauen/erstellen' → agent:claude "
+            "(NICHT agent:coder) baut die fertige HTML-Seite — Qualitätsanspruch produktionsreif,\n"
+            "  kein Platzhalter. Direkt danach IMMER skill:file anhängen, AUCH WENN 'deploy' nicht\n"
+            "  erwähnt wurde — sonst existiert der Output nur als Chat-Text und ein späteres\n"
+            "  'deploy' findet keine Datei (genau das ist am 2026-08-20 mit 'heiler-website'\n"
+            "  passiert: Claude hat gebaut, nichts wurde gespeichert, jeder Deploy-Versuch schlug\n"
+            "  mit 'Quelle nicht gefunden' fehl).\n"
+            "  skill:urlfetch/skill:websearch liefern nur Rohdaten — NIEMALS als einzigen oder\n"
+            "  letzten Step stehen lassen, das ist keine Website, nur ein Text-Dump.\n"
+            "  Beispiel 'Cineastische Website für X, Daten von https://example.com':\n"
+            '  {"tasks": [\n'
+            '    {"agent": "skill:urlfetch", "content": "https://example.com"},\n'
+            '    {"agent": "agent:claude", "content": "Baue aus diesen Daten eine cineastische, '
+            'produktionsreife HTML-Seite für X. Gib NUR den Code im ```html-Block zurück.", '
+            '"depends_on": [0]},\n'
+            '    {"agent": "skill:file", "content": "schreibe nach ~/websites/x.html", "depends_on": [1]}\n'
+            "  ]}\n"
+            "  Falls zusätzlich 'online stellen'/'deploy' erwähnt wird, skill:deploy als weiteren\n"
+            "  Step mit depends_on auf den skill:file-Step anhängen (nicht auf den Claude-Step —\n"
+            "  skill:deploy braucht einen Dateipfad, keinen rohen HTML-Text).\n"
+            "- 'deploy <name>', 'entwickle/baue die website weiter', 'stell das online' — wenn die\n"
+            "  AKTUELLE Nachricht KEINEN neuen Website-Inhalt beschreibt (kein Auftrag, keine\n"
+            "  Daten/URL) → NIEMALS einen Dateinamen für skill:deploy raten. Nur wenn der\n"
+            "  Gesprächsverlauf oben eine vorher via skill:file gespeicherte Datei zeigt, exakt\n"
+            "  diesen Pfad an skill:deploy übergeben. Sonst Fall A: antworte selbst und frage nach,\n"
+            "  welcher Inhalt/welche Datei gemeint ist, statt zu raten.\n"
+            "- Nachricht ENTHÄLT fertigen Python-Code (Codeblock o.ä.) → skill:coding\n"
+            "- 'code', 'programmier', 'python', 'skript' — Code SCHREIBEN/eine Aufgabe lösen → agent:coder\n"
+            "- Mehrschrittige Aufgabenbeschreibungen in Prosa (Setup, Provisioning, Diagnose, "
+            "'install X and verify Y') → agent:claude oder agent:coder, NIEMALS skill:coding\n"
+            "- 'transkrib', 'audio', 'video transkript' → skill:transcription\n"
+            "- 'deploy', 'publish', 'publiziere', 'online stellen', 'list deploys', 'undeploy' → skill:deploy\n"
+            "- 'claude', 'frontier', 'komplex', 'schreib', 'essay', 'analyse', 'refactor', 'architektur' → agent:claude\n"
+            "- Längere Texte/Analysen, die du bewusst an einen Spezialisten abgeben willst → agent:alice\n"
+            "  (allgemeine Wissens-/Gesprächsfragen beantwortest du dagegen SELBST via Fall A)\n"
+            "- Mehrere gleichartige Tasks (z.B. '5 Bilder') → einen Task pro Einheit\n\n"
+            "CHAINING: Wenn ein Task das Ergebnis eines vorherigen braucht (z.B. Bild → Video),\n"
+            'setze "depends_on": [<index>] mit dem 0-basierten Index des vorherigen Steps.\n'
+            "Der Folge-Task bekommt den Output (inkl. Dateinamen) automatisch in seinem Kontext.\n\n"
+            "Beispiel: 'Bild von Katze, dann Video draus':\n"
+            '  {"tasks": [\n'
+            '    {"agent": "skill:comfyui", "content": "cat sitting in garden, photorealistic"},\n'
+            '    {"agent": "skill:ltxvideo", "content": "prompt: cat slowly looks around, gentle breeze", "depends_on": [0]}\n'
+            "  ]}\n\n"
+            'Bei Delegation darf "routing_reason" die Wahl kurz begründen. '
+            'Antworte NUR mit JSON — ENTWEDER {"reply": "..."} (Fall A) ODER '
+            '{"tasks": [{"agent": "<agent_id>", "content": "<anweisung>", "depends_on": [<idx>]}, ...]} (Fall B).'
+        )
+
+        try:
+            if planner_provider == "ollama":
+                endpoint = f"{planner_ollama_url.rstrip('/')}/api/chat"
+                payload = {
+                    "model": planner_model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": False,
+                    "format": "json",
+                    "think": False,
+                    "options": {"temperature": temperature},
+                }
+                headers = {"Content-Type": "application/json"}
+            elif planner_provider == "openrouter":
+                endpoint = "https://openrouter.ai/api/v1/chat/completions"
+                headers = {
+                    "Authorization": f"Bearer {cfg.openrouter_api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://logpyclaw.local",
+                    "X-Title": "LogpyClaw",
+                }
+                payload = {
+                    "model": planner_model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": temperature,
+                }
+            else:
+                # "groq" (Default-Fallback)
+                from backend.core.key_pool import get_groq_key
+                endpoint = "https://api.groq.com/openai/v1/chat/completions"
+                headers = {
+                    "Authorization": f"Bearer {get_groq_key()}",
+                    "Content-Type": "application/json",
+                }
+                payload = {
+                    "model": planner_model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": temperature,
+                }
+            # Timeout großzügig — lokale 26B-Modelle brauchen ~12s für load + ~4s für Eval.
+            with timing_span("model"):
+                async with httpx.AsyncClient(timeout=120.0) as client:
+                    r = await client.post(endpoint, headers=headers, json=payload)
+                    r.raise_for_status()
+                    body = r.json()
+                    if planner_provider == "ollama":
+                        raw = body["message"]["content"]
+                    else:
+                        raw = body["choices"][0]["message"]["content"]
+
+            data = _extract_json(raw)
+
+            # Fall A: Martin antwortet selbst in Persona
+            reply = data.get("reply")
+            if isinstance(reply, str) and reply.strip():
+                if measured is not None:
+                    measured.routing["mode"] = "self"
+                return reply.strip()
+
+            # Fall B: Delegations-Plan
+            tasks = data.get("tasks", [])
+            if not tasks:
+                return None
+
+            steps = []
+            for t in tasks:
+                aid = _validate_id(t.get("agent", ""), valid_ids)
+                if aid:
+                    deps = t.get("depends_on") or []
+                    if not isinstance(deps, list):
+                        deps = [int(deps)] if str(deps).isdigit() else []
+                    steps.append(DelegationStep(
+                        agent_id=aid,
+                        content=t.get("content", content),
+                        depends_on=[int(d) for d in deps if str(d).strip().lstrip("-").isdigit()],
+                    ))
+            if measured is not None:
+                measured.routing["selected_agents"] = [step.agent_id for step in steps]
+                reason = data.get("routing_reason")
+                if isinstance(reason, str):
+                    measured.routing["model_rationale"] = reason[:400]
+            return steps or None
+
+        except Exception:
+            get_logger("logpyclaw.planner").exception("Planner-Fehler")
+        return None
+
+    return planner_fn
+
+
+def _load_agents_yaml():
+    import os
+
+    import yaml
+    from pydantic import ValidationError
+
+    from backend.core.agent_config import AgentsFile
+
+    yaml_path = Path(__file__).parent.parent / "agents.yaml"
+    if not yaml_path.exists():
+        raise SystemExit(f"[boot] agents.yaml nicht gefunden: {yaml_path}")
+    raw = os.path.expandvars(yaml_path.read_text(encoding="utf-8"))
+    try:
+        data = yaml.safe_load(raw)
+        return AgentsFile.model_validate(data)
+    except yaml.YAMLError as e:
+        raise SystemExit(f"[boot] YAML-Syntaxfehler in agents.yaml:\n{e}") from e
+    except ValidationError as e:
+        raise SystemExit(f"[boot] Ungültige agents.yaml:\n{e}") from e
+
+
+def _load_initiatives() -> list[dict]:
+    """Optionaler Top-Level-Key `initiatives:` aus agents.yaml lesen.
+
+    Fehlt der Key (Normalfall), wird eine leere Liste zurückgegeben — keine
+    Tasks, kein Log-Spam. AgentsFile ignoriert den Extra-Key, deshalb hier
+    additiv direkt aus dem rohen YAML gelesen.
+    """
+    import os
+
+    import yaml
+
+    yaml_path = Path(__file__).parent.parent / "agents.yaml"
+    if not yaml_path.exists():
+        return []
+    try:
+        raw = os.path.expandvars(yaml_path.read_text(encoding="utf-8"))
+        data = yaml.safe_load(raw) or {}
+        return data.get("initiatives") or []
+    except yaml.YAMLError:
+        return []
+
+
+def _boot_agents() -> None:
+    from backend.agents.base import AsyncAgent
+    from backend.agents.martin import QCConfig
+    from backend.core.agent_config import (
+        A2AGatewayConfig,
+        ClaudeAgentConfig,
+        EchoAgentConfig,
+        LLMAgentConfig,
+        MartinAgentConfig,
+        SkillAgentConfig,
+    )
+    from backend.core.protocol import Message
+    from backend.i18n import t
+
+    cfg = get_settings()
+    agents_file = _load_agents_yaml()
+
+    skill_map = {
+        "websearch":     lambda c: WebSearchSkill(),
+        "comfyui":       lambda c: ComfyUISkill(endpoint=c.get("endpoint") or cfg.comfyui_url),
+        "ltxvideo":      lambda c: LTXVideoSkill(endpoint=c.get("endpoint") or cfg.comfyui_url),
+        "upscale":       lambda c: UpscaleSkill(endpoint=c.get("endpoint") or cfg.comfyui_url),
+        "krea2_turbo":   lambda c: Krea2TurboSkill(endpoint=c.get("endpoint") or cfg.comfyui_url),
+        "coding":        lambda c: CodingSkill(),
+        "gmail":         lambda c: GmailSkill(),
+        "browser":       lambda c: BrowserSkill(),
+        "chrome_browser": lambda c: ChromeBrowserSkill(),
+        "deploy":        lambda c: DeploySkill(**c),
+        "urlfetch":      lambda c: UrlFetchSkill(),
+        "file":          lambda c: FileSkill(**c),
+        "memory":        lambda c: MemorySkill(memory=memory, **c),
+        "physorg":       lambda c: PhysOrgSkill(),
+        "rss":           lambda c: RSSSkill(),
+        "linkedin":      lambda c: LinkedInSkill(**c),
+        "telegram":      lambda c: TelegramSkill(**c),
+        "wikipedia":     lambda c: WikipediaSkill(),
+        "youtube":       lambda c: YouTubeSkill(),
+        "transcription": lambda c: TranscriptionSkill(**c),
+    }
+
+    class EchoAgent(AsyncAgent):
+        async def handle(self, msg: Message) -> Message:
+            clock = self.advance_clock(msg.clock)
+            content = msg.payload.get("content", "")
+            return Message.response(msg, f"[Echo] {content}", clock=clock)
+
+    for entry in agents_file.agents:
+        if isinstance(entry, EchoAgentConfig):
+            conductor.register(EchoAgent(entry.id, entry.name))
+
+        elif isinstance(entry, LLMAgentConfig):
+            if not entry.enabled:
+                continue
+            ollama_url = entry.ollama_url or cfg.ollama_url
+            conductor.register(LLMAgent(
+                agent_id=entry.id,
+                name=entry.name,
+                model=entry.model or cfg.ollama_model,
+                provider=entry.provider,
+                soul=entry.soul or t("agent.default_soul"),
+                faction=entry.faction,
+                ollama_url=ollama_url,
+                temperature=entry.temperature,
+                max_tokens=entry.max_tokens,
+                reasoning_max_tokens=entry.reasoning_max_tokens,
+                conductor=conductor,
+            ))
+
+        elif isinstance(entry, MartinAgentConfig):
+            qc = QCConfig(
+                enabled=entry.qc.enabled,
+                min_score=entry.qc.min_score,
+                max_retries=entry.qc.max_retries,
+                auditor_id=entry.qc.auditor_id or cfg.martin_qc_auditor_id,
+            )
+            martin = MartinAgent(
+                conductor=conductor,
+                qc=qc,
+                llm_planner_fn=_make_planner_fn(
+                    cfg,
+                    entry.temperature,
+                    entry.persona,
+                    entry.model,
+                    entry.provider,
+                    entry.ollama_url,
+                ),
+                model=entry.model or cfg.ollama_model,
+                temperature=entry.temperature,
+            )
+            martin.provider = entry.provider
+            martin.ollama_url = entry.ollama_url or cfg.ollama_url
+            martin.soul = entry.persona
+            conductor.register(martin)
+
+        elif isinstance(entry, SkillAgentConfig):
+            if not entry.enabled:
+                continue
+            builder = skill_map.get(entry.skill_id)
+            if not builder:
+                raise SystemExit(f"[boot] Unbekannte skill_id: {entry.skill_id}")
+            conductor.register(SkillAgent(builder(entry.config)))
+
+        elif isinstance(entry, ClaudeAgentConfig):
+            if not entry.enabled:
+                continue
+            conductor.register(ClaudeSSHAgent(
+                agent_id=entry.id,
+                name=entry.name,
+                claude_bin=entry.claude_bin,
+                model=entry.model,
+                goal=entry.goal,
+                faction=entry.faction,
+                timeout=entry.timeout,
+            ))
+
+        elif isinstance(entry, A2AGatewayConfig):
+            conductor.register(A2AGatewayAgent(
+                agent_id="a2a:gateway",
+                default_recipient=entry.default_recipient,
+                conductor=conductor,
+            ))
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from backend.core.faction_protocol import FactionRegistry
+
+    # Standard-Faktionen (operators/makers/gatherers/auditors/scribes/guardians)
+    FactionRegistry.load_defaults()
+
+    _boot_agents()
+    await conductor.start()
+
+    cfg = get_settings()
+    scheduler = None
+    if cfg.enable_scheduler:
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+        from backend.services.dream import run_dream_cycle
+        from backend.services.rss import fetch_all as rss_fetch_all
+
+        scheduler = AsyncIOScheduler()
+        # täglich um 3:00 Uhr nachts
+        scheduler.add_job(
+            run_dream_cycle,
+            "cron", hour=3, minute=0,
+            args=[conductor, cfg.comfyui_url],
+        )
+        # RSS alle 30 Minuten
+        scheduler.add_job(rss_fetch_all, "interval", minutes=30, id="rss_fetch")
+        scheduler.start()
+
+        # Initialer RSS-Fetch beim Start
+        import asyncio as _asyncio
+        _asyncio.create_task(rss_fetch_all())
+
+    # Optionaler Initiative-Loop: nur wenn agents.yaml einen initiatives:-Key hat.
+    # Fehlt er (Normalfall), passiert nichts — Default-Verhalten unverändert.
+    app.state.initiative = None
+    initiatives = _load_initiatives()
+    if initiatives:
+        from backend.services.initiative import InitiativeService
+
+        app.state.initiative = InitiativeService(conductor, initiatives)
+        await app.state.initiative.start()
+
+    yield
+
+    if app.state.initiative is not None:
+        await app.state.initiative.stop()
+    if scheduler is not None:
+        scheduler.shutdown(wait=False)
+    await conductor.stop()
+
+
+# ── App ───────────────────────────────────────────────────────────────────────
+
+app = FastAPI(title="LogpyClaw v3", version="3.0.0", lifespan=lifespan)
+_cors_origins = [o.strip() for o in get_settings().cors_origins.split(",") if o.strip()]
+app.add_middleware(CORSMiddleware, allow_origins=_cors_origins, allow_methods=["*"], allow_headers=["*"])
+
+
+@app.middleware("http")
+async def locale_middleware(request: Request, call_next):
+    """Injects request.state.locale from Accept-Language header."""
+    request.state.locale = locale_from_header(request.headers.get("accept-language"))
+    return await call_next(request)
+
+
+static_dir = Path(__file__).parent.parent / "frontend"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+app.include_router(agents_router, prefix="/api")
+app.include_router(chat_router, prefix="/api")
+app.include_router(missions_router, prefix="/api")
+app.include_router(factions_router, prefix="/api")
+app.include_router(teams_router, prefix="/api")
+app.include_router(a2a_router)
+app.include_router(web_bridge_router)
+app.include_router(openai_router)  # OpenAI-kompatibel: /v1/chat/completions, /v1/models
+app.include_router(ard_router)      # ARD-Publisher: /.well-known/ai-catalog.json
+app.include_router(chrome_ws_router)
+app.include_router(keys_router)
+app.include_router(deploys_router)
+app.include_router(files_router)
+app.include_router(rss_router)
+app.include_router(logs_router, prefix="/api")
+app.include_router(dreams_router, prefix="/api")
+app.include_router(memory_router, prefix="/api")
+
+
+# ── Routes ────────────────────────────────────────────────────────────────────
+
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    index = Path(__file__).parent.parent / "frontend" / "index.html"
+    if index.exists():
+        return index.read_text()
+    return HTMLResponse("<h1>LogpyClaw v3</h1>")
+
+
+@app.get("/mobile", response_class=HTMLResponse)
+async def mobile():
+    page = Path(__file__).parent.parent / "frontend" / "mobile.html"
+    if page.exists():
+        return page.read_text()
+    return HTMLResponse("<h1>LogpyClaw v3 — Mobile</h1>")
+
+
+@app.get("/ping")
+async def ping():
+    cfg = get_settings()
+    return {"pong": True, "version": "3.0.0", "model": cfg.ollama_model}
+
+
+@app.get("/api/status")
+async def status():
+    agents = [a.to_dict() for a in conductor.list_agents()]
+    return {"agents": agents, "missions": len(conductor.store.list_missions())}
+
+
+app.state.conductor = conductor
+app.state.memory = memory

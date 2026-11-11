@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#111113"/>
+  <defs>
+    <linearGradient id="cg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7c9fff"/>
+      <stop offset="100%" stop-color="#5e81f4"/>
+    </linearGradient>
+  </defs>
+  <!-- drei Klauen-Striche, leicht nach unten gebogen -->
+  <path d="M9 7 C7.5 13 7 19 10 26"   stroke="url(#cg)" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <path d="M16 6 C15 13 15 19 16 26"  stroke="url(#cg)" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <path d="M23 7 C24.5 13 25 19 22 26" stroke="url(#cg)" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <!-- kleiner Akzentpunkt oben -->
+  <circle cx="9" cy="7" r="1.5" fill="#7c9fff"/>
+  <circle cx="16" cy="6" r="1.5" fill="#7c9fff"/>
+  <circle cx="23" cy="7" r="1.5" fill="#7c9fff"/>
+</svg>

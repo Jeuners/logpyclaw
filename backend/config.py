@@ -1,0 +1,100 @@
+"""
+backend/config.py — Typisierte Konfiguration via pydantic-settings.
+
+Lädt Werte aus .env (falls vorhanden), dann aus Umgebungsvariablen.
+Singleton via get_settings() — wird einmal beim Import initialisiert.
+"""
+
+from __future__ import annotations
+
+from functools import lru_cache
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    # ── LLM ───────────────────────────────────────────────────────────────────
+    ollama_url: str = Field("http://localhost:11434", description="Ollama base URL")
+    ollama_model: str = Field("gemma4:latest", description="Default Ollama model")
+    anthropic_api_key: str = Field("", description="Anthropic API key")
+    openai_api_key: str = Field("", description="OpenAI API key")
+    openrouter_api_key: str = Field("", description="OpenRouter API key")
+    openrouter_default_model: str = Field("deepseek/deepseek-v4-flash:free", description="Default OpenRouter model")
+    groq_api_key: str = Field("", description="Groq API key (einzeln oder als Fallback)")
+    groq_api_keys: str = Field("", description="Groq API key-Pool (kommagetrennt)")
+
+    @property
+    def groq_key_pool(self) -> list[str]:
+        """Alle konfigurierten Groq-Keys, dedupliziert."""
+        keys = [k.strip() for k in self.groq_api_keys.split(",") if k.strip()]
+        if self.groq_api_key and self.groq_api_key not in keys:
+            keys.insert(0, self.groq_api_key)
+        return keys
+
+    # ── Storage ───────────────────────────────────────────────────────────────
+    db_url: str = Field("sqlite:///./logpyclaw.db", description="SQLAlchemy DB URL")
+
+    # ── Scheduler ─────────────────────────────────────────────────────────────
+    enable_scheduler: bool = Field(
+        True,
+        description="APScheduler-Jobs (dream_cycle, rss_fetch) in diesem Prozess aktivieren. "
+        "False für Zusatz-Instanzen (z. B. Tailscale-Expose), damit Jobs nicht doppelt laufen.",
+    )
+
+    # ── Auth ──────────────────────────────────────────────────────────────────
+    web_bridge_token: str = Field("", description="Auth token for /ext/web/v1/* und /v1/* (Bearer)")
+    provider_models: str = Field(
+        "agent:alice,agent:claude,agent:martin",
+        description="Agenten, die über /v1/* (OpenAI-kompatibel) erreichbar sind, kommagetrennt. Leer = alle (nur lokal!).",
+    )
+
+    # ── Artikelchat / Web-Bridge Defaults ───────────────────────────────────────
+    bridge_default_agent: str = Field(
+        "alice",
+        description="Standard-Agent für den Artikelchat (web_bridge), wenn die Anfrage keinen 'agent' mitschickt. z. B. alice|claude|martin",
+    )
+    bridge_default_inject: str = Field(
+        "",
+        description="Optionaler Standard-Inject-/System-Prompt für den Artikelchat, wenn die Anfrage keinen 'inject' mitschickt.",
+    )
+
+    # ── Skills ────────────────────────────────────────────────────────────────
+    comfyui_url: str = Field("http://127.0.0.1:8000", description="ComfyUI endpoint")
+
+    # ── Server ────────────────────────────────────────────────────────────────
+    host: str = Field("127.0.0.1", description="Bind host")
+    port: int = Field(6060, description="HTTP port")
+    cors_origins: str = Field("http://localhost:6060,http://127.0.0.1:6060", description="Erlaubte CORS-Origins, kommagetrennt")
+
+    # ── Martin QC ─────────────────────────────────────────────────────────────
+    martin_qc_enabled: bool = Field(True, description="Enable Martin's QC loop")
+    martin_qc_min_score: int = Field(7, description="Minimum QC score (1-10)")
+    martin_qc_max_retries: int = Field(2, description="Max retries in QC loop")
+    martin_qc_auditor_id: str = Field("", description="Auditor agent ID for QC (empty = disabled)")
+
+    # Laufzeitbeobachtungen sind prozesslokal und verändern die CDC nicht.
+    latency_max_age_s: float = Field(1800.0, gt=0, le=86400, allow_inf_nan=False)
+    latency_min_samples: int = Field(3, ge=1, le=64)
+    martin_latency_context_enabled: bool = Field(False, description="Gemessene Aktionslatenzen im Planner")
+    martin_latency_context_max_chars: int = Field(2400, ge=800, le=8000)
+
+    # ── ARD Publisher (Agentic Resource Discovery, v0.9 Draft) ─────────────────
+    # Wenn aktiv, wird das ai-catalog.json unter /.well-known/ai-catalog.json
+    # serviert (ard-spec §6.1). publisher_domain MUSS ein FQDN sein — die
+    # ARD-Spec verlangt das für die urn:air:<publisher> NSS (§4.2.1).
+    ard_publisher_enabled: bool = Field(True, description="Enable /.well-known/ai-catalog.json")
+    ard_publisher_domain: str = Field("logpyclaw.local", description="FQDN for urn:air:<publisher>")
+    ard_publisher_name: str = Field("LogpyClaw", description="Host displayName in ai-catalog.json")
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
