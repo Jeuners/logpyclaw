@@ -4,6 +4,11 @@
 
 Eine verständliche Einführung ohne Fachbegriffe (englisch): [LogpyClaw, Explained Simply](docs/LOGPYCLAW-EXPLAINED.md).
 
+<p align="center">
+  <a href="https://github.com/Jeuners/logpyclaw/raw/main/docs/media/logpyclaw-promo.mp4"><img src="docs/media/logpyclaw-promo-poster.jpg" width="270" alt="LogpyClaw in 90 Sekunden (Video, englisch)"></a><br>
+  <sub>▶ <a href="https://github.com/Jeuners/logpyclaw/raw/main/docs/media/logpyclaw-promo.mp4">LogpyClaw in 90 Sekunden</a> (Video, englisch, 3 MB)</sub>
+</p>
+
 > **Hinweis:** LogpyClaw ist ein persönliches Forschungsprojekt und nur für den lokalen Betrieb auf dem eigenen Rechner gedacht. Es enthält Werkzeuge mit Datei- und Codezugriff ohne eigene Anmeldung. Nicht ins Netzwerk oder Internet freigeben.
 
 ---
