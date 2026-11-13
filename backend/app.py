@@ -351,6 +351,12 @@ def _make_planner_fn(cfg, temperature: float = 0.3, persona: str = "", model: st
             with timing_span("model"):
                 async with httpx.AsyncClient(timeout=120.0) as client:
                     r = await client.post(endpoint, headers=headers, json=payload)
+                    if getattr(r, "status_code", 200) == 501 and "format" in payload:
+                        # Manche Ollama-Modelle/Quantisierungen (z. B. qwen3.5 auf Ollama 0.40)
+                        # melden "structured output is unavailable". Dann ohne format erneut
+                        # fragen — die Antwort wird unten ohnehin per _extract_json geparst.
+                        payload = {k: v for k, v in payload.items() if k != "format"}
+                        r = await client.post(endpoint, headers=headers, json=payload)
                     r.raise_for_status()
                     body = r.json()
                     if planner_provider == "ollama":

@@ -257,3 +257,46 @@ def test_browser_stream_records_failed_planning_as_failed_mission():
         assert "task_failed" in r.text
         mission = conductor.store.list_missions()[0]
         assert mission["state"] == "failed"
+
+
+async def test_planner_retries_without_format_on_ollama_501(planner_app, monkeypatch):
+    """Ollama 0.40 + qwen3.5: 'structured output is unavailable' (501) → ohne format erneut."""
+    app = planner_app
+    worker = Echo("agent:alice", "Alice")
+    app.conductor.register(worker)
+    calls = []
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def post(self, url, *, json, headers):
+            calls.append(dict(json))
+            if "format" in json:
+                return SimpleNamespace(status_code=501, raise_for_status=lambda: (_ for _ in ()).throw(
+                    RuntimeError("501 structured output is unavailable")), json=lambda: {})
+            return SimpleNamespace(
+                status_code=200,
+                raise_for_status=lambda: None,
+                json=lambda: {"message": {"content": '{"tasks":[{"agent":"agent:alice","content":"x"}]}'}},
+            )
+
+    import httpx
+
+    monkeypatch.setattr(httpx, "AsyncClient", Client)
+    cfg = Settings(_env_file=None)
+    planner = app._make_planner_fn(cfg, model="test", provider="ollama")
+    martin = MartinAgent(
+        conductor=app.conductor, llm_planner_fn=planner, qc=QCConfig(enabled=False), model="test"
+    )
+    app.conductor.register(martin)
+    result = await app.conductor.start_mission("test", "agent:martin", "delegiere die Aufgabe")
+    assert len(calls) == 2
+    assert calls[0]["format"] == "json" and "format" not in calls[1]
+    assert result["result"]["_timing"]["routing"]["selected_agents"] == ["agent:alice"]
